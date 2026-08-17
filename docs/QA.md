@@ -16,7 +16,7 @@
 | Gate | Acceptance | Status |
 | --- | --- | --- |
 | R2-G0 Isolation | WIP pushed, `main` unchanged, worktree and no-deploy rule recorded | passed: `cbedd6d`, `2bde78e` |
-| R2-G1 Renderer spike | WebGPURenderer + TSL; actual WebGPU and forced-WebGL2 telemetry; no simulation changes | passed: `8ead154`, 3/3 backend E2E, 16/16 deterministic unit tests |
+| R2-G1 Renderer spike | WebGPURenderer + TSL; actual WebGPU and forced-WebGL2 telemetry; no simulation changes | in progress: `8ead154` automated paths pass, but independent audit requires disposal/error-observability and evidence-binding remediation |
 | R2-G2 Shared foundation | RenderFeature, Linear HDR, warm-up, temporal ownership, metrics, provenance | pending |
 | R2-G3 Slice A | ocean/submerged ruin High + fallback | pending |
 | R2-G4 Slice B | sunset forest/city High + fallback | pending |
@@ -57,5 +57,5 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Preserved pre-rebaseline WIP: `cbedd6d` on `archive/pre-graphics-rebaseline-20260818` (not deployable).
 - Graphics rebaseline plan: `2bde78e` on `graphics-photoreal-megademo`.
 - Notion gameplay visual-target snapshot: `8794258` (reference-only; excluded from runtime and Sites package).
-- GFX-001 renderer spike: `8ead1545b6235eaaba5cf05e0319bea858bcefb1`; evidence record `docs/evidence/GFX-001.md`.
+- GFX-001 renderer spike under remediation: `8ead1545b6235eaaba5cf05e0319bea858bcefb1`; independent audit S0=0, S1=2, S2=3, S3=1; evidence record `docs/evidence/GFX-001.md`.
 - Notion progress: https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204
