@@ -1,0 +1,2 @@
+reference_id,project,source_url,license,locked_commit,use_class,files_imported,files_modified,notice_required,tests,status
+THREE-001,three.js,https://github.com/mrdoob/three.js,MIT,npm:three@0.185.1,direct dependency,none,none,retain MIT license,typecheck lint build browser smoke,accepted-existing
