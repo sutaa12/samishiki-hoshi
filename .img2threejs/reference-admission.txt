@@ -1,0 +1,6 @@
+Command: python3 forge/stage1_intake/check_reference_admission.py /tmp/lonely-star-notion-vref/reference-05.svg
+Exit: 1
+Verdict: REJECTED (reference), pHash=15615917237357625472
+Reason: foreground coverage 0.992 > 0.97 (no background to segment against; silhouette not isolable)
+
+Decision: stop the single-object reconstruction track. Preserve the written hero and scene quality contract, then apply it through the existing procedural game renderer and game screenshot review. Do not fabricate an isolated object reference from the four-panel scene collage.

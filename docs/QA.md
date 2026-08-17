@@ -3,11 +3,11 @@
 | Gate | Automated evidence | Status |
 | --- | --- | --- |
 | G0 Foundation | source-of-truth snapshot, dependency audit, Git baseline | passed |
-| G1 Deterministic core | phase/shot/ledger/replay/1,000-seed tests | passed: 13 automated tests |
-| G2 Playable journey | production build plus desktop/mobile browser flows | passed: production build and 3 browser flows |
-| G3 Accessibility and presentation | settings/input/audio/end-card checks | passed: keyboard, pointer, touch, settings, end card |
-| G4 Independent acceptance | isolated SolMax artifact review; S0–S2 = 0 | pending |
-| G5 Public release | anonymous HTTPS smoke interaction and version receipt | Sites project created; deployment pending |
+| G1 Deterministic core | phase/shot/ledger/replay/1,000-seed and visual-asset contract tests | passed: 16 automated tests in working candidate |
+| G2 Playable journey | production build plus desktop/mobile browser flows | passed in working candidate: 6 Playwright flows; exact candidate rebuild pending |
+| G3 Accessibility and presentation | settings/input/audio/end-card/focus/reference-gallery checks | passed in working candidate: keyboard, pointer, touch, settings, modal focus trap, two-line title, 44px actions |
+| G4 Independent acceptance | isolated artifact review; S0–S2 = 0 | candidate v1 rejected and not deployed; remediated candidate review pending |
+| G5 Public release | anonymous HTTPS smoke interaction and version receipt | Sites project and saved v1 exist; accepted deployment pending |
 
 ## Performance targets
 
@@ -38,4 +38,5 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 
 - GitHub: https://github.com/sutaa12/samishiki-hoshi (public, main)
 - Sites project: `samishiki-hoshi-seoul` (production URL pending)
+- Rejected candidate v1: `6c010ee228ace28e655ceeba764513806505b03e`; S0=0, S1=1, S2=3, S3=3. Its immutable receipt is stored at `.quality-gates/receipts/blind-review-v1.json`; it was never deployed.
 - Notion progress: https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204

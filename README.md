@@ -28,8 +28,8 @@ The default journey is 180 seconds. For localhost automated visual QA only, `?qa
 
 ## Privacy and rights
 
-The game requires no account, stores no personal data, and calls no external runtime service. Runtime art, geometry, effects, and audio are generated in code; the social preview image is project-owned generated art. Contest identity, consent, final rights attestation, and submission remain explicit human gates.
+The game requires no account, stores no personal data, and calls no external runtime service. Runtime art, geometry, effects, and audio are generated in code; the social preview image is captured directly from the tested runtime. Contest identity, consent, final rights attestation, and submission remain explicit human gates.
 
 ## Source and release
 
-The repository and public Sites URL are recorded in `docs/QA.md` once created. The canonical planning and evidence page is [Notion progress](https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204).
+The public source is [GitHub](https://github.com/sutaa12/samishiki-hoshi). The canonical planning and evidence page is [Notion progress](https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204); the accepted public Sites URL is recorded in `docs/QA.md` after deployment.

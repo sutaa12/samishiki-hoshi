@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "review_id": "blind-review-v1-2026-08-18",
+  "reviewer": "isolated-artifact-reviewer",
+  "source_commit": "6c010ee228ace28e655ceeba764513806505b03e",
+  "build_tree_digest": "70488c99975b904c142bd7d4968dbe57d36b651ec5612ddea9739cecbbd4f3d7",
+  "playwright_report_sha256": "82c1117c17b5afffe8151307fd0e967ddcd9f5f443b7b84d911512211c58c674",
+  "methods": [
+    "artifact-only source and compiled-dist inspection",
+    "desktop 1280x720 browser interaction",
+    "mobile 390x844 browser interaction",
+    "compact 320x568 browser interaction",
+    "accelerated exact-timeline traversal"
+  ],
+  "verdict": "reject",
+  "severity_counts": { "S0": 0, "S1": 1, "S2": 3, "S3": 3 },
+  "findings": [
+    {
+      "id": "S1-01",
+      "status": "mitigated-in-working-tree-pending-rereview",
+      "summary": "The complete three-shell craft was readable during SOLITUDE S20 before the 161-second ANSWER reveal."
+    },
+    {
+      "id": "S2-01",
+      "status": "mitigated-in-working-tree-pending-rereview",
+      "summary": "The aria-live region exposed authored shot prose as continuous narration."
+    },
+    {
+      "id": "S2-02",
+      "status": "mitigated-in-working-tree-pending-rereview",
+      "summary": "The 320x568 ending wrapped the Japanese title poorly and exposed undersized controls."
+    },
+    {
+      "id": "S2-03",
+      "status": "mitigated-in-working-tree-pending-rereview",
+      "summary": "The mobile control legend was too small, low-contrast, and visually obstructed."
+    },
+    {
+      "id": "S3-01",
+      "status": "mitigated-in-working-tree-pending-rereview",
+      "summary": "Settings modal focus, trap, inert background, and restoration were incomplete."
+    },
+    {
+      "id": "S3-02",
+      "status": "open-pending-final-runtime-capture",
+      "summary": "The generated promotional thumbnail over-promised the runtime rendering."
+    },
+    {
+      "id": "S3-03",
+      "status": "open-pending-v2-bindings",
+      "summary": "Package-local source, build, report, and review bindings were incomplete."
+    }
+  ],
+  "release_effect": "Candidate v1 was not deployed. A new immutable candidate requires a full independent review."
+}
