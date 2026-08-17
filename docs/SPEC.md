@@ -1,6 +1,6 @@
 # Executable specification
 
-Status: locked for implementation on 2026-08-18 JST. Canonical source is the Notion production plan rooted at `3bf9b8d3-9c28-8188-8819-dda26e08db71`.
+Status: graphics rebaseline R2, isolated implementation on 2026-08-18 JST. Canonical source is the Notion production plan rooted at `3bf9b8d3-9c28-8188-8819-dda26e08db71`; page 13 overrides lower sources for renderer, material, temporal, backend, and Hero Slice decisions.
 
 ## Experience contract
 
@@ -9,7 +9,7 @@ Status: locked for implementation on 2026-08-18 JST. Canonical source is the Not
 - Format: one continuous, wordless, 180-second browser journey.
 - Actions: steer and give life only.
 - Input: pointer/touch/WASD/arrows for movement; click/tap/Space for pulse.
-- Runtime: Three.js/WebGL, procedural geometry/effects, generated Web Audio; no account, personal data, runtime network service, paid API, game over, dialogue, narration, audio log, corpse, or stated extinction cause.
+- Runtime: TypeScript + Three.js. `WebGPURenderer + TSL` uses WebGPU as the capable High path and the same renderer's WebGL2 backend as fallback. Procedural geometry/effects and generated Web Audio require no account, personal data, runtime network service, paid API, game over, dialogue, narration, audio log, corpse, or stated extinction cause.
 
 ## Exact timeline
 
@@ -26,11 +26,12 @@ The runtime exposes the exact 24 authored shot boundaries from 0–3 through 178
 
 ## Visual grammar
 
-- Notion page 05's four current gameplay galleries (ocean, forest/ascent, solitude/answer, and twinkle/mobile) are the visual source of truth. They are low-resolution scene collages, so the implementation translates their shape, palette, material, and composition language into procedural Three.js rather than pasting them as backgrounds or claiming pixel-exact reconstruction.
+- Notion page 05's updated references and page 13 define **Cinematic Procedural Realism**. Reference images are translated into procedural Three.js geometry, TSL materials, atmosphere, water, lighting, and temporal behavior; they are never pasted as runtime backgrounds or claimed as pixel-exact reconstruction.
+- One Linear HDR light/exposure pipeline governs water, atmosphere, cloud, terrain, foliage, concrete, metal, glass/foil, alien surfaces, and emission. Tone mapping occurs exactly once at the end. Bloom, fog, flare, and noise may not hide missing geometry or readability failures.
 - The protagonist is a faceless, luminous living droplet: one translucent volumetric envelope, paired swept membrane fins, one attached short water tail, a white/cyan nucleus, and one restrained warm core. It has no eye, mouth, hard seam, or mechanical part.
-- Natural forms remain the first read: branching coral, kelp, rocks, fish, layered forest, a water ribbon and foam, waterfall and mist, cloud volumes, a living Earth, broad nebula light, and life-wave particles. Supporting particles never replace the large silhouettes.
+- Natural forms remain the first read: layered terrain/hydrology, physically plausible water absorption/foam/caustics, coral/kelp/fish ecology, forest LOD, river/waterfall, shared atmosphere/cloud/aerial perspective, a living Earth, restrained deep space, and life-wave clusters. Supporting particles never replace large silhouettes.
 - Human structures use 1:1, 1:2, and 1:4 rectilinear ratios: boxes, slabs, beams, columns, panels, and trusses. Damage may break pieces but the grid stays legible.
-- The unknown ship uses only smooth swept curves: exactly three broad, open, dark mineral ribbon shells with teal/coral/warm subsurface light around an unfilled central void. It has no cockpit, window, box, panel, thruster, weapon, or mechanical seam. It signals recognition, not rescue. Once revealed at 161 seconds, it remains beside the protagonist through TWINKLE.
+- The unknown ship uses exactly three closed B-spline center curves, parallel-transport frames, constrained superformula sections, true-thickness ribbon shells, and a genuinely open SDF/geometry center. Dark pearl/translucent mineral material carries restrained teal/coral/warm subsurface response light. It has no cockpit, window, box, panel, thruster, weapon, mechanical seam, or obvious front. It signals recognition, not rescue, and remains beside the protagonist through TWINKLE after the 161-second reveal.
 - Repeated human motifs are an empty rectangular seat, a square observation frame, and a thin amber line light.
 - The opening must read as abundant life, not apocalypse. Every biome keeps local color contrast and a readable route.
 - The 178–180 second formal title card contains only `さみしき星のまたたきよ`, fixed as two intentional lines. It preserves a text-safe view of the small distant Earth, protagonist, three-shell craft, and living-light waves; the English title, tagline, and story explanation are not shown simultaneously.
@@ -40,6 +41,10 @@ The runtime exposes the exact 24 authored shot boundaries from 0–3 through 178
 - The run seed is explicit and stable. Random values come only from a deterministic generator.
 - Each pulse appends one immutable `TwinkleSeed` containing sequence, story time, phase, normalized position, local biome, and deterministic signature.
 - Same seed plus same timestamped input stream yields the same ledger and final hash on every quality tier.
+- Independent named seed streams derive from world seed, system name, chunk id, and generator version so a parameter change in one system cannot perturb another system's random sequence.
+- Renderer-independent world data owns Story nodes, safe corridor, at most two flow branches, terrain/hydrology, ecology, atmosphere, space, and Twinkle semantics. Renderer features consume this data but cannot write simulation state.
+- Runtime keeps at most forward-two/current-one/behind-one chunks active, generates off-thread where practical, uploads in bounded slices, batches or instances repeated forms, and disposes inactive resources.
+- WebGPU and forced-WebGL2 may use different algorithms or densities, but must preserve gameplay, safe corridor, story silhouettes, collision, flow decisions, Twinkle ledger, and hashes.
 - Pulse feedback awakens nearby coral, moss, grass, birds, or microbes. It never powers a human machine.
 - 1,000-seed property verification rejects invalid timelines, impossible route bounds, broken phase order, or non-finite generated values.
 
@@ -53,9 +58,13 @@ The runtime exposes the exact 24 authored shot boundaries from 0–3 through 178
 
 ## Acceptance
 
+- Before broad integration, Hero Slice A (ocean/submerged ruin), B (sunset forest/city), and C (human debris/alien/Twinkle) pass at fixed replay markers in WebGPU High and forced-WebGL2.
+- Reference High targets frame P95 ≤16.67 ms, P99 ≤25 ms, main P95 ≤8 ms, GPU P95 ≤11 ms, and zero compile/upload/activation spikes over 50 ms. Compatible Low targets frame P95 ≤33.33 ms. Reference-device proof remains `HARDWARE_PENDING` until measured there.
+- Ten restart cycles show no monotonic geometry, texture, GPU-resource, or heap growth. Every imported technique has a permissive license, locked version/commit, provenance row, test, and required notice.
 - Typecheck, lint, unit/property tests, production build, rendered HTML checks, and Playwright desktop/mobile flows pass.
 - Default timeline equals 180 seconds; all phase boundaries and 24 shots are covered by tests.
 - No external runtime request is needed for play, and no secret is present in source or build output.
-- Automated browser QA confirms start, steer, pulse ledger, settings, accelerated end sequence, restart, and WebGL canvas.
+- Automated browser QA confirms start, steer, pulse ledger, settings, accelerated end sequence, restart, backend selection, and renderer initialization.
 - Independent artifact-only review reports zero open S0, S1, and S2 findings.
-- Public Sites deployment is anonymous and smoke-tested with a real interaction. Human play acceptance, contest consent, personal information, rights guarantee, Seoul attendance, and final submission remain separate.
+- The Human Acceptance Owner chooses `Merge`, `Partial Merge`, or `Reject` after all Hero Slice evidence is available. Only explicit `Merge`/`Partial Merge` authorizes `main` integration and release acceptance.
+- An authorized public Sites deployment is anonymous and smoke-tested with a real interaction. Human play acceptance, contest consent, personal information, rights guarantee, Seoul attendance, and final submission remain separate.

@@ -1,17 +1,32 @@
 # Quality and release matrix
 
+> **Release work is frozen.** The renderer/world-generation R2 spike runs only in `graphics-photoreal-megademo`. Neither this branch nor saved Sites v1 is a deployment candidate. `main` stays at `6c010ee`; the pre-rebaseline WIP is preserved at `cbedd6d`.
+
 | Gate | Automated evidence | Status |
 | --- | --- | --- |
 | G0 Foundation | source-of-truth snapshot, dependency audit, Git baseline | passed |
 | G1 Deterministic core | phase/shot/ledger/replay/1,000-seed and visual-asset contract tests | passed: 16 automated tests in working candidate |
-| G2 Playable journey | production build plus desktop/mobile browser flows | passed in working candidate: 6 Playwright flows; exact candidate rebuild pending |
-| G3 Accessibility and presentation | settings/input/audio/end-card/focus/reference-gallery checks | passed in working candidate: keyboard, pointer, touch, settings, modal focus trap, two-line title, 44px actions |
-| G4 Independent acceptance | isolated artifact review; S0–S2 = 0 | candidate v1 rejected and not deployed; remediated candidate review pending |
-| G5 Public release | anonymous HTTPS smoke interaction and version receipt | Sites project and saved v1 exist; accepted deployment pending |
+| G2 Playable journey | production build plus desktop/mobile browser flows | archived WIP only; not a release claim under the revised graphics source |
+| G3 Accessibility and presentation | settings/input/audio/end-card/focus/reference-gallery checks | archived WIP only; contracts are inputs to R2 |
+| G4 Independent acceptance | isolated artifact review; S0–S2 = 0 | v1 rejected; pre-rebaseline visual pass is superseded by Cinematic Procedural Realism |
+| G5 Public release | anonymous HTTPS smoke interaction and version receipt | frozen; Sites v1 exists but must not be deployed |
+
+## R2 graphics rebaseline gates
+
+| Gate | Acceptance | Status |
+| --- | --- | --- |
+| R2-G0 Isolation | WIP pushed, `main` unchanged, worktree and no-deploy rule recorded | passed: `cbedd6d`, `2bde78e` |
+| R2-G1 Renderer spike | WebGPURenderer + TSL; default WebGPU and forced-WebGL2 telemetry; no simulation changes | in progress |
+| R2-G2 Shared foundation | RenderFeature, Linear HDR, warm-up, temporal ownership, metrics, provenance | pending |
+| R2-G3 Slice A | ocean/submerged ruin High + fallback | pending |
+| R2-G4 Slice B | sunset forest/city High + fallback | pending |
+| R2-G5 Slice C | human debris/alien/Twinkle High + fallback | pending |
+| R2-G6 Parity and acceptance | 180s hash, 1,000 seeds, restart resources, performance, license, blind review | pending |
+| R2-G7 Human integration | explicit `Merge` / `Partial Merge` / `Reject` | `HUMAN_PENDING` |
 
 ## Performance targets
 
-Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms, main-thread work ≤8ms, and GPU work ≤11ms on the reference machine; low tier targets ≤33.33ms. Automated telemetry is evidence, but actual reference-device acceptance remains an external hardware gate.
+Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms, main-thread work ≤8ms, and GPU work ≤11ms on the reference machine; low tier targets ≤33.33ms. Automated telemetry is evidence, but actual reference-device acceptance remains an external hardware gate. The archived SwiftShader main-thread-render-duration samples are not reference-frame or GPU acceptance.
 
 ## Official event facts verified 2026-08-18
 
@@ -39,4 +54,6 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - GitHub: https://github.com/sutaa12/samishiki-hoshi (public, main)
 - Sites project: `samishiki-hoshi-seoul` (production URL pending)
 - Rejected candidate v1: `6c010ee228ace28e655ceeba764513806505b03e`; S0=0, S1=1, S2=3, S3=3. Its immutable receipt is stored at `.quality-gates/receipts/blind-review-v1.json`; it was never deployed.
+- Preserved pre-rebaseline WIP: `cbedd6d` on `archive/pre-graphics-rebaseline-20260818` (not deployable).
+- Graphics rebaseline plan: `2bde78e` on `graphics-photoreal-megademo`.
 - Notion progress: https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204
