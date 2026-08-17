@@ -1,0 +1,370 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.6.0/bin/node",
+      "/Users/snari/Documents/GitProject/LonelyStar/node_modules/.bin/playwright",
+      "test"
+    ],
+    "configFile": "/Users/snari/Documents/GitProject/LonelyStar/playwright.config.ts",
+    "rootDir": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop-chromium",
+        "name": "desktop-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": ".quality-gates/playwright-report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "journey.spec.ts",
+      "file": "journey.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "desktop steering, pulse, settings, and human motif checkpoint",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6524,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-17T21:40:08.741Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-5bf6292c2183824cca08",
+          "file": "journey.spec.ts",
+          "line": 20,
+          "column": 1
+        },
+        {
+          "title": "accelerated journey reaches the exact final title and automatic answer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7740,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-17T21:40:15.390Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-aa90cc500b8285005e43",
+          "file": "journey.spec.ts",
+          "line": 54,
+          "column": 1
+        },
+        {
+          "title": "mobile touch, settings, and alien response remain usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "mobile acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e/journey.spec.ts",
+                    "line": 73,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 68,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-17T21:40:23.135Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "mobile acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e/journey.spec.ts",
+                        "line": 73,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-9fbacc123c6cf48fc6d9",
+          "file": "journey.spec.ts",
+          "line": 72,
+          "column": 1
+        },
+        {
+          "title": "desktop steering, pulse, settings, and human motif checkpoint",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e/journey.spec.ts",
+                    "line": 21,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 359,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-17T21:40:23.566Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e/journey.spec.ts",
+                        "line": 21,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-d46231169c26bf5074e6",
+          "file": "journey.spec.ts",
+          "line": 20,
+          "column": 1
+        },
+        {
+          "title": "accelerated journey reaches the exact final title and automatic answer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e/journey.spec.ts",
+                    "line": 55,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 102,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-17T21:40:24.045Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar/tests/e2e/journey.spec.ts",
+                        "line": 55,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-f53a11a54c6e7ad59680",
+          "file": "journey.spec.ts",
+          "line": 54,
+          "column": 1
+        },
+        {
+          "title": "mobile touch, settings, and alien response remain usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6985,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-17T21:40:24.153Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-5c5df9cb0e273071334c",
+          "file": "journey.spec.ts",
+          "line": 72,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-17T21:40:08.065Z",
+    "duration": 23145.389,
+    "expected": 3,
+    "skipped": 3,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

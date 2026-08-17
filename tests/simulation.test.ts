@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { JOURNEY_SECONDS, PHASE_WINDOWS, SHOT_TABLE, phaseAt, shotAt } from "../src/game/model";
 import { generateRoute } from "../src/game/procedural";
-import { createJourneyState, hashJourney, simulateJourney, stepJourney, validateSeedProperties } from "../src/game/simulation";
+import { advanceJourneyTo, createJourneyState, hashJourney, simulateJourney, stepJourney, validateSeedProperties } from "../src/game/simulation";
 
 describe("authored journey score", () => {
   it("contains a contiguous 24-shot, 180-second score", () => {
@@ -58,6 +58,14 @@ describe("deterministic simulation", () => {
     for (let index = 0; index < 600; index += 1) state = stepJourney(state, { moveX: 1, moveY: 1 }, 1 / 60);
     expect(Math.abs(state.position.x)).toBeLessThanOrEqual(0.94);
     expect(Math.abs(state.position.y)).toBeLessThanOrEqual(0.94);
+  });
+
+  it("lands local QA checkpoints on an exact authored time", () => {
+    const state = advanceJourneyTo(createJourneyState({ seed: 42 }), 140);
+    expect(state.time).toBe(140);
+    expect(shotAt(state.time).id).toBe("S18");
+    expect(Math.abs(state.position.x)).toBeLessThan(0.72);
+    expect(Math.abs(state.position.y)).toBeLessThan(0.72);
   });
 });
 

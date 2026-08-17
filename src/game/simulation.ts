@@ -73,8 +73,8 @@ export function stepJourney(state: JourneyState, rawInput: Partial<NormalizedInp
   const input = normalizeInput(rawInput);
   const flow = flowAt(state.seed, state.time, state.position);
   const velocity = {
-    x: input.moveX * PLAYER_SPEED + flow.x * FLOW_SPEED,
-    y: input.moveY * PLAYER_SPEED + flow.y * FLOW_SPEED,
+    x: input.moveX * PLAYER_SPEED + flow.x * FLOW_SPEED - state.position.x * 0.12,
+    y: input.moveY * PLAYER_SPEED + flow.y * FLOW_SPEED - state.position.y * 0.12,
   };
   const nextTime = Math.min(JOURNEY_SECONDS, state.time + dt);
   let next: JourneyState = {
@@ -88,6 +88,20 @@ export function stepJourney(state: JourneyState, rawInput: Partial<NormalizedInp
   // The conversation opens at 166s; silence receives an automatic answer 2.5s later.
   if (next.answerAt === null && state.time < 168.5 && nextTime >= 168.5) {
     next = { ...next, answerAt: 168.5 };
+  }
+  return next;
+}
+
+/** Advance to an exact story-time checkpoint; useful for deterministic local QA and replay tooling. */
+export function advanceJourneyTo(
+  state: JourneyState,
+  targetTime: number,
+  input: Partial<NormalizedInput> = {},
+): JourneyState {
+  const target = Math.max(state.time, Math.min(JOURNEY_SECONDS, targetTime));
+  let next = state;
+  while (!next.finished && next.time < target) {
+    next = stepJourney(next, input, Math.min(STEP_SECONDS, target - next.time));
   }
   return next;
 }
