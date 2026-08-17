@@ -10,6 +10,7 @@ function gfxSpikePort(value: string | undefined): number {
   return port;
 }
 
+const explicitDevPort = process.env.GFX_SPIKE_PORT !== undefined;
 const devPort = gfxSpikePort(process.env.GFX_SPIKE_PORT);
 const devUrl = `http://localhost:${devPort}`;
 
@@ -31,7 +32,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev -- --port ${devPort}`,
     url: devUrl,
-    reuseExistingServer: true,
+    reuseExistingServer: !explicitDevPort,
     timeout: 30_000,
   },
   projects: [
