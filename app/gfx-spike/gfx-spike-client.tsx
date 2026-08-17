@@ -43,6 +43,7 @@ export function GfxSpikeClient() {
     setQaMode(isLocalQa(params));
     let cancelled = false;
     let unsubscribe: () => void = () => undefined;
+    let lastHandledRuntimeEventId = 0;
 
     createGfxSpike({ canvas, forceWebGL })
       .then((created) => {
@@ -51,10 +52,22 @@ export function GfxSpikeClient() {
           return;
         }
         runtimeRef.current = created;
-        const syncSnapshot = () => setRuntimeSnapshot(created.getSnapshot());
+        const syncSnapshot = () => {
+          const snapshot = created.getSnapshot();
+          setRuntimeSnapshot(snapshot);
+          const latest = snapshot.events[snapshot.events.length - 1];
+          if (latest && latest.id > lastHandledRuntimeEventId) {
+            lastHandledRuntimeEventId = latest.id;
+            setFailure(`${latest.kind}: ${latest.error.message}`);
+            setStatus("error");
+            void created.dispose().catch((error: unknown) => {
+              if (!cancelled) setFailure(`dispose-after-error: ${errorMessage(error)}`);
+            });
+          }
+        };
         unsubscribe = created.subscribe(syncSnapshot);
-        syncSnapshot();
         setStatus("ready");
+        syncSnapshot();
       })
       .catch((error: unknown) => {
         if (cancelled) return;

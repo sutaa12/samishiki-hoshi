@@ -121,7 +121,7 @@ test("GFX-001 preferred path reports WebGPU or an explicit WebGL2 fallback", asy
   expect(errors).toEqual([]);
 });
 
-test("GFX-001 WebGPU backend is required under the experimental Chromium lab gate", async ({ browserName }, testInfo) => {
+test("GFX-001 WebGPU backend stays healthy under the host Metal lab gate", async ({ browserName }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "single desktop backend acceptance");
   expect(browserName).toBe("chromium");
   const baseURL = testInfo.project.use.baseURL;
@@ -129,12 +129,12 @@ test("GFX-001 WebGPU backend is required under the experimental Chromium lab gat
 
   const browser = await chromium.launch({
     headless: true,
-    args: ["--enable-unsafe-webgpu", "--ignore-gpu-blocklist"],
+    args: ["--enable-unsafe-webgpu", "--ignore-gpu-blocklist", "--use-angle=metal"],
   });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
     const errors = captureRuntimeErrors(page);
-    await page.goto(new URL("/gfx-spike", baseURL).toString());
+    await page.goto(new URL("/gfx-spike?qa=1", baseURL).toString());
 
     const spike = page.getByTestId("gfx-spike");
     await expect(spike).toHaveAttribute("data-status", "ready", { timeout: 15_000 });
@@ -149,6 +149,8 @@ test("GFX-001 WebGPU backend is required under the experimental Chromium lab gat
     expect(sample.webgpuAdapterProbeAvailable).toBe(true);
     expect(sample.navigatorAdapterProbe.available).toBe(true);
     expect(sample.navigatorAdapterProbe.source).toContain("not renderer adapter identity");
+    expect(sample.navigatorAdapterProbe.vendor).toBe("apple");
+    expect(sample.navigatorAdapterProbe.architecture).toMatch(/metal/i);
     expect(sample.sceneEvidence.nodeMaterialCount).toBeGreaterThan(0);
     expect(sample.sceneEvidence.nodeMaterialsWithAssignedNodes).toBeGreaterThan(0);
     expect(sample.precompile.completed).toBe(true);
@@ -157,6 +159,9 @@ test("GFX-001 WebGPU backend is required under the experimental Chromium lab gat
     expect(sample.triangles).toBeGreaterThan(0);
     expect(sample.resources.programs).toBeGreaterThan(0);
     expect(sample.resources.trackedBytes).toBeGreaterThan(0);
+    await page.waitForTimeout(2_500);
+    await expect(spike).toHaveAttribute("data-status", "ready");
+    expect(JSON.parse(await page.getByTestId("gfx-runtime-events").innerText())).toEqual([]);
     expect(errors).toEqual([]);
   } finally {
     await browser.close();
@@ -174,6 +179,7 @@ test("GFX-001 publishes structured renderer errors emitted after initial telemet
   expect(JSON.parse(await eventOutput.innerText())).toEqual([]);
   await page.getByRole("button", { name: "Inject renderer diagnostic" }).click();
   await expect(eventOutput).toContainText("GFX-001 live renderer diagnostic");
+  await expect(spike).toHaveAttribute("data-status", "error");
 
   const events = JSON.parse(await eventOutput.innerText()) as Array<{
     kind: string;
