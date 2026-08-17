@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --ink: #eaffff;
+  --deep: #021824;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--deep);
+  color: var(--ink);
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", ui-serif, Georgia, serif;
+}
+
+button,
+canvas {
+  -webkit-tap-highlight-color: transparent;
+}

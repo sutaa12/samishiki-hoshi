@@ -1,0 +1,42 @@
+{
+  "blind_reviews": [],
+  "gates": [
+    {"id":"G0","name":"Foundation and source of truth","criteria":["Specifications and dependency baseline are reproducible"],"evidence":[],"rollback_condition":"Source or dependency baseline changes","status":"in_progress"},
+    {"id":"G1","name":"Deterministic story core","criteria":["Timeline, replay hash, and 1000-seed properties pass"],"evidence":[],"rollback_condition":"Any replay mismatch or invalid generated seed","status":"pending"},
+    {"id":"G2","name":"Playable 180-second journey","criteria":["All inputs, phases, shots, and end state work"],"evidence":[],"rollback_condition":"A required phase, input, or end state is unavailable","status":"pending"},
+    {"id":"G3","name":"Accessibility and presentation","criteria":["Settings, mute, mobile UI, and generated presentation assets pass"],"evidence":[],"rollback_condition":"Any supported input or accessibility mode blocks progress","status":"pending"},
+    {"id":"G4","name":"Independent acceptance","criteria":["Artifact-only SolMax review has zero open S0-S2"],"evidence":[],"rollback_condition":"Any open S0, S1, or S2 review finding","status":"pending"},
+    {"id":"G5","name":"Public release","criteria":["Anonymous HTTPS URL passes a real interaction smoke test"],"evidence":[],"rollback_condition":"Public URL or core interaction becomes unavailable","status":"pending"}
+  ],
+  "human_gates": [],
+  "known_risks": [
+    {"id":"R-HUMAN","description":"Contest consent, identity, rights attestation, Seoul attendance, and final submission require the responsible human","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Tracked as HUMAN_PENDING in docs/QA.md and Notion; not part of automated public deployment"}]},
+    {"id":"R-HARDWARE","description":"Reference-device performance acceptance cannot be proven on the build host","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Automated telemetry is collected; final reference hardware remains HARDWARE_PENDING"}]}
+  ],
+  "project": "さみしき星のまたたきよ",
+  "release": {
+    "build_identity": null,
+    "integrity": {},
+    "request_verdict": false,
+    "scope": "production",
+    "smoke_test": {
+      "evidence": [],
+      "status": "pending"
+    },
+    "url": null
+  },
+  "rollback": {
+    "artifact": null,
+    "instructions": null
+  },
+  "schema_version": "quality-gates.v3",
+  "severity_counts": {
+    "S0": 0,
+    "S1": 0,
+    "S2": 0,
+    "S3": 2
+  },
+  "source_of_truth": [
+    {"label":"Executable specification","location":"../docs/SPEC.md","sha256":"1717992d69d2b86695fc10faa6a810a41dcdc45e5bd040461cd211a44b480b0a"}
+  ]
+}
