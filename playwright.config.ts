@@ -1,5 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
 
+function gfxSpikePort(value: string | undefined): number {
+  if (value === undefined) return 3000;
+  if (!/^\d+$/.test(value)) throw new Error("GFX_SPIKE_PORT must contain decimal digits only.");
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
+    throw new Error("GFX_SPIKE_PORT must be an integer from 1024 through 65535.");
+  }
+  return port;
+}
+
+const devPort = gfxSpikePort(process.env.GFX_SPIKE_PORT);
+const devUrl = `http://localhost:${devPort}`;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
@@ -9,15 +22,15 @@ export default defineConfig({
   reporter: [["line"], ["json", { outputFile: ".quality-gates/playwright-report.json" }]],
   outputDir: ".quality-gates/playwright-output",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: devUrl,
     headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     launchOptions: { args: ["--use-gl=angle", "--use-angle=swiftshader"] },
   },
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
+    command: `npm run dev -- --port ${devPort}`,
+    url: devUrl,
     reuseExistingServer: true,
     timeout: 30_000,
   },
