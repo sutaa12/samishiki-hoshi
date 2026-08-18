@@ -14,6 +14,7 @@ import {
   digestWorldPlan,
   generateWorldPlan,
   validateWorldPlan,
+  type CanonicalWorldGenerationContext,
   type StoryChunkId,
   type WorldPlanGeneratorSystem,
 } from "../../src/world/v2";
@@ -59,6 +60,58 @@ describe("GFX-003 canonical world plan", () => {
       tupleFields: ["worldSeed", "systemName", "shotChunk", "generatorVersion", "ownedSubstream"],
     });
     expect(Object.keys(plan.seedContract).filter((key) => /quality|backend/i.test(key))).toEqual([]);
+  });
+
+  it("captures generation context only through the own-data seed boundary", () => {
+    const canonicalContext = createWorldGenerationContext({
+      worldSeed: 20_260_818,
+      generatorVersion: WORLD_GENERATOR_VERSION,
+    });
+    let ordinaryReads = 0;
+    const descriptorContext = new Proxy(canonicalContext, {
+      get(target, property, receiver) {
+        ordinaryReads += 1;
+        return Reflect.get(target, property, receiver) as unknown;
+      },
+    });
+
+    expect(canonicalWorldPlanBytes(generateWorldPlan(descriptorContext))).toEqual(
+      canonicalWorldPlanBytes(createPlan()),
+    );
+    expect(ordinaryReads).toBe(0);
+
+    let accessorReads = 0;
+    const accessorContext = {} as CanonicalWorldGenerationContext;
+    Object.defineProperty(accessorContext, "worldSeed", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return 20_260_818;
+      },
+    });
+    Object.defineProperty(accessorContext, "generatorVersion", {
+      configurable: true,
+      enumerable: true,
+      value: WORLD_GENERATOR_VERSION,
+    });
+
+    expect(() => generateWorldPlan(accessorContext)).toThrow("context.worldSeed must not be an accessor.");
+    expect(accessorReads).toBe(0);
+
+    const hostileContext = new Proxy(canonicalContext, {
+      get() {
+        ordinaryReads += 1;
+        return undefined;
+      },
+      getOwnPropertyDescriptor() {
+        throw new Error("hostile context descriptor trap");
+      },
+    });
+    expect(() => generateWorldPlan(hostileContext)).toThrow(
+      "context.worldSeed could not be captured as an own data property.",
+    );
+    expect(ordinaryReads).toBe(0);
   });
 
   it("copies the frozen 24-shot score exactly and covers six phases over 180 seconds", () => {

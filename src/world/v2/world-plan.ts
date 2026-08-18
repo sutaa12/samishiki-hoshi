@@ -355,11 +355,7 @@ export function generateWorldPlan(
   context: Readonly<CanonicalWorldGenerationContext>,
   options: GenerateWorldPlanOptions = {},
 ): Readonly<WorldPlan> {
-  const contextSnapshot: CanonicalWorldGenerationContext = Object.freeze({
-    worldSeed: context.worldSeed,
-    generatorVersion: context.generatorVersion,
-  });
-  const registry = createSeedStreamRegistry(contextSnapshot);
+  const registry = createSeedStreamRegistry(context);
   const generationOrder = snapshotPermutation(
     options.generationOrder,
     WORLD_PLAN_GENERATOR_SYSTEMS,
