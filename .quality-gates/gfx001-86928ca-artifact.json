@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "gate": "R2-G1",
+  "status": "re_review_pending",
+  "implementation": {
+    "commit": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+    "sourceArchiveSha256": "21a34df6a9a34356c9c53d162bf6721209406d80c39b05b36ef5b05b5a7762fd"
+  },
+  "build": {
+    "command": "rtk npm run build",
+    "artifact": ".quality-gates/gfx001-86928ca-dist.tar",
+    "archiveSha256": "b8ade6d9a75e88def7804c3a9a3d18eff30ad3095b16652eae74b4bc0bb9b523",
+    "archiveBytes": 4187648,
+    "fileCount": 63,
+    "contentRecordsSha256": "29042d2c8ea36b26f3781287c2f877ef39192c49ec21f0d21cee33497c014a5e",
+    "vinextBuildId": "c1966dd2-5edb-4a33-9284-3d4940df2db3",
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "vinext build ID and preview credentials alter UUID paths, chunk names, and manifests; exact artifact is preserved"
+  },
+  "automatedEvidence": {
+    "playwrightReport": ".quality-gates/playwright-report.json",
+    "playwrightReportSha256": "1ceb9c92e2483f48fe8c2679020c1104d79fa281c1f9ea2be07c08149f3a7560",
+    "unitPassed": 18,
+    "e2ePassed": 5,
+    "e2eUnexpected": 0,
+    "hostMetalWebgpuRuntimeEvents": 0,
+    "forcedWebgl2": "passed",
+    "swiftshaderWebgpu": "blocked_upstream_or_toolchain"
+  },
+  "unchangedGameCore": {
+    "modelSha256": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
+    "simulationSha256": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7"
+  },
+  "externalGates": {
+    "referenceHardware": "HARDWARE_PENDING",
+    "tenRestart": "R2-G6_PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN"
+  }
+}

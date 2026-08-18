@@ -16,7 +16,7 @@
 | Gate | Acceptance | Status |
 | --- | --- | --- |
 | R2-G0 Isolation | WIP pushed, `main` unchanged, worktree and no-deploy rule recorded | passed: `cbedd6d`, `2bde78e` |
-| R2-G1 Renderer spike | WebGPURenderer + TSL; actual WebGPU and forced-WebGL2 telemetry; no simulation changes | in progress: remediation `f81f383` passes 5/5 E2E and 18/18 unit tests; exact source/build/report bindings ready for independent re-review |
+| R2-G1 Renderer spike | WebGPURenderer + TSL; healthy actual WebGPU and forced-WebGL2 telemetry; no simulation changes | in progress: second-audit remediation `86928ca` passes host-Metal WebGPU event-free plus forced-WebGL2; exact non-reproducible build artifact preserved for re-review |
 | R2-G2 Shared foundation | RenderFeature, Linear HDR, warm-up, temporal ownership, metrics, provenance | pending |
 | R2-G3 Slice A | ocean/submerged ruin High + fallback | pending |
 | R2-G4 Slice B | sunset forest/city High + fallback | pending |
@@ -57,5 +57,5 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Preserved pre-rebaseline WIP: `cbedd6d` on `archive/pre-graphics-rebaseline-20260818` (not deployable).
 - Graphics rebaseline plan: `2bde78e` on `graphics-photoreal-megademo`.
 - Notion gameplay visual-target snapshot: `8794258` (reference-only; excluded from runtime and Sites package).
-- GFX-001 remediation candidate: `f81f38397c41430ff94e948dde629801cb6eac83`; first audit S0=0, S1=2, S2=3, S3=1 is addressed but remains open until re-review; evidence record `docs/evidence/GFX-001.md`.
+- GFX-001 second-audit remediation candidate: `86928ca987814aa161003bd3ac588d37c95d9a9c`; audit 2 S0=0, S1=1, S2=1, S3=0 is addressed but remains open until re-review; evidence record `docs/evidence/GFX-001.md` and preserved artifact receipt `.quality-gates/gfx001-86928ca-artifact.json`.
 - Notion progress: https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204
