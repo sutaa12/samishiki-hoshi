@@ -1,5 +1,5 @@
 import type { JourneyPhase, TwinkleSeed } from "../../game/model";
-import { digestCanonicalValue } from "./canonical";
+import { canonicalJson, digestCanonicalValue } from "./canonical";
 import type {
   SeedStreamRegistry,
   TwinkleSpeciesFamily,
@@ -149,29 +149,32 @@ function snapshotLedger(ledger: unknown): readonly Readonly<TwinkleSeed>[] {
 }
 
 function validatePlanContext(plan: Readonly<WorldPlan>): Readonly<ValidatedPlanContext> {
-  const report = validateWorldPlan(plan);
+  const planSnapshot = deepFreeze(
+    JSON.parse(canonicalJson(plan)) as unknown,
+  ) as Readonly<WorldPlan>;
+  const report = validateWorldPlan(planSnapshot);
   if (!report.valid) {
     const firstIssue = report.issues[0];
     throw new TypeError(`Twinkle world plan is invalid${firstIssue ? `: ${firstIssue.code} at ${firstIssue.path}` : "."}`);
   }
-  if (typeof plan.worldSeed !== "string" || !WORLD_SEED_PATTERN.test(plan.worldSeed)) {
+  if (typeof planSnapshot.worldSeed !== "string" || !WORLD_SEED_PATTERN.test(planSnapshot.worldSeed)) {
     throw new TypeError("Twinkle world plan seed must be a canonical uint32 decimal string.");
   }
-  const worldSeed = Number(plan.worldSeed);
+  const worldSeed = Number(planSnapshot.worldSeed);
   if (!Number.isInteger(worldSeed) || worldSeed < 0 || worldSeed > MAX_UINT32
-    || String(worldSeed) !== plan.worldSeed) {
+    || String(worldSeed) !== planSnapshot.worldSeed) {
     throw new RangeError("Twinkle world plan seed is outside the uint32 domain.");
   }
   const generationContext = createWorldGenerationContext({
     worldSeed,
-    generatorVersion: plan.generatorVersion,
+    generatorVersion: planSnapshot.generatorVersion,
   });
   const registry = createSeedStreamRegistry(generationContext);
   return Object.freeze({
-    worldSeed: plan.worldSeed,
+    worldSeed: planSnapshot.worldSeed,
     generatorVersion: generationContext.generatorVersion,
     registry,
-    chunks: Object.freeze([...plan.chunks]),
+    chunks: Object.freeze([...planSnapshot.chunks]),
   });
 }
 

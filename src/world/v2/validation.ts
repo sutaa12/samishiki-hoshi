@@ -181,6 +181,10 @@ function inspectStructure(
           invalid(path, "Array keys could not be inspected.");
           return;
         }
+        if (keys.length > MAX_CONTAINER_WIDTH + 1) {
+          exhaust(path, `Array key count exceeds ${MAX_CONTAINER_WIDTH} entries plus length.`);
+          return;
+        }
         if (keys.length !== length + 1) {
           invalid(path, "Canonical arrays must be dense and contain no extra properties.");
         }
@@ -647,11 +651,11 @@ export function validateWorldPlan(value: unknown): Readonly<WorldPlanValidationR
     if (expectedPlan && !canonicalEqual(value, expectedPlan)) {
       add("PLAN_MISMATCH", "$", "World plan differs from canonical generation for its seed and generator version.");
     }
-  } catch (error) {
+  } catch {
     add(
       "INVALID_STRUCTURE",
       "$",
-      `World-plan validation failed closed: ${error instanceof Error ? error.message : String(error)}`,
+      "World-plan validation failed closed on an opaque input error.",
     );
   }
 

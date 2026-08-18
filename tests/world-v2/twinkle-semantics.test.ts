@@ -286,6 +286,37 @@ describe("GFX-003 Twinkle semantic projection", () => {
     expect(JSON.stringify(missingChunk)).toBe(missingChunkBefore);
   });
 
+  it("validates and consumes one descriptor-owned plan snapshot without later caller reads", () => {
+    const target = mutablePlan(778);
+    const baseline = projectTwinkleSemantics(target, [pulse(1, 5)]);
+    const injectedChunks = structuredClone(target.chunks);
+    const injectedChunk = injectedChunks[1];
+    if (!injectedChunk) throw new Error("Expected S02 for the stateful plan regression.");
+    injectedChunk.storyNode.biome = "injected-after-validation";
+
+    let ordinaryReads = 0;
+    const readsByProperty = new Map<PropertyKey, number>();
+    const statefulPlan = new Proxy(target, {
+      get(object, property, receiver) {
+        ordinaryReads += 1;
+        const reads = (readsByProperty.get(property) ?? 0) + 1;
+        readsByProperty.set(property, reads);
+        if (property === "worldSeed" && reads > 2) return "779";
+        if (property === "generatorVersion" && reads > 2) return "gfx003-world-plan-v2";
+        if (property === "chunks" && reads > 3) return injectedChunks;
+        return Reflect.get(object, property, receiver) as unknown;
+      },
+    });
+
+    const projected = projectTwinkleSemantics(statefulPlan, [pulse(1, 5)]);
+
+    expect(projected).toEqual(baseline);
+    expect(projected[0]?.biome).not.toBe("injected-after-validation");
+    expect(projected[0]?.signature).toBe(baseline[0]?.signature);
+    expect(ordinaryReads).toBe(0);
+    expect(readsByProperty.size).toBe(0);
+  });
+
   it("binds signatures to every projected semantic including biome and species family", () => {
     const plan = createPlan(778);
     const semantic = projectTwinkleSemantics(plan, [pulse(1, 5)])[0];

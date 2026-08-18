@@ -11,7 +11,7 @@ import {
   type WorldPlan,
   type WorldPointMm,
 } from "../../src/world/v2";
-import { collectIssueCodes, jsonClone, numericLeaves } from "./test-helpers";
+import { assertDeepFrozen, collectIssueCodes, jsonClone, numericLeaves } from "./test-helpers";
 
 type Mutable<T> = { -readonly [K in keyof T]: Mutable<T[K]> };
 
@@ -437,5 +437,59 @@ describe("GFX-003 world-plan property oracle", () => {
       issues: [{ code: "INVALID_STRUCTURE" }],
     });
     expect(report.issues).toHaveLength(1);
+  });
+
+  it("bounds hostile array key lists before inspecting every extra key", () => {
+    const extraKeys = Array.from({ length: 50_001 }, (_, index) => `x${index}`);
+    let descriptorReads = 0;
+    const hostile = new Proxy([], {
+      ownKeys: () => ["length", ...extraKeys],
+      getOwnPropertyDescriptor(target, property) {
+        descriptorReads += 1;
+        return Reflect.getOwnPropertyDescriptor(target, property);
+      },
+    });
+
+    const report = validateWorldPlan(hostile);
+
+    expect(report).toEqual({
+      valid: false,
+      issues: [{
+        code: "INVALID_STRUCTURE",
+        path: "$",
+        detail: "Array key count exceeds 50000 entries plus length.",
+      }],
+    });
+    expect(descriptorReads).toBe(1);
+    assertDeepFrozen(report);
+  });
+
+  it("returns a frozen fail-closed report without inspecting a hostile thrown value", () => {
+    const hostileFailure = new Proxy({}, {
+      getPrototypeOf() {
+        throw new Error("secondary hostile trap");
+      },
+    });
+    const source = mutablePlan();
+    const hostilePlan = new Proxy(source, {
+      get(target, property, receiver) {
+        if (property === "schemaVersion") throw hostileFailure;
+        return Reflect.get(target, property, receiver) as unknown;
+      },
+    });
+
+    let report: ReturnType<typeof validateWorldPlan> | undefined;
+    expect(() => {
+      report = validateWorldPlan(hostilePlan);
+    }).not.toThrow();
+    expect(report).toEqual({
+      valid: false,
+      issues: [{
+        code: "INVALID_STRUCTURE",
+        path: "$",
+        detail: "World-plan validation failed closed on an opaque input error.",
+      }],
+    });
+    assertDeepFrozen(report);
   });
 });
