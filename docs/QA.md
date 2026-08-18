@@ -16,7 +16,7 @@
 | Gate | Acceptance | Status |
 | --- | --- | --- |
 | R2-G0 Isolation | WIP pushed, `main` unchanged, worktree and no-deploy rule recorded | passed: `cbedd6d`, `2bde78e` |
-| R2-G1 Renderer spike | WebGPURenderer + TSL; healthy actual WebGPU and forced-WebGL2 telemetry; no simulation changes | in progress: second-audit remediation `86928ca` passes host-Metal WebGPU event-free plus forced-WebGL2; exact non-reproducible build artifact preserved for re-review |
+| R2-G1 Renderer spike | WebGPURenderer + TSL; healthy actual WebGPU and forced-WebGL2 telemetry; no simulation changes | passed: implementation `86928ca`, reviewed evidence `bd34c30`; independent review S0=0, S1=0, S2=0, S3=0 |
 | R2-G2 Shared foundation | RenderFeature, Linear HDR, warm-up, temporal ownership, metrics, provenance | pending |
 | R2-G3 Slice A | ocean/submerged ruin High + fallback | pending |
 | R2-G4 Slice B | sunset forest/city High + fallback | pending |
@@ -57,5 +57,5 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Preserved pre-rebaseline WIP: `cbedd6d` on `archive/pre-graphics-rebaseline-20260818` (not deployable).
 - Graphics rebaseline plan: `2bde78e` on `graphics-photoreal-megademo`.
 - Notion gameplay visual-target snapshot: `8794258` (reference-only; excluded from runtime and Sites package).
-- GFX-001 second-audit remediation candidate: `86928ca987814aa161003bd3ac588d37c95d9a9c`; audit 2 S0=0, S1=1, S2=1, S3=0 is addressed but remains open until re-review; evidence record `docs/evidence/GFX-001.md` and preserved artifact receipt `.quality-gates/gfx001-86928ca-artifact.json`.
+- Accepted GFX-001 renderer spike: implementation `86928ca987814aa161003bd3ac588d37c95d9a9c`, reviewed evidence HEAD `bd34c30999417b2fcb13c113f3be5a778d7e7ec8`; independent review S0=0, S1=0, S2=0, S3=0. Bound evidence is in `docs/evidence/GFX-001.md`, `.quality-gates/gfx001-86928ca-artifact.json`, and `.quality-gates/receipts/gfx001-review.json`. GFX-001 is frozen; this does not accept R2-G2–G7.
 - Notion progress: https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204

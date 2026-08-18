@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gate": "R2-G1",
-  "status": "re_review_pending",
+  "status": "accepted",
   "implementation": {
     "commit": "86928ca987814aa161003bd3ac588d37c95d9a9c",
     "sourceArchiveSha256": "21a34df6a9a34356c9c53d162bf6721209406d80c39b05b36ef5b05b5a7762fd"
@@ -30,6 +30,26 @@
   "unchangedGameCore": {
     "modelSha256": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
     "simulationSha256": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7"
+  },
+  "independentReview": {
+    "reviewedEvidenceHead": "bd34c30999417b2fcb13c113f3be5a778d7e7ec8",
+    "reviewer": "independent-gfx001-reviewer",
+    "date": "2026-08-18",
+    "verdict": "pass",
+    "severityCounts": {
+      "S0": 0,
+      "S1": 0,
+      "S2": 0,
+      "S3": 0
+    },
+    "verify": "passed",
+    "unitPassed": 18,
+    "e2ePassed": 5,
+    "freshPortReuseDisabled": true,
+    "hostMetalAdditionalObservationMs": 3000,
+    "hostMetalRuntimeEvents": 0,
+    "unsafeSwiftshaderFailureRejected": true,
+    "allResourcesZeroAfterFailureAndDispose": true
   },
   "externalGates": {
     "referenceHardware": "HARDWARE_PENDING",

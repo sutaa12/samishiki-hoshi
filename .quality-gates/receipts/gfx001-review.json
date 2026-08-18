@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "review_id": "gfx001-independent-review-2026-08-18",
+  "gate": "R2-G1",
+  "reviewer": "independent-gfx001-reviewer",
+  "implementation_commit": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+  "reviewed_evidence_head": "bd34c30999417b2fcb13c113f3be5a778d7e7ec8",
+  "source_archive_sha256": "21a34df6a9a34356c9c53d162bf6721209406d80c39b05b36ef5b05b5a7762fd",
+  "build_archive": ".quality-gates/gfx001-86928ca-dist.tar",
+  "build_archive_sha256": "b8ade6d9a75e88def7804c3a9a3d18eff30ad3095b16652eae74b4bc0bb9b523",
+  "build_archive_bytes": 4187648,
+  "build_content_records_sha256": "29042d2c8ea36b26f3781287c2f877ef39192c49ec21f0d21cee33497c014a5e",
+  "build_file_count": 63,
+  "vinext_build_id": "c1966dd2-5edb-4a33-9284-3d4940df2db3",
+  "playwright_report_sha256": "1ceb9c92e2483f48fe8c2679020c1104d79fa281c1f9ea2be07c08149f3a7560",
+  "methods": [
+    "read-only source and preserved-artifact binding review",
+    "fresh explicit-port automated verification with server reuse disabled",
+    "host Apple Metal actual-WebGPU extended event observation",
+    "real unsafe-SwiftShader validation-failure rejection",
+    "forced-WebGL2 lifecycle and idempotent-disposal verification"
+  ],
+  "verdict": "pass",
+  "severity_counts": {
+    "S0": 0,
+    "S1": 0,
+    "S2": 0,
+    "S3": 0
+  },
+  "observations": {
+    "verify": "passed",
+    "unit_tests": "18/18",
+    "e2e_tests": "5/5",
+    "host_metal_additional_observation_ms": 3000,
+    "host_metal_runtime_events": 0,
+    "host_metal_console_errors": 0,
+    "unsafe_swiftshader_failure_disposition": "rejected_and_disposed",
+    "post_dispose_resource_counters": 0
+  },
+  "unchanged_game_core": {
+    "model_sha256": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
+    "simulation_sha256": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7"
+  },
+  "limitations": [
+    "This accepts only R2-G1 and freezes the isolated GFX-001 laboratory.",
+    "Ten-cycle resource growth remains R2-G6 pending.",
+    "Reference-hardware performance remains HARDWARE_PENDING.",
+    "Main integration and Sites deployment remain frozen and HUMAN_PENDING."
+  ],
+  "release_effect": "No merge, Sites save, deployment, or contest submission is authorized by this receipt."
+}
