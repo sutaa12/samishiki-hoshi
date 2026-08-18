@@ -36,6 +36,46 @@ Page 11's illustrative `WorldGenerationContext` includes a quality tier, but the
 
 The immutable game state and URL/replay contract carry the world seed as a JavaScript number. GFX-003 accepts only finite integer seeds from `0` through `2^32 - 1`, rejects rather than coerces other values, and serializes the accepted value as an unsigned decimal string inside canonical seed tuples. This preserves the frozen game boundary while avoiding floating-point aliases and JSON/BigInt incompatibility.
 
+## D-010 — The R2 map supersedes every older renderer ticket number
+
+Notion page 13 still contains an older renderer task table in which its
+`GFX-003`, `GFX-004`, and `GFX-005` labels refer to depth/HDR, atmosphere, and
+ocean work. Those functional requirements remain authoritative, but those old
+labels are not executable ticket identities. The current R2 dependency graph
+in `docs/GFX_FOUNDATION_DESIGN.md` and the current Notion progress page are the
+only execution map: current GFX-004 owns chunk/worker/upload lifecycle, current
+GFX-005 owns TSL materials/Linear HDR/temporal ownership, and atmosphere/ocean
+requirements are realized through GFX-005 plus Hero Slices A and B. Evidence
+and receipts must always name the current R2 ticket and may cite an older page
+13 label only as source provenance.
+
+## D-011 — Chunk upload uses a one/two/four millisecond envelope
+
+The updated performance page targets one millisecond of chunk upload work per
+frame and marks two milliseconds as a warning, while the accepted local
+foundation contract documents a four-millisecond default pump budget. GFX-004
+uses all three values without weakening any source: `1 ms` is the scheduling
+target, `2 ms` records a warning, and `4 ms` is the absolute per-frame hard cap.
+Upload jobs must therefore expose bounded incremental steps and use an injected
+monotonic clock; an atomic job whose duration cannot be bounded is not admitted.
+Exceeding the soft thresholds records telemetry and may select a degraded visual
+placeholder, but it never pauses or rewrites story time.
+
+## D-012 — GFX-004/005 extend the accepted host through one serial contract owner
+
+The accepted GFX-002 API intentionally proved a smaller lifecycle surface. It
+did not expose a live upload budget, initial viewport to services/features,
+feature resize/history invalidation hooks, logical resource adoption, or a
+multi-profile warm-up inventory. GFX-004 and GFX-005 require those capabilities,
+so `contracts.ts` and `render-host.ts` are extended once by the integration
+owner with backward-compatible optional hooks. Chunk and pipeline implementers
+consume that frozen extension and do not edit the shared host independently.
+Any change to these accepted GFX-002 source files invalidates the old artifact
+binding for the new HEAD; the original GFX-002 receipt remains an accurate
+historical baseline, while the combined foundation must rerun its complete
+GFX-002 regression suite and receive new source/artifact review before GFX-004
+or GFX-005 can be promoted.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

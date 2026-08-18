@@ -116,9 +116,9 @@ world and material descriptor contracts.
   GPU-resident world chunks. A leaving chunk is retired before a fifth activates.
 - Worker generation is canonical and quality/backend-free. Generation tokens
   reject stale, aborted, and out-of-order replies.
-- Upload jobs use a documented four-millisecond default pump budget. A delay or
-  failure records telemetry and may display a degraded placeholder, but never
-  changes or stalls story time.
+- Upload jobs use a documented `1 ms` scheduling target, `2 ms` warning, and
+  `4 ms` absolute per-frame pump cap. A delay or failure records telemetry and
+  may display a degraded placeholder, but never changes or stalls story time.
 - Rapid seek, cancellation, randomized response order, and ten fake lifecycle
   cycles prove no stale activation, double disposal, or ownership growth.
 

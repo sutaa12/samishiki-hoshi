@@ -1,4 +1,5 @@
 import {
+  RENDER_HISTORY_INVALIDATION_REASONS,
   type BackendRuntimeEvent,
   type JourneyRenderSnapshot,
   type RenderHostDependencies,
@@ -6,6 +7,8 @@ import {
   type RenderHostLifecycle,
   type RenderHostProbeEvent,
   type RenderHostProbeSnapshot,
+  type RenderHistoryInvalidation,
+  type RenderHistoryInvalidationReason,
   type RenderPass,
   type RenderPassRecorder,
   type RenderQualityProfile,
@@ -37,15 +40,44 @@ function captureRenderPass(
   if (typeof kind !== "string" || !kind.trim()) {
     throw new TypeError("A render pass requires non-empty name and kind fields.");
   }
+  const variant = pass.variant;
+  assertContinue();
+  if (variant !== undefined && (typeof variant !== "string" || !variant.trim())) {
+    throw new TypeError("A render pass variant must be a non-empty string when present.");
+  }
   const scene = pass.scene;
   assertContinue();
   const camera = pass.camera;
   assertContinue();
   const payload = pass.payload;
   assertContinue();
-  return Object.freeze(payload === undefined
+  const captured = variant === undefined
     ? { name, kind, scene, camera }
-    : { name, kind, scene, camera, payload });
+    : { name, kind, variant, scene, camera };
+  return Object.freeze(payload === undefined
+    ? captured
+    : { ...captured, payload });
+}
+
+function captureWarmupPasses(
+  passes: readonly RenderPass[],
+  assertContinue: () => void,
+): readonly RenderPass[] {
+  const length = passes.length;
+  assertContinue();
+  if (!Number.isSafeInteger(length) || length < 0 || length > 256) {
+    throw new RangeError("A warm-up inventory accepts at most 256 render passes.");
+  }
+  const captured: RenderPass[] = [];
+  for (let index = 0; index < length; index += 1) {
+    const present = Object.prototype.hasOwnProperty.call(passes, index);
+    assertContinue();
+    if (!present) throw new TypeError("Warm-up pass inventories must be dense.");
+    const pass = passes[index];
+    assertContinue();
+    captured.push(captureRenderPass(pass!, assertContinue));
+  }
+  return Object.freeze(captured);
 }
 
 class FramePassRecorder implements RenderPassRecorder {
@@ -103,6 +135,23 @@ function freezeQuality(profile: Readonly<RenderQualityProfile>): Readonly<Render
     uploadBudgetMs: profile.uploadBudgetMs,
     features: Object.freeze({ ...profile.features }),
   });
+}
+
+function freezeWarmupProfiles(
+  profiles: readonly Readonly<RenderQualityProfile>[],
+): readonly Readonly<RenderQualityProfile>[] {
+  const length = profiles.length;
+  if (!Number.isSafeInteger(length) || length < 1 || length > 16) {
+    throw new RangeError("Warm-up requires between one and sixteen quality profiles.");
+  }
+  const frozen: Readonly<RenderQualityProfile>[] = [];
+  for (let index = 0; index < length; index += 1) {
+    if (!Object.prototype.hasOwnProperty.call(profiles, index)) {
+      throw new TypeError("Warm-up quality profiles must be dense.");
+    }
+    frozen.push(freezeQuality(profiles[index]!));
+  }
+  return Object.freeze(frozen);
 }
 
 function qualityProfilesEqual(
@@ -519,6 +568,7 @@ export class RenderHost {
   } | null = null;
   #pendingQualityDuringInitialization: Readonly<RenderQualityProfile> | null = null;
   #pendingQualityVersion = 0;
+  #warmedQualityProfiles: readonly Readonly<RenderQualityProfile>[] | null = null;
   #initializedFeatures: number[] = [];
   #backendStarted = false;
   #materialsStarted = false;
@@ -712,15 +762,73 @@ export class RenderHost {
     return this.#initializePromise;
   }
 
-  setSnapshot(snapshot: JourneyRenderSnapshot): void {
+  setSnapshot(
+    snapshot: JourneyRenderSnapshot,
+    discontinuity?: Extract<
+      RenderHistoryInvalidationReason,
+      "restart-or-qa-seek" | "camera-discontinuity"
+    >,
+  ): void {
     this.#assertNoOwnedCallbackReentry("set a snapshot");
     this.#assertSnapshotWritable();
+    if (
+      discontinuity !== undefined
+      && discontinuity !== "restart-or-qa-seek"
+      && discontinuity !== "camera-discontinuity"
+    ) {
+      throw new TypeError("Snapshot discontinuity must be restart-or-qa-seek or camera-discontinuity.");
+    }
     const version = this.#snapshotVersion;
+    const previous = this.#snapshot;
     const frozen = freezeSnapshot(snapshot);
     this.#assertSnapshotWritable();
     if (this.#snapshotVersion !== version) return;
     this.#snapshot = frozen;
     this.#snapshotVersion += 1;
+    const reasons = new Set<RenderHistoryInvalidationReason>();
+    if (discontinuity !== undefined) reasons.add(discontinuity);
+    if (previous?.shotId !== frozen.shotId && frozen.shotId === "S21") {
+      reasons.add("story-cut-s21");
+    }
+    if (previous?.shotId !== frozen.shotId && frozen.shotId === "S23") {
+      reasons.add("story-cut-s23");
+    }
+    if (previous !== null && !previous.finished && frozen.finished) {
+      reasons.add("final-life-light");
+    }
+    try {
+      for (const reason of reasons) this.#invalidateFeatureHistory(reason, previous, frozen);
+    } catch (error: unknown) {
+      this.#beginFailure(
+        "FRAME_FAILED",
+        "Temporal history invalidation failed.",
+        error,
+        "frame-error",
+      );
+      throw this.#terminalError ?? error;
+    }
+    this.#notifyProbeListeners();
+  }
+
+  invalidateHistory(reason: RenderHistoryInvalidationReason): void {
+    this.#assertNoOwnedCallbackReentry("invalidate temporal history");
+    if (this.#lifecycle !== "ready" || this.#snapshot === null) {
+      throw lifecycleError("invalidate temporal history", this.#lifecycle, this.#errorOwner);
+    }
+    if (!RENDER_HISTORY_INVALIDATION_REASONS.includes(reason)) {
+      throw new TypeError(`Unknown temporal-history invalidation reason: ${String(reason)}.`);
+    }
+    try {
+      this.#invalidateFeatureHistory(reason, this.#snapshot, this.#snapshot);
+    } catch (error: unknown) {
+      this.#beginFailure(
+        "FRAME_FAILED",
+        "Temporal history invalidation failed.",
+        error,
+        "frame-error",
+      );
+      throw this.#terminalError ?? error;
+    }
     this.#notifyProbeListeners();
   }
 
@@ -765,10 +873,21 @@ export class RenderHost {
       await this.#enqueueControlOperation(
         () => freezeViewport(viewport),
         async (frozen) => {
-        this.#assertControlCanContinue();
-        await this.#invokeOwnedCallback(() => this.#dependencies.backend.resize(frozen));
-        this.#assertControlCanContinue();
-        this.#viewport = frozen;
+          this.#assertControlCanContinue();
+          await this.#invokeOwnedCallback(() => this.#dependencies.backend.resize(frozen));
+          this.#assertControlCanContinue();
+          for (const feature of this.#dependencies.features) {
+            await this.#invokeOwnedCallback(() => {
+              const resize = feature.resize;
+              return resize?.call(feature, frozen);
+            });
+            this.#assertControlCanContinue();
+          }
+          this.#viewport = frozen;
+          if (this.#snapshot !== null) {
+            this.#invalidateFeatureHistory("resize", this.#snapshot, this.#snapshot);
+            this.#assertControlCanContinue();
+          }
         },
       );
       this.#notifyProbeListeners();
@@ -825,16 +944,17 @@ export class RenderHost {
     this.#transition("initializing");
 
     try {
-      const serviceContext = Object.freeze({
-        backend: this.#dependencies.backend,
-        observer: this.#dependencies.observer,
-      });
       const initialSnapshot = freezeSnapshot(snapshot);
       if (this.#snapshotVersion === initialSnapshotVersion) {
         this.#snapshot = initialSnapshot;
         this.#snapshotVersion += 1;
       }
       this.#viewport = freezeViewport(viewport);
+      const serviceContext = Object.freeze({
+        backend: this.#dependencies.backend,
+        observer: this.#dependencies.observer,
+        viewport: this.#viewport,
+      });
       // Subscription itself may partially acquire backend ownership before
       // throwing, so backend disposal must already be part of the unwind set.
       this.#backendStarted = true;
@@ -886,6 +1006,7 @@ export class RenderHost {
         uploads: this.#dependencies.uploads,
         resources: this.#dependencies.resources,
         observer: this.#dependencies.observer,
+        viewport: this.#viewport,
       });
       for (let index = 0; index < this.#dependencies.features.length; index += 1) {
         this.#initializedFeatures.push(index);
@@ -900,6 +1021,8 @@ export class RenderHost {
       );
       this.#assertInitializing();
       await this.#applyQuality(initialQuality);
+      this.#assertInitializing();
+      await this.#invalidateFeatureHistory("initialization", null, this.#snapshot!);
       this.#assertInitializing();
       const qualityRelay: {
         listener: ((profile: Readonly<RenderQualityProfile>) => void) | null;
@@ -935,31 +1058,78 @@ export class RenderHost {
         await this.#drainPendingInitializationQuality();
       }
 
+      const warmupInventory = this.#invokeOwnedCallback(() => {
+        const provider = this.#dependencies.qualityProvider;
+        const getWarmupProfiles = provider.getWarmupProfiles;
+        const profiles = freezeWarmupProfiles(
+          getWarmupProfiles
+            ? getWarmupProfiles.call(provider)
+            : [this.#quality!],
+        );
+        if (!profiles.some((profile) => qualityProfilesEqual(this.#quality, profile))) {
+          throw new RangeError("Warm-up profiles must include the currently applied profile.");
+        }
+        return Object.freeze({
+          profiles,
+          declared: getWarmupProfiles !== undefined,
+        });
+      });
+      const warmupProfiles = warmupInventory.profiles;
+      // Legacy providers without an inventory can continue to accept explicit
+      // control profiles. Providers that declare the runtime-selectable set
+      // make compile-before-ready enforceable, so every later profile must be
+      // one of these exact frozen snapshots.
+      this.#warmedQualityProfiles = warmupInventory.declared ? warmupProfiles : null;
+      this.#assertInitializing();
+
       const warmupRecorder = new FramePassRecorder(() => this.#assertInitializing());
+      const featureWarmupPasses: RenderPass[] = [];
       for (const feature of this.#dependencies.features) {
         this.#invokeOwnedCallback(() => feature.render(warmupRecorder));
         this.#assertInitializing();
+        const passes = this.#invokeOwnedCallback(() => {
+          const warmupPasses = feature.warmupPasses;
+          return warmupPasses
+            ? captureWarmupPasses(
+              warmupPasses.call(feature, warmupProfiles),
+              () => this.#assertInitializing(),
+            )
+            : [];
+        });
+        featureWarmupPasses.push(...passes);
+        this.#assertInitializing();
       }
       const materialWarmupPasses = this.#invokeOwnedCallback(
-        () => Object.freeze(this.#dependencies.materials.warmupPasses().map(
-          (pass) => captureRenderPass(pass, () => this.#assertInitializing()),
-        )),
+        () => captureWarmupPasses(
+          this.#dependencies.materials.warmupPasses(warmupProfiles),
+          () => this.#assertInitializing(),
+        ),
       );
       this.#assertInitializing();
       const uniqueWarmupPasses: RenderPass[] = [];
-      const warmupPassIndices = new Map<string, Map<string, number>>();
+      const warmupPassIndices = new Map<
+        string,
+        Map<string, Map<string | undefined, number>>
+      >();
       for (const pass of [
         ...materialWarmupPasses,
+        ...featureWarmupPasses,
         ...warmupRecorder.passes,
       ]) {
         let nameIndices = warmupPassIndices.get(pass.kind);
         if (!nameIndices) {
-          nameIndices = new Map<string, number>();
+          nameIndices = new Map<string, Map<string | undefined, number>>();
           warmupPassIndices.set(pass.kind, nameIndices);
         }
-        const existingIndex = nameIndices.get(pass.name);
+        let variantIndices = nameIndices.get(pass.name);
+        if (!variantIndices) {
+          variantIndices = new Map<string | undefined, number>();
+          nameIndices.set(pass.name, variantIndices);
+        }
+        const variantKey = pass.variant;
+        const existingIndex = variantIndices.get(variantKey);
         if (existingIndex === undefined) {
-          nameIndices.set(pass.name, uniqueWarmupPasses.length);
+          variantIndices.set(variantKey, uniqueWarmupPasses.length);
           uniqueWarmupPasses.push(pass);
         } else {
           uniqueWarmupPasses[existingIndex] = pass;
@@ -1161,7 +1331,9 @@ export class RenderHost {
     this.#lastFrameAtMs = nowMs;
     this.#frame += 1;
 
-    await this.#invokeOwnedCallback(() => this.#dependencies.uploads.flush(clock));
+    await this.#invokeOwnedCallback(
+      () => this.#dependencies.uploads.flush(clock, this.#quality ?? undefined),
+    );
     this.#assertFrameCanContinue();
     for (const feature of this.#dependencies.features) {
       this.#invokeOwnedCallback(() => feature.update(snapshot, clock));
@@ -1180,13 +1352,53 @@ export class RenderHost {
   }
 
   async #applyQuality(profile: Readonly<RenderQualityProfile>): Promise<void> {
+    const warmedProfiles = this.#warmedQualityProfiles;
+    if (
+      warmedProfiles !== null
+      && !warmedProfiles.some((warmedProfile) => qualityProfilesEqual(warmedProfile, profile))
+    ) {
+      throw new RangeError(
+        "A render quality profile cannot be applied unless it was included in the warm-up inventory.",
+      );
+    }
+    const previous = this.#quality;
     await this.#invokeOwnedCallback(() => this.#dependencies.materials.quality(profile));
+    this.#assertControlCanContinue();
+    await this.#invokeOwnedCallback(() => {
+      const quality = this.#dependencies.uploads.quality;
+      return quality?.call(this.#dependencies.uploads, profile);
+    });
     this.#assertControlCanContinue();
     for (const feature of this.#dependencies.features) {
       this.#invokeOwnedCallback(() => feature.quality(profile));
       this.#assertControlCanContinue();
     }
     this.#quality = profile;
+    if (previous !== null && !qualityProfilesEqual(previous, profile) && this.#snapshot !== null) {
+      this.#invalidateFeatureHistory("quality-change", this.#snapshot, this.#snapshot);
+      this.#assertControlCanContinue();
+    }
+  }
+
+  #invalidateFeatureHistory(
+    reason: RenderHistoryInvalidationReason,
+    previous: JourneyRenderSnapshot | null,
+    next: JourneyRenderSnapshot,
+  ): void {
+    const event: Readonly<RenderHistoryInvalidation> = Object.freeze({
+      reason,
+      previousShotId: previous?.shotId ?? null,
+      nextShotId: next.shotId,
+      storyTime: next.storyTime,
+    });
+    for (const feature of this.#dependencies.features) {
+      this.#invokeOwnedCallback(() => {
+        const invalidateHistory = feature.invalidateHistory;
+        invalidateHistory?.call(feature, event);
+      });
+      if (this.#lifecycle === "initializing") this.#assertInitializing();
+      else this.#assertControlCanContinue();
+    }
   }
 
   async #drainPendingInitializationQuality(): Promise<void> {
@@ -1431,6 +1643,7 @@ export class RenderHost {
     // internal latch after evidence capture so no raw error graph survives cleanup.
     this.#controlTail = Promise.resolve();
     this.#releaseControlTailRawFailure();
+    this.#warmedQualityProfiles = null;
 
     for (const index of this.#initializedFeatures.slice().reverse()) {
       await attempt(

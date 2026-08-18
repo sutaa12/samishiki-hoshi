@@ -99,6 +99,8 @@ export interface BackendRuntimeEvent {
 export interface RenderPass {
   readonly name: string;
   readonly kind: string;
+  /** Distinguishes warm-up variants that intentionally share a pass name. */
+  readonly variant?: string;
   readonly scene?: unknown;
   readonly camera?: unknown;
   readonly payload?: unknown;
@@ -153,30 +155,70 @@ export type RenderHostEvent =
 export interface RenderServiceInitializationContext {
   readonly backend: RenderBackendAdapter;
   readonly observer: RenderEventObserver;
+  readonly viewport: Readonly<RenderViewport>;
+}
+
+export const RENDER_HISTORY_INVALIDATION_REASONS = Object.freeze([
+  "initialization",
+  "resize",
+  "backend-change",
+  "quality-change",
+  "restart-or-qa-seek",
+  "camera-discontinuity",
+  "story-cut-s21",
+  "story-cut-s23",
+  "final-life-light",
+] as const);
+
+export type RenderHistoryInvalidationReason =
+  (typeof RENDER_HISTORY_INVALIDATION_REASONS)[number];
+
+export interface RenderHistoryInvalidation {
+  readonly reason: RenderHistoryInvalidationReason;
+  readonly previousShotId: string | null;
+  readonly nextShotId: string;
+  readonly storyTime: number;
 }
 
 export interface RenderMaterialLibrary {
   initialize(context: RenderServiceInitializationContext): MaybePromise<void>;
-  warmupPasses(): readonly RenderPass[];
+  warmupPasses(profiles?: readonly Readonly<RenderQualityProfile>[]): readonly RenderPass[];
   quality(profile: Readonly<RenderQualityProfile>): MaybePromise<void>;
   dispose(): MaybePromise<void>;
 }
 
 export interface RenderUploadQueue {
   initialize(context: RenderServiceInitializationContext): MaybePromise<void>;
-  flush(clock: VisualClock): MaybePromise<void>;
+  quality?(profile: Readonly<RenderQualityProfile>): MaybePromise<void>;
+  flush(
+    clock: VisualClock,
+    profile?: Readonly<RenderQualityProfile>,
+  ): MaybePromise<void>;
   pendingCount(): number;
   dispose(): MaybePromise<void>;
 }
 
+export interface RenderLogicalResourceOwnership {
+  readonly ownerId: string;
+  readonly geometries: number;
+  readonly textures: number;
+  readonly renderTargets: number;
+  readonly nodes: number;
+  readonly objects: number;
+  readonly bytes: number;
+}
+
 export interface RenderResourceRegistry {
   initialize(context: RenderServiceInitializationContext): MaybePromise<void>;
+  adopt?(ownership: Readonly<RenderLogicalResourceOwnership>): MaybePromise<void>;
+  releaseOwner?(ownerId: string): MaybePromise<void>;
   snapshot(): Readonly<RenderResourceSnapshot>;
   dispose(): MaybePromise<void>;
 }
 
 export interface RenderQualityProvider {
   getProfile(): Readonly<RenderQualityProfile>;
+  getWarmupProfiles?(): readonly Readonly<RenderQualityProfile>[];
   subscribe(listener: (profile: Readonly<RenderQualityProfile>) => void): Unsubscribe;
 }
 
@@ -186,14 +228,18 @@ export interface FeatureInitContext {
   readonly uploads: RenderUploadQueue;
   readonly resources: RenderResourceRegistry;
   readonly observer: RenderEventObserver;
+  readonly viewport: Readonly<RenderViewport>;
 }
 
 export interface RenderFeature {
   readonly id: string;
   initialize(context: FeatureInitContext): Promise<void>;
+  warmupPasses?(profiles: readonly Readonly<RenderQualityProfile>[]): readonly RenderPass[];
   update(frame: JourneyRenderSnapshot, clock: VisualClock): void;
   render(recorder: RenderPassRecorder): void;
   quality(profile: Readonly<RenderQualityProfile>): void;
+  resize?(viewport: Readonly<RenderViewport>): MaybePromise<void>;
+  invalidateHistory?(event: Readonly<RenderHistoryInvalidation>): void;
   dispose(): Promise<void>;
 }
 
