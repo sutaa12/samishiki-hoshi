@@ -343,6 +343,62 @@ describe("GFX-003 world-plan property oracle", () => {
     expectRejected(chunkLinks, "HYDROLOGY_DISCONNECTED");
   });
 
+  it("rejects non-canonical hydrology width before graph semantics", () => {
+    const plan = mutablePlan();
+    const nodeCount = 32;
+    plan.hydrology.nodes = Array.from({ length: nodeCount }, (_, index) => ({
+      id: `stress-node-${index}`,
+      chunkId: "S08" as const,
+      elevationMm: 100_000 - index,
+      required: false,
+    }));
+    plan.hydrology.edges = Array.from({ length: nodeCount - 1 }, (_, index) => ({
+      id: `stress-edge-${index}`,
+      from: `stress-node-${index}`,
+      to: `stress-node-${index + 1}`,
+      kind: index === 15 ? "waterfall" as const : "river" as const,
+      dropMm: 1,
+    }));
+    plan.hydrology.sourceNodeId = "stress-node-0";
+    plan.hydrology.outletNodeId = `stress-node-${nodeCount - 1}`;
+
+    const report = validateWorldPlan(plan);
+
+    expect(report.valid).toBe(false);
+    expect(report.issues.filter((issue) => issue.code.startsWith("HYDROLOGY_"))).toEqual([
+      expect.objectContaining({
+        code: "HYDROLOGY_INVALID_EDGE",
+        path: "$.hydrology",
+        detail: "Hydrology must contain exactly 6 nodes and 5 edges.",
+      }),
+    ]);
+    expect(collectIssueCodes(report)).not.toContain("HYDROLOGY_DISCONNECTED");
+  });
+
+  it("rejects non-canonical corridor widths before blocker-by-segment geometry", () => {
+    const plan = mutablePlan();
+    const chunk = plan.chunks[0]!;
+    chunk.flowSegment.points = Array.from({ length: 32 }, (_, index) => ({
+      x: 0,
+      y: 0,
+      z: index * 1_000,
+    }));
+    chunk.safeCorridor.blockers = Array.from({ length: 32 }, (_, index) => ({
+      id: `stress-blocker-${index}`,
+      motif: "life-source" as const,
+      kind: "sphere" as const,
+      center: { x: 0, y: 0, z: 0 },
+      radiusMm: 1,
+    }));
+
+    const report = validateWorldPlan(plan);
+
+    expect(report.valid).toBe(false);
+    expect(collectIssueCodes(report)).toContain("PLAN_MISMATCH");
+    expect(collectIssueCodes(report)).not.toContain("SAFE_CORRIDOR_BLOCKED");
+    expect(report.issues.some((issue) => issue.path.startsWith("$.chunks[0].safeCorridor.blockers["))).toBe(false);
+  });
+
   it("rejects a third authored flow branch", () => {
     const plan = mutablePlan();
     const template = plan.authoredBranches[0] ?? {
@@ -402,6 +458,18 @@ describe("GFX-003 world-plan property oracle", () => {
     expectRejected(material, "MATERIAL_CONTRACT_MISMATCH");
   });
 
+  it("does not misreport canonical hydrology when only the root seed is invalid", () => {
+    const plan = mutablePlan();
+    plan.worldSeed = "-1";
+
+    const report = validateWorldPlan(plan);
+    const codes = collectIssueCodes(report);
+
+    expect(codes).toContain("SEED_CONTRACT_MISMATCH");
+    expect(codes).not.toContain("HYDROLOGY_INVALID_EDGE");
+    expect(codes).not.toContain("HYDROLOGY_DISCONNECTED");
+  });
+
   it("fails closed on forbidden, undefined, hidden, accessor, symbol, and extra data", () => {
     const forbidden = mutablePlan();
     (forbidden as unknown as Record<string, unknown>).qualityTier = "ultra";
@@ -457,10 +525,10 @@ describe("GFX-003 world-plan property oracle", () => {
       issues: [{
         code: "INVALID_STRUCTURE",
         path: "$",
-        detail: "Array key count exceeds 50000 entries plus length.",
+        detail: "World-plan canonical snapshot failed closed on invalid or over-budget input.",
       }],
     });
-    expect(descriptorReads).toBe(1);
+    expect(descriptorReads).toBe(0);
     assertDeepFrozen(report);
   });
 
@@ -472,9 +540,9 @@ describe("GFX-003 world-plan property oracle", () => {
     });
     const source = mutablePlan();
     const hostilePlan = new Proxy(source, {
-      get(target, property, receiver) {
+      getOwnPropertyDescriptor(target, property) {
         if (property === "schemaVersion") throw hostileFailure;
-        return Reflect.get(target, property, receiver) as unknown;
+        return Reflect.getOwnPropertyDescriptor(target, property);
       },
     });
 
@@ -487,9 +555,28 @@ describe("GFX-003 world-plan property oracle", () => {
       issues: [{
         code: "INVALID_STRUCTURE",
         path: "$",
-        detail: "World-plan validation failed closed on an opaque input error.",
+        detail: "World-plan canonical snapshot failed closed on invalid or over-budget input.",
       }],
     });
+    assertDeepFrozen(report);
+  });
+
+  it("validates one owned canonical snapshot without ordinary reads from a stateful plan", () => {
+    const source = mutablePlan();
+    const oversizedChunks = new Array(60_000).fill(null);
+    let ordinaryReads = 0;
+    const statefulPlan = new Proxy(source, {
+      get(target, property, receiver) {
+        ordinaryReads += 1;
+        if (property === "chunks") return oversizedChunks;
+        return Reflect.get(target, property, receiver) as unknown;
+      },
+    });
+
+    const report = validateWorldPlan(statefulPlan);
+
+    expect(report).toEqual({ valid: true, issues: [] });
+    expect(ordinaryReads).toBe(0);
     assertDeepFrozen(report);
   });
 });

@@ -17,9 +17,28 @@ interface CapturedProperty {
   readonly value: unknown;
 }
 
+export type CanonicalNumericFailureCode = "NON_FINITE_NUMBER" | "NEGATIVE_ZERO";
+
+const canonicalNumericFailureCodes = new WeakMap<object, CanonicalNumericFailureCode>();
+
+function canonicalNumericFailure(code: CanonicalNumericFailureCode, message: string): TypeError {
+  const failure = new TypeError(message);
+  canonicalNumericFailureCodes.set(failure, code);
+  return failure;
+}
+
+export function canonicalNumericFailureCode(error: unknown): CanonicalNumericFailureCode | undefined {
+  if ((typeof error !== "object" && typeof error !== "function") || error === null) return undefined;
+  return canonicalNumericFailureCodes.get(error);
+}
+
 function canonicalNumber(value: number): string {
-  if (!Number.isFinite(value)) throw new TypeError("Canonical data cannot contain a non-finite number.");
-  if (Object.is(value, -0)) throw new TypeError("Canonical data cannot contain negative zero.");
+  if (!Number.isFinite(value)) {
+    throw canonicalNumericFailure("NON_FINITE_NUMBER", "Canonical data cannot contain a non-finite number.");
+  }
+  if (Object.is(value, -0)) {
+    throw canonicalNumericFailure("NEGATIVE_ZERO", "Canonical data cannot contain negative zero.");
+  }
   return String(value);
 }
 

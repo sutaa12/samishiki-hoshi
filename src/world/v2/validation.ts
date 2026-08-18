@@ -1,5 +1,5 @@
 import { JOURNEY_SECONDS } from "../../game/model";
-import { canonicalJson } from "./canonical";
+import { canonicalJson, canonicalNumericFailureCode } from "./canonical";
 import {
   STORY_CHUNK_IDS,
   WORLD_MATERIAL_FAMILIES,
@@ -23,6 +23,7 @@ const MAX_VALIDATION_DEPTH = 256;
 const MAX_CONTAINER_WIDTH = 50_000;
 const MAX_REPORTED_ISSUES = 512;
 const MAX_UINT32 = 0xffff_ffff;
+const MAX_SAFE_CORRIDOR_PAIR_CHECKS = 64;
 const ROOT_KEYS = Object.freeze([
   "schemaVersion",
   "worldSeed",
@@ -294,24 +295,25 @@ function compareShape(
   }
 }
 
-function canReach(start: string, target: string, adjacency: ReadonlyMap<string, readonly string[]>): boolean {
+function reachableFrom(start: string, adjacency: ReadonlyMap<string, readonly string[]>): ReadonlySet<string> {
   const queue = [start];
   const seen = new Set<string>();
-  while (queue.length > 0) {
-    const current = queue.shift();
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head];
+    head += 1;
     if (current === undefined || seen.has(current)) continue;
-    if (current === target) return true;
     seen.add(current);
     queue.push(...(adjacency.get(current) ?? []));
   }
-  return false;
+  return seen;
 }
 
 function finish(issues: readonly WorldPlanIssue[]): Readonly<WorldPlanValidationReport> {
   return deepFreeze({ valid: issues.length === 0, issues: [...issues] });
 }
 
-export function validateWorldPlan(value: unknown): Readonly<WorldPlanValidationReport> {
+export function validateWorldPlan(input: unknown): Readonly<WorldPlanValidationReport> {
   const issues: WorldPlanIssue[] = [];
   const add = (
     code: WorldPlanIssueCode,
@@ -322,6 +324,22 @@ export function validateWorldPlan(value: unknown): Readonly<WorldPlanValidationR
     if (issues.length >= MAX_REPORTED_ISSUES) return;
     issues.push({ code, path, detail, ...(chunkId === undefined ? {} : { chunkId }) });
   };
+
+  let value: unknown;
+  try {
+    value = JSON.parse(canonicalJson(input)) as unknown;
+  } catch (error) {
+    const numericCode = canonicalNumericFailureCode(error);
+    return finish([{
+      code: numericCode ?? "INVALID_STRUCTURE",
+      path: "$",
+      detail: numericCode === "NON_FINITE_NUMBER"
+        ? "World plan contains a non-finite number."
+        : numericCode === "NEGATIVE_ZERO"
+          ? "World plan contains negative zero."
+          : "World-plan canonical snapshot failed closed on invalid or over-budget input.",
+    }]);
+  }
 
   try {
     const structure = inspectStructure(value, (code, path, detail) => add(code, path, detail));
@@ -407,6 +425,7 @@ export function validateWorldPlan(value: unknown): Readonly<WorldPlanValidationR
         add("INVALID_STRUCTURE", path, "Chunk must be an object.", chunkId);
         continue;
       }
+      const expectedChunk = expectedPlan?.chunks[index];
       if (chunk.id !== chunkId) {
         add("STORY_ORDER", `${path}.id`, `Expected ${chunkId}, received ${String(chunk.id)}.`, chunkId);
       }
@@ -461,7 +480,9 @@ export function validateWorldPlan(value: unknown): Readonly<WorldPlanValidationR
           || !isSafeInteger(corridor.radiusMm) || corridor.radiusMm <= 0) {
           add("SAFE_CORRIDOR_DISCONNECTED", `${path}.safeCorridor`, "Corridor reference or radius is invalid.", chunkId);
         }
-        if (isSafeInteger(corridor.radiusMm) && corridor.radiusMm > 0 && points.length >= 2) {
+        const geometryPairCount = Math.max(0, points.length - 1) * corridor.blockers.length;
+        if (geometryPairCount <= MAX_SAFE_CORRIDOR_PAIR_CHECKS
+          && isSafeInteger(corridor.radiusMm) && corridor.radiusMm > 0 && points.length >= 2) {
           for (const [blockerIndex, blocker] of corridor.blockers.entries()) {
             const blockerPath = `${path}.safeCorridor.blockers[${blockerIndex}]`;
             if (!isRecord(blocker) || blocker.kind !== "sphere" || !isPoint(blocker.center)
@@ -493,7 +514,6 @@ export function validateWorldPlan(value: unknown): Readonly<WorldPlanValidationR
       }
 
       if (expectedPlan) {
-        const expectedChunk = expectedPlan.chunks[index];
         if (!expectedChunk || !canonicalEqual(chunk.environment, expectedChunk.environment)) {
           add("ENVIRONMENT_DESCRIPTOR_MISMATCH", `${path}.environment`, "Environment descriptor differs from its named-stream-owned canonical value.", chunkId);
         }
@@ -558,63 +578,89 @@ export function validateWorldPlan(value: unknown): Readonly<WorldPlanValidationR
     } else {
       const nodes = hydrology.nodes as unknown[];
       const edges = hydrology.edges as unknown[];
-      const nodeMap = new Map<string, WorldHydrologyNodePlan>();
-      for (const [index, rawNode] of nodes.entries()) {
-        if (!isRecord(rawNode) || typeof rawNode.id !== "string"
-          || !(STORY_CHUNK_IDS as readonly string[]).includes(String(rawNode.chunkId))
-          || !isSafeInteger(rawNode.elevationMm) || typeof rawNode.required !== "boolean") {
-          add("HYDROLOGY_INVALID_EDGE", `$.hydrology.nodes[${index}]`, "Hydrology node is invalid.");
-          continue;
+      const expectedHydrology = expectedPlan?.hydrology;
+      const expectedNodeCount = expectedHydrology?.nodes.length ?? 6;
+      const expectedEdgeCount = expectedHydrology?.edges.length ?? 5;
+      const canonicalGraphWidth = nodes.length === expectedNodeCount
+        && edges.length === expectedEdgeCount;
+      if (!canonicalGraphWidth) {
+        add(
+          "HYDROLOGY_INVALID_EDGE",
+          "$.hydrology",
+          `Hydrology must contain exactly ${expectedNodeCount} nodes and ${expectedEdgeCount} edges.`,
+        );
+        if (edges.length === 0 && hydrology.sourceNodeId !== hydrology.outletNodeId) {
+          add("HYDROLOGY_DISCONNECTED", "$.hydrology", "Distinct source and outlet nodes require a directed edge path.");
         }
-        const node = rawNode as unknown as WorldHydrologyNodePlan;
-        if (nodeMap.has(node.id)) add("HYDROLOGY_INVALID_EDGE", `$.hydrology.nodes[${index}].id`, "Hydrology node ids must be unique.");
-        nodeMap.set(node.id, node);
-      }
-      const edgeIds = new Set<string>();
-      const adjacency = new Map<string, string[]>();
-      for (const nodeId of nodeMap.keys()) adjacency.set(nodeId, []);
-      let waterfallCount = 0;
-      for (const [index, rawEdge] of edges.entries()) {
-        const edgePath = `$.hydrology.edges[${index}]`;
-        if (!isRecord(rawEdge) || typeof rawEdge.id !== "string" || typeof rawEdge.from !== "string"
-          || typeof rawEdge.to !== "string" || typeof rawEdge.kind !== "string"
-          || !isSafeInteger(rawEdge.dropMm)) {
-          add("HYDROLOGY_INVALID_EDGE", edgePath, "Hydrology edge is invalid.");
-          continue;
-        }
-        const edge = rawEdge as unknown as WorldHydrologyEdgePlan;
-        if (edgeIds.has(edge.id) || !HYDROLOGY_EDGE_KINDS.has(edge.kind)) {
-          add("HYDROLOGY_INVALID_EDGE", edgePath, "Hydrology edge id or kind is invalid.");
-        }
-        edgeIds.add(edge.id);
-        const from = nodeMap.get(edge.from);
-        const to = nodeMap.get(edge.to);
-        if (!from || !to) {
-          add("HYDROLOGY_INVALID_EDGE", edgePath, "Hydrology edge references a missing node.");
-          continue;
-        }
-        adjacency.get(from.id)?.push(to.id);
-        const actualDrop = from.elevationMm - to.elevationMm;
-        if (edge.dropMm !== actualDrop || actualDrop <= 0) {
-          add("HYDROLOGY_INVALID_DROP", edgePath, "Hydrology edge must descend by its exact recorded drop.");
-        }
-        if (edge.kind === "waterfall") {
-          waterfallCount += 1;
-          if (actualDrop < 1000) add("HYDROLOGY_INVALID_DROP", edgePath, "Waterfall requires at least a one-metre drop.");
-        }
-      }
-      if (waterfallCount !== 1) {
-        add("HYDROLOGY_INVALID_EDGE", "$.hydrology.edges", "Exactly one required waterfall edge must exist.");
-      }
-      const source = hydrology.sourceNodeId;
-      const outlet = hydrology.outletNodeId;
-      if (typeof source !== "string" || typeof outlet !== "string" || !nodeMap.has(source) || !nodeMap.has(outlet)
-        || !canReach(source, outlet, adjacency)) {
-        add("HYDROLOGY_DISCONNECTED", "$.hydrology", "A directed source-to-outlet path is required.");
       } else {
-        for (const node of nodeMap.values()) {
-          if (!canReach(source, node.id, adjacency) || !canReach(node.id, outlet, adjacency)) {
-            add("HYDROLOGY_DISCONNECTED", "$.hydrology", `Node ${node.id} is not on the source-to-outlet path.`);
+        const nodeMap = new Map<string, WorldHydrologyNodePlan>();
+        for (const [index, rawNode] of nodes.entries()) {
+          if (!isRecord(rawNode) || typeof rawNode.id !== "string"
+            || !(STORY_CHUNK_IDS as readonly string[]).includes(String(rawNode.chunkId))
+            || !isSafeInteger(rawNode.elevationMm) || typeof rawNode.required !== "boolean") {
+            add("HYDROLOGY_INVALID_EDGE", `$.hydrology.nodes[${index}]`, "Hydrology node is invalid.");
+            continue;
+          }
+          const node = rawNode as unknown as WorldHydrologyNodePlan;
+          if (nodeMap.has(node.id)) add("HYDROLOGY_INVALID_EDGE", `$.hydrology.nodes[${index}].id`, "Hydrology node ids must be unique.");
+          nodeMap.set(node.id, node);
+        }
+        const edgeIds = new Set<string>();
+        const adjacency = new Map<string, string[]>();
+        const reverseAdjacency = new Map<string, string[]>();
+        for (const nodeId of nodeMap.keys()) adjacency.set(nodeId, []);
+        for (const nodeId of nodeMap.keys()) reverseAdjacency.set(nodeId, []);
+        let waterfallCount = 0;
+        for (const [index, rawEdge] of edges.entries()) {
+          const edgePath = `$.hydrology.edges[${index}]`;
+          if (!isRecord(rawEdge) || typeof rawEdge.id !== "string" || typeof rawEdge.from !== "string"
+            || typeof rawEdge.to !== "string" || typeof rawEdge.kind !== "string"
+            || !isSafeInteger(rawEdge.dropMm)) {
+            add("HYDROLOGY_INVALID_EDGE", edgePath, "Hydrology edge is invalid.");
+            continue;
+          }
+          const edge = rawEdge as unknown as WorldHydrologyEdgePlan;
+          if (edgeIds.has(edge.id) || !HYDROLOGY_EDGE_KINDS.has(edge.kind)) {
+            add("HYDROLOGY_INVALID_EDGE", edgePath, "Hydrology edge id or kind is invalid.");
+          }
+          edgeIds.add(edge.id);
+          const from = nodeMap.get(edge.from);
+          const to = nodeMap.get(edge.to);
+          if (!from || !to) {
+            add("HYDROLOGY_INVALID_EDGE", edgePath, "Hydrology edge references a missing node.");
+            continue;
+          }
+          adjacency.get(from.id)?.push(to.id);
+          reverseAdjacency.get(to.id)?.push(from.id);
+          const actualDrop = from.elevationMm - to.elevationMm;
+          if (edge.dropMm !== actualDrop || actualDrop <= 0) {
+            add("HYDROLOGY_INVALID_DROP", edgePath, "Hydrology edge must descend by its exact recorded drop.");
+          }
+          if (edge.kind === "waterfall") {
+            waterfallCount += 1;
+            if (actualDrop < 1000) add("HYDROLOGY_INVALID_DROP", edgePath, "Waterfall requires at least a one-metre drop.");
+          }
+        }
+        if (waterfallCount !== 1) {
+          add("HYDROLOGY_INVALID_EDGE", "$.hydrology.edges", "Exactly one required waterfall edge must exist.");
+        }
+        const sourceNodeId = hydrology.sourceNodeId;
+        const outletNodeId = hydrology.outletNodeId;
+        const forwardReachable = typeof sourceNodeId === "string" && nodeMap.has(sourceNodeId)
+          ? reachableFrom(sourceNodeId, adjacency)
+          : new Set<string>();
+        const reverseReachable = typeof outletNodeId === "string" && nodeMap.has(outletNodeId)
+          ? reachableFrom(outletNodeId, reverseAdjacency)
+          : new Set<string>();
+        if (typeof sourceNodeId !== "string" || typeof outletNodeId !== "string"
+          || !nodeMap.has(sourceNodeId) || !nodeMap.has(outletNodeId)
+          || !forwardReachable.has(outletNodeId)) {
+          add("HYDROLOGY_DISCONNECTED", "$.hydrology", "A directed source-to-outlet path is required.");
+        } else {
+          for (const node of nodeMap.values()) {
+            if (!forwardReachable.has(node.id) || !reverseReachable.has(node.id)) {
+              add("HYDROLOGY_DISCONNECTED", "$.hydrology", `Node ${node.id} is not on the source-to-outlet path.`);
+            }
           }
         }
       }
