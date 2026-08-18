@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gate": "GFX-003",
-  "status": "review_pending",
+  "status": "accepted",
   "implementation": {
     "commit": "c0245667b00e80fe68a511eb0fc206e14f5ead9a",
     "tree": "ecb7523dc0cf29fb1ec0c7c96bdb1a56d5c74bb0",
@@ -67,8 +67,22 @@
     "reviewedHashesDrifted": false
   },
   "artifactReview": {
-    "status": "review_pending",
-    "verdict": "pending"
+    "status": "accepted",
+    "reviewedEvidenceHead": "a4bcfdf9af4d560360e1e875328a26fbc3d390cb",
+    "date": "2026-08-18",
+    "reviewers": [
+      "gfx003_code_arch",
+      "gfx003_story_spec_audit"
+    ],
+    "verdict": "pass",
+    "severityCounts": {
+      "S0": 0,
+      "S1": 0,
+      "S2": 0,
+      "S3": 0
+    },
+    "bindingsReproduced": true,
+    "trackedEvidenceDrifted": false
   },
   "externalGates": {
     "gfx004Through006": "PENDING",
