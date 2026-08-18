@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "gate": "GFX-002",
+  "status": "review_pending",
+  "implementation": {
+    "commit": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+    "sourceArchiveSha256": "a742606bf55526ff5e6cdecb203f4e5e4a44adaacea8767b0da1ccd0f0d39e35",
+    "sourceArchiveBytes": 25866240
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/gfx002-2cfaafb-dist.tar",
+    "archiveSha256": "167c623342e5e36f012876bdaca7c0ed310a9727b09efecd51ff91708cf65f98",
+    "archiveBytes": 4356096,
+    "fileCount": 70,
+    "contentRecordsSha256": "c76ac08beed264c2a5455ee32ec3f4818b94de6aff20110aeac9a916e5eb0aab",
+    "vinextBuildId": "cd3027d7-f413-4344-a9c6-e126f8e43b63",
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "vinext build IDs and generated chunk manifests are not claimed to be byte-reproducible; the exact reviewed dist archive is preserved"
+  },
+  "automatedEvidence": {
+    "playwrightCommand": "GFX_SPIKE_PORT=3113 rtk proxy npx playwright test --config playwright.gfx002.config.ts tests/e2e/gfx-spike.spec.ts tests/e2e/gfx-contract.spec.ts --project=desktop-chromium",
+    "playwrightReport": ".quality-gates/gfx002-remediation-accepted-20260818-playwright-report.json",
+    "playwrightReportSha256": "aa4522b79ac738ca1706462e0e7351bc8010653712174016072f94d40f27892f",
+    "playwrightReportBytes": 13071,
+    "unitPassed": 270,
+    "focusedGfxPassed": 246,
+    "e2ePassed": 9,
+    "e2eSkipped": 0,
+    "e2eUnexpected": 0,
+    "e2eFlaky": 0,
+    "forcedWebgl2": "passed",
+    "hostMetalWebgpu": "passed",
+    "lateDeviceLoss": "failed_closed_and_disposed",
+    "recreateFreshCanvas": "passed",
+    "terminalRawFailureCauses": 0,
+    "terminalIntermediateFailureSnapshots": 0,
+    "productionAuditVulnerabilities": 0
+  },
+  "frozenInputs": {
+    "gfx001PlaywrightReportSha256": "1ceb9c92e2483f48fe8c2679020c1104d79fa281c1f9ea2be07c08149f3a7560",
+    "modelSha256": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
+    "simulationSha256": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7",
+    "proceduralSha256": "a47ac1b6e2191aadf4d3ef391d5409791d87431f886588e9ecdcbc314843fbb5",
+    "audioSha256": "c86f1881832ea45a025f9c580afdc5396a53f9e199afab061dfaf3c0f6a7f57f",
+    "gameClientSha256": "680a8297c274d3bd73f299f1c6eb2c44be13b2681ede2a089d16d5f4803987d2"
+  },
+  "sourceReview": {
+    "date": "2026-08-18",
+    "reviewers": [
+      "blind_release_review",
+      "gfx002_round14_second_audit"
+    ],
+    "verdict": "pass",
+    "severityCounts": {
+      "S0": 0,
+      "S1": 0,
+      "S2": 0
+    },
+    "reviewedHashesDrifted": false
+  },
+  "artifactReview": {
+    "reviewedEvidenceHead": null,
+    "verdict": "pending"
+  },
+  "externalGates": {
+    "referenceHardware": "HARDWARE_PENDING",
+    "tenRestart": "GFX-006_PENDING",
+    "heroSlices": "PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN"
+  }
+}
