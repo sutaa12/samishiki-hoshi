@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "ticket": "GFX-002",
+  "gate": "R2-G2-partial",
+  "status": "independent_review_pending",
+  "implementation": {
+    "commit": "f613ae780cd651aa77d633c40351da2180ba2acd",
+    "sourceArchiveSha256": "71592287681c7ccb580ebdfa9b7db74e1386165d7dd1512ac14f91632b6351b8",
+    "sourceArchiveBytes": 21104640
+  },
+  "build": {
+    "command": "rtk npm run build",
+    "artifact": ".quality-gates/gfx002-f613ae7-dist.tar",
+    "archiveSha256": "2fec6d8a4c83ed15cf0715d7b5f628b74f142128745a238266e2176c9985ff04",
+    "archiveBytes": 4264960,
+    "fileCount": 70,
+    "contentRecordsSha256": "d573f2ca6d657acbaab4c52ce865d6fa9fd54efaa744ae7228ca45e1a972da67",
+    "vinextBuildId": "297a3096-7617-4267-87da-50647e621810",
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "vinext build ID and preview credentials vary; the exact candidate artifact is preserved"
+  },
+  "automatedEvidence": {
+    "verify": "passed",
+    "unitTestFiles": 8,
+    "unitPassed": 35,
+    "playwrightReport": ".quality-gates/gfx002-playwright-report.json",
+    "playwrightReportSha256": "688ee80c03c85286464c41ac61e0e2d67616b847cd3d2cd66fb848b9aa30a0a3",
+    "e2ePassed": 9,
+    "e2eUnexpected": 0,
+    "e2eFlaky": 0,
+    "gfx002Cases": 4,
+    "unchangedGfx001Cases": 5,
+    "freshPort": 3108,
+    "reuseExistingServer": false,
+    "productionAuditVulnerabilities": 0
+  },
+  "browserAcceptance": {
+    "forcedWebgl2": "passed",
+    "hostAppleMetalActualWebgpu": "passed",
+    "lateDeviceLossFailClosed": "passed",
+    "postDisposeResourcesZero": true,
+    "freshCanvasRecreate": "passed",
+    "replayHash": "09780631"
+  },
+  "frozenBindings": {
+    "gfx001PlaywrightReportSha256": "1ceb9c92e2483f48fe8c2679020c1104d79fa281c1f9ea2be07c08149f3a7560",
+    "modelSha256": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
+    "simulationSha256": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7",
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8"
+  },
+  "externalGates": {
+    "gfx003Through006": "PENDING",
+    "heroSlices": "PENDING",
+    "tenRestart": "R2-G6_PENDING",
+    "referenceHardware": "HARDWARE_PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN"
+  }
+}

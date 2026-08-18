@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | R2-G0 Isolation | WIP pushed, `main` unchanged, worktree and no-deploy rule recorded | passed: `cbedd6d`, `2bde78e` |
 | R2-G1 Renderer spike | WebGPURenderer + TSL; healthy actual WebGPU and forced-WebGL2 telemetry; no simulation changes | passed: implementation `86928ca`, reviewed evidence `bd34c30`; independent review S0=0, S1=0, S2=0, S3=0 |
-| R2-G2 Shared foundation | RenderFeature, Linear HDR, warm-up, temporal ownership, metrics, provenance | pending |
+| R2-G2 Shared foundation | RenderFeature, Linear HDR, warm-up, temporal ownership, metrics, provenance | in progress: GFX-002 implementation `f613ae7` has bound automated evidence and awaits independent review; GFX-003–006 remain pending |
 | R2-G3 Slice A | ocean/submerged ruin High + fallback | pending |
 | R2-G4 Slice B | sunset forest/city High + fallback | pending |
 | R2-G5 Slice C | human debris/alien/Twinkle High + fallback | pending |
@@ -58,4 +58,5 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Graphics rebaseline plan: `2bde78e` on `graphics-photoreal-megademo`.
 - Notion gameplay visual-target snapshot: `8794258` (reference-only; excluded from runtime and Sites package).
 - Accepted GFX-001 renderer spike: implementation `86928ca987814aa161003bd3ac588d37c95d9a9c`, reviewed evidence HEAD `bd34c30999417b2fcb13c113f3be5a778d7e7ec8`; independent review S0=0, S1=0, S2=0, S3=0. Bound evidence is in `docs/evidence/GFX-001.md`, `.quality-gates/gfx001-86928ca-artifact.json`, and `.quality-gates/receipts/gfx001-review.json`. GFX-001 is frozen; this does not accept R2-G2–G7.
+- GFX-002 independent-review candidate: implementation `f613ae780cd651aa77d633c40351da2180ba2acd`; exact build and automated browser evidence are bound in `docs/evidence/GFX-002.md` and `.quality-gates/gfx002-f613ae7-artifact.json`. This is not yet an accepted sub-gate and does not accept the remaining shared foundation.
 - Notion progress: https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204
