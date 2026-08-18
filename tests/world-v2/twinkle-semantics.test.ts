@@ -176,6 +176,45 @@ describe("GFX-003 Twinkle semantic projection", () => {
     expect(semantics.map((entry) => entry.id)).toEqual(ledger.map((entry) => entry.id));
   });
 
+  it("resolves real rounded phase-boundary pulses to the immediately previous chunk only", () => {
+    const cases = [
+      { at: 35.999_5, journeyTime: 36, phase: "LIFE", chunkId: "S06" },
+      { at: 87.999_5, journeyTime: 88, phase: "EARTH", chunkId: "S12" },
+      { at: 129.999_5, journeyTime: 130, phase: "ASCENT", chunkId: "S16" },
+      { at: 160.999_5, journeyTime: 161, phase: "SOLITUDE", chunkId: "S20" },
+      { at: 170.999_5, journeyTime: 171, phase: "ANSWER", chunkId: "S22" },
+    ] as const;
+
+    for (const boundary of cases) {
+      const state = simulateJourney([
+        { at: boundary.at, moveX: 0, moveY: 0, pulse: true },
+      ], { seed: 0 });
+      const source = state.pulses[0];
+      if (!source) throw new Error(`Expected a pulse near ${boundary.journeyTime}s.`);
+      const beforeHash = hashJourney(state);
+
+      expect(source.journeyTime).toBe(boundary.journeyTime);
+      expect(source.phase).toBe(boundary.phase);
+      expect(Object.isFrozen(state.pulses)).toBe(true);
+      expect(Object.isFrozen(source)).toBe(true);
+
+      const semantics = projectTwinkleSemantics(createPlan(state.seed), state.pulses);
+      expect(semantics[0]?.chunkId).toBe(boundary.chunkId);
+      expect(semantics[0]?.phase).toBe(boundary.phase);
+      expect(state.pulses[0]).toBe(source);
+      expect(hashJourney(state)).toBe(beforeHash);
+      assertDeepFrozen(semantics);
+    }
+
+    const plan = createPlan(0);
+    expect(() => projectTwinkleSemantics(plan, [
+      Object.freeze({ ...pulse(1, 36), phase: "ASCENT" as const }),
+    ])).toThrow(/phase does not match/i);
+    expect(() => projectTwinkleSemantics(plan, [
+      Object.freeze({ ...pulse(1, 36.001), phase: "LIFE" as const }),
+    ])).toThrow(/phase does not match/i);
+  });
+
   it("copies every gameplay ledger field and adds quality-independent world semantics", () => {
     const state = simulateJourney(REPLAY, { seed: 778 });
     const semantics = projectTwinkleSemantics(createPlan(state.seed), state.pulses);

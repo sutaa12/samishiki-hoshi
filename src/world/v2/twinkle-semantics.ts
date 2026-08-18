@@ -188,13 +188,24 @@ function validatePlanContext(plan: Readonly<WorldPlan>): Readonly<ValidatedPlanC
 function chunkForTime(
   chunks: readonly Readonly<WorldChunkPlan>[],
   journeyTime: number,
+  phase: JourneyPhase,
 ): Readonly<WorldChunkPlan> {
   const timeMs = journeyTime * 1000;
-  const chunk = chunks.find((candidate, index) =>
+  const chunkIndex = chunks.findIndex((candidate, index) =>
     timeMs >= candidate.storyNode.startMs
     && (timeMs < candidate.storyNode.endMs || index === chunks.length - 1),
   );
+  const chunk = chunks[chunkIndex];
   if (!chunk) throw new RangeError(`Twinkle time ${journeyTime} is outside the world plan.`);
+  if (chunk.storyNode.phase !== phase) {
+    const previous = chunks[chunkIndex - 1];
+    if (previous
+      && timeMs === chunk.storyNode.startMs
+      && timeMs === previous.storyNode.endMs
+      && previous.storyNode.phase === phase) {
+      return previous;
+    }
+  }
   return chunk;
 }
 
@@ -233,7 +244,7 @@ export function projectTwinkleSemantics(
   const context = validatePlanContext(plan);
   const ledgerSnapshot = snapshotLedger(ledger);
   const result = ledgerSnapshot.map((entry, ledgerIndex): WorldTwinkleSemantic => {
-    const chunk = chunkForTime(context.chunks, entry.journeyTime);
+    const chunk = chunkForTime(context.chunks, entry.journeyTime, entry.phase);
     if (chunk.storyNode.phase !== entry.phase) {
       throw new RangeError(`Twinkle ledger entry ${ledgerIndex} phase does not match its story chunk.`);
     }
