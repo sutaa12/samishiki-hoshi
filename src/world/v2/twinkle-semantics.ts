@@ -47,6 +47,13 @@ function assertCanonicalNumber(value: unknown, label: string): asserts value is 
   }
 }
 
+function normalizePositionalNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new RangeError(`${label} must be a finite positional number.`);
+  }
+  return Object.is(value, -0) ? 0 : value;
+}
+
 function assertUint32(value: unknown, label: string, positive = false): asserts value is number {
   assertCanonicalNumber(value, label);
   const minimum = positive ? 1 : 0;
@@ -86,13 +93,13 @@ function snapshotLedgerEntry(source: unknown, index: number): Readonly<TwinkleSe
 
   assertUint32(captured.id, `ledger[${index}].id`, true);
   assertCanonicalNumber(captured.journeyTime, `ledger[${index}].journeyTime`);
-  assertCanonicalNumber(captured.x, `ledger[${index}].x`);
-  assertCanonicalNumber(captured.y, `ledger[${index}].y`);
+  const x = normalizePositionalNumber(captured.x, `ledger[${index}].x`);
+  const y = normalizePositionalNumber(captured.y, `ledger[${index}].y`);
   assertUint32(captured.value, `ledger[${index}].value`);
   if (captured.journeyTime < 0 || captured.journeyTime > 180) {
     throw new RangeError(`ledger[${index}].journeyTime must be between 0 and 180 seconds.`);
   }
-  if (Math.abs(captured.x) > PLAYABLE_BOUND || Math.abs(captured.y) > PLAYABLE_BOUND) {
+  if (Math.abs(x) > PLAYABLE_BOUND || Math.abs(y) > PLAYABLE_BOUND) {
     throw new RangeError(`ledger[${index}] position must stay within the frozen playable bound.`);
   }
   if (!isJourneyPhase(captured.phase)) {
@@ -105,8 +112,8 @@ function snapshotLedgerEntry(source: unknown, index: number): Readonly<TwinkleSe
   return Object.freeze({
     id: captured.id,
     journeyTime: captured.journeyTime,
-    x: captured.x,
-    y: captured.y,
+    x,
+    y,
     phase: captured.phase,
     source: captured.source,
     value: captured.value,

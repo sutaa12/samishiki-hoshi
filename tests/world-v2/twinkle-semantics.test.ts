@@ -53,6 +53,73 @@ describe("GFX-003 Twinkle semantic projection", () => {
     expect(semantics).not.toBe(state.pulses);
   });
 
+  it("normalizes a real simulation signed-zero position only in the owned semantic copy", () => {
+    const state = simulateJourney([
+      { at: 0, moveX: 0, moveY: 0, pulse: true },
+    ], { seed: 0 });
+    const source = state.pulses[0];
+    if (!source) throw new Error("Expected the seed-zero pulse at story time zero.");
+    const beforeHash = hashJourney(state);
+
+    expect(Object.is(source.x, -0)).toBe(true);
+    expect(Object.isFrozen(state.pulses)).toBe(true);
+    expect(Object.isFrozen(source)).toBe(true);
+
+    const semantics = projectTwinkleSemantics(createPlan(state.seed), state.pulses);
+    const semantic = semantics[0];
+    if (!semantic) throw new Error("Expected one projected seed-zero semantic.");
+
+    expect(hashJourney(state)).toBe(beforeHash);
+    expect(state.pulses[0]).toBe(source);
+    expect(Object.is(source.x, -0)).toBe(true);
+    expect(semantic).not.toBe(source);
+    expect(Object.is(semantic.x, 0)).toBe(true);
+    expect(Object.is(semantic.x, -0)).toBe(false);
+    expect(semantic.signature).toMatch(/^twinkle-semantic-v1:[0-9a-f]{16}$/);
+    expect(projectTwinkleSemantics(createPlan(state.seed), state.pulses)[0]?.signature).toBe(
+      semantic.signature,
+    );
+    assertDeepFrozen(semantics);
+
+    const yState = simulateJourney([
+      { at: 0, moveX: 0, moveY: 1 },
+      { at: 1.128_397_376_332_195_7, moveX: 0, moveY: 1, pulse: true },
+    ], { seed: 0 });
+    const ySource = yState.pulses[0];
+    if (!ySource) throw new Error("Expected a legal simulation pulse with signed-zero y.");
+    const yHash = hashJourney(yState);
+    expect(Object.is(ySource.y, -0)).toBe(true);
+
+    const ySemantic = projectTwinkleSemantics(createPlan(yState.seed), yState.pulses)[0];
+    if (!ySemantic) throw new Error("Expected a projected signed-zero y semantic.");
+    expect(Object.is(ySemantic.y, 0)).toBe(true);
+    expect(Object.is(ySemantic.y, -0)).toBe(false);
+    expect(Object.is(ySource.y, -0)).toBe(true);
+    expect(hashJourney(yState)).toBe(yHash);
+  });
+
+  it("gives positional signed zero canonical signatures without collapsing nonzero epsilon", () => {
+    const plan = createPlan(778);
+    const negativeZero = Object.freeze({ ...pulse(1, 5), x: -0, y: -0 });
+    const positiveZero = Object.freeze({ ...pulse(1, 5), x: 0, y: 0 });
+    const negativeEpsilon = Object.freeze({ ...pulse(1, 5), x: -Number.MIN_VALUE, y: 0 });
+
+    const negativeSemantic = projectTwinkleSemantics(plan, [negativeZero])[0];
+    const positiveSemantic = projectTwinkleSemantics(plan, [positiveZero])[0];
+    const epsilonSemantic = projectTwinkleSemantics(plan, [negativeEpsilon])[0];
+    if (!negativeSemantic || !positiveSemantic || !epsilonSemantic) {
+      throw new Error("Expected signed-zero comparison semantics.");
+    }
+
+    expect(Object.is(negativeZero.x, -0)).toBe(true);
+    expect(Object.is(negativeZero.y, -0)).toBe(true);
+    expect(Object.is(negativeSemantic.x, 0)).toBe(true);
+    expect(Object.is(negativeSemantic.y, 0)).toBe(true);
+    expect(negativeSemantic.signature).toBe(positiveSemantic.signature);
+    expect(epsilonSemantic.x).toBe(-Number.MIN_VALUE);
+    expect(epsilonSemantic.signature).not.toBe(positiveSemantic.signature);
+  });
+
   it("preserves input identity order without sorting or deduplicating", () => {
     const state = simulateJourney(REPLAY, { seed: 778 });
     const reordered = Object.freeze([
@@ -246,15 +313,18 @@ describe("GFX-003 Twinkle semantic projection", () => {
 
     const invalidEntries: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
       ["zero id", { id: 0 }],
+      ["negative-zero id", { id: -0 }],
       ["fractional id", { id: 1.5 }],
       ["oversized id", { id: 0x1_0000_0000 }],
       ["negative time", { journeyTime: -1 }],
       ["late time", { journeyTime: 180.001 }],
       ["negative-zero time", { journeyTime: -0 }],
       ["non-finite x", { x: Number.NaN }],
+      ["non-finite y", { y: Number.POSITIVE_INFINITY }],
       ["x outside playable bound", { x: 0.940_001 }],
       ["y outside playable bound", { y: -0.940_001 }],
       ["negative value", { value: -1 }],
+      ["negative-zero value", { value: -0 }],
       ["fractional value", { value: 0.5 }],
       ["oversized value", { value: 0x1_0000_0000 }],
       ["invalid phase", { phase: "BROKEN" }],
