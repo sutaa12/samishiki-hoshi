@@ -24,6 +24,18 @@ The pre-rebaseline working candidate is preserved at `cbedd6d` on `archive/pre-g
 
 Pure model, fixed-step simulation, 180-second phase/shot contract, inputs, replay hash, audio events, accessibility, and Twinkle ledger are reused. The eager six-scene WebGL world and direct-Object3D visual factories are not extended into v2; renderer, machine-readable world data, seed streams, feature adapters, material library, quality manager, and telemetry are rebuilt behind the existing snapshot boundary.
 
+## D-007 — The rebaseline ticket map owns execution order
+
+Notion page 13 contains an older task table whose `GFX-003` label refers to depth, velocity, and HDR work. The accepted R2 dependency graph in `docs/GFX_FOUNDATION_DESIGN.md` is the execution map: current `GFX-003` is the deterministic world plan and named seed streams, while the older page-13 rendering item is covered by current `GFX-005`. This is a numbering reconciliation only; none of the underlying page-13 rendering requirements are dropped.
+
+## D-008 — Canonical generation is quality- and backend-free
+
+Page 11's illustrative `WorldGenerationContext` includes a quality tier, but the same page and the later R2 production boundary require story nodes, flow decisions, corridors, hydrology, Twinkle semantics, chunk IDs, and hashes to be invariant across quality and backend. GFX-003 therefore defines a `CanonicalWorldGenerationContext` containing only the world seed, generator version, registered system name, shot chunk, and optional system-owned substream. Quality controls belong to a later realization context and are never serialized or hashed into the canonical plan.
+
+## D-009 — World seeds use the frozen game's uint32 domain
+
+The immutable game state and URL/replay contract carry the world seed as a JavaScript number. GFX-003 accepts only finite integer seeds from `0` through `2^32 - 1`, rejects rather than coerces other values, and serializes the accepted value as an unsigned decimal string inside canonical seed tuples. This preserves the frozen game boundary while avoiding floating-point aliases and JSON/BigInt incompatibility.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.
