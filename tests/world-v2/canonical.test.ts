@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canonicalJson,
   canonicalWorldPlanBytes,
   canonicalWorldPlanJson,
   createWorldGenerationContext,
@@ -54,5 +55,104 @@ describe("GFX-003 canonical plan encoding", () => {
     const cyclic = jsonClone(plan()) as WorldPlan & { injected?: unknown };
     cyclic.injected = cyclic;
     expect(() => canonicalWorldPlanJson(cyclic)).toThrow(/cycle/i);
+  });
+
+  it("rejects symbols, hidden state, array extras, and invalid prototypes", () => {
+    expect(() => canonicalJson(Symbol("hidden"))).toThrow(/unsupported canonical value: symbol/i);
+
+    const symbolKey = { visible: true } as Record<PropertyKey, unknown>;
+    symbolKey[Symbol("hidden")] = 1;
+    expect(() => canonicalJson(symbolKey)).toThrow(/symbol propert/i);
+
+    const hidden = { visible: true } as Record<string, unknown>;
+    Object.defineProperty(hidden, "hidden", { enumerable: false, value: 1 });
+    expect(() => canonicalJson(hidden)).toThrow(/enumerable/i);
+
+    const extraArray = [1] as unknown[] & { extra?: number };
+    extraArray.extra = 2;
+    expect(() => canonicalJson(extraArray)).toThrow(/extra propert/i);
+
+    const hiddenIndex = [1];
+    Object.defineProperty(hiddenIndex, "0", { enumerable: false, value: 1 });
+    expect(() => canonicalJson(hiddenIndex)).toThrow(/enumerable/i);
+
+    class NonCanonical {
+      readonly value = 1;
+    }
+    expect(() => canonicalJson(new NonCanonical())).toThrow(/plain or null prototype/i);
+
+    const invalidArrayPrototype = [1];
+    Object.setPrototypeOf(invalidArrayPrototype, null);
+    expect(() => canonicalJson(invalidArrayPrototype)).toThrow(/Array\.prototype/i);
+  });
+
+  it("rejects non-finite numbers, signed zero, and invalid Unicode", () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(() => canonicalJson(value)).toThrow(/non-finite/i);
+    }
+    expect(() => canonicalJson(-0)).toThrow(/negative zero/i);
+    expect(() => canonicalJson("\ud800")).toThrow(/valid Unicode/i);
+    expect(() => canonicalJson({ "\udfff": 1 })).toThrow(/valid Unicode/i);
+  });
+
+  it("uses one bounded proxy snapshot and never invokes value getters", () => {
+    let ownKeyReads = 0;
+    let descriptorReads = 0;
+    let ordinaryReads = 0;
+    const proxy = new Proxy({ b: 2, a: 1 }, {
+      ownKeys(target) {
+        ownKeyReads += 1;
+        return Reflect.ownKeys(target);
+      },
+      getOwnPropertyDescriptor(target, property) {
+        descriptorReads += 1;
+        return Reflect.getOwnPropertyDescriptor(target, property);
+      },
+      get() {
+        ordinaryReads += 1;
+        throw new Error("canonical encoding must not read values through property access");
+      },
+    });
+
+    expect(canonicalJson(proxy)).toBe('{"a":1,"b":2}');
+    expect({ ownKeyReads, descriptorReads, ordinaryReads }).toEqual({
+      ownKeyReads: 1,
+      descriptorReads: 2,
+      ordinaryReads: 0,
+    });
+
+    const throwingProxy = new Proxy({}, {
+      ownKeys() {
+        throw new Error("attacker-controlled trap failure");
+      },
+    });
+    expect(() => canonicalJson(throwingProxy)).toThrow(/keys could not be inspected/i);
+  });
+
+  it("bounds nesting depth without overflowing the JavaScript stack", () => {
+    let deep: unknown = null;
+    for (let index = 0; index < 20_000; index += 1) deep = { next: deep };
+
+    expect(() => canonicalJson(deep)).toThrow(/nesting depth exceeds/i);
+    try {
+      canonicalJson(deep);
+    } catch (error) {
+      expect(error).toBeInstanceOf(RangeError);
+      expect(String(error)).not.toMatch(/maximum call stack/i);
+    }
+  });
+
+  it("bounds container width, total nodes, and UTF-8 output bytes", () => {
+    expect(() => canonicalJson(new Array(50_001).fill(0))).toThrow(/array width exceeds/i);
+
+    const wideObject = Object.fromEntries(
+      Array.from({ length: 50_001 }, (_, index) => [`k${index}`, 0]),
+    );
+    expect(() => canonicalJson(wideObject)).toThrow(/object width exceeds/i);
+
+    const tooManyNodes = Array.from({ length: 50_000 }, () => [0]);
+    expect(() => canonicalJson(tooManyNodes)).toThrow(/node count exceeds/i);
+
+    expect(() => canonicalJson("x".repeat(8 * 1024 * 1024))).toThrow(/byte budget/i);
   });
 });

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   WORLD_GENERATOR_VERSION,
   createWorldGenerationContext,
@@ -88,5 +88,33 @@ describe("GFX-003 canonical-world architecture", () => {
     const keys = objectKeysDeep({ context, plan });
 
     expect(keys.filter((key) => /quality|backend|webgpu|webgl/i.test(key))).toEqual([]);
+  });
+
+  it("isolates the only mutable SHOT_TABLE import behind the verified story-score snapshot", () => {
+    const worldPlan = readFileSync(join(root, "src/world/v2/world-plan.ts"), "utf8");
+    const validation = readFileSync(join(root, "src/world/v2/validation.ts"), "utf8");
+    const storyScore = readFileSync(join(root, "src/world/v2/story-score.ts"), "utf8");
+
+    expect(worldPlan).not.toMatch(/\bSHOT_TABLE\b/);
+    expect(validation).not.toMatch(/\bSHOT_TABLE\b/);
+    expect(storyScore).toMatch(/import \{ SHOT_TABLE/);
+    expect(storyScore).toMatch(/PINNED_STORY_SCORE_DIGEST/);
+    expect(storyScore).toMatch(/deepFreeze\(capturedStoryScore\)/);
+  });
+
+  it("fails module initialization when SHOT_TABLE was mutated before snapshot capture", async () => {
+    vi.resetModules();
+    const model = await import("../../src/game/model");
+    const shots = model.SHOT_TABLE as unknown as Array<{ cue: string }>;
+    const first = shots[0];
+    if (!first) throw new Error("Expected S01 in mutable source score.");
+    const originalCue = first.cue;
+    try {
+      first.cue = "pre-import-mutation";
+      await expect(import("../../src/world/v2/story-score")).rejects.toThrow(/integrity mismatch/i);
+    } finally {
+      first.cue = originalCue;
+      vi.resetModules();
+    }
   });
 });

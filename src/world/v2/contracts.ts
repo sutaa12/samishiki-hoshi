@@ -49,7 +49,13 @@ export type RegisteredSeedSystem = (typeof REGISTERED_SEED_SYSTEMS)[number];
 export const WORLD_PLAN_GENERATOR_SYSTEMS = Object.freeze([
   "story",
   "flow",
+  "terrain",
   "hydrology",
+  "water",
+  "flora",
+  "ecology",
+  "atmosphere",
+  "space",
   "civilization",
   "alien-ship",
   "twinkle",
@@ -177,6 +183,117 @@ export interface WorldHydrologyPlan {
   readonly edges: readonly WorldHydrologyEdgePlan[];
 }
 
+export const WORLD_MATERIAL_FAMILIES = Object.freeze([
+  "water",
+  "terrain",
+  "foliage",
+  "concrete",
+  "metal",
+  "glass-foil",
+  "alien",
+] as const);
+
+export type WorldMaterialFamily = (typeof WORLD_MATERIAL_FAMILIES)[number];
+
+export type WorldMaterialShadingModel =
+  | "dielectric"
+  | "conductor"
+  | "transmissive-dielectric"
+  | "emissive-dielectric";
+
+/** Renderer-neutral semantic ranges. GFX-005 realizes them with TSL materials. */
+export interface WorldMaterialDescriptor {
+  readonly id: string;
+  readonly family: WorldMaterialFamily;
+  readonly shadingModel: WorldMaterialShadingModel;
+  readonly baseColorLinearPermille: readonly [number, number, number];
+  readonly roughnessPermille: readonly [number, number];
+  readonly metalnessPermille: readonly [number, number];
+  readonly transmissionPermille: readonly [number, number];
+  readonly emissionLinearPermille: readonly [number, number];
+}
+
+export interface WorldTerrainDescriptor {
+  readonly ownerSystem: "terrain";
+  readonly ownedSubstream: "heightfield";
+  readonly seedFingerprint: number;
+  readonly baseElevationMm: number;
+  readonly reliefMm: number;
+  readonly erosionPermille: number;
+  readonly materialFamily: "terrain";
+}
+
+export type WorldWaterRegime = "none" | "ocean" | "rain" | "river" | "waterfall" | "cloud";
+
+export interface WorldWaterDescriptor {
+  readonly ownerSystem: "water";
+  readonly ownedSubstream: "surface";
+  readonly seedFingerprint: number;
+  readonly regime: WorldWaterRegime;
+  readonly surfaceElevationMm: number;
+  readonly flowMmPerSecond: number;
+  readonly absorptionDepthMm: number;
+  readonly foamPermille: number;
+  readonly materialFamily: "water";
+}
+
+export interface WorldFloraDescriptor {
+  readonly ownerSystem: "flora";
+  readonly ownedSubstream: "placement";
+  readonly seedFingerprint: number;
+  readonly active: boolean;
+  readonly densityPermille: number;
+  readonly minimumHeightMm: number;
+  readonly maximumHeightMm: number;
+  readonly materialFamily: "foliage";
+}
+
+export interface WorldEcologyDescriptor {
+  readonly ownerSystem: "ecology";
+  readonly ownedSubstream: "spawns";
+  readonly seedFingerprint: number;
+  readonly active: boolean;
+  readonly speciesSlots: number;
+  readonly schoolCount: number;
+  readonly flockCount: number;
+  readonly carryingCapacity: number;
+}
+
+export type WorldAtmosphereRegime = "underwater" | "surface" | "upper-atmosphere" | "vacuum";
+
+export interface WorldAtmosphereDescriptor {
+  readonly ownerSystem: "atmosphere";
+  readonly ownedSubstream: "field";
+  readonly seedFingerprint: number;
+  readonly regime: WorldAtmosphereRegime;
+  readonly densityPpm: number;
+  readonly humidityPermille: number;
+  readonly aerosolPermille: number;
+  readonly cloudCoveragePermille: number;
+}
+
+export type WorldSpaceRegime = "none" | "planetary" | "orbital" | "deep-space" | "alien-encounter";
+
+export interface WorldSpaceDescriptor {
+  readonly ownerSystem: "space";
+  readonly ownedSubstream: "field";
+  readonly seedFingerprint: number;
+  readonly regime: WorldSpaceRegime;
+  readonly starClusterCount: number;
+  readonly nebulaDensityPermille: number;
+  readonly humanDebrisCount: number;
+}
+
+export interface WorldEnvironmentDescriptor {
+  readonly terrain: WorldTerrainDescriptor;
+  readonly water: WorldWaterDescriptor;
+  readonly flora: WorldFloraDescriptor;
+  readonly ecology: WorldEcologyDescriptor;
+  readonly atmosphere: WorldAtmosphereDescriptor;
+  readonly space: WorldSpaceDescriptor;
+  readonly materialFamilies: readonly WorldMaterialFamily[];
+}
+
 export type WorldAlienPresence =
   | {
       readonly kind: "absent";
@@ -202,6 +319,7 @@ export interface WorldChunkPlan {
   readonly safeCorridor: WorldSafeCorridorPlan;
   readonly hydrologyNodeIds: readonly string[];
   readonly alienPresence: WorldAlienPresence;
+  readonly environment: WorldEnvironmentDescriptor;
 }
 
 export interface WorldTwinkleRevealStage {
@@ -238,12 +356,23 @@ export interface WorldPlan {
   readonly authoredBranches: readonly WorldFlowBranchPlan[];
   readonly hydrology: WorldHydrologyPlan;
   readonly twinklePolicy: WorldTwinklePolicy;
+  readonly materials: readonly WorldMaterialDescriptor[];
 }
 
 export type WorldPlanIssueCode =
   | "INVALID_STRUCTURE"
   | "NON_FINITE_NUMBER"
   | "NEGATIVE_ZERO"
+  | "UNSAFE_INTEGER"
+  | "NON_CANONICAL"
+  | "UNEXPECTED_PROPERTY"
+  | "FORBIDDEN_RENDER_INPUT"
+  | "SCHEMA_MISMATCH"
+  | "SEED_CONTRACT_MISMATCH"
+  | "TWINKLE_POLICY_MISMATCH"
+  | "MATERIAL_CONTRACT_MISMATCH"
+  | "ENVIRONMENT_DESCRIPTOR_MISMATCH"
+  | "PLAN_MISMATCH"
   | "STORY_CHUNK_COUNT"
   | "MISSING_STORY_CHUNK"
   | "STORY_ORDER"

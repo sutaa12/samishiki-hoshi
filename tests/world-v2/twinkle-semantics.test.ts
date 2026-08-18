@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { phaseAt, type TwinkleSeed } from "../../src/game/model";
 import { hashJourney, simulateJourney } from "../../src/game/simulation";
 import {
+  createSeedStreamRegistry,
   createWorldGenerationContext,
+  digestCanonicalValue,
   generateWorldPlan,
   projectTwinkleSemantics,
+  type WorldPlan,
 } from "../../src/world/v2";
 import { assertDeepFrozen } from "./test-helpers";
 
@@ -28,6 +31,12 @@ function pulse(id: number, journeyTime: number): TwinkleSeed {
     source: "player" as const,
     value: id * 101,
   });
+}
+
+type Mutable<T> = { -readonly [K in keyof T]: Mutable<T[K]> };
+
+function mutablePlan(seed = 20_260_818): Mutable<WorldPlan> {
+  return structuredClone(createPlan(seed)) as Mutable<WorldPlan>;
 }
 
 describe("GFX-003 Twinkle semantic projection", () => {
@@ -137,5 +146,165 @@ describe("GFX-003 Twinkle semantic projection", () => {
     expect(first).toEqual(second);
     assertDeepFrozen(first);
     first.forEach((entry, index) => expect(entry).not.toBe(state.pulses[index]));
+  });
+
+  it("snapshots each ledger entry data property exactly once without invoking ordinary gets", () => {
+    const target = { ...pulse(1, 5) };
+    let propertyGets = 0;
+    const descriptorReads = new Map<PropertyKey, number>();
+    const guarded = new Proxy(target, {
+      get() {
+        propertyGets += 1;
+        throw new Error("ordinary property read");
+      },
+      getOwnPropertyDescriptor(object, key) {
+        descriptorReads.set(key, (descriptorReads.get(key) ?? 0) + 1);
+        return Reflect.getOwnPropertyDescriptor(object, key);
+      },
+    }) as TwinkleSeed;
+
+    const semantics = projectTwinkleSemantics(createPlan(778), Object.freeze([guarded]));
+
+    expect(semantics[0]?.id).toBe(1);
+    expect(propertyGets).toBe(0);
+    expect(Object.fromEntries(descriptorReads)).toEqual({
+      id: 1,
+      journeyTime: 1,
+      x: 1,
+      y: 1,
+      phase: 1,
+      source: 1,
+      value: 1,
+    });
+  });
+
+  it("rejects sparse, accessor-backed, and extra-property ledger arrays without invoking accessors", () => {
+    const plan = createPlan(778);
+    const sparse = new Array<TwinkleSeed>(2);
+    sparse[1] = pulse(1, 5);
+    expect(() => projectTwinkleSemantics(plan, sparse)).toThrow(/dense|indexed data properties/i);
+
+    let accessorReads = 0;
+    const accessorLedger: TwinkleSeed[] = [];
+    Object.defineProperty(accessorLedger, "0", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return pulse(1, 5);
+      },
+    });
+    expect(() => projectTwinkleSemantics(plan, accessorLedger)).toThrow(/own data property/i);
+    expect(accessorReads).toBe(0);
+
+    const extra = [pulse(1, 5)];
+    Object.defineProperty(extra, "qualityTier", { value: "high", enumerable: false });
+    expect(() => projectTwinkleSemantics(plan, extra)).toThrow(/only indexed data properties|extra property/i);
+  });
+
+  it("rejects accessor-backed, inherited, missing, and extra ledger-entry fields", () => {
+    const plan = createPlan(778);
+    let accessorReads = 0;
+    const accessorEntry = { ...pulse(1, 5) };
+    Object.defineProperty(accessorEntry, "x", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return 0;
+      },
+    });
+    expect(() => projectTwinkleSemantics(plan, [accessorEntry as TwinkleSeed])).toThrow(/own data property/i);
+    expect(accessorReads).toBe(0);
+
+    const extraEntry = { ...pulse(1, 5), backend: "webgpu" } as unknown as TwinkleSeed;
+    expect(() => projectTwinkleSemantics(plan, [extraEntry])).toThrow(/exactly the canonical/i);
+
+    const missingEntry = { ...pulse(1, 5) } as Partial<TwinkleSeed>;
+    Reflect.deleteProperty(missingEntry, "value");
+    expect(() => projectTwinkleSemantics(plan, [missingEntry as TwinkleSeed])).toThrow(/exactly the canonical/i);
+
+    class DerivedEntry {
+      id = 1;
+      journeyTime = 5;
+      x = 0;
+      y = 0;
+      phase = "LIFE" as const;
+      source = "player" as const;
+      value = 1;
+    }
+    expect(() => projectTwinkleSemantics(plan, [new DerivedEntry()])).toThrow(/plain or null prototype/i);
+  });
+
+  it("enforces the frozen simulation ranges while accepting their exact inclusive edges", () => {
+    const plan = createPlan(778);
+    const edgeEntries = Object.freeze([
+      Object.freeze({ ...pulse(1, 0), x: -0.94, y: 0.94, value: 0 }),
+      Object.freeze({ ...pulse(2, 180), x: 0.94, y: -0.94, value: 0xffff_ffff }),
+    ]);
+    expect(() => projectTwinkleSemantics(plan, edgeEntries)).not.toThrow();
+
+    const invalidEntries: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+      ["zero id", { id: 0 }],
+      ["fractional id", { id: 1.5 }],
+      ["oversized id", { id: 0x1_0000_0000 }],
+      ["negative time", { journeyTime: -1 }],
+      ["late time", { journeyTime: 180.001 }],
+      ["negative-zero time", { journeyTime: -0 }],
+      ["non-finite x", { x: Number.NaN }],
+      ["x outside playable bound", { x: 0.940_001 }],
+      ["y outside playable bound", { y: -0.940_001 }],
+      ["negative value", { value: -1 }],
+      ["fractional value", { value: 0.5 }],
+      ["oversized value", { value: 0x1_0000_0000 }],
+      ["invalid phase", { phase: "BROKEN" }],
+      ["invalid source", { source: "auto" }],
+    ];
+    for (const [label, override] of invalidEntries) {
+      const candidate = { ...pulse(1, 5), ...override } as unknown as TwinkleSeed;
+      expect(() => projectTwinkleSemantics(plan, [candidate]), label).toThrow();
+    }
+  });
+
+  it("validates seed, generator, and chunk lookup before projection without mutating the plan", () => {
+    const invalidSeed = mutablePlan();
+    invalidSeed.worldSeed = "-1";
+    const invalidSeedBefore = JSON.stringify(invalidSeed);
+    expect(() => projectTwinkleSemantics(invalidSeed, [pulse(1, 5)])).toThrow(/world plan|seed/i);
+    expect(JSON.stringify(invalidSeed)).toBe(invalidSeedBefore);
+
+    const invalidVersion = mutablePlan();
+    invalidVersion.generatorVersion = "世界";
+    const invalidVersionBefore = JSON.stringify(invalidVersion);
+    expect(() => projectTwinkleSemantics(invalidVersion, [pulse(1, 5)])).toThrow(/world plan|generator|ascii/i);
+    expect(JSON.stringify(invalidVersion)).toBe(invalidVersionBefore);
+
+    const missingChunk = mutablePlan();
+    missingChunk.chunks.splice(0, 1);
+    const missingChunkBefore = JSON.stringify(missingChunk);
+    expect(() => projectTwinkleSemantics(missingChunk, [pulse(1, 5)])).toThrow(/world plan|chunk/i);
+    expect(JSON.stringify(missingChunk)).toBe(missingChunkBefore);
+  });
+
+  it("binds signatures to every projected semantic including biome and species family", () => {
+    const plan = createPlan(778);
+    const semantic = projectTwinkleSemantics(plan, [pulse(1, 5)])[0];
+    if (!semantic) throw new Error("Expected one Twinkle semantic.");
+    const { signature, ...unsigned } = semantic;
+    const registry = createSeedStreamRegistry(createWorldGenerationContext({
+      worldSeed: Number(plan.worldSeed),
+      generatorVersion: plan.generatorVersion,
+    }));
+    const entropy = registry.stream("twinkle", semantic.chunkId, "ledger").uint32At(semantic.id);
+    const signatureFor = (candidate: typeof unsigned) => digestCanonicalValue({
+      worldSeed: plan.worldSeed,
+      generatorVersion: plan.generatorVersion,
+      entropy,
+      semantic: candidate,
+    }, "twinkle-semantic-v1");
+
+    expect(signature).toBe(signatureFor(unsigned));
+    expect(signature).not.toBe(signatureFor({ ...unsigned, biome: `${unsigned.biome}-changed` }));
+    expect(signature).not.toBe(signatureFor({ ...unsigned, speciesFamily: "cosmic" }));
   });
 });

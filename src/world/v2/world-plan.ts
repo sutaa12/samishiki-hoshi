@@ -1,4 +1,4 @@
-import { JOURNEY_SECONDS, SHOT_TABLE } from "../../game/model";
+import { JOURNEY_SECONDS } from "../../game/model";
 import {
   REGISTERED_SEED_SYSTEMS,
   STORY_CHUNK_IDS,
@@ -7,8 +7,11 @@ import {
   type SeedStreamRegistry,
   type StoryChunkId,
   type StoryMotifKind,
+  type WorldAtmosphereDescriptor,
   type WorldAlienPresence,
   type WorldChunkPlan,
+  type WorldEcologyDescriptor,
+  type WorldFloraDescriptor,
   type WorldFlowBranchPlan,
   type WorldFlowSegmentPlan,
   type WorldHydrologyPlan,
@@ -16,38 +19,25 @@ import {
   type WorldPlanGeneratorSystem,
   type WorldPointMm,
   type WorldSphereBlockerPlan,
+  type WorldSpaceDescriptor,
   type WorldStoryNodePlan,
+  type WorldTerrainDescriptor,
   type WorldTwinklePolicy,
+  type WorldWaterDescriptor,
 } from "./contracts";
+import {
+  WORLD_MATERIAL_LIBRARY,
+  buildAtmosphereDescriptors,
+  buildEcologyDescriptors,
+  buildFloraDescriptors,
+  buildSpaceDescriptors,
+  buildTerrainDescriptors,
+  buildWaterDescriptors,
+  materialFamiliesForChunk,
+} from "./descriptors";
 import { deepFreeze } from "./immutable";
 import { createSeedStreamRegistry } from "./seed-streams";
-
-const STORY_MOTIFS: Readonly<Record<StoryChunkId, readonly StoryMotifKind[]>> = deepFreeze({
-  S01: ["life-source"],
-  S02: ["fish-school"],
-  S03: ["first-twinkle"],
-  S04: ["reef-arch"],
-  S05: ["submerged-rectilinear-vehicle", "empty-rectangular-seat", "square-observation-frame"],
-  S06: ["empty-rectangular-seat"],
-  S07: ["surface-rain"],
-  S08: ["river"],
-  S09: ["waterfall-forest"],
-  S10: ["rectilinear-city"],
-  S11: ["empty-rectangular-seat", "square-observation-frame", "amber-line-light"],
-  S12: ["square-observation-frame"],
-  S13: ["square-observation-frame", "amber-line-light"],
-  S14: ["bird-flight"],
-  S15: ["aurora"],
-  S16: ["living-earth"],
-  S17: ["rectilinear-human-debris"],
-  S18: ["empty-rectangular-seat", "amber-line-light"],
-  S19: ["negative-space"],
-  S20: ["alien-incomplete-peripheral-arcs"],
-  S21: ["alien-complete-three-shell-ship"],
-  S22: ["alien-complete-three-shell-ship", "answering-light"],
-  S23: ["alien-complete-three-shell-ship", "life-light-wave"],
-  S24: ["alien-complete-three-shell-ship", "formal-title"],
-});
+import { CANONICAL_STORY_MOTIFS, storyScoreEntry } from "./story-score";
 
 const HUMAN_BLOCKING_MOTIFS = new Set<StoryMotifKind>([
   "submerged-rectilinear-vehicle",
@@ -58,13 +48,13 @@ const HUMAN_BLOCKING_MOTIFS = new Set<StoryMotifKind>([
 ]);
 
 interface StoryContribution {
-  readonly nodes: readonly WorldStoryNodePlan[];
+  readonly nodesByChunk: Readonly<Record<StoryChunkId, WorldStoryNodePlan>>;
 }
 
 interface FlowContribution {
-  readonly segments: readonly WorldFlowSegmentPlan[];
+  readonly segmentsByChunk: Readonly<Record<StoryChunkId, WorldFlowSegmentPlan>>;
   readonly branches: readonly WorldFlowBranchPlan[];
-  readonly corridorRadiiMm: readonly number[];
+  readonly corridorRadiiByChunk: Readonly<Record<StoryChunkId, number>>;
 }
 
 interface HydrologyContribution {
@@ -91,10 +81,18 @@ interface TwinkleContribution {
   readonly policy: WorldTwinklePolicy;
 }
 
+type ChunkDescriptorRecord<T> = Readonly<Record<StoryChunkId, Readonly<T>>>;
+
 interface PlanContributions {
   readonly story: StoryContribution;
   readonly flow: FlowContribution;
+  readonly terrain: ChunkDescriptorRecord<WorldTerrainDescriptor>;
   readonly hydrology: HydrologyContribution;
+  readonly water: ChunkDescriptorRecord<WorldWaterDescriptor>;
+  readonly flora: ChunkDescriptorRecord<WorldFloraDescriptor>;
+  readonly ecology: ChunkDescriptorRecord<WorldEcologyDescriptor>;
+  readonly atmosphere: ChunkDescriptorRecord<WorldAtmosphereDescriptor>;
+  readonly space: ChunkDescriptorRecord<WorldSpaceDescriptor>;
   readonly civilization: CivilizationContribution;
   readonly "alien-ship": AlienContribution;
   readonly twinkle: TwinkleContribution;
@@ -110,14 +108,12 @@ function storyChunkIdAt(index: number): StoryChunkId {
   return chunkId;
 }
 
-function buildStoryContribution(): StoryContribution {
-  if (SHOT_TABLE.length !== STORY_CHUNK_IDS.length) {
-    throw new Error("The frozen shot score no longer contains exactly 24 entries.");
-  }
-  const nodes = SHOT_TABLE.map((shot, index): WorldStoryNodePlan => {
-    const chunkId = storyChunkIdAt(index);
-    if (shot.id !== chunkId) throw new Error(`Frozen shot ${index} is ${shot.id}, expected ${chunkId}.`);
-    return {
+function buildStoryContribution(chunkOrder: readonly StoryChunkId[]): StoryContribution {
+  const nodesByChunk = {} as Record<StoryChunkId, WorldStoryNodePlan>;
+  for (const chunkId of chunkOrder) {
+    const index = STORY_CHUNK_IDS.indexOf(chunkId);
+    const shot = storyScoreEntry(chunkId);
+    nodesByChunk[chunkId] = {
       id: `story:${chunkId}`,
       shotId: chunkId,
       index,
@@ -126,48 +122,48 @@ function buildStoryContribution(): StoryContribution {
       phase: shot.phase,
       biome: shot.biome,
       cue: shot.cue,
-      motifs: [...STORY_MOTIFS[chunkId]],
+      motifs: [...CANONICAL_STORY_MOTIFS[chunkId]],
     };
-  });
-  return { nodes };
+  }
+  return { nodesByChunk };
 }
 
-function buildFlowContribution(registry: Readonly<SeedStreamRegistry>): FlowContribution {
-  const boundaryPoints: WorldPointMm[] = [];
-  for (let index = 0; index <= STORY_CHUNK_IDS.length; index += 1) {
-    const chunkId = storyChunkIdAt(Math.min(index, STORY_CHUNK_IDS.length - 1));
-    const stream = registry.stream("flow", chunkId, "corridor");
-    boundaryPoints.push({
-      x: stream.integerAt(index * 3, -2400, 2400),
-      y: -12_000 + index * 1000 + stream.integerAt(index * 3 + 1, -180, 180),
-      z: index * 20_000,
-    });
-  }
+function flowBoundaryPoint(registry: Readonly<SeedStreamRegistry>, index: number): WorldPointMm {
+  const chunkId = storyChunkIdAt(Math.min(index, STORY_CHUNK_IDS.length - 1));
+  const stream = registry.stream("flow", chunkId, "corridor");
+  return {
+    x: stream.integerAt(index * 3, -2400, 2400),
+    y: -12_000 + index * 1000 + stream.integerAt(index * 3 + 1, -180, 180),
+    z: index * 20_000,
+  };
+}
 
-  const segments = STORY_CHUNK_IDS.map((chunkId, index): WorldFlowSegmentPlan => {
-    const start = boundaryPoints[index];
-    const end = boundaryPoints[index + 1];
-    if (!start || !end) throw new Error(`Flow boundary missing for ${chunkId}.`);
+function buildFlowContribution(
+  registry: Readonly<SeedStreamRegistry>,
+  chunkOrder: readonly StoryChunkId[],
+): FlowContribution {
+  const segmentsByChunk = {} as Record<StoryChunkId, WorldFlowSegmentPlan>;
+  const corridorRadiiByChunk = {} as Record<StoryChunkId, number>;
+  for (const chunkId of chunkOrder) {
+    const index = STORY_CHUNK_IDS.indexOf(chunkId);
+    const start = flowBoundaryPoint(registry, index);
+    const end = flowBoundaryPoint(registry, index + 1);
     const stream = registry.stream("flow", chunkId, "corridor");
     const middle: WorldPointMm = {
       x: Math.trunc((start.x + end.x) / 2) + stream.integerAt(100, -240, 240),
       y: Math.trunc((start.y + end.y) / 2) + stream.integerAt(101, -120, 120),
       z: Math.trunc((start.z + end.z) / 2),
     };
-    return {
+    segmentsByChunk[chunkId] = {
       id: `flow:${chunkId}`,
       chunkId,
       points: [copyPoint(start), middle, copyPoint(end)],
     };
-  });
-
-  const corridorRadiiMm = STORY_CHUNK_IDS.map((chunkId) =>
-    registry.stream("flow", chunkId, "corridor").integerAt(102, 3200, 4000),
-  );
+    corridorRadiiByChunk[chunkId] = stream.integerAt(102, 3200, 4000);
+  }
   const branchChunks = ["S08", "S14"] as const;
   const branches = branchChunks.map((chunkId, index): WorldFlowBranchPlan => {
-    const chunkIndex = STORY_CHUNK_IDS.indexOf(chunkId);
-    const segment = segments[chunkIndex];
+    const segment = segmentsByChunk[chunkId];
     if (!segment) throw new Error(`Branch segment missing for ${chunkId}.`);
     const [entry, middle, merge] = segment.points;
     if (!entry || !middle || !merge) throw new Error(`Branch points missing for ${chunkId}.`);
@@ -185,7 +181,7 @@ function buildFlowContribution(registry: Readonly<SeedStreamRegistry>): FlowCont
       mergePoint: copyPoint(merge),
     };
   });
-  return { segments, branches, corridorRadiiMm };
+  return { segmentsByChunk, branches, corridorRadiiByChunk };
 }
 
 function buildHydrologyContribution(registry: Readonly<SeedStreamRegistry>): HydrologyContribution {
@@ -233,11 +229,14 @@ function emptyBlockerRecord(): Record<StoryChunkId, BlockerSeed[]> {
   return result;
 }
 
-function buildCivilizationContribution(registry: Readonly<SeedStreamRegistry>): CivilizationContribution {
+function buildCivilizationContribution(
+  registry: Readonly<SeedStreamRegistry>,
+  chunkOrder: readonly StoryChunkId[],
+): CivilizationContribution {
   const blockersByChunk = emptyBlockerRecord();
-  for (const chunkId of STORY_CHUNK_IDS) {
+  for (const chunkId of chunkOrder) {
     const stream = registry.stream("civilization", chunkId, "motif");
-    STORY_MOTIFS[chunkId].filter((motif) => HUMAN_BLOCKING_MOTIFS.has(motif)).forEach((motif, index) => {
+    CANONICAL_STORY_MOTIFS[chunkId].filter((motif) => HUMAN_BLOCKING_MOTIFS.has(motif)).forEach((motif, index) => {
       blockersByChunk[chunkId].push({
         motif,
         radiusMm: stream.integerAt(index * 3, 700, 1500),
@@ -249,10 +248,14 @@ function buildCivilizationContribution(registry: Readonly<SeedStreamRegistry>): 
   return { blockersByChunk };
 }
 
-function buildAlienContribution(registry: Readonly<SeedStreamRegistry>): AlienContribution {
+function buildAlienContribution(
+  registry: Readonly<SeedStreamRegistry>,
+  chunkOrder: readonly StoryChunkId[],
+): AlienContribution {
   const presenceByChunk = {} as Record<StoryChunkId, WorldAlienPresence>;
   const blockersByChunk = emptyBlockerRecord();
-  for (const [index, chunkId] of STORY_CHUNK_IDS.entries()) {
+  for (const chunkId of chunkOrder) {
+    const index = STORY_CHUNK_IDS.indexOf(chunkId);
     if (chunkId === "S20") {
       presenceByChunk[chunkId] = {
         kind: "incomplete-peripheral-arcs",
@@ -297,14 +300,20 @@ function buildTwinkleContribution(): TwinkleContribution {
   };
 }
 
-function assertGenerationOrder(order: readonly WorldPlanGeneratorSystem[]): void {
-  if (order.length !== WORLD_PLAN_GENERATOR_SYSTEMS.length) {
-    throw new RangeError("generationOrder must contain every world-plan generator exactly once.");
+function snapshotPermutation<T extends string>(
+  supplied: readonly T[] | undefined,
+  canonical: readonly T[],
+  label: string,
+): readonly T[] {
+  const snapshot = supplied === undefined ? [...canonical] : Array.from(supplied);
+  if (snapshot.length !== canonical.length) {
+    throw new RangeError(`${label} must contain every canonical entry exactly once.`);
   }
-  const actual = new Set(order);
-  if (actual.size !== order.length || WORLD_PLAN_GENERATOR_SYSTEMS.some((system) => !actual.has(system))) {
-    throw new RangeError("generationOrder must be a permutation of the registered world-plan generators.");
+  const actual = new Set(snapshot);
+  if (actual.size !== snapshot.length || canonical.some((entry) => !actual.has(entry))) {
+    throw new RangeError(`${label} must be a permutation of its canonical entries.`);
   }
+  return Object.freeze(snapshot);
 }
 
 function hydrologyNodesByChunk(hydrology: WorldHydrologyPlan): Readonly<Record<StoryChunkId, readonly string[]>> {
@@ -339,50 +348,81 @@ function createBlocker(
 
 export interface GenerateWorldPlanOptions {
   readonly generationOrder?: readonly WorldPlanGeneratorSystem[];
+  readonly chunkOrder?: readonly StoryChunkId[];
 }
 
 export function generateWorldPlan(
   context: Readonly<CanonicalWorldGenerationContext>,
   options: GenerateWorldPlanOptions = {},
 ): Readonly<WorldPlan> {
-  const registry = createSeedStreamRegistry(context);
-  const generationOrder = options.generationOrder ?? WORLD_PLAN_GENERATOR_SYSTEMS;
-  assertGenerationOrder(generationOrder);
+  const contextSnapshot: CanonicalWorldGenerationContext = Object.freeze({
+    worldSeed: context.worldSeed,
+    generatorVersion: context.generatorVersion,
+  });
+  const registry = createSeedStreamRegistry(contextSnapshot);
+  const generationOrder = snapshotPermutation(
+    options.generationOrder,
+    WORLD_PLAN_GENERATOR_SYSTEMS,
+    "generationOrder",
+  );
+  const chunkOrder = snapshotPermutation(options.chunkOrder, STORY_CHUNK_IDS, "chunkOrder");
 
   const contributions = new Map<WorldPlanGeneratorSystem, unknown>();
   const generators: Readonly<Record<WorldPlanGeneratorSystem, () => unknown>> = {
-    story: buildStoryContribution,
-    flow: () => buildFlowContribution(registry),
+    story: () => buildStoryContribution(chunkOrder),
+    flow: () => buildFlowContribution(registry, chunkOrder),
+    terrain: () => buildTerrainDescriptors(registry, chunkOrder),
     hydrology: () => buildHydrologyContribution(registry),
-    civilization: () => buildCivilizationContribution(registry),
-    "alien-ship": () => buildAlienContribution(registry),
+    water: () => buildWaterDescriptors(registry, chunkOrder),
+    flora: () => buildFloraDescriptors(registry, chunkOrder),
+    ecology: () => buildEcologyDescriptors(registry, chunkOrder),
+    atmosphere: () => buildAtmosphereDescriptors(registry, chunkOrder),
+    space: () => buildSpaceDescriptors(registry, chunkOrder),
+    civilization: () => buildCivilizationContribution(registry, chunkOrder),
+    "alien-ship": () => buildAlienContribution(registry, chunkOrder),
     twinkle: buildTwinkleContribution,
   };
   for (const system of generationOrder) contributions.set(system, generators[system]());
 
   const story = contributions.get("story") as PlanContributions["story"] | undefined;
   const flow = contributions.get("flow") as PlanContributions["flow"] | undefined;
+  const terrain = contributions.get("terrain") as PlanContributions["terrain"] | undefined;
   const hydrology = contributions.get("hydrology") as PlanContributions["hydrology"] | undefined;
+  const water = contributions.get("water") as PlanContributions["water"] | undefined;
+  const flora = contributions.get("flora") as PlanContributions["flora"] | undefined;
+  const ecology = contributions.get("ecology") as PlanContributions["ecology"] | undefined;
+  const atmosphere = contributions.get("atmosphere") as PlanContributions["atmosphere"] | undefined;
+  const space = contributions.get("space") as PlanContributions["space"] | undefined;
   const civilization = contributions.get("civilization") as PlanContributions["civilization"] | undefined;
   const alien = contributions.get("alien-ship") as PlanContributions["alien-ship"] | undefined;
   const twinkle = contributions.get("twinkle") as PlanContributions["twinkle"] | undefined;
-  if (!story || !flow || !hydrology || !civilization || !alien || !twinkle) {
+  if (!story || !flow || !terrain || !hydrology || !water || !flora || !ecology
+    || !atmosphere || !space || !civilization || !alien || !twinkle) {
     throw new Error("World-plan generation did not produce every required contribution.");
   }
 
   const hydrologyByChunk = hydrologyNodesByChunk(hydrology.hydrology);
-  const chunks = STORY_CHUNK_IDS.map((chunkId, index): WorldChunkPlan => {
-    const storyNode = story.nodes[index];
-    const flowSegment = flow.segments[index];
-    const radiusMm = flow.corridorRadiiMm[index];
-    if (!storyNode || !flowSegment || radiusMm === undefined) {
+  const generatedChunks = new Map<StoryChunkId, WorldChunkPlan>();
+  for (const chunkId of chunkOrder) {
+    const storyNode = story.nodesByChunk[chunkId];
+    const flowSegment = flow.segmentsByChunk[chunkId];
+    const radiusMm = flow.corridorRadiiByChunk[chunkId];
+    const terrainDescriptor = terrain[chunkId];
+    const waterDescriptor = water[chunkId];
+    const floraDescriptor = flora[chunkId];
+    const ecologyDescriptor = ecology[chunkId];
+    const atmosphereDescriptor = atmosphere[chunkId];
+    const spaceDescriptor = space[chunkId];
+    if (!storyNode || !flowSegment || radiusMm === undefined || !terrainDescriptor
+      || !waterDescriptor || !floraDescriptor || !ecologyDescriptor
+      || !atmosphereDescriptor || !spaceDescriptor) {
       throw new Error(`Incomplete canonical contribution for ${chunkId}.`);
     }
     const seeds = [
       ...civilization.blockersByChunk[chunkId],
       ...alien.blockersByChunk[chunkId],
     ];
-    return {
+    generatedChunks.set(chunkId, {
       id: chunkId,
       storyNode,
       flowSegment,
@@ -395,7 +435,21 @@ export function generateWorldPlan(
       },
       hydrologyNodeIds: [...hydrologyByChunk[chunkId]],
       alienPresence: alien.presenceByChunk[chunkId],
-    };
+      environment: {
+        terrain: terrainDescriptor,
+        water: waterDescriptor,
+        flora: floraDescriptor,
+        ecology: ecologyDescriptor,
+        atmosphere: atmosphereDescriptor,
+        space: spaceDescriptor,
+        materialFamilies: materialFamiliesForChunk(chunkId, waterDescriptor, floraDescriptor),
+      },
+    });
+  }
+  const chunks = STORY_CHUNK_IDS.map((chunkId) => {
+    const chunk = generatedChunks.get(chunkId);
+    if (!chunk) throw new Error(`Scheduled generation omitted ${chunkId}.`);
+    return chunk;
   });
 
   const plan: WorldPlan = {
@@ -413,6 +467,7 @@ export function generateWorldPlan(
     authoredBranches: [...flow.branches],
     hydrology: hydrology.hydrology,
     twinklePolicy: twinkle.policy,
+    materials: [...WORLD_MATERIAL_LIBRARY],
   };
 
   const finalNode = plan.chunks[plan.chunks.length - 1]?.storyNode;

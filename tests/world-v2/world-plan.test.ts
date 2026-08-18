@@ -2,22 +2,30 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { JOURNEY_SECONDS, PHASE_WINDOWS, SHOT_TABLE } from "../../src/game/model";
 import {
+  CANONICAL_STORY_SCORE,
   STORY_CHUNK_IDS,
+  WORLD_MATERIAL_FAMILIES,
   WORLD_GENERATOR_VERSION,
   WORLD_PLAN_GENERATOR_SYSTEMS,
   canonicalWorldPlanBytes,
   canonicalWorldPlanJson,
   createWorldGenerationContext,
+  createSeedStreamRegistry,
   digestWorldPlan,
   generateWorldPlan,
+  validateWorldPlan,
+  type StoryChunkId,
   type WorldPlanGeneratorSystem,
 } from "../../src/world/v2";
 import { assertDeepFrozen, deterministicShuffle, numericLeaves } from "./test-helpers";
 
-function createPlan(generationOrder: readonly WorldPlanGeneratorSystem[] = WORLD_PLAN_GENERATOR_SYSTEMS) {
+function createPlan(
+  generationOrder: readonly WorldPlanGeneratorSystem[] = WORLD_PLAN_GENERATOR_SYSTEMS,
+  chunkOrder: readonly StoryChunkId[] = STORY_CHUNK_IDS,
+) {
   return generateWorldPlan(
     createWorldGenerationContext({ worldSeed: 20_260_818, generatorVersion: WORLD_GENERATOR_VERSION }),
-    { generationOrder },
+    { generationOrder, chunkOrder },
   );
 }
 
@@ -63,7 +71,7 @@ describe("GFX-003 canonical world plan", () => {
       phase: chunk.storyNode.phase,
       biome: chunk.storyNode.biome,
       cue: chunk.storyNode.cue,
-    }))).toEqual(SHOT_TABLE.map((shot, index) => ({
+    }))).toEqual(CANONICAL_STORY_SCORE.map((shot, index) => ({
       id: shot.id,
       index,
       start: shot.start,
@@ -144,10 +152,58 @@ describe("GFX-003 canonical world plan", () => {
     assertDeepFrozen(createPlan());
   });
 
-  it("produces identical canonical bytes and digest for forward, reverse, and shuffled generation", () => {
-    const forward = createPlan(WORLD_PLAN_GENERATOR_SYSTEMS);
-    const reverse = createPlan([...WORLD_PLAN_GENERATOR_SYSTEMS].reverse());
-    const shuffled = createPlan(deterministicShuffle(WORLD_PLAN_GENERATOR_SYSTEMS));
+  it("owns deterministic renderer-independent environment and seven-family material descriptors", () => {
+    const context = createWorldGenerationContext({
+      worldSeed: 20_260_818,
+      generatorVersion: WORLD_GENERATOR_VERSION,
+    });
+    const registry = createSeedStreamRegistry(context);
+    const plan = createPlan();
+
+    expect(plan.materials.map((material) => material.family)).toEqual(WORLD_MATERIAL_FAMILIES);
+    expect(plan.materials.map((material) => material.id)).toEqual(
+      WORLD_MATERIAL_FAMILIES.map((family) => `material:${family}`),
+    );
+    for (const chunk of plan.chunks) {
+      const environment = chunk.environment;
+      expect(environment.terrain).toMatchObject({ ownerSystem: "terrain", ownedSubstream: "heightfield" });
+      expect(environment.water).toMatchObject({ ownerSystem: "water", ownedSubstream: "surface" });
+      expect(environment.flora).toMatchObject({ ownerSystem: "flora", ownedSubstream: "placement" });
+      expect(environment.ecology).toMatchObject({ ownerSystem: "ecology", ownedSubstream: "spawns" });
+      expect(environment.atmosphere).toMatchObject({ ownerSystem: "atmosphere", ownedSubstream: "field" });
+      expect(environment.space).toMatchObject({ ownerSystem: "space", ownedSubstream: "field" });
+      expect(environment.terrain.seedFingerprint).toBe(
+        registry.stream("terrain", chunk.id, "heightfield").baseSeed,
+      );
+      expect(environment.water.seedFingerprint).toBe(
+        registry.stream("water", chunk.id, "surface").baseSeed,
+      );
+      expect(environment.flora.seedFingerprint).toBe(
+        registry.stream("flora", chunk.id, "placement").baseSeed,
+      );
+      expect(environment.ecology.seedFingerprint).toBe(
+        registry.stream("ecology", chunk.id, "spawns").baseSeed,
+      );
+      expect(environment.atmosphere.seedFingerprint).toBe(
+        registry.stream("atmosphere", chunk.id, "field").baseSeed,
+      );
+      expect(environment.space.seedFingerprint).toBe(
+        registry.stream("space", chunk.id, "field").baseSeed,
+      );
+      expect(environment.materialFamilies.every((family) => WORLD_MATERIAL_FAMILIES.includes(family))).toBe(true);
+    }
+  });
+
+  it("produces identical canonical bytes for forward, reverse, and shuffled system and 24-chunk schedules", () => {
+    const forward = createPlan(WORLD_PLAN_GENERATOR_SYSTEMS, STORY_CHUNK_IDS);
+    const reverse = createPlan(
+      [...WORLD_PLAN_GENERATOR_SYSTEMS].reverse(),
+      [...STORY_CHUNK_IDS].reverse(),
+    );
+    const shuffled = createPlan(
+      deterministicShuffle(WORLD_PLAN_GENERATOR_SYSTEMS),
+      deterministicShuffle(STORY_CHUNK_IDS),
+    );
 
     const forwardBytes = canonicalWorldPlanBytes(forward);
     expect(canonicalWorldPlanBytes(reverse)).toEqual(forwardBytes);
@@ -159,12 +215,65 @@ describe("GFX-003 canonical world plan", () => {
     expect(new TextDecoder().decode(forwardBytes)).toBe(canonicalWorldPlanJson(forward));
   });
 
-  it("rejects generation schedules that omit or duplicate a registered system", () => {
-    expect(() => createPlan(WORLD_PLAN_GENERATOR_SYSTEMS.slice(1))).toThrow(/every world-plan generator|permutation/i);
+  it("captures caller-owned generation and chunk schedules exactly once before execution", () => {
+    let generationIterations = 0;
+    let chunkIterations = 0;
+    const generationOrder = new Proxy([...WORLD_PLAN_GENERATOR_SYSTEMS], {
+      get(target, property, receiver) {
+        if (property === Symbol.iterator) generationIterations += 1;
+        return Reflect.get(target, property, receiver) as unknown;
+      },
+    });
+    const chunkOrder = new Proxy([...STORY_CHUNK_IDS], {
+      get(target, property, receiver) {
+        if (property === Symbol.iterator) chunkIterations += 1;
+        return Reflect.get(target, property, receiver) as unknown;
+      },
+    });
+    const plan = createPlan(generationOrder, chunkOrder);
+    generationOrder.reverse();
+    chunkOrder.reverse();
+
+    expect(generationIterations).toBe(1);
+    expect(chunkIterations).toBe(1);
+    expect(canonicalWorldPlanBytes(plan)).toEqual(canonicalWorldPlanBytes(createPlan()));
+  });
+
+  it("uses its verified story snapshot after another consumer mutates SHOT_TABLE", () => {
+    const baseline = canonicalWorldPlanJson(createPlan());
+    const mutableShots = SHOT_TABLE as unknown as Array<{ start: number; end: number; cue: string }>;
+    const s06 = mutableShots[5];
+    const s07 = mutableShots[6];
+    if (!s06 || !s07) throw new Error("Expected mutable source shots S06 and S07.");
+    const original = { s06End: s06.end, s07Start: s07.start, cue: s06.cue };
+    try {
+      s06.end = 37;
+      s07.start = 37;
+      s06.cue = "mutated-by-another-consumer";
+      const regenerated = createPlan();
+      expect(canonicalWorldPlanJson(regenerated)).toBe(baseline);
+      expect(regenerated.chunks[5]?.storyNode.endMs).toBe(36_000);
+      expect(validateWorldPlan(regenerated).valid).toBe(true);
+    } finally {
+      s06.end = original.s06End;
+      s07.start = original.s07Start;
+      s06.cue = original.cue;
+    }
+  });
+
+  it("rejects system or chunk schedules that omit or duplicate canonical entries", () => {
+    expect(() => createPlan(WORLD_PLAN_GENERATOR_SYSTEMS.slice(1))).toThrow(/canonical entry|permutation/i);
     expect(() => createPlan([
       ...WORLD_PLAN_GENERATOR_SYSTEMS.slice(0, -1),
       WORLD_PLAN_GENERATOR_SYSTEMS[0],
-    ])).toThrow(/every world-plan generator|permutation/i);
+    ])).toThrow(/canonical entry|permutation/i);
+    expect(() => createPlan(WORLD_PLAN_GENERATOR_SYSTEMS, STORY_CHUNK_IDS.slice(1))).toThrow(
+      /canonical entry|permutation/i,
+    );
+    expect(() => createPlan(WORLD_PLAN_GENERATOR_SYSTEMS, [
+      ...STORY_CHUNK_IDS.slice(0, -1),
+      STORY_CHUNK_IDS[0],
+    ])).toThrow(/canonical entry|permutation/i);
   });
 
   it("pins seed 20260818 to reviewed custom and SHA-256 digests plus byte length", () => {
@@ -175,9 +284,9 @@ describe("GFX-003 canonical world plan", () => {
       sha256: createHash("sha256").update(bytes).digest("hex"),
       byteLength: bytes.byteLength,
     }).toEqual({
-      customDigest: "world-plan-v1:cd7ee5a92a141aef",
-      sha256: "bf9d2ab8d37541cb2ef200fd5a4ce055e6943557903f4dd65a4296f8e15512c2",
-      byteLength: 17_571,
+      customDigest: "world-plan-v1:75d93cbb8e0580cd",
+      sha256: "4f91cb8393ed54478aa8388600f0329155e0d114fc93b5835305ee9ed7d1642c",
+      byteLength: 48_271,
     });
   });
 });
