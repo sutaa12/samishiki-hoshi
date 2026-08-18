@@ -11,7 +11,7 @@
   },
   "worldPlan": {
     "seed": 20260818,
-    "generatorVersion": "world-plan-v1",
+    "generatorVersion": "gfx003-world-plan-v1",
     "canonicalDigest": "world-plan-v1:75d93cbb8e0580cd",
     "canonicalSha256": "4f91cb8393ed54478aa8388600f0329155e0d114fc93b5835305ee9ed7d1642c",
     "canonicalBytes": 48271,
