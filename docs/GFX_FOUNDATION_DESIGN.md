@@ -37,6 +37,11 @@ unchanged after acceptance commit `296ee12`.
 - Only `RenderHost` owns the animation loop, lifecycle, feature ordering, and
   final backend submission. Features record named pass requests; they do not
   call a raw renderer or apply an output transform.
+- The dependency direction is strictly one-way: backend, service, feature,
+  quality-provider, loop, observer, and unsubscribe callbacks never call a
+  public `RenderHost` method, synchronously or after an `await`. Synchronous
+  violations fail closed as `INVALID_LIFECYCLE`; production composition must
+  not capture the Host in dependency closures and is reviewed against this rule.
 
 ## Ticket order
 
@@ -61,6 +66,9 @@ world and material descriptor contracts.
   terminal `failed` state for initialization or live-backend failure.
 - Initialize and dispose are idempotent. Partial initialization unwinds all
   completed features in reverse order and disposes backend ownership.
+- `whenIdle()` is an external barrier for active initialization, the current
+  frame, queued controls, explicit disposal, and terminal-failure cleanup. It
+  is not callable from an owned dependency callback under the one-way rule.
 - Fake features prove exact initialize/update/render/quality ordering and
   reverse disposal. Exactly one animation-loop owner is observable.
 - Raw `WebGPURenderer` is private to the backend adapter. Requested backend,
@@ -69,8 +77,15 @@ world and material descriptor contracts.
 - Forced WebGL2 and host-Metal WebGPU each complete create, compile, render,
   dispose, and recreate. Late renderer/device events leave `ready`, surface a
   structured error, and dispose all ownership.
-- After disposal there are no loop ticks, resize calls, subscribers, event
-  bridge, scene objects, or non-zero tracked resources.
+- After disposal there are no additional loop ticks or resize calls; host,
+  runtime, and backend subscribers are zero; the event bridge and render-pass
+  ownership are detached; every contract-scene geometry/material disposal call
+  completed; and the upload queue reports no pending work.
+- Renderer disposal return, observable Three backend disposal return, and the
+  post-dispose `renderer.info` observation are separate facts. Three r185 resets
+  its counters before backend cleanup, so a zero post-dispose counter is never
+  used by itself as GPU-release proof. Asynchronous GPU cleanup remains outside
+  GFX-002 and must be drained explicitly if later timestamp features enable it.
 - The accepted GFX-001 five-case suite remains unchanged and green.
 - A fixed replay fixture has the same gameplay and ledger hash through both
   backend harnesses; the renderer cannot mutate its frozen projection.

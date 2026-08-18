@@ -42,6 +42,16 @@ import { RenderHost } from "./render-host";
 
 export const GFX_CONTRACT_REPLAY_HASH = "09780631";
 
+/** @internal Creates immutable contract-owned aggregate evidence. */
+export function immutableGfxContractAggregate(
+  errors: readonly unknown[],
+  message?: string,
+): AggregateError {
+  const aggregate = new AggregateError([...errors], message);
+  Object.freeze(aggregate.errors);
+  return Object.freeze(aggregate);
+}
+
 const CONTRACT_SNAPSHOT: JourneyRenderSnapshot = {
   seed: 778,
   storyTime: 12,
@@ -86,7 +96,9 @@ class BrowserFrameLoop implements RenderFrameLoop {
       if (!this.running || this.#callback === null) return;
       this.ticks += 1;
       this.#callback(nowMs);
-      this.#requestId = requestAnimationFrame(tick);
+      this.#requestId = this.running && this.#callback !== null
+        ? requestAnimationFrame(tick)
+        : null;
     };
     this.#requestId = requestAnimationFrame(tick);
   }
@@ -111,27 +123,44 @@ type NodeMaterialProbe = Material & {
   readonly positionNode?: unknown;
 };
 
-class ContractSceneFeature implements RenderFeature {
+export class ContractSceneFeature implements RenderFeature {
   readonly id = "gfx-contract-scene";
   readonly #scene = new Scene();
   readonly #camera = new PerspectiveCamera(42, 1, 0.1, 40);
   readonly #animated: Mesh[] = [];
-  #disposed = false;
+  readonly #ownedGeometries = new Set<BufferGeometry>();
+  readonly #ownedMaterials = new Set<Material>();
+  readonly #onOwnedAllocation: ((kind: "geometry" | "material", count: number) => void) | null;
+  #createdGeometries = 0;
+  #createdMaterials = 0;
+  #disposedGeometries = 0;
+  #disposedMaterials = 0;
+  #disposeStarted = false;
+  #disposeCompleted = false;
 
-  constructor() {
+  constructor(
+    onOwnedAllocation: ((kind: "geometry" | "material", count: number) => void) | null = null,
+  ) {
+    this.#onOwnedAllocation = onOwnedAllocation;
     this.#scene.background = new Color(0x030713);
     this.#camera.position.set(0, 0.2, 5.2);
+  }
 
+  async initialize(): Promise<void> {
     const heroMaterial = new MeshStandardNodeMaterial({ roughness: 0.24, metalness: 0.12 });
+    this.#ownMaterial(heroMaterial);
     const height = positionLocal.y.mul(0.45).add(0.5).clamp(0, 1);
     heroMaterial.colorNode = mix(color(0x29c9de), color(0xcfa9ff), height);
     heroMaterial.emissiveNode = color(0x173d69).mul(0.09);
-    const hero = new Mesh(new IcosahedronGeometry(1.04, 5), heroMaterial);
+    const heroGeometry = this.#ownGeometry(new IcosahedronGeometry(1.04, 5));
+    const hero = new Mesh(heroGeometry, heroMaterial);
     hero.scale.set(0.8, 1.08, 0.8);
 
     const ringMaterial = new MeshBasicNodeMaterial({ transparent: true, opacity: 0.34, side: DoubleSide });
+    this.#ownMaterial(ringMaterial);
     ringMaterial.colorNode = mix(color(0x70e4ff), color(0xd9a9ff), height);
-    const ring = new Mesh(new TorusGeometry(1.62, 0.026, 12, 128), ringMaterial);
+    const ringGeometry = this.#ownGeometry(new TorusGeometry(1.62, 0.026, 12, 128));
+    const ring = new Mesh(ringGeometry, ringMaterial);
     ring.rotation.set(0.8, 0.2, 0.3);
 
     this.#scene.add(hero, ring);
@@ -142,7 +171,19 @@ class ContractSceneFeature implements RenderFeature {
     this.#scene.add(key);
   }
 
-  async initialize(): Promise<void> {}
+  #ownGeometry<T extends BufferGeometry>(geometry: T): T {
+    this.#ownedGeometries.add(geometry);
+    this.#createdGeometries = this.#ownedGeometries.size;
+    this.#onOwnedAllocation?.("geometry", this.#createdGeometries);
+    return geometry;
+  }
+
+  #ownMaterial<T extends Material>(material: T): T {
+    this.#ownedMaterials.add(material);
+    this.#createdMaterials = this.#ownedMaterials.size;
+    this.#onOwnedAllocation?.("material", this.#createdMaterials);
+    return material;
+  }
 
   update(frame: JourneyRenderSnapshot, clock: VisualClock): void {
     const phase = frame.storyTime * 0.01;
@@ -157,20 +198,33 @@ class ContractSceneFeature implements RenderFeature {
   quality(): void {}
 
   async dispose(): Promise<void> {
-    if (this.#disposed) return;
-    this.#disposed = true;
-    const geometries = new Set<BufferGeometry>();
-    const materials = new Set<Material>();
-    this.#scene.traverse((object) => {
-      if (!(object instanceof Mesh)) return;
-      geometries.add(object.geometry);
-      const entries = Array.isArray(object.material) ? object.material : [object.material];
-      entries.forEach((material) => materials.add(material));
-    });
-    geometries.forEach((geometry) => geometry.dispose());
-    materials.forEach((material) => material.dispose());
+    if (this.#disposeStarted) return;
+    this.#disposeStarted = true;
+    const failures: unknown[] = [];
+    for (const geometry of this.#ownedGeometries) {
+      try {
+        geometry.dispose();
+        this.#disposedGeometries += 1;
+      } catch (error: unknown) {
+        failures.push(error);
+      }
+    }
+    for (const material of this.#ownedMaterials) {
+      try {
+        material.dispose();
+        this.#disposedMaterials += 1;
+      } catch (error: unknown) {
+        failures.push(error);
+      }
+    }
     this.#scene.clear();
     this.#animated.length = 0;
+    this.#ownedGeometries.clear();
+    this.#ownedMaterials.clear();
+    this.#disposeCompleted = failures.length === 0;
+    if (failures.length > 0) {
+      throw immutableGfxContractAggregate(failures, "Contract scene disposal failed.");
+    }
   }
 
   snapshotEvidence() {
@@ -188,7 +242,12 @@ class ContractSceneFeature implements RenderFeature {
       return probe.colorNode != null || probe.emissiveNode != null || probe.positionNode != null;
     });
     return Object.freeze({
-      disposed: this.#disposed,
+      disposeStarted: this.#disposeStarted,
+      disposeCompleted: this.#disposeCompleted,
+      createdGeometries: this.#createdGeometries,
+      disposedGeometries: this.#disposedGeometries,
+      createdMaterials: this.#createdMaterials,
+      disposedMaterials: this.#disposedMaterials,
       objects,
       materials: materials.size,
       nodeMaterials: nodes.length,
@@ -214,6 +273,52 @@ function viewportFor(canvas: HTMLCanvasElement): RenderViewport {
   });
 }
 
+function sameViewport(left: RenderViewport, right: RenderViewport): boolean {
+  return left.width === right.width
+    && left.height === right.height
+    && left.pixelRatio === right.pixelRatio;
+}
+
+/** @internal Closes the resize-listener installation window before runtime handoff. */
+export async function reconcileGfxContractViewport(
+  initial: RenderViewport,
+  current: RenderViewport,
+  resize: (viewport: RenderViewport) => void | Promise<void>,
+): Promise<boolean> {
+  if (sameViewport(initial, current)) return false;
+  await resize(current);
+  return true;
+}
+
+/** @internal Tracks the detach obligation before listener installation can partially succeed. */
+export function createGfxContractResizeBinding(
+  target: Pick<Window, "addEventListener" | "removeEventListener">,
+  listener: () => void,
+): Readonly<{ active: boolean; attach(): void; detach(): void }> {
+  let active = false;
+  const relay: { listener: (() => void) | null } = { listener: null };
+  const installedListener = () => relay.listener?.();
+  return Object.freeze({
+    get active() { return active; },
+    attach() {
+      if (active) return;
+      // addEventListener can be instrumented to acquire the listener and then
+      // throw. Publish the rollback obligation before invoking it.
+      active = true;
+      relay.listener = listener;
+      target.addEventListener("resize", installedListener);
+    },
+    detach() {
+      // Revoke application ownership before any fallible DOM removal. A host
+      // that lies about removal may retain this wrapper, but never the runtime.
+      relay.listener = null;
+      if (!active) return;
+      target.removeEventListener("resize", installedListener);
+      active = false;
+    },
+  });
+}
+
 export interface GfxContractSnapshot {
   readonly generation: number;
   readonly replayHash: typeof GFX_CONTRACT_REPLAY_HASH;
@@ -222,7 +327,12 @@ export interface GfxContractSnapshot {
   readonly backendLifecycle: Readonly<ThreeBackendLifecycleSnapshot>;
   readonly frameLoop: Readonly<{ running: boolean; starts: number; stops: number; ticks: number }>;
   readonly scene: Readonly<{
-    disposed: boolean;
+    disposeStarted: boolean;
+    disposeCompleted: boolean;
+    createdGeometries: number;
+    disposedGeometries: number;
+    createdMaterials: number;
+    disposedMaterials: number;
     objects: number;
     materials: number;
     nodeMaterials: number;
@@ -244,12 +354,129 @@ export interface GfxContractRuntime {
   diagnostics: ThreeBackendAdapter["diagnostics"];
 }
 
+/** @internal Diagnostic subscriber isolation shared by live and terminal paths. */
+export function notifyGfxContractSubscribers(listeners: ReadonlySet<() => void>): void {
+  for (const listener of [...listeners]) {
+    try {
+      listener();
+    } catch {
+      // Runtime subscribers are diagnostics and cannot alter lifecycle cleanup.
+    }
+  }
+}
+
+/** @internal Publishes one stable promise before any cleanup side effect runs. */
+export function createStableGfxContractOperation<T>(operation: () => Promise<T>): Readonly<{
+  active(): boolean;
+  run(): Promise<T>;
+}> {
+  let promise: Promise<T> | null = null;
+  return Object.freeze({
+    active: () => promise !== null,
+    run: () => {
+      if (promise) return promise;
+      let resolve!: (value: T | PromiseLike<T>) => void;
+      let reject!: (error: unknown) => void;
+      promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+      });
+      void Promise.resolve().then(operation).then(resolve, reject);
+      return promise;
+    },
+  });
+}
+
+/** @internal Best-effort rollback for construction failures after host ownership begins. */
+export async function rollbackGfxContractConstruction(
+  host: Pick<RenderHost, "dispose">,
+  unsubscribe: () => void,
+  detach: () => void,
+  constructionFailure?: unknown,
+): Promise<readonly unknown[]> {
+  const failures: unknown[] = [];
+  const constructionFailureProvided = arguments.length >= 4;
+  const seen = new Set<unknown>();
+  const hasIdentity = (value: unknown) => (
+    (typeof value === "object" && value !== null) || typeof value === "function"
+  );
+  const attempt = async (
+    operation: () => void | Promise<void>,
+    suppressAuthoritativePrimary = false,
+  ) => {
+    try {
+      await operation();
+    } catch (error: unknown) {
+      if (
+        suppressAuthoritativePrimary
+        && constructionFailureProvided
+        && error === constructionFailure
+      ) return;
+      if (!hasIdentity(error) || !seen.has(error)) {
+        if (hasIdentity(error)) seen.add(error);
+        failures.push(error);
+      }
+    }
+  };
+  await attempt(unsubscribe);
+  let detachNeedsRetry = false;
+  try {
+    await detach();
+  } catch (error: unknown) {
+    detachNeedsRetry = true;
+    if (!hasIdentity(error) || !seen.has(error)) {
+      if (hasIdentity(error)) seen.add(error);
+      failures.push(error);
+    }
+  }
+  // dispose() is the authoritative owner promise in every lifecycle,
+  // including failed; whenIdle intentionally absorbs terminal rejections.
+  await attempt(() => host.dispose(), true);
+  if (detachNeedsRetry) await attempt(detach);
+  return Object.freeze(failures.slice());
+}
+
+/** @internal Completes every runtime-owned cleanup step and delivers one final snapshot notification. */
+export async function finalizeGfxContractRuntime(
+  host: Pick<RenderHost, "dispose">,
+  unsubscribe: () => void,
+  detach: () => void,
+  listeners: Set<() => void>,
+): Promise<readonly unknown[]> {
+  const failures: unknown[] = [];
+  const seen = new Set<unknown>();
+  const hasIdentity = (value: unknown) => (
+    (typeof value === "object" && value !== null) || typeof value === "function"
+  );
+  const attempt = async (operation: () => void | Promise<void>) => {
+    try {
+      await operation();
+    } catch (error: unknown) {
+      if (!hasIdentity(error) || !seen.has(error)) {
+        if (hasIdentity(error)) seen.add(error);
+        failures.push(error);
+      }
+    }
+  };
+  const terminalListeners = new Set(listeners);
+
+  await attempt(detach);
+  await attempt(unsubscribe);
+  await attempt(() => host.dispose());
+  await attempt(detach);
+  listeners.clear();
+  notifyGfxContractSubscribers(terminalListeners);
+  return Object.freeze(failures.slice());
+}
+
 export async function createGfxContractRuntime(options: {
   readonly canvas: HTMLCanvasElement;
   readonly request: ThreeBackendRequest;
   readonly qa: boolean;
   readonly generation: number;
 }): Promise<GfxContractRuntime> {
+  // Validate caller-owned layout data before constructing any feature resources.
+  const initialViewport = viewportFor(options.canvas);
   const backend = await createThreeBackend({
     canvas: options.canvas,
     request: options.request,
@@ -294,45 +521,19 @@ export async function createGfxContractRuntime(options: {
   });
 
   const listeners = new Set<() => void>();
-  let resizeListenerActive = false;
   let resizeCalls = 0;
   let disposeCalls = 0;
-  let disposePromise: Promise<Readonly<GfxContractSnapshot>> | null = null;
+  let constructionComplete = false;
+  let terminalCleanupScheduled = false;
 
-  const notify = () => listeners.forEach((listener) => listener());
-  const detachResize = () => {
-    if (!resizeListenerActive) return;
-    window.removeEventListener("resize", onResize);
-    resizeListenerActive = false;
-  };
+  const notify = () => notifyGfxContractSubscribers(listeners);
   const onResize = () => {
     if (host.state !== "ready") return;
     resizeCalls += 1;
     void host.resize(viewportFor(options.canvas)).then(notify).catch(() => undefined);
   };
-  const unsubscribeHost = host.subscribe(() => {
-    if (host.state === "failed" || host.state === "disposed") {
-      detachResize();
-      window.setTimeout(() => {
-        void host.whenIdle().then(() => {
-          unsubscribeHost();
-          notify();
-        });
-      }, 0);
-    }
-    notify();
-  });
-
-  try {
-    await host.initialize(CONTRACT_SNAPSHOT, viewportFor(options.canvas));
-    window.addEventListener("resize", onResize);
-    resizeListenerActive = true;
-  } catch (error: unknown) {
-    unsubscribeHost();
-    detachResize();
-    throw error;
-  }
-
+  const resizeBinding = createGfxContractResizeBinding(window, onResize);
+  const detachResize = () => resizeBinding.detach();
   const getSnapshot = (): Readonly<GfxContractSnapshot> => Object.freeze({
     generation: options.generation,
     replayHash: GFX_CONTRACT_REPLAY_HASH,
@@ -342,7 +543,7 @@ export async function createGfxContractRuntime(options: {
     frameLoop: frameLoop.snapshot(),
     scene: feature.snapshotEvidence(),
     runtime: Object.freeze({
-      resizeListenerActive,
+      resizeListenerActive: resizeBinding.active,
       resizeCalls,
       subscribers: listeners.size,
       disposeCalls,
@@ -350,24 +551,84 @@ export async function createGfxContractRuntime(options: {
     observedEvents: Object.freeze(observedEvents.slice()),
   });
 
+  let unsubscribeHost: Unsubscribe = () => undefined;
+  const disposal = createStableGfxContractOperation(async () => {
+    disposeCalls += 1;
+    const failures = await finalizeGfxContractRuntime(
+      host,
+      unsubscribeHost,
+      detachResize,
+      listeners,
+    );
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      throw immutableGfxContractAggregate(failures, "GFX contract runtime cleanup failed.");
+    }
+    return getSnapshot();
+  });
+
+  unsubscribeHost = host.subscribe(() => {
+    if (host.state === "failed" || host.state === "disposed") {
+      if (constructionComplete && !terminalCleanupScheduled) {
+        terminalCleanupScheduled = true;
+        void disposal.run().catch(() => undefined);
+      }
+      return;
+    }
+    notify();
+  });
+
+  try {
+    await host.initialize(CONTRACT_SNAPSHOT, initialViewport);
+    if (host.state !== "ready") {
+      await host.dispose().catch(() => undefined);
+      throw host.error ?? new Error(`GFX contract host settled as ${host.state}.`);
+    }
+    resizeBinding.attach();
+    if (host.state !== "ready") {
+      detachResize();
+      await host.dispose().catch(() => undefined);
+      throw host.error ?? new Error(`GFX contract host changed to ${host.state} while binding resize.`);
+    }
+    const reconciledViewport = viewportFor(options.canvas);
+    if (await reconcileGfxContractViewport(
+      initialViewport,
+      reconciledViewport,
+      (viewport) => host.resize(viewport),
+    )) {
+      resizeCalls += 1;
+    }
+    if (host.state !== "ready") {
+      throw host.error
+        ?? new Error(`GFX contract host changed to ${host.state} while reconciling viewport.`);
+    }
+    constructionComplete = true;
+  } catch (error: unknown) {
+    const rollbackFailures = await rollbackGfxContractConstruction(
+      host,
+      unsubscribeHost,
+      detachResize,
+      error,
+    );
+    if (rollbackFailures.length > 0) {
+      throw immutableGfxContractAggregate(
+        [error, ...rollbackFailures],
+        "GFX contract construction failed and rollback also failed.",
+      );
+    }
+    throw error;
+  }
+
   return {
     getSnapshot,
     subscribe(listener) {
+      if (disposal.active() || host.state === "disposed" || host.state === "failed") {
+        return () => undefined;
+      }
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    dispose() {
-      disposeCalls += 1;
-      if (disposePromise) return disposePromise.then(() => getSnapshot());
-      disposePromise = (async () => {
-        detachResize();
-        unsubscribeHost();
-        await host.dispose();
-        listeners.clear();
-        return getSnapshot();
-      })();
-      return disposePromise;
-    },
+    dispose: disposal.run,
     diagnostics: backend.diagnostics,
   };
 }

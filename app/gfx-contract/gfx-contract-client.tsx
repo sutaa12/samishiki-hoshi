@@ -121,8 +121,8 @@ export function GfxContractClient() {
     unsubscribeRef.current();
     unsubscribeRef.current = () => undefined;
     try {
-      const next = await runtime.dispose();
-      setSnapshot(next);
+      await runtime.dispose();
+      setSnapshot(runtime.getSnapshot());
       setStatus("disposed");
     } catch (error: unknown) {
       setFailure(errorMessage(error));

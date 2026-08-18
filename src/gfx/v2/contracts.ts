@@ -198,6 +198,12 @@ export interface RenderFeature {
 }
 
 export interface RenderHostDependencies {
+  /**
+   * Dependency callbacks form a one-way boundary into RenderHost. They must
+   * never call a public RenderHost method, either synchronously or after an
+   * await. RenderHost rejects synchronous violations; asynchronous reentry is
+   * outside the dependency contract and is prevented by composition tests.
+   */
   readonly backend: RenderBackendAdapter;
   readonly frameLoop: RenderFrameLoop;
   readonly features: readonly RenderFeature[];
@@ -220,6 +226,12 @@ export interface RenderHostCounters {
   readonly droppedFrames: number;
   readonly backendEvents: number;
   readonly failures: number;
+  readonly probeSubscribers: number;
+  readonly pendingControlOperations: number;
+  /** Unique raw-fault occurrences tracked, weakly for objects, while terminal evidence is assembled. */
+  readonly retainedRawFailureCauses: number;
+  /** Temporary safe failure references retained by cleanup staging and coordination. */
+  readonly retainedIntermediateFailureSnapshots: number;
 }
 
 /** JSON-safe diagnostics for QA routes and evidence capture. */

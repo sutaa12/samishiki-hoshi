@@ -13,20 +13,55 @@ import {
   type Unsubscribe,
   type VisualClock,
 } from "./contracts";
-import { hostError, lifecycleError, type RenderHostError } from "./errors";
+import {
+  attachRenderHostCleanupFailures,
+  hostError,
+  immutableRenderHostAggregate,
+  lifecycleError,
+  RenderHostError,
+  replaceRenderHostErrorCause,
+  renderHostErrorCause,
+} from "./errors";
+
+function captureRenderPass(
+  pass: RenderPass,
+  assertContinue: () => void = () => undefined,
+): Readonly<RenderPass> {
+  const name = pass.name;
+  assertContinue();
+  if (typeof name !== "string" || !name.trim()) {
+    throw new TypeError("A render pass requires non-empty name and kind fields.");
+  }
+  const kind = pass.kind;
+  assertContinue();
+  if (typeof kind !== "string" || !kind.trim()) {
+    throw new TypeError("A render pass requires non-empty name and kind fields.");
+  }
+  const scene = pass.scene;
+  assertContinue();
+  const camera = pass.camera;
+  assertContinue();
+  const payload = pass.payload;
+  assertContinue();
+  return Object.freeze(payload === undefined
+    ? { name, kind, scene, camera }
+    : { name, kind, scene, camera, payload });
+}
 
 class FramePassRecorder implements RenderPassRecorder {
   readonly #passes: RenderPass[] = [];
+  readonly #assertContinue: () => void;
+
+  constructor(assertContinue: () => void = () => undefined) {
+    this.#assertContinue = assertContinue;
+  }
 
   get passes(): readonly RenderPass[] {
     return Object.freeze(this.#passes.slice());
   }
 
   record(pass: RenderPass): void {
-    if (!pass.name.trim() || !pass.kind.trim()) {
-      throw new TypeError("A render pass requires non-empty name and kind fields.");
-    }
-    this.#passes.push(Object.freeze({ ...pass }));
+    this.#passes.push(captureRenderPass(pass, this.#assertContinue));
   }
 
   draw(name: string, scene: unknown, camera: unknown, kind = "scene"): void {
@@ -35,7 +70,10 @@ class FramePassRecorder implements RenderPassRecorder {
 }
 
 function freezeSnapshot(snapshot: JourneyRenderSnapshot): JourneyRenderSnapshot {
-  const pulses = snapshot.pulses.map((pulse) => Object.freeze({
+  const sourcePulses = snapshot.pulses;
+  const sourcePosition = snapshot.position;
+  const sourceVelocity = snapshot.velocity;
+  const pulses = sourcePulses.map((pulse) => Object.freeze({
     id: pulse.id,
     journeyTime: pulse.journeyTime,
     x: pulse.x,
@@ -50,8 +88,8 @@ function freezeSnapshot(snapshot: JourneyRenderSnapshot): JourneyRenderSnapshot 
     storyTime: snapshot.storyTime,
     phase: snapshot.phase,
     shotId: snapshot.shotId,
-    position: Object.freeze({ x: snapshot.position.x, y: snapshot.position.y }),
-    velocity: Object.freeze({ x: snapshot.velocity.x, y: snapshot.velocity.y }),
+    position: Object.freeze({ x: sourcePosition.x, y: sourcePosition.y }),
+    velocity: Object.freeze({ x: sourceVelocity.x, y: sourceVelocity.y }),
     pulses: Object.freeze(pulses),
     answerAt: snapshot.answerAt,
     finished: snapshot.finished,
@@ -67,15 +105,380 @@ function freezeQuality(profile: Readonly<RenderQualityProfile>): Readonly<Render
   });
 }
 
+function qualityProfilesEqual(
+  left: Readonly<RenderQualityProfile> | null,
+  right: Readonly<RenderQualityProfile>,
+): boolean {
+  if (
+    left === null
+    || left.tier !== right.tier
+    || left.pixelRatio !== right.pixelRatio
+    || left.uploadBudgetMs !== right.uploadBudgetMs
+  ) return false;
+  const leftKeys = Object.keys(left.features);
+  const rightKeys = Object.keys(right.features);
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key) => left.features[key] === right.features[key]);
+}
+
 function freezeViewport(viewport: RenderViewport): RenderViewport {
-  if (viewport.width <= 0 || viewport.height <= 0 || viewport.pixelRatio <= 0) {
+  const width = viewport.width;
+  const height = viewport.height;
+  const pixelRatio = viewport.pixelRatio;
+  if (
+    !Number.isFinite(width)
+    || !Number.isFinite(height)
+    || !Number.isFinite(pixelRatio)
+    || width <= 0
+    || height <= 0
+    || pixelRatio <= 0
+  ) {
     throw new RangeError("Render viewport dimensions and pixel ratio must be positive.");
   }
   return Object.freeze({
-    width: viewport.width,
-    height: viewport.height,
-    pixelRatio: viewport.pixelRatio,
+    width,
+    height,
+    pixelRatio,
   });
+}
+
+function deferredVoid() {
+  let resolve!: () => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject } as const;
+}
+
+type PrimitiveFailureCause = string | number | bigint | boolean | symbol | null | undefined;
+type OwnPrimitiveFailureCause = Readonly<{ value: PrimitiveFailureCause }>;
+const MAXIMUM_IMMUTABLE_FAILURE_AGGREGATE_DETAILS = 256;
+const MAXIMUM_FAILURE_EVIDENCE_DEPTH = 256;
+const MAXIMUM_FAILURE_EVIDENCE_NODES = 8_192;
+const REBASABLE_PRIMARY_EVIDENCE_THRESHOLD = 4_096;
+const OMIT_FAILURE_EVIDENCE = Symbol("omit-failure-evidence");
+const immutableFailureEvidenceSnapshots = new WeakSet<object>();
+const cleanupOperationAggregateSnapshots = new WeakSet<object>();
+const EMPTY_CLEANUP_FAILURES: readonly unknown[] = Object.freeze([]);
+const EMPTY_CLEANUP_FAILURE_CHANNELS: readonly (readonly unknown[])[] = Object.freeze([]);
+const EMPTY_FULFILLED_CLEANUP_PROMISE = Promise.resolve(EMPTY_CLEANUP_FAILURES);
+type CleanupFailureWorkspace = {
+  readonly failureChannels: unknown[][];
+  readonly failures: unknown[];
+};
+type FailureEvidenceLossReason =
+  | "depth"
+  | "ingress-budget"
+  | "hostile-inspection"
+  | "final-output";
+const failureEvidenceLossReasons = new WeakMap<object, readonly FailureEvidenceLossReason[]>();
+const failureEvidenceCarriedLossReasons = new WeakMap<
+object,
+readonly FailureEvidenceLossReason[]
+>();
+
+function failureEvidenceLossMarker(
+  reasons: ReadonlySet<FailureEvidenceLossReason>,
+  terminalComposition: boolean,
+  omittedCleanupChannels = 0,
+): RangeError {
+  const ordered = [
+    "depth",
+    "ingress-budget",
+    "hostile-inspection",
+    "final-output",
+  ].filter((reason): reason is FailureEvidenceLossReason => reasons.has(
+    reason as FailureEvidenceLossReason,
+  ));
+  const details = ordered.map((reason) => {
+    if (reason === "depth") return `safe-snapshot depth ${MAXIMUM_FAILURE_EVIDENCE_DEPTH}`;
+    if (reason === "ingress-budget") {
+      return `${MAXIMUM_FAILURE_EVIDENCE_NODES}-node ingress budget`;
+    }
+    if (reason === "hostile-inspection") return "hostile inspection";
+    return `shared ${MAXIMUM_FAILURE_EVIDENCE_NODES}-node output budget`;
+  }).join(", ");
+  const omission = omittedCleanupChannels > 0
+    ? ` Omitted ${omittedCleanupChannels} cleanup operation channel(s) because their bounded channel heads did not fit.`
+    : "";
+  const marker = new RangeError((terminalComposition
+    ? `Terminal failure evidence composition retained loss from ${details}.`
+    : `Failure evidence traversal exceeded ${details}.`) + omission);
+  const immutable = freezeFailureEvidence(marker);
+  failureEvidenceLossReasons.set(immutable, Object.freeze(ordered));
+  return immutable;
+}
+
+function failureEvidenceReasons(value: unknown): readonly FailureEvidenceLossReason[] | null {
+  if ((typeof value !== "object" || value === null) && typeof value !== "function") {
+    return null;
+  }
+  return failureEvidenceLossReasons.get(value as object) ?? null;
+}
+
+function carriedFailureEvidenceReasons(
+  value: unknown,
+): readonly FailureEvidenceLossReason[] | null {
+  if ((typeof value !== "object" || value === null) && typeof value !== "function") {
+    return null;
+  }
+  return failureEvidenceReasons(value)
+    ?? failureEvidenceCarriedLossReasons.get(value as object)
+    ?? null;
+}
+
+function carryFailureEvidenceReasons(
+  target: object,
+  entries: readonly unknown[],
+): void {
+  const reasons = new Set<FailureEvidenceLossReason>();
+  for (const entry of entries) {
+    const carried = carriedFailureEvidenceReasons(entry);
+    if (carried === null) continue;
+    for (const reason of carried) reasons.add(reason);
+  }
+  if (reasons.size > 0) {
+    failureEvidenceCarriedLossReasons.set(target, Object.freeze([...reasons]));
+  }
+}
+
+type FailureEvidenceClassification = "aggregate" | "error" | "opaque" | "uninspectable";
+
+function classifyFailureEvidence(value: unknown): FailureEvidenceClassification {
+  try {
+    if (value instanceof AggregateError) return "aggregate";
+    if (value instanceof Error) return "error";
+    if ((typeof value === "object" && value !== null) || typeof value === "function") {
+      const candidate = value as {
+        readonly cause?: unknown;
+        readonly errors?: unknown;
+        readonly name?: unknown;
+      };
+      const tag = Object.prototype.toString.call(value);
+      const name = candidate.name;
+      if (tag === "[object Error]" && name === "AggregateError") return "aggregate";
+      if (tag === "[object Error]") return "error";
+      let hasErrors = false;
+      let hasCause = false;
+      try {
+        hasErrors = "errors" in candidate;
+        hasCause = "cause" in candidate;
+      } catch {
+        return "uninspectable";
+      }
+      if (hasErrors) return "aggregate";
+      if (hasCause) return "error";
+    }
+  } catch {
+    return "uninspectable";
+  }
+  return "opaque";
+}
+
+type FailureEvidenceBudget = {
+  deferTruncationMarker: boolean;
+  exhausted: boolean;
+  limitReason: "ingress-budget" | "final-output";
+  lossReasons: Set<FailureEvidenceLossReason>;
+  markerEmitted: boolean;
+  maximumNodes: number;
+  priorLossMarkerOmissions: number;
+  terminalComposition: boolean;
+  truncationMarkerCharged: boolean;
+  usedNodes: number;
+};
+
+function failureEvidenceBudget(
+  reservedOutputNodes = 0,
+  maximumNodes = MAXIMUM_FAILURE_EVIDENCE_NODES,
+  limitReason: "ingress-budget" | "final-output" = "ingress-budget",
+  deferTruncationMarker = false,
+): FailureEvidenceBudget {
+  return {
+    deferTruncationMarker,
+    exhausted: false,
+    limitReason,
+    lossReasons: new Set<FailureEvidenceLossReason>(),
+    markerEmitted: false,
+    maximumNodes,
+    priorLossMarkerOmissions: 0,
+    terminalComposition: limitReason === "final-output",
+    truncationMarkerCharged: false,
+    usedNodes: reservedOutputNodes,
+  };
+}
+
+function chargeFailureEvidenceNodes(
+  budget: FailureEvidenceBudget,
+  count = 1,
+): boolean {
+  if (
+    budget.exhausted
+    || !Number.isSafeInteger(count)
+    || count < 0
+    // Keep one node available for the single immutable provenance marker. The
+    // enclosing Host aggregate is charged by its caller through the reserved
+    // output count rather than being allowed to grow outside this budget.
+    || budget.usedNodes + count > budget.maximumNodes - 1
+  ) {
+    budget.exhausted = true;
+    return false;
+  }
+  budget.usedNodes += count;
+  return true;
+}
+
+function truncateFailureEvidence(
+  budget: FailureEvidenceBudget,
+  reason: FailureEvidenceLossReason = budget.limitReason,
+): RangeError | typeof OMIT_FAILURE_EVIDENCE {
+  budget.lossReasons.add(reason);
+  budget.truncationMarkerCharged = true;
+  budget.exhausted = true;
+  if (budget.deferTruncationMarker) return OMIT_FAILURE_EVIDENCE;
+  if (budget.markerEmitted) return OMIT_FAILURE_EVIDENCE;
+  budget.markerEmitted = true;
+  budget.usedNodes += 1;
+  return failureEvidenceLossMarker(
+    budget.lossReasons,
+    budget.terminalComposition,
+  );
+}
+
+function freezeFailureEvidence<T extends object>(value: T): T {
+  Object.freeze(value);
+  immutableFailureEvidenceSnapshots.add(value);
+  return value;
+}
+
+function ownPrimitiveFailureCause(value: object): OwnPrimitiveFailureCause | null {
+  const descriptor = Object.getOwnPropertyDescriptor(value, "cause");
+  if (descriptor === undefined || !("value" in descriptor)) return null;
+  const cause = descriptor.value;
+  if (
+    (typeof cause === "object" && cause !== null)
+    || typeof cause === "function"
+  ) return null;
+  return Object.freeze({ value: cause as PrimitiveFailureCause });
+}
+
+function immutableAggregateFailureOccurrence(
+  errors: readonly unknown[],
+  message: string,
+  ownCause: OwnPrimitiveFailureCause,
+  budget: FailureEvidenceBudget,
+  capturedPrimitiveCauses?: WeakMap<object, OwnPrimitiveFailureCause | null>,
+): unknown {
+  if (!chargeFailureEvidenceNodes(budget, 2)) {
+    return truncateFailureEvidence(budget);
+  }
+  const immutableErrors: unknown[] = [];
+  for (const error of errors) {
+    const immutable = immutableFailureOccurrence(
+      error,
+      budget,
+      capturedPrimitiveCauses?.get(error as object),
+    );
+    if (immutable !== OMIT_FAILURE_EVIDENCE) immutableErrors.push(immutable);
+    if (budget.exhausted) break;
+  }
+  const aggregate = new AggregateError(immutableErrors, message);
+  Object.defineProperty(aggregate, "cause", {
+    configurable: true,
+    value: ownCause.value,
+    writable: true,
+  });
+  Object.freeze(aggregate.errors);
+  const immutable = freezeFailureEvidence(aggregate);
+  carryFailureEvidenceReasons(immutable, immutableErrors);
+  return immutable;
+}
+
+function immutableFailureOccurrence(
+  value: unknown,
+  budget: FailureEvidenceBudget,
+  capturedOwnPrimitiveCause?: OwnPrimitiveFailureCause | null,
+): unknown {
+  const hasIdentity = (typeof value === "object" && value !== null)
+    || typeof value === "function";
+  if (!hasIdentity) return value;
+  if (immutableFailureEvidenceSnapshots.has(value as object)) return value;
+  let message = "RenderHost cleanup operation failed.";
+  try {
+    const classification = classifyFailureEvidence(value);
+    if (classification !== "error" && classification !== "aggregate") {
+      throw new TypeError("opaque failure");
+    }
+    const observed = (value as Error).message;
+    if (typeof observed === "string" && observed.length > 0) message = observed;
+    // Capture own cause metadata before the AggregateError branch. Accessor
+    // descriptors are never invoked, and object/function graphs are detached.
+    const ownPrimitiveCause = capturedOwnPrimitiveCause === undefined
+      ? ownPrimitiveFailureCause(value)
+      : capturedOwnPrimitiveCause;
+    if (classification === "aggregate") {
+      const entries = (value as AggregateError).errors;
+      if (
+        !Array.isArray(entries)
+        || entries.length > MAXIMUM_IMMUTABLE_FAILURE_AGGREGATE_DETAILS
+      ) {
+        throw new RangeError("aggregate snapshot width");
+      }
+      const wrapperNodes = ownPrimitiveCause === null ? 1 : 2;
+      if (!chargeFailureEvidenceNodes(budget, wrapperNodes)) {
+        return truncateFailureEvidence(budget);
+      }
+      const immutableEntries: unknown[] = [];
+      for (const entry of entries) {
+        const immutable = immutableFailureOccurrence(entry, budget);
+        if (immutable !== OMIT_FAILURE_EVIDENCE) immutableEntries.push(immutable);
+        if (budget.exhausted) break;
+      }
+      if (ownPrimitiveCause !== null) {
+        const aggregate = new AggregateError(immutableEntries, message);
+        Object.defineProperty(aggregate, "cause", {
+          configurable: true,
+          value: ownPrimitiveCause.value,
+          writable: true,
+        });
+        Object.freeze(aggregate.errors);
+        const immutable = freezeFailureEvidence(aggregate);
+        carryFailureEvidenceReasons(immutable, immutableEntries);
+        return immutable;
+      }
+      const aggregate = new AggregateError(immutableEntries, message);
+      Object.freeze(aggregate.errors);
+      const immutable = freezeFailureEvidence(aggregate);
+      carryFailureEvidenceReasons(immutable, immutableEntries);
+      return immutable;
+    }
+
+    if (!chargeFailureEvidenceNodes(budget, ownPrimitiveCause === null ? 1 : 2)) {
+      return truncateFailureEvidence(budget);
+    }
+    const snapshot = value instanceof RangeError
+      ? new RangeError(message)
+      : value instanceof TypeError
+        ? new TypeError(message)
+        : new Error(message);
+    if (ownPrimitiveCause !== null) {
+      Object.defineProperty(snapshot, "cause", {
+        configurable: true,
+        value: ownPrimitiveCause.value,
+        writable: true,
+      });
+    }
+    return freezeFailureEvidence(snapshot);
+  } catch {
+    message = "Opaque RenderHost cleanup failure was sanitized.";
+  }
+  if (!chargeFailureEvidenceNodes(budget)) {
+    return truncateFailureEvidence(budget);
+  }
+  const snapshot = new Error(message);
+  return freezeFailureEvidence(snapshot);
 }
 
 /**
@@ -84,17 +487,38 @@ function freezeViewport(viewport: RenderViewport): RenderViewport {
  */
 export class RenderHost {
   readonly #dependencies: RenderHostDependencies;
+  readonly #errorOwner = Object.freeze({});
   #lifecycle: RenderHostLifecycle = "new";
   #snapshot: JourneyRenderSnapshot | null = null;
+  #snapshotVersion = 0;
   #viewport: RenderViewport | null = null;
   #quality: Readonly<RenderQualityProfile> | null = null;
   #initializePromise: Promise<void> | null = null;
+  #initializeSettled = false;
   #disposePromise: Promise<void> | null = null;
   #cleanupPromise: Promise<readonly unknown[]> | null = null;
+  #cleanupPromiseResult: readonly unknown[] = EMPTY_CLEANUP_FAILURES;
+  #cleanupFailureWorkspace: CleanupFailureWorkspace | null = null;
   #failurePromise: Promise<void> | null = null;
+  #failureDeferred: {
+    resolve(): void;
+    reject(error: unknown): void;
+  } | null = null;
   #framePromise: Promise<void> | null = null;
+  #controlTail: Promise<void> = Promise.resolve();
   #backendUnsubscribe: Unsubscribe | null = null;
+  #backendRelay: {
+    listener: ((event: BackendRuntimeEvent) => void) | null;
+  } | null = null;
   #qualityUnsubscribe: Unsubscribe | null = null;
+  #qualityRelay: {
+    listener: ((profile: Readonly<RenderQualityProfile>) => void) | null;
+  } | null = null;
+  #frameRelay: {
+    listener: ((nowMs: number) => void) | null;
+  } | null = null;
+  #pendingQualityDuringInitialization: Readonly<RenderQualityProfile> | null = null;
+  #pendingQualityVersion = 0;
   #initializedFeatures: number[] = [];
   #backendStarted = false;
   #materialsStarted = false;
@@ -104,6 +528,15 @@ export class RenderHost {
   #firstFrameAtMs: number | null = null;
   #lastFrameAtMs: number | null = null;
   #terminalError: RenderHostError | null = null;
+  #failureClaimed = false;
+  #terminalRawCausePresent = false;
+  #terminalRawCauseIsWeak = false;
+  #terminalRawCause: PrimitiveFailureCause | WeakRef<object>;
+  #terminalFailureFinalized = false;
+  #cleanupFailureEventPublished = false;
+  #cleanupFailureChannels: readonly (readonly unknown[])[] = EMPTY_CLEANUP_FAILURE_CHANNELS;
+  #preCleanupFailures: unknown[] = [];
+  #preCleanupFailureChannels: (readonly unknown[])[] = [];
   #probeEvents: RenderHostProbeEvent[] = [];
   #probeListeners = new Set<() => void>();
   #nextProbeEventId = 1;
@@ -112,9 +545,25 @@ export class RenderHost {
   #droppedFrames = 0;
   #backendEvents = 0;
   #failures = 0;
+  #pendingControlOperations = 0;
+  #controlTailRetainsFailure = false;
+  #controlTailRawFailureIsWeak = false;
+  #controlTailRawFailure: PrimitiveFailureCause | WeakRef<object>;
+  #frameLoopStopped = false;
+  #frameLoopStopFailure: Error | null = null;
+  #ownedCallbackDepth = 0;
 
   constructor(dependencies: RenderHostDependencies) {
-    this.#dependencies = dependencies;
+    this.#dependencies = Object.freeze({
+      backend: dependencies.backend,
+      frameLoop: dependencies.frameLoop,
+      features: Object.freeze(dependencies.features.slice()),
+      materials: dependencies.materials,
+      uploads: dependencies.uploads,
+      resources: dependencies.resources,
+      qualityProvider: dependencies.qualityProvider,
+      observer: dependencies.observer,
+    });
   }
 
   get state(): RenderHostLifecycle {
@@ -130,20 +579,42 @@ export class RenderHost {
   }
 
   subscribe(listener: () => void): Unsubscribe {
+    this.#assertNoOwnedCallbackReentry("subscribe to probes");
+    if (this.#lifecycle === "disposing" || this.#lifecycle === "disposed" || this.#lifecycle === "failed") {
+      return () => undefined;
+    }
     this.#probeListeners.add(listener);
     return () => this.#probeListeners.delete(listener);
   }
 
   getSnapshot(): RenderHostProbeSnapshot {
+    this.#assertNoOwnedCallbackReentry("read a probe snapshot");
     let resources;
     try {
-      resources = this.#dependencies.backend.snapshotResources();
-    } catch {
-      resources = this.#dependencies.resources.snapshot();
+      resources = this.#invokeOwnedCallback(
+        () => Object.freeze({ ...this.#dependencies.backend.snapshotResources() }),
+      );
+    } catch (error: unknown) {
+      if (error instanceof RenderHostError && error.code === "INVALID_LIFECYCLE") throw error;
+      resources = this.#invokeOwnedCallback(
+        () => Object.freeze({ ...this.#dependencies.resources.snapshot() }),
+      );
     }
+    resources = Object.freeze({
+      ...resources,
+      pendingUploads: this.#invokeOwnedCallback(
+        () => this.#dependencies.uploads.pendingCount(),
+      ),
+    });
+    const loopRunning = this.#invokeOwnedCallback(
+      () => this.#dependencies.frameLoop.running,
+    );
+    const backendFacts = this.#invokeOwnedCallback(
+      () => Object.freeze({ ...this.#dependencies.backend.facts }),
+    );
     return Object.freeze({
       lifecycle: this.#lifecycle,
-      loopRunning: this.#dependencies.frameLoop.running,
+      loopRunning,
       qualityTier: this.#quality?.tier ?? null,
       journey: this.#snapshot
         ? Object.freeze({
@@ -152,7 +623,7 @@ export class RenderHost {
             shotId: this.#snapshot.shotId,
           })
         : null,
-      backend: Object.freeze({ ...this.#dependencies.backend.facts }),
+      backend: backendFacts,
       resources: Object.freeze({ ...resources }),
       counters: Object.freeze({
         frameCallbacks: this.#frameCallbacks,
@@ -160,6 +631,10 @@ export class RenderHost {
         droppedFrames: this.#droppedFrames,
         backendEvents: this.#backendEvents,
         failures: this.#failures,
+        probeSubscribers: this.#probeListeners.size,
+        pendingControlOperations: this.#pendingControlOperations,
+        retainedRawFailureCauses: this.#retainedRawFailureCauses(),
+        retainedIntermediateFailureSnapshots: this.#retainedIntermediateFailureSnapshots(),
       }),
       events: Object.freeze(this.#probeEvents.map((event) => Object.freeze({ ...event }))),
       error: this.#terminalError
@@ -172,80 +647,237 @@ export class RenderHost {
     });
   }
 
+  #retainedIntermediateFailureSnapshots(): number {
+    const channelEntries = (channels: readonly (readonly unknown[])[]): number => channels
+      .reduce((total, channel) => total + channel.length, 0);
+    let retained = this.#preCleanupFailures.length
+      + channelEntries(this.#preCleanupFailureChannels);
+    if (this.#cleanupFailureWorkspace !== null) {
+      retained += this.#cleanupFailureWorkspace.failures.length;
+      retained += channelEntries(this.#cleanupFailureWorkspace.failureChannels);
+      return retained;
+    }
+    retained += this.#cleanupPromiseResult.length;
+    retained += channelEntries(this.#cleanupFailureChannels);
+    return retained;
+  }
+
+  #retainedRawFailureCauses(): number {
+    const terminalOccurrences = this.#terminalRawCausePresent ? 1 : 0;
+    const controlTailOccurrences = this.#controlTailRetainsFailure ? 1 : 0;
+    if (
+      terminalOccurrences === 1
+      && controlTailOccurrences === 1
+      && this.#terminalAndControlTailRawFailuresMatch()
+    ) {
+      return 1;
+    }
+    return terminalOccurrences + controlTailOccurrences;
+  }
+
   initialize(snapshot: JourneyRenderSnapshot, viewport: RenderViewport): Promise<void> {
+    if (this.#ownedCallbackDepth > 0) {
+      return Promise.reject(lifecycleError(
+        "initialize from an owned dependency callback",
+        this.#lifecycle,
+        this.#errorOwner,
+      ));
+    }
+    if (this.#initializePromise && !this.#initializeSettled) {
+      return this.#initializePromise;
+    }
+    if (
+      (this.#lifecycle === "new" || this.#lifecycle === "initializing" || this.#lifecycle === "ready")
+      && this.#initializePromise
+    ) {
+      return this.#initializePromise;
+    }
     if (this.#lifecycle === "ready") return Promise.resolve();
-    if (this.#initializePromise) return this.#initializePromise;
     if (this.#lifecycle !== "new") {
-      return Promise.reject(lifecycleError("initialize", this.#lifecycle));
+      return Promise.reject(lifecycleError("initialize", this.#lifecycle, this.#errorOwner));
     }
 
-    this.#snapshot = freezeSnapshot(snapshot);
-    this.#viewport = freezeViewport(viewport);
-    this.#initializePromise = this.#performInitialize();
+    const deferred = deferredVoid();
+    this.#initializePromise = deferred.promise;
+    void this.#performInitialize(snapshot, viewport).then(
+      () => {
+        this.#initializeSettled = true;
+        deferred.resolve();
+      },
+      (error: unknown) => {
+        this.#initializeSettled = true;
+        deferred.reject(error);
+      },
+    );
     return this.#initializePromise;
   }
 
   setSnapshot(snapshot: JourneyRenderSnapshot): void {
-    if (this.#lifecycle === "disposed" || this.#lifecycle === "failed") {
-      throw lifecycleError("set a snapshot", this.#lifecycle);
-    }
-    this.#snapshot = freezeSnapshot(snapshot);
+    this.#assertNoOwnedCallbackReentry("set a snapshot");
+    this.#assertSnapshotWritable();
+    const version = this.#snapshotVersion;
+    const frozen = freezeSnapshot(snapshot);
+    this.#assertSnapshotWritable();
+    if (this.#snapshotVersion !== version) return;
+    this.#snapshot = frozen;
+    this.#snapshotVersion += 1;
     this.#notifyProbeListeners();
   }
 
   async setQuality(profile: Readonly<RenderQualityProfile>): Promise<void> {
-    if (this.#lifecycle !== "ready") throw lifecycleError("set quality", this.#lifecycle);
-    await this.#applyQuality(freezeQuality(profile));
-    this.#notifyProbeListeners();
+    this.#assertNoOwnedCallbackReentry("set quality");
+    if (this.#lifecycle !== "ready") {
+      throw lifecycleError("set quality", this.#lifecycle, this.#errorOwner);
+    }
+    // A direct control call is newer than any provider event that has only
+    // scheduled (but not yet enqueued) its microtask.
+    this.#pendingQualityVersion += 1;
+    await this.#queueQualityControl(() => freezeQuality(profile));
+  }
+
+  async #queueQualityControl(
+    prepare: () => Readonly<RenderQualityProfile>,
+  ): Promise<void> {
+    try {
+      await this.#enqueueControlOperation(
+        prepare,
+        async (frozen) => {
+          this.#assertControlCanContinue();
+          await this.#applyQuality(frozen);
+        },
+      );
+      this.#notifyProbeListeners();
+    } catch (error: unknown) {
+      this.#beginFailure("FRAME_FAILED", "Quality update failed.", error, "frame-error");
+      if (this.#disposePromise === null) {
+        await this.#failurePromise?.catch(() => undefined);
+      }
+      throw this.#terminalError ?? error;
+    }
   }
 
   async resize(viewport: RenderViewport): Promise<void> {
-    if (this.#lifecycle !== "ready") throw lifecycleError("resize", this.#lifecycle);
-    const frozen = freezeViewport(viewport);
-    await this.#dependencies.backend.resize(frozen);
-    this.#viewport = frozen;
+    this.#assertNoOwnedCallbackReentry("resize");
+    if (this.#lifecycle !== "ready") {
+      throw lifecycleError("resize", this.#lifecycle, this.#errorOwner);
+    }
+    try {
+      await this.#enqueueControlOperation(
+        () => freezeViewport(viewport),
+        async (frozen) => {
+        this.#assertControlCanContinue();
+        await this.#invokeOwnedCallback(() => this.#dependencies.backend.resize(frozen));
+        this.#assertControlCanContinue();
+        this.#viewport = frozen;
+        },
+      );
+      this.#notifyProbeListeners();
+    } catch (error: unknown) {
+      this.#beginFailure("FRAME_FAILED", "Resize failed.", error, "frame-error");
+      if (this.#disposePromise === null) {
+        await this.#failurePromise?.catch(() => undefined);
+      }
+      throw this.#terminalError ?? error;
+    }
   }
 
   dispose(): Promise<void> {
+    if (this.#ownedCallbackDepth > 0) {
+      return Promise.reject(lifecycleError(
+        "dispose from an owned dependency callback",
+        this.#lifecycle,
+        this.#errorOwner,
+      ));
+    }
     if (this.#disposePromise) return this.#disposePromise;
     if (this.#lifecycle === "disposed") return Promise.resolve();
+    if (this.#failureClaimed && this.#failurePromise) return this.#failurePromise;
     if (this.#lifecycle === "failed") return this.#failurePromise ?? Promise.resolve();
 
-    this.#disposePromise = this.#performDispose();
+    const deferred = deferredVoid();
+    this.#disposePromise = deferred.promise;
+    void this.#performDispose().then(deferred.resolve, deferred.reject);
     return this.#disposePromise;
   }
 
   async whenIdle(): Promise<void> {
+    this.#assertNoOwnedCallbackReentry("wait for idle");
+    if (this.#lifecycle === "initializing") {
+      await this.#initializePromise?.catch(() => undefined);
+    }
     await this.#framePromise?.catch(() => undefined);
+    while (this.#pendingControlOperations > 0) {
+      const pendingControls = this.#controlTail;
+      await pendingControls.catch(() => undefined);
+      if (pendingControls === this.#controlTail && this.#pendingControlOperations > 0) {
+        await Promise.resolve();
+      }
+    }
+    await this.#disposePromise?.catch(() => undefined);
     await this.#failurePromise?.catch(() => undefined);
   }
 
-  async #performInitialize(): Promise<void> {
+  async #performInitialize(
+    snapshot: JourneyRenderSnapshot,
+    viewport: RenderViewport,
+  ): Promise<void> {
+    const initialSnapshotVersion = this.#snapshotVersion;
     this.#transition("initializing");
-    const serviceContext = Object.freeze({
-      backend: this.#dependencies.backend,
-      observer: this.#dependencies.observer,
-    });
 
     try {
-      this.#backendUnsubscribe = this.#dependencies.backend.subscribeEvents(
-        (event) => this.#onBackendEvent(event),
-      );
-
+      const serviceContext = Object.freeze({
+        backend: this.#dependencies.backend,
+        observer: this.#dependencies.observer,
+      });
+      const initialSnapshot = freezeSnapshot(snapshot);
+      if (this.#snapshotVersion === initialSnapshotVersion) {
+        this.#snapshot = initialSnapshot;
+        this.#snapshotVersion += 1;
+      }
+      this.#viewport = freezeViewport(viewport);
+      // Subscription itself may partially acquire backend ownership before
+      // throwing, so backend disposal must already be part of the unwind set.
       this.#backendStarted = true;
-      await this.#dependencies.backend.initialize({ viewport: this.#viewport! });
+      const backendRelay: {
+        listener: ((event: BackendRuntimeEvent) => void) | null;
+      } = {
+        listener: (event) => this.#ingestBackendEvent(event),
+      };
+      this.#backendRelay = backendRelay;
+      try {
+        this.#backendUnsubscribe = this.#invokeOwnedCallback(
+          () => this.#dependencies.backend.subscribeEvents(
+            (event) => backendRelay.listener?.(event),
+          ),
+        );
+      } catch (error: unknown) {
+        backendRelay.listener = null;
+        if (this.#backendRelay === backendRelay) this.#backendRelay = null;
+        throw error;
+      }
+      this.#assertInitializing();
+
+      await this.#invokeOwnedCallback(
+        () => this.#dependencies.backend.initialize({ viewport: this.#viewport! }),
+      );
       this.#assertInitializing();
 
       this.#resourcesStarted = true;
-      await this.#dependencies.resources.initialize(serviceContext);
+      await this.#invokeOwnedCallback(
+        () => this.#dependencies.resources.initialize(serviceContext),
+      );
       this.#assertInitializing();
 
       this.#uploadsStarted = true;
-      await this.#dependencies.uploads.initialize(serviceContext);
+      await this.#invokeOwnedCallback(
+        () => this.#dependencies.uploads.initialize(serviceContext),
+      );
       this.#assertInitializing();
 
       this.#materialsStarted = true;
-      await this.#dependencies.materials.initialize(serviceContext);
+      await this.#invokeOwnedCallback(
+        () => this.#dependencies.materials.initialize(serviceContext),
+      );
       this.#assertInitializing();
 
       const featureContext = Object.freeze({
@@ -257,46 +889,160 @@ export class RenderHost {
       });
       for (let index = 0; index < this.#dependencies.features.length; index += 1) {
         this.#initializedFeatures.push(index);
-        await this.#dependencies.features[index].initialize(featureContext);
+        await this.#invokeOwnedCallback(
+          () => this.#dependencies.features[index].initialize(featureContext),
+        );
         this.#assertInitializing();
       }
 
-      this.#quality = freezeQuality(this.#dependencies.qualityProvider.getProfile());
-      await this.#applyQuality(this.#quality);
+      const initialQuality = this.#invokeOwnedCallback(
+        () => freezeQuality(this.#dependencies.qualityProvider.getProfile()),
+      );
       this.#assertInitializing();
-      const warmupRecorder = new FramePassRecorder();
-      for (const feature of this.#dependencies.features) feature.render(warmupRecorder);
-      const uniqueWarmupPasses = new Map<string, RenderPass>();
+      await this.#applyQuality(initialQuality);
+      this.#assertInitializing();
+      const qualityRelay: {
+        listener: ((profile: Readonly<RenderQualityProfile>) => void) | null;
+      } = {
+        listener: (profile: Readonly<RenderQualityProfile>) => this.#onQualityProfile(profile),
+      };
+      this.#qualityRelay = qualityRelay;
+      try {
+        this.#qualityUnsubscribe = this.#invokeOwnedCallback(
+          () => this.#dependencies.qualityProvider.subscribe(
+            (profile) => qualityRelay.listener?.(profile),
+          ),
+        );
+      } catch (error: unknown) {
+        qualityRelay.listener = null;
+        if (this.#qualityRelay === qualityRelay) this.#qualityRelay = null;
+        throw error;
+      }
+      this.#assertInitializing();
+      const qualityVersionBeforeResample = this.#pendingQualityVersion;
+      const resampledQuality = this.#invokeOwnedCallback(
+        () => freezeQuality(this.#dependencies.qualityProvider.getProfile()),
+      );
+      this.#assertInitializing();
+      if (
+        this.#pendingQualityVersion === qualityVersionBeforeResample
+        && !qualityProfilesEqual(this.#quality, resampledQuality)
+      ) {
+        this.#pendingQualityDuringInitialization = resampledQuality;
+        this.#pendingQualityVersion += 1;
+      }
+      while (this.#pendingQualityDuringInitialization !== null) {
+        await this.#drainPendingInitializationQuality();
+      }
+
+      const warmupRecorder = new FramePassRecorder(() => this.#assertInitializing());
+      for (const feature of this.#dependencies.features) {
+        this.#invokeOwnedCallback(() => feature.render(warmupRecorder));
+        this.#assertInitializing();
+      }
+      const materialWarmupPasses = this.#invokeOwnedCallback(
+        () => Object.freeze(this.#dependencies.materials.warmupPasses().map(
+          (pass) => captureRenderPass(pass, () => this.#assertInitializing()),
+        )),
+      );
+      this.#assertInitializing();
+      const uniqueWarmupPasses: RenderPass[] = [];
+      const warmupPassIndices = new Map<string, Map<string, number>>();
       for (const pass of [
-        ...this.#dependencies.materials.warmupPasses(),
+        ...materialWarmupPasses,
         ...warmupRecorder.passes,
       ]) {
-        uniqueWarmupPasses.set(`${pass.kind}:${pass.name}`, pass);
+        let nameIndices = warmupPassIndices.get(pass.kind);
+        if (!nameIndices) {
+          nameIndices = new Map<string, number>();
+          warmupPassIndices.set(pass.kind, nameIndices);
+        }
+        const existingIndex = nameIndices.get(pass.name);
+        if (existingIndex === undefined) {
+          nameIndices.set(pass.name, uniqueWarmupPasses.length);
+          uniqueWarmupPasses.push(pass);
+        } else {
+          uniqueWarmupPasses[existingIndex] = pass;
+        }
       }
-      await this.#dependencies.backend.precompile([...uniqueWarmupPasses.values()]);
       this.#assertInitializing();
-      this.#qualityUnsubscribe = this.#dependencies.qualityProvider.subscribe((profile) => {
-        if (this.#lifecycle !== "ready") return;
-        void this.#applyQuality(freezeQuality(profile)).catch((error: unknown) => {
-          this.#beginFailure("FRAME_FAILED", "Quality update failed.", error, "frame-error");
-        });
-      });
-
-      this.#transition("ready");
-      this.#dependencies.frameLoop.start((nowMs) => this.#onFrame(nowMs));
-    } catch (error: unknown) {
-      const wrapped = hostError(
-        "INITIALIZATION_FAILED",
-        "RenderHost initialization failed.",
-        this.#lifecycle,
-        error,
+      await this.#invokeOwnedCallback(
+        () => this.#dependencies.backend.precompile(Object.freeze(uniqueWarmupPasses.slice())),
       );
-      this.#terminalError = wrapped;
-      this.#observe({ kind: "initialization-error", error: wrapped });
+      this.#assertInitializing();
+      while (this.#pendingQualityDuringInitialization !== null) {
+        await this.#drainPendingInitializationQuality();
+      }
+
+      const frameRelay = {
+        listener: (nowMs: number) => this.#onFrame(nowMs),
+      };
+      this.#frameRelay = frameRelay;
+      this.#invokeOwnedCallback(
+        () => this.#dependencies.frameLoop.start((nowMs) => frameRelay.listener?.(nowMs)),
+      );
+      this.#assertInitializing();
+      while (this.#pendingQualityDuringInitialization !== null) {
+        await this.#drainPendingInitializationQuality();
+      }
+      this.#assertInitializing();
+      this.#transition("ready");
+      if (this.#lifecycle === "failed") {
+        throw this.#terminalError ?? lifecycleError(
+          "complete initialization",
+          this.#lifecycle,
+          this.#errorOwner,
+        );
+      }
+    } catch (error: unknown) {
+      if (
+        this.#lifecycle === "failed"
+        && this.#terminalError !== null
+        && this.#failurePromise !== null
+        && this.#failureDeferred === null
+      ) {
+        await this.#failurePromise.catch(() => undefined);
+        throw this.#terminalError;
+      }
+      let primary: RenderHostError;
+      if (this.#lifecycle === "failed" && this.#terminalError !== null) {
+        primary = this.#terminalError;
+      } else {
+        this.#failureClaimed = true;
+        this.#captureTerminalRawCauseOccurrence(error);
+        this.#ensureFailureDeferred();
+        primary = hostError(
+          "INITIALIZATION_FAILED",
+          "RenderHost initialization failed.",
+          this.#lifecycle,
+          this.#capturePrimaryFailureEvidence(error),
+          this.#errorOwner,
+        );
+        this.#terminalError = primary;
+        this.#failures += 1;
+      }
+      if (primary === this.#terminalError) {
+        const snapshots = this.#snapshotFailureOccurrences(error, primary);
+        this.#preCleanupFailures.push(...snapshots);
+        if (snapshots.length > 0) {
+          this.#preCleanupFailureChannels.push(
+            this.#cleanupOperationChannel(error, snapshots),
+          );
+        }
+      }
+      if (this.#failurePromise === null) this.#ensureFailureDeferred();
       if (this.#lifecycle !== "failed") this.#transition("failed");
-      const cleanup = this.#cleanup().then(() => undefined);
-      this.#failurePromise = cleanup;
-      await cleanup;
+      const cleanupFailures = await this.#cleanup();
+      const wrapped = this.#finalizeTerminalFailure(
+        primary,
+        cleanupFailures,
+        cleanupFailures.length > 0,
+      );
+      this.#observe({ kind: "initialization-error", error: wrapped });
+      this.#notifyAndClearProbeListeners();
+      if (this.#failureDeferred) {
+        this.#settleFailureDeferred(cleanupFailures.length > 0 ? wrapped : null);
+      }
       throw wrapped;
     }
   }
@@ -304,40 +1050,91 @@ export class RenderHost {
   async #performDispose(): Promise<void> {
     if (this.#lifecycle === "initializing") {
       await this.#initializePromise?.catch(() => undefined);
-      if (this.state === "failed") return;
+      if (this.state === "failed") {
+        await this.#failurePromise;
+        return;
+      }
     }
     if (this.#lifecycle !== "new" && this.#lifecycle !== "ready") {
       if (this.#lifecycle === "disposed" || this.#lifecycle === "failed") return;
-      throw lifecycleError("dispose", this.#lifecycle);
+      throw lifecycleError("dispose", this.#lifecycle, this.#errorOwner);
     }
 
     this.#transition("disposing");
+    try {
+      this.#stopFrameLoop();
+    } catch (error: unknown) {
+      const snapshots = this.#snapshotFailureOccurrences(error, null, false);
+      this.#preCleanupFailures.push(...snapshots);
+      if (snapshots.length > 0) {
+        this.#preCleanupFailureChannels.push(
+          this.#cleanupOperationChannel(error, snapshots),
+        );
+      }
+    }
     await this.#framePromise?.catch(() => undefined);
     const failures = await this.#cleanup();
+    const terminalFailure = this.#currentTerminalFailure();
+    if (terminalFailure) {
+      const wrapped = this.#finalizeTerminalFailure(terminalFailure, failures, true);
+      this.#notifyAndClearProbeListeners();
+      throw wrapped;
+    }
     if (failures.length > 0) {
+      const budget = failureEvidenceBudget(1);
+      const boundedFailures: unknown[] = budget.exhausted
+        ? failures.slice()
+        : [];
+      if (!budget.exhausted) {
+        for (const failure of failures) {
+          boundedFailures.push(...this.#supplementalInitializationFailures(
+            failure,
+            null,
+            false,
+            budget,
+          ));
+          if (budget.exhausted) break;
+        }
+      }
+      const immutableFailures = Object.freeze(boundedFailures);
       const wrapped = hostError(
         "DISPOSAL_FAILED",
         `RenderHost disposal failed in ${failures.length} cleanup operation(s).`,
         this.#lifecycle,
-        new AggregateError(failures),
+        immutableRenderHostAggregate(
+          immutableFailures,
+          "RenderHost disposal cleanup failed.",
+        ),
+        this.#errorOwner,
       );
       this.#terminalError = wrapped;
+      this.#terminalFailureFinalized = true;
+      this.#releaseTerminalRawCause();
+      this.#releaseIntermediateFailureSnapshots();
       this.#observe({ kind: "disposal-error", error: wrapped });
       this.#transition("failed");
+      this.#notifyAndClearProbeListeners();
       throw wrapped;
     }
+    this.#releaseTerminalRawCause();
+    this.#releaseIntermediateFailureSnapshots();
     this.#transition("disposed");
+    this.#notifyAndClearProbeListeners();
   }
 
   #onFrame(nowMs: number): void {
     this.#frameCallbacks += 1;
-    if (this.#lifecycle !== "ready" || this.#framePromise) {
+    if (this.#lifecycle !== "ready" || this.#framePromise || this.#pendingControlOperations > 0) {
       this.#droppedFrames += 1;
       this.#notifyProbeListeners();
       return;
     }
-    const operation = this.#renderFrame(nowMs);
+    const deferred = deferredVoid();
+    const operation = deferred.promise;
     this.#framePromise = operation;
+    void Promise.resolve()
+      .then(() => this.#renderFrame(nowMs))
+      .then(deferred.resolve, deferred.reject);
     void operation
       .catch((error: unknown) => {
         this.#beginFailure("FRAME_FAILED", "Render frame failed.", error, "frame-error");
@@ -348,6 +1145,7 @@ export class RenderHost {
   }
 
   async #renderFrame(nowMs: number): Promise<void> {
+    this.#assertFrameCanContinue();
     const snapshot = this.#snapshot;
     if (!snapshot) throw new Error("RenderHost has no journey snapshot.");
 
@@ -363,31 +1161,106 @@ export class RenderHost {
     this.#lastFrameAtMs = nowMs;
     this.#frame += 1;
 
-    await this.#dependencies.uploads.flush(clock);
-    for (const feature of this.#dependencies.features) feature.update(snapshot, clock);
+    await this.#invokeOwnedCallback(() => this.#dependencies.uploads.flush(clock));
+    this.#assertFrameCanContinue();
+    for (const feature of this.#dependencies.features) {
+      this.#invokeOwnedCallback(() => feature.update(snapshot, clock));
+      this.#assertFrameCanContinue();
+    }
 
-    const recorder = new FramePassRecorder();
-    for (const feature of this.#dependencies.features) feature.render(recorder);
-    await this.#dependencies.backend.render(recorder.passes);
+    const recorder = new FramePassRecorder(() => this.#assertFrameCanContinue());
+    for (const feature of this.#dependencies.features) {
+      this.#invokeOwnedCallback(() => feature.render(recorder));
+      this.#assertFrameCanContinue();
+    }
+    await this.#invokeOwnedCallback(() => this.#dependencies.backend.render(recorder.passes));
+    this.#assertFrameCanContinue();
     this.#submittedFrames += 1;
     this.#notifyProbeListeners();
   }
 
   async #applyQuality(profile: Readonly<RenderQualityProfile>): Promise<void> {
+    await this.#invokeOwnedCallback(() => this.#dependencies.materials.quality(profile));
+    this.#assertControlCanContinue();
+    for (const feature of this.#dependencies.features) {
+      this.#invokeOwnedCallback(() => feature.quality(profile));
+      this.#assertControlCanContinue();
+    }
     this.#quality = profile;
-    await this.#dependencies.materials.quality(profile);
-    for (const feature of this.#dependencies.features) feature.quality(profile);
+  }
+
+  async #drainPendingInitializationQuality(): Promise<void> {
+    while (this.#pendingQualityDuringInitialization !== null) {
+      const pending = this.#pendingQualityDuringInitialization;
+      this.#pendingQualityDuringInitialization = null;
+      await this.#applyQuality(pending);
+      this.#assertInitializing();
+    }
+  }
+
+  #onQualityProfile(profile: Readonly<RenderQualityProfile>): void {
+    const lifecycle = this.#lifecycle;
+    if (lifecycle !== "initializing" && lifecycle !== "ready") return;
+    const version = this.#pendingQualityVersion + 1;
+    this.#pendingQualityVersion = version;
+    let frozen: Readonly<RenderQualityProfile>;
+    try {
+      frozen = this.#invokeOwnedCallback(() => freezeQuality(profile));
+    } catch (error: unknown) {
+      this.#beginFailure(
+        "FRAME_FAILED",
+        "Quality subscription update failed.",
+        error,
+        "frame-error",
+      );
+      return;
+    }
+    if (lifecycle === "initializing") {
+      if (this.#lifecycle !== "initializing" || this.#pendingQualityVersion !== version) return;
+      this.#pendingQualityDuringInitialization = frozen;
+      return;
+    }
+    if (this.#lifecycle !== "ready" || this.#pendingQualityVersion !== version) return;
+    // Reserve the serialized control slot before returning to the provider so
+    // a later resize/direct quality call cannot overtake this emission.
+    void this.#queueQualityControl(() => frozen).catch(() => undefined);
   }
 
   #onBackendEvent(event: BackendRuntimeEvent): void {
     this.#backendEvents += 1;
-    this.#observe({ kind: "backend-event", event });
-    this.#beginFailure(
+    const claimed = this.#beginFailure(
       "BACKEND_RUNTIME_FAILED",
       `Graphics backend reported ${event.kind}.`,
       event.error,
       "frame-error",
     );
+    if (claimed) this.#observe({ kind: "backend-event", event });
+  }
+
+  #ingestBackendEvent(event: BackendRuntimeEvent): void {
+    try {
+      const captured = this.#invokeOwnedCallback(() => {
+        const kind = event.kind;
+        const error = event.error;
+        const occurredAtMs = event.occurredAtMs;
+        if (kind !== "renderer-error" && kind !== "device-lost") {
+          throw new TypeError(`Unknown graphics backend event kind: ${String(kind)}.`);
+        }
+        if (!Number.isFinite(occurredAtMs)) {
+          throw new TypeError("Graphics backend event timestamp must be finite.");
+        }
+        return Object.freeze({ kind, error, occurredAtMs });
+      });
+      this.#onBackendEvent(captured);
+    } catch (error: unknown) {
+      this.#backendEvents += 1;
+      this.#beginFailure(
+        "BACKEND_RUNTIME_FAILED",
+        "Graphics backend event capture failed.",
+        error,
+        "frame-error",
+      );
+    }
   }
 
   #beginFailure(
@@ -395,59 +1268,1388 @@ export class RenderHost {
     message: string,
     cause: unknown,
     observerKind: "frame-error",
-  ): void {
-    if (this.#lifecycle === "failed" || this.#lifecycle === "disposed") return;
-    if (this.#failurePromise) return;
-    const wrapped = hostError(code, message, this.#lifecycle, cause);
+  ): boolean {
+    if (this.#lifecycle === "failed" || this.#lifecycle === "disposed") return false;
+    if (this.#failureClaimed) return false;
+    this.#failureClaimed = true;
+    const lifecycleAtFailure = this.#lifecycle;
+    this.#captureTerminalRawCauseOccurrence(cause);
+    if (lifecycleAtFailure !== "disposing") this.#ensureFailureDeferred();
+    const wrapped = hostError(
+      code,
+      message,
+      lifecycleAtFailure,
+      this.#capturePrimaryFailureEvidence(cause),
+      this.#errorOwner,
+    );
     this.#terminalError = wrapped;
     this.#failures += 1;
-    this.#observe({ kind: observerKind, error: wrapped });
-    this.#transition("failed");
-    if (this.#lifecycle !== "initializing") {
-      this.#failurePromise = this.#cleanup().then(() => undefined);
+    if (lifecycleAtFailure !== "initializing" && lifecycleAtFailure !== "disposing") {
+      void Promise.resolve()
+        .then(() => this.#cleanupAfterFailure(wrapped))
+        .then(
+          () => this.#settleFailureDeferred(null),
+          (error: unknown) => this.#settleFailureDeferred(error),
+        );
     }
+    this.#transition("failed");
+    this.#observe({ kind: observerKind, error: wrapped });
+    return true;
   }
 
   #cleanup(): Promise<readonly unknown[]> {
     if (this.#cleanupPromise) return this.#cleanupPromise;
-    this.#cleanupPromise = this.#performCleanup();
+    this.#cleanupPromise = Promise.resolve().then(() => this.#performCleanup());
     return this.#cleanupPromise;
   }
 
   async #performCleanup(): Promise<readonly unknown[]> {
-    const failures: unknown[] = [];
+    const failures: unknown[] = this.#preCleanupFailures.splice(0);
+    const failureChannels: unknown[][] = this.#preCleanupFailureChannels
+      .splice(0)
+      .map((channel) => [...channel]);
+    this.#cleanupFailureWorkspace = Object.freeze({ failures, failureChannels });
+    if (failureChannels.length === 0 && failures.length > 0) {
+      failureChannels.push(failures.slice());
+    }
+    const seenFailures = new Set(failures.filter(
+      (value) => (typeof value === "object" && value !== null) || typeof value === "function",
+    ));
+    if (this.#terminalError) seenFailures.add(this.#terminalError);
+    const recordRawFailure = (error: unknown) => {
+      const accepted: unknown[] = [];
+      for (const snapshot of this.#snapshotFailureOccurrences(error, null, false)) {
+        const hasIdentity = (typeof snapshot === "object" && snapshot !== null)
+          || typeof snapshot === "function";
+        if (hasIdentity) seenFailures.add(snapshot);
+        failures.push(snapshot);
+        accepted.push(snapshot);
+      }
+      if (accepted.length > 0) {
+        failureChannels.push([...this.#cleanupOperationChannel(error, accepted)]);
+      }
+    };
+    const recordSupplementalOccurrences = (
+      rejection: unknown,
+      supplementals: readonly unknown[],
+    ) => {
+      // Identities present before this reported operation are propagation
+      // duplicates. Repeated identities inside this one operation are distinct
+      // occurrences and must all remain visible.
+      const previouslySeen = new Set(seenFailures);
+      const accepted: unknown[] = [];
+      for (const supplemental of supplementals) {
+        const hasIdentity = (typeof supplemental === "object" && supplemental !== null)
+          || typeof supplemental === "function";
+        if (hasIdentity && previouslySeen.has(supplemental)) continue;
+        if (hasIdentity) seenFailures.add(supplemental);
+        failures.push(supplemental);
+        accepted.push(supplemental);
+      }
+      if (accepted.length > 0) {
+        failureChannels.push([...this.#cleanupOperationChannel(rejection, accepted)]);
+      }
+    };
+    const recordFailure = (error: unknown) => {
+      if (!this.#terminalError) {
+        recordRawFailure(error);
+        return;
+      }
+      recordSupplementalOccurrences(
+        error,
+        this.#snapshotFailureOccurrences(
+          error,
+          this.#terminalError,
+          false,
+        ),
+      );
+    };
     const attempt = async (operation: () => void | Promise<void>): Promise<void> => {
       try {
         await operation();
       } catch (error: unknown) {
-        failures.push(error);
+        recordFailure(error);
+      }
+    };
+    const retryUnsubscribe = async (
+      operation: Unsubscribe,
+      release: () => void,
+    ): Promise<void> => {
+      for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
+        try {
+          this.#invokeOwnedCallback(operation);
+          release();
+          return;
+        } catch (error: unknown) {
+          recordFailure(error);
+        }
       }
     };
 
-    this.#dependencies.frameLoop.stop();
-    this.#qualityUnsubscribe?.();
-    this.#qualityUnsubscribe = null;
-    this.#backendUnsubscribe?.();
-    this.#backendUnsubscribe = null;
-
+    const frameRelay = this.#frameRelay;
+    this.#frameRelay = null;
+    if (frameRelay) frameRelay.listener = null;
+    await attempt(() => this.#stopFrameLoop());
+    if (!this.#frameLoopStopped) await attempt(() => this.#stopFrameLoop());
+    const qualityRelay = this.#qualityRelay;
+    this.#qualityRelay = null;
+    if (qualityRelay) qualityRelay.listener = null;
+    const qualityUnsubscribe = this.#qualityUnsubscribe;
+    this.#pendingQualityDuringInitialization = null;
+    if (qualityUnsubscribe) {
+      await retryUnsubscribe(qualityUnsubscribe, () => {
+        if (this.#qualityUnsubscribe === qualityUnsubscribe) this.#qualityUnsubscribe = null;
+      });
+    }
     const activeFrame = this.#framePromise;
-    if (activeFrame) await activeFrame.catch(() => undefined);
+    const recordOperationRejection = (error: unknown): void => {
+      if (this.#terminalError) {
+        recordSupplementalOccurrences(
+          error,
+          this.#snapshotFailureOccurrences(
+            error,
+            this.#terminalError,
+          ),
+        );
+        return;
+      }
+      recordFailure(error);
+    };
+    if (activeFrame) {
+      try {
+        await activeFrame;
+      } catch (error: unknown) {
+        recordOperationRejection(error);
+      }
+    }
+    try {
+      await this.#controlTail;
+    } catch (error: unknown) {
+      recordOperationRejection(error);
+    }
+    // The public control caller retains its own rejection. Replace the Host's
+    // internal latch after evidence capture so no raw error graph survives cleanup.
+    this.#controlTail = Promise.resolve();
+    this.#releaseControlTailRawFailure();
 
     for (const index of this.#initializedFeatures.slice().reverse()) {
-      await attempt(() => this.#dependencies.features[index].dispose());
+      await attempt(
+        () => this.#invokeOwnedCallback(() => this.#dependencies.features[index].dispose()),
+      );
     }
     this.#initializedFeatures = [];
 
-    if (this.#materialsStarted) await attempt(() => this.#dependencies.materials.dispose());
-    if (this.#uploadsStarted) await attempt(() => this.#dependencies.uploads.dispose());
-    if (this.#resourcesStarted) await attempt(() => this.#dependencies.resources.dispose());
-    if (this.#backendStarted) await attempt(() => this.#dependencies.backend.dispose());
+    if (this.#materialsStarted) {
+      await attempt(() => this.#invokeOwnedCallback(() => this.#dependencies.materials.dispose()));
+    }
+    if (this.#uploadsStarted) {
+      await attempt(() => this.#invokeOwnedCallback(() => this.#dependencies.uploads.dispose()));
+      await attempt(() => {
+        const pending = this.#invokeOwnedCallback(
+          () => this.#dependencies.uploads.pendingCount(),
+        );
+        if (pending !== 0) {
+          throw new Error(`Render upload queue retained ${pending} pending item(s) after disposal.`);
+        }
+      });
+    }
+    if (this.#resourcesStarted) {
+      await attempt(() => this.#invokeOwnedCallback(() => this.#dependencies.resources.dispose()));
+    }
+    // Keep backend events observable until every operation that can still
+    // touch the backend has drained. Only then revoke the relay and detach it.
+    const backendUnsubscribe = this.#backendUnsubscribe;
+    const backendRelay = this.#backendRelay;
+    this.#backendRelay = null;
+    if (backendRelay) backendRelay.listener = null;
+    if (backendUnsubscribe) {
+      await retryUnsubscribe(backendUnsubscribe, () => {
+        if (this.#backendUnsubscribe === backendUnsubscribe) this.#backendUnsubscribe = null;
+      });
+    }
+    if (this.#backendStarted) {
+      await attempt(() => this.#invokeOwnedCallback(() => this.#dependencies.backend.dispose()));
+    }
 
     this.#materialsStarted = false;
     this.#uploadsStarted = false;
     this.#resourcesStarted = false;
     this.#backendStarted = false;
-    return Object.freeze(failures.slice());
+    const immutableFailures = Object.freeze(failures.slice());
+    this.#cleanupPromiseResult = immutableFailures;
+    this.#cleanupFailureWorkspace = null;
+    if (this.#terminalError) {
+      // Every occurrence was already snapshotted at ingress. Preserve the
+      // operation boundaries so final composition can budget all cleanup
+      // channels fairly instead of allowing the first large root to starve later ones.
+      this.#cleanupFailureChannels = Object.freeze(failureChannels.map(
+        (channel) => Object.freeze(channel.slice()),
+      ));
+      return immutableFailures;
+    }
+    this.#cleanupFailureChannels = EMPTY_CLEANUP_FAILURE_CHANNELS;
+    return immutableFailures;
+  }
+
+  async #cleanupAfterFailure(primary: RenderHostError): Promise<void> {
+    const failures = await this.#cleanup();
+    const wrapped = this.#finalizeTerminalFailure(primary, failures, true);
+    if (failures.length === 0) {
+      this.#notifyAndClearProbeListeners();
+      return;
+    }
+    this.#notifyAndClearProbeListeners();
+    throw wrapped;
+  }
+
+  #enqueueControlOperation<T>(
+    prepare: () => T,
+    operation: (prepared: T) => Promise<void>,
+  ): Promise<void> {
+    const activeFrame = this.#framePromise;
+    this.#pendingControlOperations += 1;
+    const preparationGate = deferredVoid();
+    let prepared!: T;
+    let preparationFailed = false;
+    let preparationError: unknown;
+    const next = this.#controlTail
+      .catch(() => undefined)
+      .then(async () => {
+        await activeFrame?.catch(() => undefined);
+        await preparationGate.promise;
+        if (preparationFailed) throw preparationError;
+        this.#assertControlCanContinue();
+        await operation(prepared);
+        this.#assertControlCanContinue();
+      });
+    const tracked = next.finally(() => {
+      this.#pendingControlOperations -= 1;
+      this.#notifyProbeListeners();
+    });
+    this.#controlTail = tracked;
+    void tracked.catch((error: unknown) => {
+      this.#captureControlTailRawFailure(error);
+    });
+    try {
+      prepared = prepare();
+    } catch (error: unknown) {
+      preparationFailed = true;
+      preparationError = error;
+    } finally {
+      preparationGate.resolve();
+    }
+    return tracked;
+  }
+
+  #ensureFailureDeferred(): void {
+    if (this.#failurePromise) return;
+    let resolve!: () => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+      resolve = resolvePromise;
+      reject = rejectPromise;
+    });
+    this.#failureDeferred = { resolve, reject };
+    this.#failurePromise = promise;
+    void promise.catch(() => undefined);
+  }
+
+  #settleFailureDeferred(error: unknown): void {
+    const deferred = this.#failureDeferred;
+    this.#releaseTerminalRawCause();
+    if (!deferred) return;
+    this.#failureDeferred = null;
+    if (error === null) deferred.resolve();
+    else deferred.reject(error);
+  }
+
+  #withCleanupFailures(
+    primary: RenderHostError,
+    failures: readonly unknown[],
+  ): RenderHostError {
+    if (failures.length > 0) {
+      const cleanupChannels = this.#cleanupFailureChannels.length > 0
+        ? this.#cleanupFailureChannels
+        : Object.freeze(failures.map((failure) => Object.freeze([failure])));
+      const composed = this.#composeTerminalFailureEvidence(
+        primary,
+        Object.freeze([renderHostErrorCause(primary)]),
+        cleanupChannels,
+      );
+      return replaceRenderHostErrorCause(
+        primary,
+        immutableRenderHostAggregate(
+          composed,
+          "RenderHost terminal failure evidence was recomposed after cleanup.",
+        ),
+        this.#errorOwner,
+      );
+    }
+    return attachRenderHostCleanupFailures(
+      primary,
+      this.#supplementalFailureEvidence(primary, failures),
+      this.#errorOwner,
+    );
+  }
+
+  #primaryFailureOccurrences(
+    cause: unknown,
+    budget: FailureEvidenceBudget,
+    immutableOutput = false,
+  ): readonly unknown[] {
+    return this.#supplementalInitializationFailures(
+      cause,
+      null,
+      false,
+      budget,
+      immutableOutput,
+    );
+  }
+
+  #materializePrimaryFailureEvidence(evidence: readonly unknown[]): unknown {
+    if (evidence.length === 1) return evidence[0];
+    const aggregate = immutableRenderHostAggregate(
+      evidence,
+      "RenderHost primary failure contained multiple errors.",
+    );
+    carryFailureEvidenceReasons(aggregate, evidence);
+    return aggregate;
+  }
+
+  #capturePrimaryFailureEvidence(cause: unknown): unknown {
+    const ingressBudget = failureEvidenceBudget(2);
+    let occurrences: readonly unknown[];
+    try {
+      occurrences = this.#invokeOwnedCallback(
+        () => this.#primaryFailureOccurrences(cause, ingressBudget),
+      );
+    } catch {
+      if (!chargeFailureEvidenceNodes(ingressBudget)) {
+        const truncation = truncateFailureEvidence(ingressBudget);
+        occurrences = Object.freeze([truncation === OMIT_FAILURE_EVIDENCE
+          ? failureEvidenceLossMarker(ingressBudget.lossReasons, false)
+          : truncation]);
+      } else {
+        occurrences = Object.freeze([freezeFailureEvidence(new Error(
+          "RenderHost primary failure evidence could not be captured.",
+        ))]);
+      }
+    }
+    if (
+      occurrences.length > 1
+      || ingressBudget.truncationMarkerCharged
+      || ingressBudget.usedNodes >= REBASABLE_PRIMARY_EVIDENCE_THRESHOLD
+    ) {
+      const safeBudget = failureEvidenceBudget(2);
+      const safeOccurrences: unknown[] = [];
+      for (const occurrence of occurrences) {
+        safeOccurrences.push(...this.#supplementalInitializationFailures(
+          occurrence,
+          null,
+          false,
+          safeBudget,
+          true,
+        ));
+        if (safeBudget.exhausted) break;
+      }
+      occurrences = Object.freeze(safeOccurrences);
+    }
+    return this.#materializePrimaryFailureEvidence(occurrences);
+  }
+
+  #cleanupOperationChannel(
+    rejection: unknown,
+    snapshots: readonly unknown[],
+  ): readonly unknown[] {
+    const classification = classifyFailureEvidence(rejection);
+    if (classification !== "aggregate" && classification !== "uninspectable") {
+      return Object.freeze(snapshots.slice());
+    }
+    let message = classification === "aggregate"
+      ? "Sanitized cleanup aggregate operation."
+      : "Sanitized cleanup operation with an uninspectable failure root.";
+    if (classification === "aggregate") {
+      try {
+        const messageDescriptor = Object.getOwnPropertyDescriptor(
+          rejection as object,
+          "message",
+        );
+        const capturedMessage = messageDescriptor && "value" in messageDescriptor
+          ? messageDescriptor.value
+          : undefined;
+        if (typeof capturedMessage === "string" && capturedMessage.length > 0) {
+          message = capturedMessage;
+        }
+      } catch {
+        // A generic detached operation message is safer than another raw read.
+      }
+    }
+    try {
+      if (classification === "aggregate") {
+        if (
+          snapshots.length === 1
+          && snapshots[0] instanceof AggregateError
+          && snapshots[0].message === message
+        ) {
+          if (ownPrimitiveFailureCause(snapshots[0]) !== null) return snapshots;
+          cleanupOperationAggregateSnapshots.add(snapshots[0]);
+          carryFailureEvidenceReasons(snapshots[0], snapshots[0].errors);
+          return Object.freeze(snapshots.slice());
+        }
+      }
+      const aggregate = new AggregateError(snapshots, message);
+      Object.freeze(aggregate.errors);
+      const immutable = freezeFailureEvidence(aggregate);
+      cleanupOperationAggregateSnapshots.add(immutable);
+      carryFailureEvidenceReasons(immutable, snapshots);
+      return Object.freeze([immutable]);
+    } catch {
+      // The already-safe occurrence snapshots remain the fallback operation head.
+    }
+    return Object.freeze(snapshots.slice());
+  }
+
+  #snapshotFailureOccurrences(
+    rejection: unknown,
+    primary: RenderHostError | null,
+    consumePrimaryCause = true,
+  ): readonly unknown[] {
+    const budget = failureEvidenceBudget(2);
+    try {
+      return this.#invokeOwnedCallback(() => Object.freeze(
+        this.#supplementalInitializationFailures(
+          rejection,
+          primary,
+          consumePrimaryCause,
+          budget,
+          true,
+        ),
+      ));
+    } catch {
+      const immutable = immutableFailureOccurrence(new Error(
+        "RenderHost cleanup failure evidence could not be captured.",
+      ), budget);
+      return immutable === OMIT_FAILURE_EVIDENCE
+        ? Object.freeze([])
+        : Object.freeze([immutable]);
+    }
+  }
+
+  #supplementalFailureEvidence(
+    primary: RenderHostError,
+    failures: readonly unknown[],
+  ): readonly unknown[] {
+    const budget = failureEvidenceBudget(2);
+    const evidence: unknown[] = [];
+    for (const failure of failures) {
+      evidence.push(...this.#supplementalInitializationFailures(
+        failure,
+        primary,
+        false,
+        budget,
+      ));
+      if (budget.exhausted) break;
+    }
+    return Object.freeze(evidence);
+  }
+
+  #composeTerminalFailureEvidence(
+    primary: RenderHostError,
+    primaryEntries: readonly unknown[],
+    cleanupChannels: readonly (readonly unknown[])[],
+  ): readonly unknown[] {
+    const budget = failureEvidenceBudget(
+      1,
+      MAXIMUM_FAILURE_EVIDENCE_NODES,
+      "final-output",
+      true,
+    );
+    const expandChannel = (value: unknown): readonly unknown[] => {
+      try {
+        if (!(value instanceof AggregateError)) return Object.freeze([value]);
+        if (cleanupOperationAggregateSnapshots.has(value)) {
+          return Object.freeze([value]);
+        }
+        if (Object.getOwnPropertyDescriptor(value, "cause") !== undefined) {
+          return Object.freeze([value]);
+        }
+        const entries = value.errors;
+        if (!Array.isArray(entries) || entries.length === 0) {
+          return Object.freeze([value]);
+        }
+        return Object.freeze(entries.slice());
+      } catch {
+        return Object.freeze([value]);
+      }
+    };
+    type AtomicPlan = {
+      readonly hasPriorLoss: boolean;
+      readonly kind: "atomic";
+      readonly priorReasons: readonly FailureEvidenceLossReason[] | null;
+      readonly value: unknown;
+      evidence: unknown[];
+      processed: boolean;
+    };
+    type AggregatePlan = {
+      readonly cause: OwnPrimitiveFailureCause | null;
+      readonly details: readonly unknown[];
+      readonly hasPriorLoss: boolean;
+      readonly kind: "aggregate";
+      readonly message: string;
+      readonly priorReasons: readonly FailureEvidenceLossReason[] | null;
+      detailCursor: number;
+      detailEvidence: unknown[];
+      rootReserved: boolean;
+    };
+    type EntryPlan = AtomicPlan | AggregatePlan;
+    type ChannelPlan = {
+      cursor: number;
+      readonly entries: readonly EntryPlan[];
+      readonly preserveIdentity: boolean;
+      represented: boolean;
+    };
+    const planEntry = (value: unknown): EntryPlan => {
+      const priorReasons = carriedFailureEvidenceReasons(value);
+      const hasPriorLoss = priorReasons !== null;
+      try {
+        if (
+          value instanceof AggregateError
+          && immutableFailureEvidenceSnapshots.has(value)
+        ) {
+          const cause = ownPrimitiveFailureCause(value);
+          const details = value.errors;
+          if (
+            Array.isArray(details)
+            && (
+              cause !== null
+              || cleanupOperationAggregateSnapshots.has(value)
+            )
+          ) {
+            const message = typeof value.message === "string" && value.message.length > 0
+              ? value.message
+              : cause === null
+                ? "Sanitized cleanup aggregate operation."
+                : "Sanitized aggregate failure with a primitive cause.";
+            return {
+              cause,
+              details: Object.freeze(details.slice()),
+              detailCursor: 0,
+              detailEvidence: [],
+              hasPriorLoss,
+              kind: "aggregate",
+              message,
+              priorReasons,
+              rootReserved: false,
+            };
+          }
+        }
+      } catch {
+        // Only trusted immutable snapshots are split. Anything surprising is
+        // processed through the existing defensive sanitizer as one entry.
+      }
+      return {
+        evidence: [],
+        hasPriorLoss,
+        kind: "atomic",
+        priorReasons,
+        processed: false,
+        value,
+      };
+    };
+    const makeChannel = (
+      entries: readonly unknown[],
+      preserveIdentity: boolean,
+    ): ChannelPlan => ({
+      cursor: 0,
+      entries: Object.freeze(entries
+        .flatMap((entry) => expandChannel(entry))
+        .map((entry) => planEntry(entry))),
+      preserveIdentity,
+      represented: false,
+    });
+    const channels = [
+      makeChannel(primaryEntries, true),
+      ...cleanupChannels.map((entries) => makeChannel(entries, false)),
+    ];
+    for (const channel of channels) {
+      for (const entry of channel.entries) {
+        if (entry.priorReasons === null) continue;
+        for (const reason of entry.priorReasons) budget.lossReasons.add(reason);
+      }
+    }
+    const processAtomic = (plan: AtomicPlan, channel: ChannelPlan): void => {
+      plan.evidence.push(...this.#supplementalInitializationFailures(
+        plan.value,
+        primary,
+        false,
+        budget,
+        !channel.preserveIdentity,
+        true,
+      ));
+      plan.processed = true;
+      if (plan.evidence.length > 0) channel.represented = true;
+    };
+    const reserveAggregateRoot = (
+      plan: AggregatePlan,
+      channel: ChannelPlan,
+    ): boolean => {
+      if (budget.exhausted) return false;
+      // Charge the already-safe source root and generated bounded summary,
+      // plus the own primitive cause when present, before spending on details.
+      const rootCost = plan.cause === null ? 2 : 3;
+      if (budget.usedNodes + rootCost > budget.maximumNodes - 1) {
+        budget.lossReasons.add("final-output");
+        return false;
+      }
+      budget.usedNodes += rootCost;
+      plan.rootReserved = true;
+      channel.represented = true;
+      return true;
+    };
+    const reserveAtomicHead = (
+      plan: AtomicPlan,
+      channel: ChannelPlan,
+      cleanup: boolean,
+    ): boolean => {
+      if (budget.exhausted) {
+        plan.processed = true;
+        return false;
+      }
+      if (
+        cleanup
+        && plan.priorReasons !== null
+        && failureEvidenceReasons(plan.value) !== null
+      ) {
+        // The shared terminal marker carries the loss provenance. Retain a
+        // separate, non-provenance summary so this cleanup operation still has
+        // a bounded unique head without duplicating the marker.
+        if (budget.usedNodes + 2 > budget.maximumNodes - 1) {
+          budget.lossReasons.add("final-output");
+          plan.processed = true;
+          return false;
+        }
+        budget.usedNodes += 2;
+        plan.evidence.push(freezeFailureEvidence(new Error(
+          "Sanitized cleanup operation head retained after evidence loss.",
+        )));
+        plan.processed = true;
+        channel.represented = true;
+        return true;
+      }
+      let headCost = 1;
+      try {
+        if (
+          (typeof plan.value === "object" && plan.value !== null)
+          || typeof plan.value === "function"
+        ) {
+          if (ownPrimitiveFailureCause(plan.value as object) !== null) headCost += 1;
+        }
+      } catch {
+        headCost = 1;
+      }
+      if (budget.usedNodes + headCost > budget.maximumNodes - 1) {
+        budget.lossReasons.add("final-output");
+        plan.processed = true;
+        return false;
+      }
+      processAtomic(plan, channel);
+      return plan.evidence.length > 0;
+    };
+    const reserveChannelHead = (
+      channel: ChannelPlan,
+      cleanup: boolean,
+    ): void => {
+      const head = channel.entries[0];
+      if (!head) {
+        budget.lossReasons.add("final-output");
+        return;
+      }
+      if (head.kind === "aggregate") reserveAggregateRoot(head, channel);
+      else reserveAtomicHead(head, channel, cleanup);
+    };
+    reserveChannelHead(channels[0], false);
+    for (const channel of channels.slice(1)) reserveChannelHead(channel, true);
+    const processChannelStep = (channel: ChannelPlan): boolean => {
+      while (channel.cursor < channel.entries.length) {
+        const plan = channel.entries[channel.cursor];
+        if (plan.kind === "atomic") {
+          channel.cursor += 1;
+          if (plan.processed) continue;
+          processAtomic(plan, channel);
+          return true;
+        }
+        if (!plan.rootReserved) {
+          if (reserveAggregateRoot(plan, channel)) return true;
+          channel.cursor += 1;
+          continue;
+        }
+        if (plan.detailCursor < plan.details.length) {
+          const detail = plan.details[plan.detailCursor];
+          plan.detailCursor += 1;
+          plan.detailEvidence.push(...this.#supplementalInitializationFailures(
+            detail,
+            primary,
+            false,
+            budget,
+            true,
+            true,
+          ));
+          return true;
+        }
+        channel.cursor += 1;
+      }
+      return false;
+    };
+    while (!budget.exhausted) {
+      let progressed = false;
+      for (const channel of channels) {
+        if (processChannelStep(channel)) progressed = true;
+        if (budget.exhausted) break;
+      }
+      if (!progressed) break;
+    }
+    const omittedCleanupChannels = channels.slice(1).filter(
+      (channel) => !channel.represented,
+    ).length;
+    if (omittedCleanupChannels > 0) budget.lossReasons.add("final-output");
+    const marker = budget.lossReasons.size > 0
+      ? failureEvidenceLossMarker(
+        budget.lossReasons,
+        true,
+        omittedCleanupChannels,
+      )
+      : null;
+    const materializeAggregate = (plan: AggregatePlan): AggregateError => {
+      const aggregate = new AggregateError(plan.detailEvidence, plan.message);
+      if (plan.cause !== null) {
+        Object.defineProperty(aggregate, "cause", {
+          configurable: true,
+          value: plan.cause.value,
+          writable: true,
+        });
+      }
+      Object.freeze(aggregate.errors);
+      const immutable = freezeFailureEvidence(aggregate);
+      carryFailureEvidenceReasons(immutable, plan.detailEvidence);
+      return immutable;
+    };
+    const evidence: unknown[] = [];
+    let markerPlaced = false;
+    for (const channel of channels) {
+      for (const plan of channel.entries) {
+        if (marker !== null && !markerPlaced && plan.hasPriorLoss) {
+          evidence.push(marker);
+          markerPlaced = true;
+        }
+        if (plan.kind === "atomic") evidence.push(...plan.evidence);
+        else if (plan.rootReserved) evidence.push(materializeAggregate(plan));
+      }
+    }
+    if (marker !== null && !markerPlaced) evidence.push(marker);
+    return Object.freeze(evidence);
+  }
+
+  #supplementalInitializationFailures(
+    rejection: unknown,
+    primary: RenderHostError | null,
+    consumePrimaryCause = true,
+    budget = failureEvidenceBudget(1),
+    immutableOutput = false,
+    omitPriorLossMarkers = false,
+  ): readonly unknown[] {
+    const failures: unknown[] = [];
+    const activePath = new Set<unknown>();
+    const primaryCause = primary === null
+      ? Symbol("no-render-host-primary")
+      : renderHostErrorCause(primary);
+    const rawPrimaryAvailable = primary !== null
+      && primary === this.#terminalError
+      && this.#terminalRawCausePresent;
+    let primaryRepresentationConsumed = false;
+    let primaryReferenceCount = 0;
+    let sanitizationCount = 0;
+    let traversalTruncationCount = 0;
+    let traversalBudgetEvidenceRecorded = false;
+    const capturedPrimitiveCauses = new WeakMap<
+      object,
+      OwnPrimitiveFailureCause | null
+    >();
+    const hasIdentity = (value: unknown): boolean => (
+      (typeof value === "object" && value !== null) || typeof value === "function"
+    );
+    const wasSeen = (value: unknown): boolean => hasIdentity(value) && activePath.has(value);
+    const markSeen = (value: unknown): void => {
+      if (hasIdentity(value)) activePath.add(value);
+    };
+    const recordTraversalTruncation = (
+      reason: FailureEvidenceLossReason = budget.limitReason,
+    ): void => {
+      traversalTruncationCount += 1;
+      if (traversalBudgetEvidenceRecorded) return;
+      traversalBudgetEvidenceRecorded = true;
+      const truncation = truncateFailureEvidence(budget, reason);
+      if (truncation !== OMIT_FAILURE_EVIDENCE) failures.push(truncation);
+    };
+    const recordOpaque = (
+      value: unknown,
+      capturedOwnPrimitiveCause?: OwnPrimitiveFailureCause | null,
+    ): void => {
+      if (wasSeen(value)) return;
+      if (!immutableOutput) {
+        if (
+          capturedOwnPrimitiveCause !== null
+          && capturedOwnPrimitiveCause !== undefined
+          && !chargeFailureEvidenceNodes(budget)
+        ) {
+          recordTraversalTruncation();
+          return;
+        }
+        failures.push(value);
+        return;
+      }
+      if (
+        hasIdentity(value)
+        && immutableFailureEvidenceSnapshots.has(value as object)
+      ) {
+        if (
+          capturedOwnPrimitiveCause !== null
+          && capturedOwnPrimitiveCause !== undefined
+          && !chargeFailureEvidenceNodes(budget)
+        ) {
+          recordTraversalTruncation();
+          return;
+        }
+        failures.push(value);
+        return;
+      }
+      const immutable = immutableFailureOccurrence(
+        value,
+        budget,
+        capturedOwnPrimitiveCause,
+      );
+      if (immutable !== OMIT_FAILURE_EVIDENCE) failures.push(immutable);
+      if (failureEvidenceReasons(immutable) !== null) {
+        traversalTruncationCount += 1;
+        traversalBudgetEvidenceRecorded = true;
+      }
+    };
+    const recordSanitizedEvidence = <T extends Error>(
+      evidence: T,
+      lossReason?: FailureEvidenceLossReason,
+    ): Error | typeof OMIT_FAILURE_EVIDENCE => {
+      sanitizationCount += 1;
+      if (!chargeFailureEvidenceNodes(budget)) {
+        recordTraversalTruncation();
+        return OMIT_FAILURE_EVIDENCE;
+      }
+      const immutable = freezeFailureEvidence(evidence);
+      if (lossReason) {
+        failureEvidenceLossReasons.set(immutable, Object.freeze([lossReason]));
+        budget.lossReasons.add(lossReason);
+      }
+      failures.push(immutable);
+      return immutable;
+    };
+    const classify = classifyFailureEvidence;
+    const visit = (
+      value: unknown,
+      depth = 0,
+      classificationHint?: ReturnType<typeof classify>,
+    ): void => {
+      if (omitPriorLossMarkers) {
+        const priorReasons = failureEvidenceReasons(value);
+        if (priorReasons !== null) {
+          for (const reason of priorReasons) budget.lossReasons.add(reason);
+          budget.truncationMarkerCharged = true;
+          budget.priorLossMarkerOmissions += 1;
+          return;
+        }
+      }
+      if (primary !== null && value === primary) {
+        primaryReferenceCount += 1;
+        return;
+      }
+      if (
+        consumePrimaryCause
+        && rawPrimaryAvailable
+        && !primaryRepresentationConsumed
+        && this.#terminalRawCauseMatches(value)
+      ) {
+        primaryRepresentationConsumed = true;
+        return;
+      }
+      if (
+        primary !== null
+        && consumePrimaryCause
+        && !primaryRepresentationConsumed
+        && Object.is(value, primaryCause)
+      ) {
+        primaryRepresentationConsumed = true;
+        return;
+      }
+      if (budget.exhausted) return;
+      if (depth > MAXIMUM_FAILURE_EVIDENCE_DEPTH) {
+        recordTraversalTruncation("depth");
+        return;
+      }
+      if (!chargeFailureEvidenceNodes(budget)) {
+        recordTraversalTruncation(budget.limitReason);
+        return;
+      }
+      if (wasSeen(value)) {
+        recordSanitizedEvidence(new Error("Cyclic failure evidence was sanitized."));
+        return;
+      }
+      const classification = classificationHint ?? classify(value);
+      if (classification === "uninspectable") {
+        recordSanitizedEvidence(
+          new Error("Failure value type could not be inspected."),
+          "hostile-inspection",
+        );
+        return;
+      }
+      if (classification === "aggregate") {
+        const failureCountBefore = failures.length;
+        const primaryConsumedBefore = primaryRepresentationConsumed;
+        const primaryReferenceBefore = primaryReferenceCount;
+        const traversalTruncationBefore = traversalTruncationCount;
+        const sanitizationBefore = sanitizationCount;
+        markSeen(value);
+        try {
+        const recordInspectionFailure = (message: string, _error: unknown): void => {
+          void _error;
+          // The thrown accessor value may itself be the primary fault. The
+          // distinct inspection failure is therefore represented by a safe marker.
+          recordSanitizedEvidence(new Error(message), "hostile-inspection");
+        };
+        let aggregateOwnPrimitiveCause: OwnPrimitiveFailureCause | null = null;
+        try {
+          aggregateOwnPrimitiveCause = ownPrimitiveFailureCause(value as object);
+        } catch (error: unknown) {
+          recordInspectionFailure("Aggregate failure cause could not be inspected.", error);
+        }
+        if (
+          aggregateOwnPrimitiveCause !== null
+          && primary !== null
+          && consumePrimaryCause
+          && !primaryRepresentationConsumed
+          && (
+            (
+              rawPrimaryAvailable
+              && this.#terminalRawCauseMatches(
+                aggregateOwnPrimitiveCause.value,
+              )
+            )
+            || Object.is(aggregateOwnPrimitiveCause.value, primaryCause)
+          )
+        ) {
+          // Reserve the propagated cause edge before inspecting entries. Any
+          // same-value entries are distinct secondary occurrences and must not
+          // be consumed after this point.
+          primaryRepresentationConsumed = true;
+          aggregateOwnPrimitiveCause = null;
+        }
+        const preservePrimitiveCauseAggregate = (): boolean => {
+          if (aggregateOwnPrimitiveCause === null) return false;
+          if (budget.exhausted) return true;
+          let message = "Sanitized aggregate failure with a primitive cause.";
+          try {
+            const observedMessage = (value as AggregateError).message;
+            if (typeof observedMessage === "string" && observedMessage.length > 0) {
+              message = observedMessage;
+            }
+          } catch {
+            // The immutable clone deliberately keeps no source-container reference.
+          }
+          let nestedEvidence = failures.splice(failureCountBefore);
+          if (nestedEvidence.length > MAXIMUM_IMMUTABLE_FAILURE_AGGREGATE_DETAILS) {
+            const truncation = new RangeError(
+              `Aggregate failure snapshot exceeded ${MAXIMUM_IMMUTABLE_FAILURE_AGGREGATE_DETAILS} entries.`,
+            );
+            const immutableTruncation = chargeFailureEvidenceNodes(budget)
+              ? freezeFailureEvidence(truncation)
+              : truncateFailureEvidence(budget);
+            nestedEvidence = [
+              ...nestedEvidence.slice(
+                0,
+                MAXIMUM_IMMUTABLE_FAILURE_AGGREGATE_DETAILS - 1,
+              ),
+              ...(immutableTruncation === OMIT_FAILURE_EVIDENCE
+                ? []
+                : [immutableTruncation]),
+            ];
+          }
+          const immutableAggregate = immutableAggregateFailureOccurrence(
+            nestedEvidence,
+            message,
+            aggregateOwnPrimitiveCause,
+            budget,
+            capturedPrimitiveCauses,
+          );
+          if (immutableAggregate !== OMIT_FAILURE_EVIDENCE) {
+            failures.push(immutableAggregate);
+          }
+          if (budget.exhausted) {
+            traversalTruncationCount += 1;
+            traversalBudgetEvidenceRecorded = true;
+          }
+          return true;
+        };
+        let candidate: unknown[];
+        try {
+          const observed = (value as AggregateError).errors;
+          if (!Array.isArray(observed)) {
+            recordSanitizedEvidence(
+              new TypeError("Aggregate failure details were not an array."),
+            );
+            preservePrimitiveCauseAggregate();
+            return;
+          }
+          candidate = observed;
+        } catch (error: unknown) {
+          recordInspectionFailure("Aggregate failure details could not be read.", error);
+          preservePrimitiveCauseAggregate();
+          return;
+        }
+        let length = 0;
+        try {
+          length = candidate.length;
+        } catch (error: unknown) {
+          recordInspectionFailure("Aggregate failure detail count could not be read.", error);
+          preservePrimitiveCauseAggregate();
+          return;
+        }
+        const maximumFailureDetails = 4_096;
+        if (
+          !Number.isSafeInteger(length)
+          || length < 0
+          || length > maximumFailureDetails
+        ) {
+          recordSanitizedEvidence(new RangeError(
+            `Aggregate failure detail count must be a safe integer between 0 and ${maximumFailureDetails}.`,
+          ));
+          preservePrimitiveCauseAggregate();
+          return;
+        }
+        for (let index = 0; index < length; index += 1) {
+          if (budget.exhausted) break;
+          let nested: unknown;
+          try {
+            if (!Object.prototype.hasOwnProperty.call(candidate, index)) continue;
+            nested = candidate[index];
+          } catch (error: unknown) {
+            recordInspectionFailure(
+              `Aggregate failure detail ${index} could not be read.`,
+              error,
+            );
+            continue;
+          }
+          try {
+            visit(nested, depth + 1);
+          } catch (error: unknown) {
+            // A single hostile child must never cause the containing aggregate,
+            // which may reference the terminal error, to be reattached wholesale.
+            recordInspectionFailure(
+              `Aggregate failure detail ${index} could not be inspected.`,
+              error,
+            );
+          }
+        }
+        if (preservePrimitiveCauseAggregate()) return;
+        if (
+          failures.length === failureCountBefore
+          && primaryRepresentationConsumed === primaryConsumedBefore
+          && primaryReferenceCount === primaryReferenceBefore
+          && traversalTruncationCount === traversalTruncationBefore
+          && sanitizationCount === sanitizationBefore
+        ) {
+          let message = "Sanitized aggregate failure with no inspectable entries.";
+          try {
+            const observedMessage = (value as AggregateError).message;
+            if (typeof observedMessage === "string" && observedMessage.length > 0) {
+              message = observedMessage;
+            }
+          } catch {
+            // The safe clone intentionally has no reference back to the source container.
+          }
+          const sanitizedAggregate = new AggregateError([], message);
+          Object.freeze(sanitizedAggregate.errors);
+          recordSanitizedEvidence(sanitizedAggregate);
+        }
+        } finally {
+          activePath.delete(value);
+        }
+        return;
+      }
+      let capturedErrorOwnPrimitiveCause: OwnPrimitiveFailureCause | null | undefined;
+      if (classification === "error") {
+        markSeen(value);
+        try {
+        let nestedCause: unknown;
+        let causePresence: boolean | null = null;
+        try {
+          try {
+            causePresence = "cause" in (value as object);
+          } catch {
+            causePresence = null;
+          }
+          // Read once even when a Proxy lies about property presence. A directly
+          // observed terminal reference must always be stripped.
+          nestedCause = (value as Error).cause;
+          if (primary !== null && nestedCause === primary) {
+            primaryReferenceCount += 1;
+            return;
+          }
+          if (
+            primary !== null
+            && causePresence === true
+            && consumePrimaryCause
+            && !primaryRepresentationConsumed
+            && Object.is(nestedCause, primaryCause)
+          ) {
+            primaryRepresentationConsumed = true;
+            return;
+          }
+        } catch {
+          recordSanitizedEvidence(
+            new Error("Error failure cause could not be inspected."),
+            "hostile-inspection",
+          );
+          return;
+        }
+        try {
+          capturedErrorOwnPrimitiveCause = ownPrimitiveFailureCause(value as object);
+          capturedPrimitiveCauses.set(
+            value as object,
+            capturedErrorOwnPrimitiveCause,
+          );
+        } catch {
+          recordSanitizedEvidence(new Error(
+            "Error failure cause descriptor could not be inspected.",
+          ), "hostile-inspection");
+          return;
+        }
+        if (causePresence === null && nestedCause === undefined) {
+          recordSanitizedEvidence(
+            new Error("Error failure cause presence could not be inspected."),
+            "hostile-inspection",
+          );
+          return;
+        }
+        if (causePresence === false && nestedCause === undefined) {
+          activePath.delete(value);
+          recordOpaque(value, capturedErrorOwnPrimitiveCause);
+          return;
+        }
+        const nestedClassification = classify(nestedCause);
+        if (nestedClassification === "uninspectable") {
+          recordSanitizedEvidence(
+            new Error("Nested failure cause type could not be inspected."),
+            "hostile-inspection",
+          );
+          return;
+        }
+        if (
+          nestedClassification === "error"
+          || nestedClassification === "aggregate"
+          || (nestedClassification === "opaque" && hasIdentity(nestedCause))
+        ) {
+          const failureCountBefore = failures.length;
+          const primaryConsumedBefore = primaryRepresentationConsumed;
+          const primaryReferenceBefore = primaryReferenceCount;
+          const traversalTruncationBefore = traversalTruncationCount;
+          const sanitizationBefore = sanitizationCount;
+          visit(nestedCause, depth + 1, nestedClassification);
+          if (
+            (primary === null && failures.length > failureCountBefore)
+            ||
+            primaryRepresentationConsumed !== primaryConsumedBefore
+            || primaryReferenceCount !== primaryReferenceBefore
+            || traversalTruncationCount !== traversalTruncationBefore
+            || sanitizationCount !== sanitizationBefore
+          ) {
+            return;
+          }
+          failures.splice(failureCountBefore);
+        }
+        activePath.delete(value);
+        } finally {
+          activePath.delete(value);
+        }
+      }
+      if (classification === "opaque" && hasIdentity(value)) {
+        // Never attach an unknown object graph directly: it may be a
+        // cross-realm or Proxy-wrapped error that hides the published terminal
+        // error behind fields we cannot inspect safely.
+        recordSanitizedEvidence(new Error("Opaque failure value was sanitized."));
+        return;
+      }
+      recordOpaque(value, capturedErrorOwnPrimitiveCause);
+    };
+    try {
+      visit(rejection, 0);
+    } catch {
+      traversalTruncationCount += 1;
+      if (!traversalBudgetEvidenceRecorded) {
+        traversalBudgetEvidenceRecorded = true;
+        recordSanitizedEvidence(
+          new Error("Failure evidence traversal aborted unexpectedly."),
+          "hostile-inspection",
+        );
+      }
+    }
+    return Object.freeze(failures);
+  }
+
+  #finalizeTerminalFailure(
+    primary: RenderHostError,
+    failures: readonly unknown[],
+    publishCleanupError: boolean,
+  ): RenderHostError {
+    let wrapped: RenderHostError;
+    let shouldPublishCleanupError = false;
+    try {
+      if (this.#terminalFailureFinalized && this.#terminalError) {
+        wrapped = this.#terminalError;
+        if (publishCleanupError && failures.length > 0 && !this.#cleanupFailureEventPublished) {
+          this.#cleanupFailureEventPublished = true;
+          shouldPublishCleanupError = true;
+        }
+      } else {
+        wrapped = this.#withCleanupFailures(primary, failures);
+        this.#terminalError = wrapped;
+        this.#terminalFailureFinalized = true;
+        if (publishCleanupError && failures.length > 0) {
+          this.#cleanupFailureEventPublished = true;
+          shouldPublishCleanupError = true;
+        }
+      }
+    } finally {
+      // Raw caller-owned graphs are needed only to match one propagated primary
+      // occurrence while cleanup drains. Never retain them after evidence is final.
+      this.#releaseTerminalRawCause();
+      this.#releaseIntermediateFailureSnapshots();
+    }
+    if (shouldPublishCleanupError) {
+      this.#observe({ kind: "disposal-error", error: wrapped });
+    }
+    return wrapped;
+  }
+
+  #releaseTerminalRawCause(): void {
+    this.#terminalRawCause = undefined;
+    this.#terminalRawCausePresent = false;
+    this.#terminalRawCauseIsWeak = false;
+  }
+
+  #releaseControlTailRawFailure(): void {
+    this.#controlTailRawFailure = undefined;
+    this.#controlTailRetainsFailure = false;
+    this.#controlTailRawFailureIsWeak = false;
+  }
+
+  #releaseIntermediateFailureSnapshots(): void {
+    this.#preCleanupFailures = [];
+    this.#preCleanupFailureChannels = [];
+    this.#cleanupFailureWorkspace = null;
+    this.#cleanupPromiseResult = EMPTY_CLEANUP_FAILURES;
+    this.#cleanupFailureChannels = EMPTY_CLEANUP_FAILURE_CHANNELS;
+    // A settled Promise permanently retains its fulfillment value. Replace it
+    // with a shared empty sentinel after terminal evidence owns the bounded copy.
+    this.#cleanupPromise = EMPTY_FULFILLED_CLEANUP_PROMISE;
+  }
+
+  #captureTerminalRawCauseOccurrence(value: unknown): void {
+    this.#terminalRawCausePresent = true;
+    if (
+      (typeof value === "object" && value !== null)
+      || typeof value === "function"
+    ) {
+      this.#terminalRawCause = new WeakRef(value as object);
+      this.#terminalRawCauseIsWeak = true;
+      return;
+    }
+    this.#terminalRawCause = value as PrimitiveFailureCause;
+    this.#terminalRawCauseIsWeak = false;
+  }
+
+  #captureControlTailRawFailure(value: unknown): void {
+    this.#controlTailRetainsFailure = true;
+    if (
+      (typeof value === "object" && value !== null)
+      || typeof value === "function"
+    ) {
+      this.#controlTailRawFailure = new WeakRef(value as object);
+      this.#controlTailRawFailureIsWeak = true;
+      return;
+    }
+    this.#controlTailRawFailure = value as PrimitiveFailureCause;
+    this.#controlTailRawFailureIsWeak = false;
+  }
+
+  #controlTailRawFailureMatches(value: unknown): boolean {
+    if (!this.#controlTailRetainsFailure) return false;
+    if (!this.#controlTailRawFailureIsWeak) {
+      return Object.is(value, this.#controlTailRawFailure);
+    }
+    const reference = (this.#controlTailRawFailure as WeakRef<object>).deref();
+    return reference !== undefined && value === reference;
+  }
+
+  #terminalAndControlTailRawFailuresMatch(): boolean {
+    if (!this.#terminalRawCausePresent || !this.#controlTailRetainsFailure) return false;
+    if (this.#terminalRawCauseIsWeak) {
+      const reference = (this.#terminalRawCause as WeakRef<object>).deref();
+      return reference !== undefined && this.#controlTailRawFailureMatches(reference);
+    }
+    return this.#controlTailRawFailureMatches(this.#terminalRawCause);
+  }
+
+  #terminalRawCauseMatches(value: unknown): boolean {
+    if (!this.#terminalRawCausePresent) return false;
+    if (!this.#terminalRawCauseIsWeak) {
+      return Object.is(value, this.#terminalRawCause);
+    }
+    const reference = (this.#terminalRawCause as WeakRef<object>).deref();
+    return reference !== undefined && value === reference;
+  }
+
+  #stopFrameLoop(): void {
+    if (this.#frameLoopStopped) return;
+    this.#invokeOwnedCallback(() => this.#dependencies.frameLoop.stop());
+    const running = this.#invokeOwnedCallback(
+      () => this.#dependencies.frameLoop.running,
+    );
+    if (running) {
+      this.#frameLoopStopFailure ??= new Error(
+        "Render frame loop stop returned while the loop was still running.",
+      );
+      throw this.#frameLoopStopFailure;
+    }
+    this.#frameLoopStopped = true;
+  }
+
+  #invokeOwnedCallback<T>(operation: () => T): T {
+    this.#ownedCallbackDepth += 1;
+    try {
+      return operation();
+    } finally {
+      this.#ownedCallbackDepth -= 1;
+    }
+  }
+
+  #invokeHostCallback<T>(operation: () => T): T {
+    const ownedDepth = this.#ownedCallbackDepth;
+    this.#ownedCallbackDepth = 0;
+    try {
+      return operation();
+    } finally {
+      this.#ownedCallbackDepth = ownedDepth;
+    }
+  }
+
+  #currentTerminalFailure(): RenderHostError | null {
+    return this.#lifecycle === "failed" ? this.#terminalError : null;
   }
 
   #transition(next: RenderHostLifecycle): void {
@@ -465,7 +2667,9 @@ export class RenderHost {
     this.#nextProbeEventId += 1;
     if (this.#probeEvents.length > 128) this.#probeEvents.shift();
     try {
-      this.#dependencies.observer.observe(Object.freeze(event));
+      this.#invokeOwnedCallback(
+        () => this.#dependencies.observer.observe(Object.freeze(event)),
+      );
     } catch {
       // Diagnostics must never change renderer lifecycle or simulation behavior.
     }
@@ -473,24 +2677,93 @@ export class RenderHost {
   }
 
   #eventDetail(event: RenderHostEvent): string {
-    if (event.kind === "lifecycle") return `${event.from}->${event.to}`;
-    if (event.kind === "backend-event") return event.event.kind;
-    return event.error instanceof Error ? event.error.message : String(event.error);
+    try {
+      if (event.kind === "lifecycle") return `${event.from}->${event.to}`;
+      if (event.kind === "backend-event") return event.event.kind;
+      try {
+        if (event.error instanceof Error) return event.error.message;
+      } catch {
+        return "[uninspectable error]";
+      }
+      try {
+        return String(event.error);
+      } catch {
+        return "[uninspectable error]";
+      }
+    } catch {
+      return "[uninspectable event]";
+    }
   }
 
   #notifyProbeListeners(): void {
-    for (const listener of this.#probeListeners) {
+    for (const listener of [...this.#probeListeners]) {
       try {
-        listener();
+        this.#invokeHostCallback(listener);
       } catch {
         // Probe subscribers are diagnostic only.
       }
     }
   }
 
+  #notifyAndClearProbeListeners(): void {
+    const listeners = [...this.#probeListeners];
+    this.#probeListeners.clear();
+    for (const listener of listeners) {
+      try {
+        this.#invokeHostCallback(listener);
+      } catch {
+        // Final diagnostic delivery must not change terminal cleanup semantics.
+      }
+    }
+  }
+
   #assertInitializing(): void {
     if (this.#lifecycle !== "initializing") {
-      throw this.#terminalError ?? lifecycleError("continue initialization", this.#lifecycle);
+      throw this.#terminalError ?? lifecycleError(
+        "continue initialization",
+        this.#lifecycle,
+        this.#errorOwner,
+      );
+    }
+  }
+
+  #assertSnapshotWritable(): void {
+    if (
+      this.#lifecycle === "disposing"
+      || this.#lifecycle === "disposed"
+      || this.#lifecycle === "failed"
+    ) {
+      throw lifecycleError("set a snapshot", this.#lifecycle, this.#errorOwner);
+    }
+  }
+
+  #assertControlCanContinue(): void {
+    if (this.#lifecycle === "failed" || this.#lifecycle === "disposed") {
+      throw this.#terminalError ?? lifecycleError(
+        "continue a render control",
+        this.#lifecycle,
+        this.#errorOwner,
+      );
+    }
+  }
+
+  #assertFrameCanContinue(): void {
+    if (this.#lifecycle === "failed" || this.#lifecycle === "disposed") {
+      throw this.#terminalError ?? lifecycleError(
+        "continue a render frame",
+        this.#lifecycle,
+        this.#errorOwner,
+      );
+    }
+  }
+
+  #assertNoOwnedCallbackReentry(operation: string): void {
+    if (this.#ownedCallbackDepth > 0) {
+      throw lifecycleError(
+        `${operation} from an owned dependency callback`,
+        this.#lifecycle,
+        this.#errorOwner,
+      );
     }
   }
 }

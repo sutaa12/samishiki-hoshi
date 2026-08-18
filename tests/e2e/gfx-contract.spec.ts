@@ -22,6 +22,10 @@ type ContractSnapshot = {
       submittedFrames: number;
       backendEvents: number;
       failures: number;
+      probeSubscribers: number;
+      pendingControlOperations: number;
+      retainedRawFailureCauses: number;
+      retainedIntermediateFailureSnapshots: number;
     };
     events: Array<{ kind: string; detail: string }>;
     error: { code: string; message: string } | null;
@@ -38,7 +42,7 @@ type ContractSnapshot = {
       vendor: string | null;
       architecture: string | null;
     };
-    compatibilityMode: string | null;
+    compatibilityMode: boolean | null;
     lab: { enabled: boolean; diagnosticsEnabled: boolean; performanceAccepted: boolean };
   };
   backendLifecycle: {
@@ -49,11 +53,34 @@ type ContractSnapshot = {
     renderCalls: number;
     resizeCalls: number;
     disposeCalls: number;
+    rendererDisposeInvoked: boolean;
+    rendererDisposeCompleted: boolean;
+    backendDisposeInstrumented: boolean;
+    backendDisposeInvoked: boolean;
+    backendDisposeCompleted: boolean;
+    retainedFailureReferences: number;
+    resourceCounterProvenance: string;
+    threeInfoResetObserved: boolean;
+    lastLiveResources: Record<string, number> | null;
+    resourcesBeforeRendererDispose: Record<string, number> | null;
+    rendererMemory: Record<string, number | null>;
+    rendererMemoryComplete: boolean;
+    appOwnership: {
+      renderPasses: number;
+      sceneObjects: number;
+      eventSubscribers: number;
+    };
+    aggregateCounterAvailability: { nodes: false; pendingUploads: false };
     resources: Record<string, number>;
   };
   frameLoop: { running: boolean; starts: number; stops: number; ticks: number };
   scene: {
-    disposed: boolean;
+    disposeStarted: boolean;
+    disposeCompleted: boolean;
+    createdGeometries: number;
+    disposedGeometries: number;
+    createdMaterials: number;
+    disposedMaterials: number;
     objects: number;
     materials: number;
     nodeMaterials: number;
@@ -105,13 +132,20 @@ test("GFX-002 forced WebGL2 initializes, precompiles, renders, and preserves rep
   expect(sample.backendLifecycle.initializeCalls).toBe(1);
   expect(sample.backendLifecycle.precompileCalls).toBe(1);
   expect(sample.backendLifecycle.renderCalls).toBeGreaterThan(0);
+  expect(sample.backendLifecycle.resourceCounterProvenance).toBe("live-renderer-info");
+  expect(sample.backendLifecycle.rendererMemory.geometries).toBeGreaterThan(0);
+  expect(sample.backendLifecycle.rendererMemory.programs).toBeGreaterThan(0);
+  expect(sample.backendLifecycle.rendererMemory.totalBytes).toBeGreaterThan(0);
+  expect(sample.backendLifecycle.rendererMemoryComplete).toBe(true);
+  expect(sample.backendLifecycle.appOwnership.renderPasses).toBeGreaterThan(0);
+  expect(sample.backendLifecycle.appOwnership.sceneObjects).toBeGreaterThan(0);
   expect(sample.frameLoop).toMatchObject({ running: true, starts: 1, stops: 0 });
   expect(sample.scene.nodeMaterials).toBeGreaterThan(0);
   expect(sample.scene.nodeMaterialsWithAssignedNodes).toBe(sample.scene.nodeMaterials);
   expect(errors).toEqual([]);
 });
 
-test("GFX-002 dispose is zero-resource and supports fresh-canvas recreation", async ({ page }, testInfo) => {
+test("GFX-002 dispose releases app ownership, records provenance, and recreates", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "single desktop lifecycle acceptance");
   const errors = captureRuntimeErrors(page);
   await page.goto("/gfx-contract?backend=webgl2&qa=1");
@@ -119,16 +153,57 @@ test("GFX-002 dispose is zero-resource and supports fresh-canvas recreation", as
   await expect(contract).toHaveAttribute("data-status", "ready", { timeout: 15_000 });
   await waitForSubmittedFrame(page);
   const originalCanvas = await page.getByTestId("gfx-contract-canvas").elementHandle();
+  const live = await snapshot(page);
+  expect(live.backendLifecycle.rendererMemory.geometries).toBeGreaterThan(0);
+  expect(live.backendLifecycle.rendererMemory.programs).toBeGreaterThan(0);
 
   await page.getByRole("button", { name: "Dispose runtime" }).click();
   await expect(contract).toHaveAttribute("data-status", "disposed");
   const first = await snapshot(page);
-  expect(first.backendLifecycle).toMatchObject({ state: "disposed", eventBridgeActive: false, disposeCalls: 1 });
+  expect(first.backendLifecycle).toMatchObject({
+    state: "disposed",
+    eventBridgeActive: false,
+    disposeCalls: 1,
+    rendererDisposeInvoked: true,
+    rendererDisposeCompleted: true,
+    backendDisposeInstrumented: true,
+    backendDisposeInvoked: true,
+    backendDisposeCompleted: true,
+    retainedFailureReferences: 0,
+    resourceCounterProvenance: "post-renderer-dispose-observation",
+    threeInfoResetObserved: true,
+    rendererMemoryComplete: true,
+    appOwnership: { renderPasses: 0, sceneObjects: 0, eventSubscribers: 0 },
+  });
+  expect(first.backendLifecycle.lastLiveResources).toMatchObject({
+    geometries: expect.any(Number),
+    programs: expect.any(Number),
+  });
+  expect(first.backendLifecycle.lastLiveResources!.geometries).toBeGreaterThan(0);
+  expect(first.backendLifecycle.lastLiveResources!.programs).toBeGreaterThan(0);
+  expect(first.backendLifecycle.resourcesBeforeRendererDispose).not.toBeNull();
   expect(first.frameLoop.running).toBe(false);
+  expect(first.host.counters.probeSubscribers).toBe(0);
+  expect(first.host.counters.pendingControlOperations).toBe(0);
+  expect(first.host.counters.retainedRawFailureCauses).toBe(0);
+  expect(first.host.counters.retainedIntermediateFailureSnapshots).toBe(0);
   expect(first.frameLoop.stops).toBe(1);
   expect(first.runtime).toMatchObject({ resizeListenerActive: false, subscribers: 0, disposeCalls: 1 });
-  expect(first.scene).toMatchObject({ disposed: true, objects: 0, materials: 0, nodeMaterials: 0 });
-  expect(Object.values(first.backendLifecycle.resources).every((value) => value === 0)).toBe(true);
+  expect(first.scene).toMatchObject({
+    disposeStarted: true,
+    disposeCompleted: true,
+    createdGeometries: 2,
+    disposedGeometries: 2,
+    createdMaterials: 2,
+    disposedMaterials: 2,
+    objects: 0,
+    materials: 0,
+    nodeMaterials: 0,
+  });
+  expect(first.backendLifecycle.resources).toMatchObject({ objects: 0, subscribers: 0 });
+  expect(first.backendLifecycle.aggregateCounterAvailability)
+    .toEqual({ nodes: false, pendingUploads: false });
+  expect(first.host.resources.pendingUploads).toBe(0);
   const stoppedTicks = first.frameLoop.ticks;
   const stoppedResizeCalls = first.runtime.resizeCalls;
 
@@ -136,10 +211,19 @@ test("GFX-002 dispose is zero-resource and supports fresh-canvas recreation", as
   await page.waitForTimeout(200);
   await page.getByRole("button", { name: "Dispose runtime" }).click();
   const second = await snapshot(page);
-  expect(second.runtime.disposeCalls).toBe(2);
+  expect(second.runtime.disposeCalls).toBe(1);
   expect(second.frameLoop.ticks).toBe(stoppedTicks);
   expect(second.runtime.resizeCalls).toBe(stoppedResizeCalls);
-  expect(Object.values(second.backendLifecycle.resources).every((value) => value === 0)).toBe(true);
+  expect(second.backendLifecycle).toMatchObject({
+    rendererDisposeCompleted: true,
+    backendDisposeCompleted: true,
+    resourceCounterProvenance: "post-renderer-dispose-observation",
+    threeInfoResetObserved: true,
+    rendererMemoryComplete: true,
+    appOwnership: { renderPasses: 0, sceneObjects: 0, eventSubscribers: 0 },
+    resources: { objects: 0, subscribers: 0 },
+  });
+  expect(second.host.resources.pendingUploads).toBe(0);
 
   await page.getByRole("button", { name: "Recreate runtime" }).click();
   await expect(contract).toHaveAttribute("data-status", "ready", { timeout: 15_000 });
@@ -155,7 +239,7 @@ test("GFX-002 dispose is zero-resource and supports fresh-canvas recreation", as
   expect(errors).toEqual([]);
 });
 
-test("GFX-002 late device loss fails closed and releases all ownership", async ({ page }, testInfo) => {
+test("GFX-002 synthetic late device-loss event path fails closed and releases ownership", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "single desktop failure acceptance");
   const errors = captureRuntimeErrors(page);
   await page.goto("/gfx-contract?backend=webgl2&qa=1");
@@ -176,9 +260,39 @@ test("GFX-002 late device loss fails closed and releases all ownership", async (
   });
   expect(failed.host.events.map((event) => event.kind)).toContain("backend-event");
   expect(failed.runtime).toMatchObject({ resizeListenerActive: false, subscribers: 0 });
+  expect(failed.host.counters.probeSubscribers).toBe(0);
+  expect(failed.host.counters.pendingControlOperations).toBe(0);
+  expect(failed.host.counters.retainedRawFailureCauses).toBe(0);
+  expect(failed.host.counters.retainedIntermediateFailureSnapshots).toBe(0);
   expect(failed.backendLifecycle.eventBridgeActive).toBe(false);
-  expect(Object.values(failed.backendLifecycle.resources).every((value) => value === 0)).toBe(true);
-  expect(failed.scene).toMatchObject({ disposed: true, objects: 0, materials: 0 });
+  expect(failed.backendLifecycle.rendererDisposeInvoked).toBe(true);
+  expect(failed.backendLifecycle.rendererDisposeCompleted).toBe(true);
+  expect(failed.backendLifecycle.backendDisposeCompleted).toBe(true);
+  expect(failed.backendLifecycle.retainedFailureReferences).toBe(0);
+  expect(failed.backendLifecycle.resourceCounterProvenance)
+    .toBe("post-renderer-dispose-observation");
+  expect(failed.backendLifecycle.threeInfoResetObserved).toBe(true);
+  expect(failed.backendLifecycle.rendererMemoryComplete).toBe(true);
+  expect(failed.backendLifecycle.appOwnership).toEqual({
+    renderPasses: 0,
+    sceneObjects: 0,
+    eventSubscribers: 0,
+  });
+  expect(failed.backendLifecycle.resources).toMatchObject({
+    objects: 0,
+    subscribers: 0,
+  });
+  expect(failed.host.resources.pendingUploads).toBe(0);
+  expect(failed.scene).toMatchObject({
+    disposeStarted: true,
+    disposeCompleted: true,
+    createdGeometries: 2,
+    disposedGeometries: 2,
+    createdMaterials: 2,
+    disposedMaterials: 2,
+    objects: 0,
+    materials: 0,
+  });
   expect(errors).toEqual([]);
 });
 
@@ -200,6 +314,7 @@ test("GFX-002 host Metal WebGPU remains healthy and recreates", async ({ browser
     await expect(contract).toHaveAttribute("data-status", "ready", { timeout: 15_000 });
     await expect(contract).toHaveAttribute("data-actual-backend", "webgpu");
     await waitForSubmittedFrame(page);
+    const originalCanvas = await page.getByTestId("gfx-contract-canvas").elementHandle();
 
     let sample = await snapshot(page);
     expect(sample.backendFacts).toMatchObject({
@@ -211,6 +326,9 @@ test("GFX-002 host Metal WebGPU remains healthy and recreates", async ({ browser
         architecture: expect.stringMatching(/metal/i),
       },
     });
+    expect(sample.backendLifecycle.rendererMemory.geometries).toBeGreaterThan(0);
+    expect(sample.backendLifecycle.rendererMemory.programs).toBeGreaterThan(0);
+    expect(sample.backendLifecycle.rendererMemory.totalBytes).toBeGreaterThan(0);
     await page.waitForTimeout(2_500);
     await expect(contract).toHaveAttribute("data-status", "ready");
     sample = await snapshot(page);
@@ -219,10 +337,57 @@ test("GFX-002 host Metal WebGPU remains healthy and recreates", async ({ browser
 
     await page.getByRole("button", { name: "Dispose runtime" }).click();
     await expect(contract).toHaveAttribute("data-status", "disposed");
+    const disposed = await snapshot(page);
+    expect(disposed.backendLifecycle).toMatchObject({
+      state: "disposed",
+      rendererDisposeInvoked: true,
+      rendererDisposeCompleted: true,
+      backendDisposeInstrumented: true,
+      backendDisposeInvoked: true,
+      backendDisposeCompleted: true,
+      resourceCounterProvenance: "post-renderer-dispose-observation",
+      threeInfoResetObserved: true,
+      rendererMemoryComplete: true,
+      appOwnership: { renderPasses: 0, sceneObjects: 0, eventSubscribers: 0 },
+      resources: { objects: 0, subscribers: 0 },
+    });
+    expect(disposed.backendLifecycle.lastLiveResources!.geometries).toBeGreaterThan(0);
+    expect(disposed.backendLifecycle.lastLiveResources!.programs).toBeGreaterThan(0);
+    expect(disposed.backendLifecycle.resourcesBeforeRendererDispose).not.toBeNull();
+    expect(disposed.scene).toMatchObject({
+      disposeCompleted: true,
+      createdGeometries: 2,
+      disposedGeometries: 2,
+      createdMaterials: 2,
+      disposedMaterials: 2,
+      objects: 0,
+    });
+    expect(disposed.frameLoop.running).toBe(false);
+    expect(disposed.runtime).toMatchObject({
+      resizeListenerActive: false,
+      subscribers: 0,
+    });
+    expect(disposed.host.counters).toMatchObject({
+      probeSubscribers: 0,
+      pendingControlOperations: 0,
+    });
+    expect(disposed.host.resources.pendingUploads).toBe(0);
+    const stoppedTicks = disposed.frameLoop.ticks;
+    const stoppedResizeCalls = disposed.runtime.resizeCalls;
+    await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+    await page.waitForTimeout(200);
+    const stillDisposed = await snapshot(page);
+    expect(stillDisposed.frameLoop.ticks).toBe(stoppedTicks);
+    expect(stillDisposed.runtime.resizeCalls).toBe(stoppedResizeCalls);
     await page.getByRole("button", { name: "Recreate runtime" }).click();
     await expect(contract).toHaveAttribute("data-status", "ready", { timeout: 15_000 });
     await expect(contract).toHaveAttribute("data-generation", "2");
     await expect(contract).toHaveAttribute("data-actual-backend", "webgpu");
+    expect(await originalCanvas?.evaluate((canvas) => canvas.isConnected)).toBe(false);
+    await waitForSubmittedFrame(page);
+    const recreated = await snapshot(page);
+    expect(recreated.backendLifecycle.rendererMemory.geometries).toBeGreaterThan(0);
+    expect(recreated.backendLifecycle.rendererMemory.programs).toBeGreaterThan(0);
     await page.waitForTimeout(1_000);
     await expect(contract).toHaveAttribute("data-status", "ready");
     expect(errors).toEqual([]);
