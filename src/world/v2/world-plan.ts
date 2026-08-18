@@ -305,7 +305,15 @@ function snapshotPermutation<T extends string>(
   canonical: readonly T[],
   label: string,
 ): readonly T[] {
-  const snapshot = supplied === undefined ? [...canonical] : Array.from(supplied);
+  const snapshot: T[] = [];
+  if (supplied === undefined) {
+    snapshot.push(...canonical);
+  } else {
+    for (const entry of supplied) {
+      snapshot.push(entry);
+      if (snapshot.length > canonical.length) break;
+    }
+  }
   if (snapshot.length !== canonical.length) {
     throw new RangeError(`${label} must contain every canonical entry exactly once.`);
   }

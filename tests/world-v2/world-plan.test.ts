@@ -292,6 +292,43 @@ describe("GFX-003 canonical world plan", () => {
     expect(canonicalWorldPlanBytes(plan)).toEqual(canonicalWorldPlanBytes(createPlan()));
   });
 
+  it("bounds caller schedule iteration at the canonical width plus one", () => {
+    const context = createWorldGenerationContext({ worldSeed: 20_260_818 });
+    let generationYields = 0;
+    const overlongGenerationOrder = {
+      *[Symbol.iterator]() {
+        while (true) {
+          const entry = WORLD_PLAN_GENERATOR_SYSTEMS[
+            generationYields % WORLD_PLAN_GENERATOR_SYSTEMS.length
+          ];
+          generationYields += 1;
+          if (entry !== undefined) yield entry;
+        }
+      },
+    } as unknown as readonly WorldPlanGeneratorSystem[];
+
+    expect(() => generateWorldPlan(context, { generationOrder: overlongGenerationOrder })).toThrow(
+      "generationOrder must contain every canonical entry exactly once.",
+    );
+    expect(generationYields).toBe(WORLD_PLAN_GENERATOR_SYSTEMS.length + 1);
+
+    let chunkYields = 0;
+    const overlongChunkOrder = {
+      *[Symbol.iterator]() {
+        while (true) {
+          const entry = STORY_CHUNK_IDS[chunkYields % STORY_CHUNK_IDS.length];
+          chunkYields += 1;
+          if (entry !== undefined) yield entry;
+        }
+      },
+    } as unknown as readonly StoryChunkId[];
+
+    expect(() => generateWorldPlan(context, { chunkOrder: overlongChunkOrder })).toThrow(
+      "chunkOrder must contain every canonical entry exactly once.",
+    );
+    expect(chunkYields).toBe(STORY_CHUNK_IDS.length + 1);
+  });
+
   it("uses its verified story snapshot after another consumer mutates SHOT_TABLE", () => {
     const baseline = canonicalWorldPlanJson(createPlan());
     const mutableShots = SHOT_TABLE as unknown as Array<{ start: number; end: number; cue: string }>;
