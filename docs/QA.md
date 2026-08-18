@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | R2-G0 Isolation | WIP pushed, `main` unchanged, worktree and no-deploy rule recorded | passed: `cbedd6d`, `2bde78e` |
 | R2-G1 Renderer spike | WebGPURenderer + TSL; healthy actual WebGPU and forced-WebGL2 telemetry; no simulation changes | passed: implementation `86928ca`, reviewed evidence `bd34c30`; independent review S0=0, S1=0, S2=0, S3=0 |
-| R2-G2 Shared foundation | RenderFeature, Linear HDR, warm-up, temporal ownership, metrics, provenance | in progress: remediated GFX-002 implementation `2cfaafb` passed source review and has frozen build/browser evidence awaiting artifact review; GFX-003–006 remain pending |
+| R2-G2 Shared foundation | RenderFeature, Linear HDR, warm-up, temporal ownership, metrics, provenance | in progress: GFX-002 implementation `2cfaafb` and evidence `9f3286d` accepted with S0–S3=0; GFX-003–006 remain pending |
 | R2-G3 Slice A | ocean/submerged ruin High + fallback | pending |
 | R2-G4 Slice B | sunset forest/city High + fallback | pending |
 | R2-G5 Slice C | human debris/alien/Twinkle High + fallback | pending |
@@ -58,5 +58,5 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Graphics rebaseline plan: `2bde78e` on `graphics-photoreal-megademo`.
 - Notion gameplay visual-target snapshot: `8794258` (reference-only; excluded from runtime and Sites package).
 - Accepted GFX-001 renderer spike: implementation `86928ca987814aa161003bd3ac588d37c95d9a9c`, reviewed evidence HEAD `bd34c30999417b2fcb13c113f3be5a778d7e7ec8`; independent review S0=0, S1=0, S2=0, S3=0. Bound evidence is in `docs/evidence/GFX-001.md`, `.quality-gates/gfx001-86928ca-artifact.json`, and `.quality-gates/receipts/gfx001-review.json`. GFX-001 is frozen; this does not accept R2-G2–G7.
-- GFX-002 remediated evidence candidate: implementation `2cfaafb5cbecca816cccabff6ddce3af83a207dc`; dual source review is S0=0, S1=0, S2=0. Exact build and fresh-port 9/9 browser evidence are bound in `docs/evidence/GFX-002.md` and `.quality-gates/gfx002-2cfaafb-artifact.json`. Artifact review is still pending, and GFX-003–006 remain unaccepted.
+- Accepted GFX-002 render contract: implementation `2cfaafb5cbecca816cccabff6ddce3af83a207dc`, reviewed evidence HEAD `9f3286d1d01bed21e3f5814cb506fc6814c18e9a`; independent source and artifact reviews are S0=0, S1=0, S2=0, S3=0. Exact build and fresh-port 9/9 browser evidence are bound in `docs/evidence/GFX-002.md`, `.quality-gates/gfx002-2cfaafb-artifact.json`, and `.quality-gates/receipts/gfx002-review.json`. This accepts only GFX-002; GFX-003–006 remain pending.
 - Notion progress: https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204

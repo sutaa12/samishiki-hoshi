@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "review_id": "gfx002-remediation-independent-review-2026-08-18",
+  "gate": "GFX-002",
+  "reviewers": [
+    "blind_release_review",
+    "gfx002_round14_second_audit"
+  ],
+  "implementation_commit": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+  "reviewed_evidence_head": "9f3286d1d01bed21e3f5814cb506fc6814c18e9a",
+  "source_archive_sha256": "a742606bf55526ff5e6cdecb203f4e5e4a44adaacea8767b0da1ccd0f0d39e35",
+  "source_archive_bytes": 25866240,
+  "build_archive": ".quality-gates/gfx002-2cfaafb-dist.tar",
+  "build_archive_sha256": "167c623342e5e36f012876bdaca7c0ed310a9727b09efecd51ff91708cf65f98",
+  "build_archive_bytes": 4356096,
+  "build_content_records_sha256": "c76ac08beed264c2a5455ee32ec3f4818b94de6aff20110aeac9a916e5eb0aab",
+  "build_file_count": 70,
+  "vinext_build_id": "cd3027d7-f413-4344-a9c6-e126f8e43b63",
+  "playwright_report": ".quality-gates/gfx002-remediation-accepted-20260818-playwright-report.json",
+  "playwright_report_sha256": "aa4522b79ac738ca1706462e0e7351bc8010653712174016072f94d40f27892f",
+  "methods": [
+    "dual adversarial read-only source review with exact nine-file hash pins",
+    "fresh explicit-port forced-WebGL2 and host-Apple-Metal WebGPU browser acceptance",
+    "immutable GFX-001 five-case regression verification",
+    "fresh empty-directory build archive extraction and content-record reproduction",
+    "source archive, lockfile, report, frozen-input, rejected-evidence, and external-gate binding review"
+  ],
+  "verdict": "pass",
+  "severity_counts": {
+    "S0": 0,
+    "S1": 0,
+    "S2": 0,
+    "S3": 0
+  },
+  "observations": {
+    "unit_tests": "270/270",
+    "focused_gfx_tests": "246/246",
+    "e2e_tests": "9/9",
+    "e2e_skipped": 0,
+    "e2e_unexpected": 0,
+    "e2e_flaky": 0,
+    "production_audit_vulnerabilities": 0,
+    "terminal_raw_failure_causes": 0,
+    "terminal_intermediate_failure_snapshots": 0,
+    "tracked_evidence_drift": false
+  },
+  "limitations": [
+    "This accepts only GFX-002 inside the R2-G2 shared foundation.",
+    "GFX-003 through GFX-006 and all three Hero Slices remain pending.",
+    "Ten-cycle resource growth remains GFX-006 pending.",
+    "Reference-hardware performance remains HARDWARE_PENDING.",
+    "Main integration and Sites deployment remain frozen and HUMAN_PENDING."
+  ],
+  "release_effect": "No merge, Sites save, deployment, or contest submission is authorized by this receipt."
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gate": "GFX-002",
-  "status": "review_pending",
+  "status": "accepted",
   "implementation": {
     "commit": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
     "sourceArchiveSha256": "a742606bf55526ff5e6cdecb203f4e5e4a44adaacea8767b0da1ccd0f0d39e35",
@@ -60,8 +60,21 @@
     "reviewedHashesDrifted": false
   },
   "artifactReview": {
-    "reviewedEvidenceHead": null,
-    "verdict": "pending"
+    "reviewedEvidenceHead": "9f3286d1d01bed21e3f5814cb506fc6814c18e9a",
+    "date": "2026-08-18",
+    "reviewers": [
+      "blind_release_review",
+      "gfx002_round14_second_audit"
+    ],
+    "verdict": "pass",
+    "severityCounts": {
+      "S0": 0,
+      "S1": 0,
+      "S2": 0,
+      "S3": 0
+    },
+    "bindingsReproduced": true,
+    "trackedEvidenceDrifted": false
   },
   "externalGates": {
     "referenceHardware": "HARDWARE_PENDING",
