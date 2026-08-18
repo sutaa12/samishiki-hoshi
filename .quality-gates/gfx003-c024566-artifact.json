@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "gate": "GFX-003",
+  "status": "review_pending",
+  "implementation": {
+    "commit": "c0245667b00e80fe68a511eb0fc206e14f5ead9a",
+    "tree": "ecb7523dc0cf29fb1ec0c7c96bdb1a56d5c74bb0",
+    "sourceArchiveSha256": "c9dee7cea59cc0d5ec7e8cf9ea8b57c3aed9f83ff27135b274ee4b672e1a47f4",
+    "sourceArchiveBytes": 30453760,
+    "sourceArchiveEntries": 147
+  },
+  "worldPlan": {
+    "seed": 20260818,
+    "generatorVersion": "world-plan-v1",
+    "canonicalDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "canonicalSha256": "4f91cb8393ed54478aa8388600f0329155e0d114fc93b5835305ee9ed7d1642c",
+    "canonicalBytes": 48271,
+    "storyScoreDigest": "story-score-v1:28a70afd6684e90a"
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/gfx003-c024566-dist.tar",
+    "archiveSha256": "667625e74215aa7622c8ed897bcfbc99de54bfaa36764227496640f55754c055",
+    "archiveBytes": 4356096,
+    "fileCount": 70,
+    "contentRecordsSha256": "d87b0d8d1e7bf8cbbea1372b4c421effd60642df7b72cad900fcc4468851f8c9",
+    "vinextBuildId": "c5ed53b8-41a5-43ea-a2d8-e567d42ebab5",
+    "symlinkCount": 0,
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "vinext build IDs and generated chunk manifests are not claimed to be byte-reproducible; the exact reviewed dist archive is preserved"
+  },
+  "automatedEvidence": {
+    "completeVerification": "typecheck, lint, 15 files / 350 tests, production build",
+    "focusedCommand": "rtk npm exec vitest run -- --config vitest.config.ts --reporter=json --outputFile=.quality-gates/gfx003-c024566-vitest-report.json tests/world-v2",
+    "focusedReport": ".quality-gates/gfx003-c024566-vitest-report.json",
+    "focusedReportSha256": "89ac39c0ddc5e395bab2a83cee3a58cb80e753acfb306a1876f52b09e9d34972",
+    "focusedReportBytes": 28890,
+    "focusedFiles": 6,
+    "focusedPassed": 80,
+    "focusedFailed": 0,
+    "seedPropertyCases": 1000,
+    "productionAuditVulnerabilities": 0
+  },
+  "frozenInputs": {
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "gfx001PlaywrightReportSha256": "1ceb9c92e2483f48fe8c2679020c1104d79fa281c1f9ea2be07c08149f3a7560",
+    "gfx002PlaywrightReportSha256": "aa4522b79ac738ca1706462e0e7351bc8010653712174016072f94d40f27892f",
+    "modelSha256": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
+    "simulationSha256": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7",
+    "proceduralSha256": "a47ac1b6e2191aadf4d3ef391d5409791d87431f886588e9ecdcbc314843fbb5",
+    "audioSha256": "c86f1881832ea45a025f9c580afdc5396a53f9e199afab061dfaf3c0f6a7f57f",
+    "gameClientSha256": "680a8297c274d3bd73f299f1c6eb2c44be13b2681ede2a089d16d5f4803987d2"
+  },
+  "sourceReview": {
+    "date": "2026-08-18",
+    "reviewers": [
+      "gfx003_code_arch",
+      "gfx003_spec_intake",
+      "gfx003_story_spec_audit"
+    ],
+    "verdict": "pass",
+    "severityCounts": {
+      "S0": 0,
+      "S1": 0,
+      "S2": 0
+    },
+    "reviewedHashesDrifted": false
+  },
+  "artifactReview": {
+    "status": "review_pending",
+    "verdict": "pending"
+  },
+  "externalGates": {
+    "gfx004Through006": "PENDING",
+    "referenceHardware": "HARDWARE_PENDING",
+    "tenRestart": "GFX-006_PENDING",
+    "heroSlices": "PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN"
+  }
+}
