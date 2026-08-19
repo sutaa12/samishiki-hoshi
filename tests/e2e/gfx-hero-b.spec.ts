@@ -96,7 +96,7 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
     });
     expect(forest.heroB?.ownedGeometries).toBeGreaterThan(0);
     expect(forest.heroB?.ownedMaterials).toBeGreaterThan(0);
-    expect(forest.heroB?.ownedTextures).toBe(3);
+    expect(forest.heroB?.ownedTextures).toBe(4);
     expect(forest.heroB?.ownedObjects).toBeGreaterThan(0);
     if (!forest.heroB) throw new Error("Hero Slice B ownership evidence is unavailable.");
     expectRuntimeBounded(forest);
@@ -199,7 +199,11 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
 
     const steady = await waitForSnapshot(
       page,
-      (value) => value.telemetry.window.steadyFrames >= 120,
+      (value) => (
+        value.telemetry.window.steadyFrames >= 120
+        && value.telemetry.frameIntervalMs.p95 !== null
+        && value.telemetry.mainThreadWorkMs.p95 !== null
+      ),
       30_000,
     );
     expect(steady.telemetry.frameIntervalMs.p95).not.toBeNull();
@@ -252,7 +256,7 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
         qualityTier: "high",
         cityRuinsVisible: false,
         hydrologyConnected: true,
-        ownedTextures: 3,
+        ownedTextures: 4,
         allocationsAfterInitialize: 0,
       });
       expectRuntimeBounded(forest);

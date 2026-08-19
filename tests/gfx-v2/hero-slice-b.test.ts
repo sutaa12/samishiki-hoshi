@@ -1,5 +1,6 @@
 import {
   Color,
+  InstancedMesh,
   Mesh,
   MeshPhysicalNodeMaterial,
   PerspectiveCamera,
@@ -113,7 +114,7 @@ describe("R2-G4 Hero Slice B forest/city realization", () => {
     });
     expect(feature.snapshot().ownedGeometries).toBeGreaterThan(20);
     expect(feature.snapshot().ownedMaterials).toBeGreaterThan(15);
-    expect(feature.snapshot().ownedTextures).toBe(3);
+    expect(feature.snapshot().ownedTextures).toBe(4);
     expect(scene.getObjectByName("hero-b:rectilinear-city")?.visible).toBe(false);
     expect(scene.getObjectByName("hero-b:broken-amber-beacon-light")?.parent?.name).toBe(
       "hero-b:forest-city-root",
@@ -138,6 +139,45 @@ describe("R2-G4 Hero Slice B forest/city realization", () => {
     });
     expect(physicalMaterials.size).toBeGreaterThanOrEqual(5);
     expect([...physicalMaterials].every((material) => material.transmission === 0)).toBe(true);
+  });
+
+  it("preallocates layered forest and cloud silhouettes instead of repeating primitive stand-ins", async () => {
+    const { scene, feature } = harness();
+    await feature.initialize({} as FeatureInitContext);
+
+    const expectedInstances = new Map<string, number>([
+      ["hero-b:stable-tree-crowns", 48],
+      ["hero-b:tree-crown-lobes-a", 48],
+      ["hero-b:tree-crown-lobes-b", 48],
+      ["hero-b:tree-branches", 96],
+      ["hero-b:stable-cloud-clusters", 12],
+      ["hero-b:cloud-lobes-a", 12],
+      ["hero-b:cloud-lobes-b", 12],
+    ]);
+    for (const [name, count] of expectedInstances) {
+      const object = scene.getObjectByName(name);
+      expect(object, name).toBeInstanceOf(InstancedMesh);
+      if (object instanceof InstancedMesh) expect(object.count, name).toBe(count);
+    }
+
+    const sky = scene.getObjectByName("hero-b:sunset-sky-dome");
+    expect(sky).toBeInstanceOf(Mesh);
+    if (sky instanceof Mesh) {
+      expect(sky.geometry.getAttribute("color")?.count).toBeGreaterThan(0);
+    }
+    const grass = scene.getObjectByName("hero-b:stable-grass-clusters");
+    const birds = scene.getObjectByName("hero-b:bird-flow");
+    expect(grass).toBeInstanceOf(InstancedMesh);
+    expect(birds).toBeInstanceOf(InstancedMesh);
+    if (grass instanceof InstancedMesh && birds instanceof InstancedMesh) {
+      expect(grass.geometry.getAttribute("position")?.count).toBe(9);
+      expect(birds.geometry.getAttribute("position")?.count).toBe(9);
+    }
+    expect(feature.snapshot()).toMatchObject({
+      state: "ready",
+      ownedTextures: 4,
+      allocationsAfterInitialize: 0,
+    });
   });
 
   it("uses the exact 62-second boundary and keeps nature dominant around the empty rectilinear city", async () => {

@@ -245,6 +245,108 @@ function terrainHeight(x: number, z: number, seed: number): number {
   return ridge - riverCut;
 }
 
+function organicRockGeometry(seed: number): IcosahedronGeometry {
+  const geometry = new IcosahedronGeometry(1, 2);
+  const positions = geometry.attributes.position;
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const z = positions.getZ(index);
+    const latitude = Math.round((y + 1.5) * 4_096);
+    const longitude = Math.round((Math.atan2(z, x) + Math.PI) * 2_048);
+    const variation = 0.82 + hashedUnit(latitude, longitude, seed) * 0.3;
+    positions.setXYZ(index, x * variation, y * variation * 0.76, z * variation);
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function grassTuftGeometry(): BufferGeometry {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  for (let blade = 0; blade < 3; blade += 1) {
+    const angle = (blade / 3) * Math.PI;
+    const sideX = Math.cos(angle) * 0.13;
+    const sideZ = Math.sin(angle) * 0.13;
+    const leanX = Math.sin(angle + 0.7) * 0.12;
+    const leanZ = Math.cos(angle + 0.7) * 0.12;
+    positions.push(
+      -sideX, 0, -sideZ,
+      sideX, 0, sideZ,
+      leanX, 0.82 + blade * 0.08, leanZ,
+    );
+    uvs.push(0, 0, 1, 0, 0.5, 1);
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function flyingBirdGeometry(): BufferGeometry {
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute([
+    0, 0, 0,
+    -0.62, 0.22, 0,
+    -0.12, -0.06, 0,
+    0, 0, 0,
+    0.62, 0.22, 0,
+    0.12, -0.06, 0,
+    -0.12, -0.06, 0,
+    0.12, -0.06, 0,
+    0, -0.42, 0,
+  ], 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function sunsetSkyGeometry(): SphereGeometry {
+  const radius = 48;
+  const geometry = new SphereGeometry(radius, 32, 20);
+  const positions = geometry.attributes.position;
+  const colors = new Float32Array(positions.count * 3);
+  const low = new Color(0xc75e42);
+  const horizon = new Color(0xf0a66f);
+  const high = new Color(0x3d4967);
+  const current = new Color();
+  for (let index = 0; index < positions.count; index += 1) {
+    const height = Math.max(0, Math.min(1, (positions.getY(index) / radius + 1) * 0.5));
+    if (height < 0.53) current.copy(low).lerp(horizon, height / 0.53);
+    else current.copy(horizon).lerp(high, (height - 0.53) / 0.47);
+    colors[index * 3] = current.r;
+    colors[index * 3 + 1] = current.g;
+    colors[index * 3 + 2] = current.b;
+  }
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  return geometry;
+}
+
+function livingDropletGeometry(): SphereGeometry {
+  const radius = 0.82;
+  const geometry = new SphereGeometry(radius, 24, 18);
+  const positions = geometry.attributes.position;
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const z = positions.getZ(index);
+    const normalizedY = y / radius;
+    const lowerTaper = normalizedY < -0.08
+      ? Math.max(0.42, 1 + (normalizedY + 0.08) * 0.56)
+      : 1;
+    positions.setXYZ(
+      index,
+      x * lowerTaper * (1 + Math.sin(normalizedY * 4.8) * 0.035),
+      y + (1 - Math.abs(normalizedY)) * 0.045,
+      z * lowerTaper,
+    );
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function freezeSnapshot(
   input: ForestCityHeroFeatureSnapshot,
 ): Readonly<ForestCityHeroFeatureSnapshot> {
@@ -271,11 +373,14 @@ export class ForestCityHeroFeature implements RenderFeature {
   readonly #skyRoot = new Group();
   readonly #treeTrunks: InstancedMesh;
   readonly #treeCrowns: InstancedMesh;
+  readonly #treeCrownLobes: readonly InstancedMesh[];
+  readonly #treeBranches: InstancedMesh;
   readonly #grass: InstancedMesh;
   readonly #flowers: InstancedMesh;
   readonly #birds: InstancedMesh;
   readonly #mist: InstancedMesh;
   readonly #clouds: InstancedMesh;
+  readonly #cloudLobes: readonly InstancedMesh[];
   readonly #riverTexture: Texture;
   readonly #pulseRing: Mesh;
   readonly #materials: HeroOwnedMaterial[] = [];
@@ -343,6 +448,14 @@ export class ForestCityHeroFeature implements RenderFeature {
       12,
     ));
     riverTexture.name = "hero-b:river-flow-texture";
+    const foliageTexture = this.#ownTexture(proceduralTexture(
+      seed ^ 0x4c91_b36d,
+      0x173d25,
+      0x91ad63,
+      9,
+      11,
+    ));
+    foliageTexture.name = "hero-b:foliage-surface-texture";
 
     this.#root.name = "hero-b:forest-city-root";
     this.#forestRoot.name = "hero-b:forest-world";
@@ -365,11 +478,11 @@ export class ForestCityHeroFeature implements RenderFeature {
     );
     scene.add(this.#root);
 
-    this.#ambient = new AmbientLight(0xffd6ad, 0.58);
+    this.#ambient = new AmbientLight(0xffd6ad, 0.3);
     this.#ambient.name = "hero-b:soft-ambient";
-    this.#hemisphere = new HemisphereLight(0xffc68c, 0x284530, 1.65);
+    this.#hemisphere = new HemisphereLight(0xffc68c, 0x203f2c, 1.08);
     this.#hemisphere.name = "hero-b:sunset-hemisphere";
-    this.#sun = new DirectionalLight(0xffb36b, 4.1);
+    this.#sun = new DirectionalLight(0xffb36b, 5.35);
     this.#sun.name = "hero-b:sunset-sun";
     this.#sun.position.set(-10, 13, 7);
     this.#coreLight = new PointLight(0xfff1b7, 3.1, 8, 1.7);
@@ -392,17 +505,28 @@ export class ForestCityHeroFeature implements RenderFeature {
     const rock = this.#ownMaterial(standardMaterial(0x5c6252, 0.9));
     const bark = this.#ownMaterial(standardMaterial(0x4d3527, 0.88));
     const leaf = this.#ownMaterial(standardMaterial(0x315e31, 0.78));
+    leaf.map = foliageTexture;
+    leaf.bumpMap = foliageTexture;
+    leaf.bumpScale = 0.075;
     const grassMaterial = this.#ownMaterial(standardMaterial(0x426f3b, 0.82));
+    grassMaterial.map = foliageTexture;
+    grassMaterial.bumpMap = foliageTexture;
+    grassMaterial.bumpScale = 0.05;
+    grassMaterial.side = DoubleSide;
     const flowerMaterial = this.#ownMaterial(standardMaterial(0xe7a574, 0.62));
     flowerMaterial.emissive.setHex(0x2e1209);
     flowerMaterial.emissiveIntensity = 0.18;
     const birdMaterial = this.#ownMaterial(standardMaterial(0x342d2a, 0.66));
+    birdMaterial.side = DoubleSide;
     const concrete = this.#ownMaterial(standardMaterial(0xffffff, 0.86, 0.06));
     concrete.map = concreteTexture;
     concrete.bumpMap = concreteTexture;
     concrete.bumpScale = 0.1;
     const metal = this.#ownMaterial(standardMaterial(0x51545a, 0.58, 0.68));
     const moss = this.#ownMaterial(standardMaterial(0x48643b, 0.91));
+    moss.map = foliageTexture;
+    moss.bumpMap = foliageTexture;
+    moss.bumpScale = 0.055;
     const glass = this.#ownMaterial(physicalMaterial(0x7f9d9b, 0.34, 0.22, 1.45));
     glass.thickness = 0.14;
     glass.clearcoat = 0.7;
@@ -412,26 +536,34 @@ export class ForestCityHeroFeature implements RenderFeature {
     river.bumpScale = 0.06;
     river.clearcoat = 1;
     river.clearcoatRoughness = 0.12;
+    river.iridescence = 0.1;
+    river.iridescenceIOR = 1.28;
     const waterfall = this.#ownMaterial(physicalMaterial(0x8ad8d4, 0.68, 0.12, 1.333));
     waterfall.map = riverTexture;
     waterfall.clearcoat = 1;
+    waterfall.iridescence = 0.08;
+    waterfall.iridescenceIOR = 1.27;
     const mistMaterial = this.#ownMaterial(additiveMaterial(0xf5f1dd, 0.13));
     const cloudMaterial = this.#ownMaterial(physicalMaterial(0xf6c9a0, 0.42, 0.92, 1.02));
     const coreMaterial = this.#ownMaterial(additiveMaterial(0xfff3b0, 0.98));
     const envelopeMaterial = this.#ownMaterial(physicalMaterial(0xc7f1ce, 0.58, 0.14, 1.34));
     envelopeMaterial.thickness = 0.44;
     envelopeMaterial.clearcoat = 1;
+    envelopeMaterial.iridescence = 0.42;
+    envelopeMaterial.iridescenceIOR = 1.24;
+    envelopeMaterial.iridescenceThicknessRange = [105, 340];
     const pulseMaterial = this.#ownMaterial(additiveMaterial(0xc5ff9c, 0.7));
     const amberMaterial = this.#ownMaterial(standardMaterial(0x6b3b16, 0.36, 0.42));
     amberMaterial.emissive.setHex(0xff7a22);
     amberMaterial.emissiveIntensity = 1.8;
     const observationMaterial = this.#ownMaterial(standardMaterial(0xe0ceb0, 0.76, 0.04));
     const skyMaterial = this.#ownMaterial(new MeshBasicNodeMaterial());
-    skyMaterial.color.setHex(0xe59067);
+    skyMaterial.color.setHex(0xffffff);
+    skyMaterial.vertexColors = true;
     skyMaterial.side = BackSide;
     skyMaterial.toneMapped = false;
 
-    const sky = new Mesh(this.#ownGeometry(new SphereGeometry(48, 28, 16)), skyMaterial);
+    const sky = new Mesh(this.#ownGeometry(sunsetSkyGeometry()), skyMaterial);
     sky.name = "hero-b:sunset-sky-dome";
     this.#skyRoot.add(sky);
     const sunDisc = new Mesh(
@@ -504,11 +636,22 @@ export class ForestCityHeroFeature implements RenderFeature {
 
     const dummy = new Object3D();
     const trunkGeometry = this.#ownGeometry(new CylinderGeometry(0.16, 0.3, 1, 7, 1));
+    const branchGeometry = this.#ownGeometry(new CylinderGeometry(0.07, 0.13, 1, 7, 1));
     const crownGeometry = this.#ownGeometry(new IcosahedronGeometry(1, 2));
     const treeTrunks = this.#treeTrunks = new InstancedMesh(trunkGeometry, bark, 48);
     const treeCrowns = this.#treeCrowns = new InstancedMesh(crownGeometry, leaf, 48);
+    const treeCrownLobeA = new InstancedMesh(crownGeometry, leaf, 48);
+    const treeCrownLobeB = new InstancedMesh(crownGeometry, leaf, 48);
+    const treeCrownLobes = this.#treeCrownLobes = Object.freeze([
+      treeCrownLobeA,
+      treeCrownLobeB,
+    ]);
+    const treeBranches = this.#treeBranches = new InstancedMesh(branchGeometry, bark, 96);
     treeTrunks.name = "hero-b:stable-tree-trunks";
     treeCrowns.name = "hero-b:stable-tree-crowns";
+    treeCrownLobeA.name = "hero-b:tree-crown-lobes-a";
+    treeCrownLobeB.name = "hero-b:tree-crown-lobes-b";
+    treeBranches.name = "hero-b:tree-branches";
     for (let index = 0; index < 48; index += 1) {
       const side = index % 2 === 0 ? -1 : 1;
       const z = random.range(-17, 10);
@@ -528,12 +671,60 @@ export class ForestCityHeroFeature implements RenderFeature {
       dummy.scale.set(width * 1.15, width, width * 1.05);
       dummy.updateMatrix();
       treeCrowns.setMatrixAt(index, dummy.matrix);
+
+      const lobeAngle = hashedUnit(index, 0, seed ^ 0xa31c_7d92) * TAU;
+      const lobeLift = hashedUnit(index, 1, seed ^ 0x6f82_451b) * 0.26;
+      dummy.position.set(
+        x + Math.cos(lobeAngle) * width * 0.72,
+        groundY + height + width * (0.65 + lobeLift),
+        z + Math.sin(lobeAngle) * width * 0.6,
+      );
+      dummy.rotation.set(0.08, lobeAngle, -0.06);
+      dummy.scale.set(width * 0.82, width * 0.68, width * 0.76);
+      dummy.updateMatrix();
+      treeCrownLobeA.setMatrixAt(index, dummy.matrix);
+
+      dummy.position.set(
+        x - Math.cos(lobeAngle) * width * 0.58,
+        groundY + height + width * (1.18 + lobeLift * 0.4),
+        z - Math.sin(lobeAngle) * width * 0.5,
+      );
+      dummy.rotation.set(-0.05, lobeAngle + Math.PI * 0.5, 0.08);
+      dummy.scale.set(width * 0.7, width * 0.62, width * 0.68);
+      dummy.updateMatrix();
+      treeCrownLobeB.setMatrixAt(index, dummy.matrix);
+
+      for (let branchIndex = 0; branchIndex < 2; branchIndex += 1) {
+        const direction = branchIndex === 0 ? -1 : 1;
+        const branchAngle = lobeAngle + direction * (0.62 + hashedUnit(
+          index,
+          branchIndex,
+          seed ^ 0x1ed4_90b7,
+        ) * 0.34);
+        const branchLength = height * (0.25 + hashedUnit(
+          index,
+          branchIndex,
+          seed ^ 0xd371_6ea9,
+        ) * 0.08);
+        dummy.position.set(
+          x + Math.cos(branchAngle) * branchLength * 0.24,
+          groundY + height * (0.72 + branchIndex * 0.08),
+          z + Math.sin(branchAngle) * branchLength * 0.24,
+        );
+        dummy.rotation.set(Math.sin(branchAngle) * 0.08, branchAngle, direction * 0.82);
+        dummy.scale.set(width * 0.68, branchLength, width * 0.68);
+        dummy.updateMatrix();
+        treeBranches.setMatrixAt(index * 2 + branchIndex, dummy.matrix);
+      }
     }
     treeTrunks.instanceMatrix.needsUpdate = true;
     treeCrowns.instanceMatrix.needsUpdate = true;
-    this.#forestRoot.add(treeTrunks, treeCrowns);
+    treeCrownLobeA.instanceMatrix.needsUpdate = true;
+    treeCrownLobeB.instanceMatrix.needsUpdate = true;
+    treeBranches.instanceMatrix.needsUpdate = true;
+    this.#forestRoot.add(treeTrunks, treeBranches, treeCrowns, ...treeCrownLobes);
 
-    const grassGeometry = this.#ownGeometry(new ConeGeometry(0.18, 0.72, 5));
+    const grassGeometry = this.#ownGeometry(grassTuftGeometry());
     const grass = this.#grass = new InstancedMesh(grassGeometry, grassMaterial, 72);
     grass.name = "hero-b:stable-grass-clusters";
     for (let index = 0; index < 72; index += 1) {
@@ -567,7 +758,7 @@ export class ForestCityHeroFeature implements RenderFeature {
     flowers.instanceMatrix.needsUpdate = true;
     this.#forestRoot.add(flowers);
 
-    const birdGeometry = this.#ownGeometry(new ConeGeometry(0.18, 0.65, 3));
+    const birdGeometry = this.#ownGeometry(flyingBirdGeometry());
     const birds = this.#birds = new InstancedMesh(birdGeometry, birdMaterial, 22);
     birds.name = "hero-b:bird-flow";
     for (let index = 0; index < 22; index += 1) {
@@ -606,18 +797,53 @@ export class ForestCityHeroFeature implements RenderFeature {
 
     const cloudGeometry = this.#ownGeometry(new SphereGeometry(1, 12, 8));
     const clouds = this.#clouds = new InstancedMesh(cloudGeometry, cloudMaterial, 12);
+    const cloudLobeA = new InstancedMesh(cloudGeometry, cloudMaterial, 12);
+    const cloudLobeB = new InstancedMesh(cloudGeometry, cloudMaterial, 12);
+    const cloudLobes = this.#cloudLobes = Object.freeze([cloudLobeA, cloudLobeB]);
     clouds.name = "hero-b:stable-cloud-clusters";
+    cloudLobeA.name = "hero-b:cloud-lobes-a";
+    cloudLobeB.name = "hero-b:cloud-lobes-b";
     for (let index = 0; index < 12; index += 1) {
-      dummy.position.set(-15 + index * 2.8, 8.5 + (index % 3) * 0.8, -18 - (index % 4) * 1.8);
-      dummy.rotation.set(0, random.range(0, TAU), 0);
-      dummy.scale.set(random.range(1.5, 3.2), random.range(0.45, 0.95), random.range(0.85, 1.7));
+      const x = -15 + index * 2.8;
+      const y = 8.5 + (index % 3) * 0.8;
+      const z = -18 - (index % 4) * 1.8;
+      const rotationY = random.range(0, TAU);
+      const scaleX = random.range(1.5, 3.2);
+      const scaleY = random.range(0.45, 0.95);
+      const scaleZ = random.range(0.85, 1.7);
+      dummy.position.set(x, y, z);
+      dummy.rotation.set(0, rotationY, 0);
+      dummy.scale.set(scaleX, scaleY, scaleZ);
       dummy.updateMatrix();
       clouds.setMatrixAt(index, dummy.matrix);
+
+      const drift = hashedUnit(index, 0, seed ^ 0x537a_1dc9) * 0.48;
+      dummy.position.set(
+        x - scaleX * (0.28 + drift * 0.12),
+        y + scaleY * 0.3,
+        z + scaleZ * 0.08,
+      );
+      dummy.rotation.set(0, rotationY + 0.34, 0);
+      dummy.scale.set(scaleX * 0.62, scaleY * 1.08, scaleZ * 0.76);
+      dummy.updateMatrix();
+      cloudLobeA.setMatrixAt(index, dummy.matrix);
+
+      dummy.position.set(
+        x + scaleX * (0.32 - drift * 0.1),
+        y + scaleY * 0.18,
+        z - scaleZ * 0.12,
+      );
+      dummy.rotation.set(0, rotationY - 0.27, 0);
+      dummy.scale.set(scaleX * 0.56, scaleY * 0.92, scaleZ * 0.7);
+      dummy.updateMatrix();
+      cloudLobeB.setMatrixAt(index, dummy.matrix);
     }
     clouds.instanceMatrix.needsUpdate = true;
-    this.#skyRoot.add(clouds);
+    cloudLobeA.instanceMatrix.needsUpdate = true;
+    cloudLobeB.instanceMatrix.needsUpdate = true;
+    this.#skyRoot.add(clouds, ...cloudLobes);
 
-    const rockGeometry = this.#ownGeometry(new IcosahedronGeometry(1, 1));
+    const rockGeometry = this.#ownGeometry(organicRockGeometry(seed ^ 0x08fe_a712));
     const rocks = new InstancedMesh(rockGeometry, rock, 24);
     rocks.name = "hero-b:riverbank-rocks";
     for (let index = 0; index < 24; index += 1) {
@@ -1010,7 +1236,7 @@ export class ForestCityHeroFeature implements RenderFeature {
   }
 
   #buildProtagonist(envelope: Material, core: Material): void {
-    const envelopeMesh = new Mesh(this.#ownGeometry(new SphereGeometry(0.82, 24, 18)), envelope);
+    const envelopeMesh = new Mesh(this.#ownGeometry(livingDropletGeometry()), envelope);
     envelopeMesh.name = "hero-b:protagonist-envelope";
     envelopeMesh.scale.set(0.72, 1.05, 0.5);
     const coreMesh = new Mesh(this.#ownGeometry(new SphereGeometry(0.24, 16, 12)), core);
@@ -1063,11 +1289,14 @@ export class ForestCityHeroFeature implements RenderFeature {
     const cloudCount = high ? 12 : balanced ? 9 : 6;
     this.#treeTrunks.count = treeCount;
     this.#treeCrowns.count = treeCount;
+    this.#treeBranches.count = treeCount * 2;
+    for (const lobe of this.#treeCrownLobes) lobe.count = treeCount;
     this.#grass.count = grassCount;
     this.#flowers.count = flowerCount;
     this.#birds.count = birdCount;
     this.#mist.count = mistCount;
     this.#clouds.count = cloudCount;
+    for (const lobe of this.#cloudLobes) lobe.count = cloudCount;
   }
 
   #animateProtagonist(
