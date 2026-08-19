@@ -98,7 +98,7 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
     });
     expect(snapshot.ownedGeometries).toBeGreaterThan(30);
     expect(snapshot.ownedMaterials).toBeGreaterThan(15);
-    expect(snapshot.ownedTextures).toBe(2);
+    expect(snapshot.ownedTextures).toBe(3);
     expect(scene.getObjectByName("hero-a:submerged-vehicle")?.visible).toBe(false);
     expect(scene.getObjectByName("hero-a:life-droplet")?.visible).toBe(true);
     expect(scene.getObjectByName("hero-a:pulse-living-target")?.visible).toBe(true);
@@ -134,6 +134,44 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
       allocationsAfterInitialize: 0,
     });
     expect(feature.snapshot().visibleCoralClusters).toBeGreaterThanOrEqual(5);
+  });
+
+  it("preallocates organic reef silhouettes instead of repeating primitive placeholders", async () => {
+    const { scene, feature } = harness();
+    await feature.initialize({} as FeatureInitContext);
+    const inventory = {
+      coralLaterals: 0,
+      coralSideBlooms: 0,
+      kelpBlades: 0,
+      dorsalFins: 0,
+      pectoralFins: 0,
+      fishEyes: 0,
+      causticPatches: 0,
+    };
+    scene.traverse((object) => {
+      if (object.name.startsWith("hero-a:coral-lateral:")) inventory.coralLaterals += 1;
+      if (object.name.startsWith("hero-a:coral-side-bloom:")) inventory.coralSideBlooms += 1;
+      if (object.name.startsWith("hero-a:kelp-blade:")) inventory.kelpBlades += 1;
+      if (object.name.startsWith("hero-a:fish-dorsal-fin:")) inventory.dorsalFins += 1;
+      if (object.name.startsWith("hero-a:fish-pectoral-fin:")) inventory.pectoralFins += 1;
+      if (object.name.startsWith("hero-a:fish-eye:")) inventory.fishEyes += 1;
+      if (object.name.startsWith("hero-a:caustic-patch:")) inventory.causticPatches += 1;
+    });
+
+    expect(inventory).toEqual({
+      coralLaterals: 79,
+      coralSideBlooms: 79,
+      kelpBlades: 36,
+      dorsalFins: 28,
+      pectoralFins: 56,
+      fishEyes: 56,
+      causticPatches: 18,
+    });
+    expect(feature.snapshot()).toMatchObject({
+      state: "ready",
+      ownedTextures: 3,
+      allocationsAfterInitialize: 0,
+    });
   });
 
   it("crosses the waterline without changing story ownership or allocating runtime resources", async () => {

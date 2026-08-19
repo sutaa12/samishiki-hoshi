@@ -243,6 +243,121 @@ function setScale(mesh: Object3D, x: number, y: number, z: number): void {
   mesh.scale.set(x, y, z);
 }
 
+function organicRockGeometry(seed: number): IcosahedronGeometry {
+  const geometry = new IcosahedronGeometry(1, 2);
+  const positions = geometry.attributes.position;
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const z = positions.getZ(index);
+    const latitude = Math.round((y + 1.5) * 4_096);
+    const longitude = Math.round((Math.atan2(z, x) + Math.PI) * 2_048);
+    const variation = 0.82 + hashedUnit(latitude, longitude, seed) * 0.28;
+    const strata = 0.94 + Math.sin(y * 9.5 + seed * 0.000_001) * 0.055;
+    positions.setXYZ(
+      index,
+      x * variation,
+      y * variation * strata * 0.78,
+      z * variation,
+    );
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function kelpBladeGeometry(phase: number): PlaneGeometry {
+  const height = 2.7;
+  const geometry = new PlaneGeometry(0.42, height, 4, 14);
+  const positions = geometry.attributes.position;
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const sourceY = positions.getY(index);
+    const progress = (sourceY + height * 0.5) / height;
+    const taper = 0.18 + Math.sin(progress * Math.PI) * 0.82;
+    const current = Math.sin(progress * 4.2 + phase) * progress * 0.19;
+    positions.setXYZ(
+      index,
+      x * taper + current,
+      sourceY + height * 0.5,
+      Math.sin(progress * 5.6 + phase * 0.7) * progress * 0.11,
+    );
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function fishFinGeometry(): BufferGeometry {
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute([
+    -0.2, 0, 0,
+    0.02, 0.34, 0,
+    0.32, 0, 0,
+  ], 3));
+  geometry.setAttribute("uv", new Float32BufferAttribute([
+    0, 0,
+    0.5, 1,
+    1, 0,
+  ], 2));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function taperedTubeGeometry(
+  curve: CatmullRomCurve3,
+  tubularSegments: number,
+  radius: number,
+  radialSegments: number,
+  tipScale: number,
+): TubeGeometry {
+  const geometry = new TubeGeometry(curve, tubularSegments, radius, radialSegments, false);
+  const positions = geometry.attributes.position;
+  const center = new Vector3();
+  for (let ring = 0; ring <= tubularSegments; ring += 1) {
+    const progress = ring / tubularSegments;
+    curve.getPointAt(progress, center);
+    const scale = 1 + (tipScale - 1) * progress;
+    for (let radial = 0; radial <= radialSegments; radial += 1) {
+      const index = ring * (radialSegments + 1) + radial;
+      positions.setXYZ(
+        index,
+        center.x + (positions.getX(index) - center.x) * scale,
+        center.y + (positions.getY(index) - center.y) * scale,
+        center.z + (positions.getZ(index) - center.z) * scale,
+      );
+    }
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function livingDropletGeometry(): SphereGeometry {
+  const radius = 0.82;
+  const geometry = new SphereGeometry(radius, 24, 18);
+  const positions = geometry.attributes.position;
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const z = positions.getZ(index);
+    const normalizedY = y / radius;
+    const lowerTaper = normalizedY < -0.08
+      ? Math.max(0.42, 1 + (normalizedY + 0.08) * 0.56)
+      : 1;
+    const livingAsymmetry = 1 + Math.sin(normalizedY * 4.8) * 0.035;
+    positions.setXYZ(
+      index,
+      x * lowerTaper * livingAsymmetry,
+      y + (1 - Math.abs(normalizedY)) * 0.045,
+      z * lowerTaper * (2 - livingAsymmetry),
+    );
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function finiteStoryTime(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_MARKER_SECONDS;
   return Math.max(0, Math.min(180, value));
@@ -323,6 +438,14 @@ export class OceanHeroFeature implements RenderFeature {
       2,
     ));
     corrosionTexture.name = "hero-a:vehicle-corrosion-texture";
+    const organicDetailTexture = this.#ownTexture(proceduralSurfaceTexture(
+      seed ^ 0xe1b7_45d3,
+      0x7f9185,
+      0xf0f3e7,
+      9,
+      11,
+    ));
+    organicDetailTexture.name = "hero-a:organic-surface-detail-texture";
 
     this.#root.name = "hero-a:ocean-root";
     this.#naturalRoot.name = "hero-a:natural-world";
@@ -343,37 +466,65 @@ export class OceanHeroFeature implements RenderFeature {
     this.#naturalRoot.add(this.#causticsRoot);
     this.#scene.add(this.#root);
 
-    this.#ambient = new AmbientLight(0x88cfe2, 0.24);
+    this.#ambient = new AmbientLight(0x79b8c7, 0.16);
     this.#ambient.name = "hero-a:underwater-ambient";
-    this.#hemisphere = new HemisphereLight(0xc6f7ff, 0x04131f, 1.35);
+    this.#hemisphere = new HemisphereLight(0xb9edf2, 0x020b12, 0.92);
     this.#hemisphere.name = "hero-a:water-column-light";
-    this.#sun = new DirectionalLight(0xe5fbff, 3.6);
+    this.#sun = new DirectionalLight(0xe7fbff, 4.8);
     this.#sun.name = "hero-a:surface-sun";
     this.#sun.position.set(-6, 13, 8);
-    this.#coreLight = new PointLight(0xffe6a8, 2.8, 7, 1.6);
+    this.#coreLight = new PointLight(0xffdda0, 3.15, 7, 1.6);
     this.#coreLight.name = "hero-a:living-core-light";
     this.#protagonistRoot.add(this.#coreLight);
     this.#scene.add(this.#ambient, this.#hemisphere, this.#sun);
 
-    const terrain = this.#ownMaterial(standardMaterial(0x1e4f48, 0.92));
-    const sand = this.#ownMaterial(standardMaterial(0x697a68, 0.88));
+    const terrain = this.#ownMaterial(standardMaterial(0x183c39, 0.94));
+    const sand = this.#ownMaterial(standardMaterial(0x596b5f, 0.9));
     const seafloor = this.#ownMaterial(standardMaterial(0xffffff, 0.9));
     seafloor.vertexColors = true;
     seafloor.map = reefTexture;
     seafloor.bumpMap = reefTexture;
     seafloor.bumpScale = 0.22;
-    const coralRose = this.#ownMaterial(standardMaterial(0xd96f7f, 0.58));
-    const coralGold = this.#ownMaterial(standardMaterial(0xe0a65d, 0.62));
-    const coralLilac = this.#ownMaterial(standardMaterial(0x9d7ad1, 0.54));
-    const kelpMaterial = this.#ownMaterial(standardMaterial(0x267752, 0.72));
-    const fishSilver = this.#ownMaterial(standardMaterial(0x8fd6d5, 0.34, 0.08));
-    const fishCoral = this.#ownMaterial(standardMaterial(0xf18b72, 0.4));
+    const coralRose = this.#ownMaterial(standardMaterial(0xb95e6a, 0.66));
+    const coralGold = this.#ownMaterial(standardMaterial(0xc79552, 0.68));
+    const coralLilac = this.#ownMaterial(standardMaterial(0x7867a8, 0.63));
+    const kelpMaterial = this.#ownMaterial(standardMaterial(0x175f45, 0.78));
+    const fishSilver = this.#ownMaterial(standardMaterial(0x78b8b8, 0.38, 0.08));
+    const fishCoral = this.#ownMaterial(standardMaterial(0xd97561, 0.46));
+    const fishEye = this.#ownMaterial(standardMaterial(0x02080a, 0.2, 0.08));
     coralRose.emissive.setHex(0x26070d);
     coralRose.emissiveIntensity = 0.32;
     coralGold.emissive.setHex(0x291704);
     coralGold.emissiveIntensity = 0.28;
     coralLilac.emissive.setHex(0x120925);
     coralLilac.emissiveIntensity = 0.3;
+    coralRose.map = organicDetailTexture;
+    coralRose.roughnessMap = organicDetailTexture;
+    coralRose.bumpMap = organicDetailTexture;
+    coralRose.bumpScale = 0.035;
+    coralGold.map = organicDetailTexture;
+    coralGold.roughnessMap = organicDetailTexture;
+    coralGold.bumpMap = organicDetailTexture;
+    coralGold.bumpScale = 0.035;
+    coralLilac.map = organicDetailTexture;
+    coralLilac.roughnessMap = organicDetailTexture;
+    coralLilac.bumpMap = organicDetailTexture;
+    coralLilac.bumpScale = 0.035;
+    kelpMaterial.map = organicDetailTexture;
+    kelpMaterial.roughnessMap = organicDetailTexture;
+    kelpMaterial.bumpMap = organicDetailTexture;
+    kelpMaterial.bumpScale = 0.025;
+    kelpMaterial.side = DoubleSide;
+    fishSilver.map = organicDetailTexture;
+    fishSilver.roughnessMap = organicDetailTexture;
+    fishSilver.bumpMap = organicDetailTexture;
+    fishSilver.bumpScale = 0.018;
+    fishCoral.map = organicDetailTexture;
+    fishCoral.roughnessMap = organicDetailTexture;
+    fishCoral.bumpMap = organicDetailTexture;
+    fishCoral.bumpScale = 0.018;
+    fishSilver.side = DoubleSide;
+    fishCoral.side = DoubleSide;
     const vehicleMetal = this.#ownMaterial(standardMaterial(0x273a42, 0.67, 0.62));
     const vehiclePanel = this.#ownMaterial(standardMaterial(0x42565b, 0.82, 0.18));
     const darkSeat = this.#ownMaterial(standardMaterial(0x6a7770, 0.91, 0.06));
@@ -395,8 +546,8 @@ export class OceanHeroFeature implements RenderFeature {
     vehiclePanel.bumpScale = 0.06;
     const waterMaterial = this.#ownMaterial(physicalMaterial(0x2aa6bd, 0.36, 0.18, 1.333));
     const bubbleMaterial = this.#ownMaterial(physicalMaterial(0xa5f5ff, 0.28, 0.08, 1.333));
-    const causticMaterial = this.#ownMaterial(additiveMaterial(0xcafbea, 0.075));
-    const shaftMaterial = this.#ownMaterial(additiveMaterial(0x75dcff, 0.035));
+    const causticMaterial = this.#ownMaterial(additiveMaterial(0xd7fff2, 0.115));
+    const shaftMaterial = this.#ownMaterial(additiveMaterial(0x75dcff, 0.009));
     const coreMaterial = this.#ownMaterial(additiveMaterial(0xfff5ce, 0.98));
     const envelopeMaterial = this.#ownMaterial(physicalMaterial(0xa9f1f1, 0.52, 0.12, 1.333));
     const pulseMaterial = this.#ownMaterial(additiveMaterial(0x9fffe7, 0.68));
@@ -405,9 +556,20 @@ export class OceanHeroFeature implements RenderFeature {
     waterMaterial.thickness = 0.62;
     waterMaterial.clearcoat = 1;
     waterMaterial.clearcoatRoughness = 0.09;
+    waterMaterial.iridescence = 0.12;
+    waterMaterial.iridescenceIOR = 1.28;
     bubbleMaterial.thickness = 0.08;
+    bubbleMaterial.iridescence = 0.32;
+    bubbleMaterial.iridescenceIOR = 1.25;
     envelopeMaterial.thickness = 0.48;
     envelopeMaterial.clearcoat = 1;
+    envelopeMaterial.iridescence = 0.58;
+    envelopeMaterial.iridescenceIOR = 1.24;
+    envelopeMaterial.iridescenceThicknessRange = [110, 360];
+    causticMaterial.alphaMap = reefTexture;
+    causticMaterial.polygonOffset = true;
+    causticMaterial.polygonOffsetFactor = -1;
+    causticMaterial.polygonOffsetUnits = -1;
 
     const floorGeometry = this.#ownGeometry(new PlaneGeometry(34, 25, 42, 30));
     const floorPositions = floorGeometry.attributes.position;
@@ -447,9 +609,14 @@ export class OceanHeroFeature implements RenderFeature {
     water.renderOrder = 4;
     this.#naturalRoot.add(water);
 
-    const rockGeometry = this.#ownGeometry(new IcosahedronGeometry(1, 2));
+    const rockGeometries = [
+      this.#ownGeometry(organicRockGeometry(seed ^ 0x1f12_55b1)),
+      this.#ownGeometry(organicRockGeometry(seed ^ 0x6ae2_c915)),
+      this.#ownGeometry(organicRockGeometry(seed ^ 0x91c4_37d2)),
+      this.#ownGeometry(organicRockGeometry(seed ^ 0xc06f_3a81)),
+    ];
     for (let index = 0; index < 26; index += 1) {
-      const rock = new Mesh(rockGeometry, index % 3 === 0 ? terrain : sand);
+      const rock = new Mesh(rockGeometries[index % rockGeometries.length]!, index % 3 === 0 ? terrain : sand);
       rock.name = `hero-a:reef-rock:${index}`;
       rock.position.set(
         random.range(-9.5, 9.5),
@@ -461,8 +628,39 @@ export class OceanHeroFeature implements RenderFeature {
       this.#naturalRoot.add(rock);
     }
 
-    const coralStemGeometry = this.#ownGeometry(new CylinderGeometry(0.12, 0.2, 1.5, 8, 2));
-    const coralTipGeometry = this.#ownGeometry(new IcosahedronGeometry(0.28, 1));
+    const coralStemVariants = Array.from({ length: 6 }, (_, variant) => {
+      const sway = (variant - 2.5) * 0.095;
+      const twist = Math.sin(variant * 1.7) * 0.2;
+      const points = [
+        new Vector3(0, 0, 0),
+        new Vector3(sway * 0.18, 0.46, twist * 0.18),
+        new Vector3(sway * 0.55, 1.02, twist * 0.52),
+        new Vector3(sway, 1.56, twist),
+      ];
+      return Object.freeze({
+        geometry: this.#ownGeometry(taperedTubeGeometry(
+          new CatmullRomCurve3(points),
+          16,
+          0.125,
+          8,
+          0.38,
+        )),
+        tip: points[points.length - 1]!,
+      });
+    });
+    const coralLateralVariants = [-1, 1].map((direction) => {
+      const tip = new Vector3(direction * 0.5, 0.58, direction * 0.07);
+      return Object.freeze({
+        geometry: this.#ownGeometry(taperedTubeGeometry(new CatmullRomCurve3([
+          new Vector3(0, 0, 0),
+          new Vector3(direction * 0.15, 0.2, 0.02),
+          new Vector3(direction * 0.34, 0.4, direction * 0.05),
+          tip,
+        ]), 10, 0.075, 7, 0.32)),
+        tip,
+      });
+    });
+    const coralTipGeometry = this.#ownGeometry(new SphereGeometry(0.16, 10, 7));
     const coralMaterials = [coralRose, coralGold, coralLilac];
     for (let clusterIndex = 0; clusterIndex < 20; clusterIndex += 1) {
       const cluster = new Group();
@@ -477,27 +675,46 @@ export class OceanHeroFeature implements RenderFeature {
       const material = coralMaterials[clusterIndex % coralMaterials.length]!;
       const branchCount = 3 + (clusterIndex % 3);
       for (let branchIndex = 0; branchIndex < branchCount; branchIndex += 1) {
-        const branch = new Mesh(coralStemGeometry, material);
+        const stemVariant = coralStemVariants[(clusterIndex * 3 + branchIndex) % coralStemVariants.length]!;
+        const branch = new Mesh(stemVariant.geometry, material);
         branch.name = `hero-a:coral-branch:${clusterIndex}:${branchIndex}`;
         branch.position.set(
           (branchIndex - (branchCount - 1) / 2) * 0.26,
-          0.45 + branchIndex * 0.12,
+          0.06 + branchIndex * 0.045,
           Math.sin(branchIndex * 1.7) * 0.18,
         );
         branch.rotation.z = (branchIndex - (branchCount - 1) / 2) * 0.22;
-        setScale(branch, 0.72, random.range(0.55, 1.25), 0.72);
+        setScale(branch, 0.86, random.range(0.72, 1.22), 0.86);
         const tip = new Mesh(coralTipGeometry, material);
         tip.name = `hero-a:coral-bloom:${clusterIndex}:${branchIndex}`;
-        tip.position.set(0, 0.82, 0);
-        setScale(tip, 0.68, 1.12, 0.68);
-        tip.rotation.z = branch.rotation.z * 0.55;
+        tip.position.copy(stemVariant.tip);
+        setScale(tip, 0.78, 1.12, 0.78);
         branch.add(tip);
+        const lateralVariant = coralLateralVariants[(clusterIndex + branchIndex) % 2]!;
+        const lateral = new Mesh(lateralVariant.geometry, material);
+        lateral.name = `hero-a:coral-lateral:${clusterIndex}:${branchIndex}`;
+        lateral.position.set(stemVariant.tip.x * 0.32, 0.62, stemVariant.tip.z * 0.32);
+        lateral.rotation.y = (hashedUnit(
+          clusterIndex,
+          branchIndex,
+          seed ^ 0x6dd4_390b,
+        ) * 2 - 1) * 0.55;
+        const lateralBloom = new Mesh(coralTipGeometry, material);
+        lateralBloom.name = `hero-a:coral-side-bloom:${clusterIndex}:${branchIndex}`;
+        lateralBloom.position.copy(lateralVariant.tip);
+        lateralBloom.scale.setScalar(0.68);
+        lateral.add(lateralBloom);
+        branch.add(lateral);
         cluster.add(branch);
       }
       this.#coralClusters.push(cluster);
       this.#naturalRoot.add(cluster);
     }
 
+    const kelpBladeGeometries = [
+      this.#ownGeometry(kelpBladeGeometry(0.35)),
+      this.#ownGeometry(kelpBladeGeometry(2.1)),
+    ];
     for (let index = 0; index < 18; index += 1) {
       const baseX = random.range(-9, 9);
       const baseZ = random.range(-8, 2);
@@ -507,31 +724,78 @@ export class OceanHeroFeature implements RenderFeature {
         new Vector3(random.range(-0.32, 0.32), 1.55, random.range(-0.12, 0.12)),
         new Vector3(random.range(-0.42, 0.42), random.range(2.1, 3.15), random.range(-0.18, 0.18)),
       ];
-      const geometry = this.#ownGeometry(new TubeGeometry(new CatmullRomCurve3(points), 10, 0.075, 6, false));
+      const geometry = this.#ownGeometry(taperedTubeGeometry(
+        new CatmullRomCurve3(points),
+        10,
+        0.075,
+        6,
+        0.28,
+      ));
       const strand = new Mesh(geometry, kelpMaterial);
       strand.name = `hero-a:kelp-strand:${index}`;
       const group = new Group();
       group.name = `hero-a:kelp:${index}`;
       group.position.set(baseX, -3.1, baseZ);
       group.add(strand);
+      for (let bladeIndex = 0; bladeIndex < 2; bladeIndex += 1) {
+        const blade = new Mesh(kelpBladeGeometries[(index + bladeIndex) % 2]!, kelpMaterial);
+        blade.name = `hero-a:kelp-blade:${index}:${bladeIndex}`;
+        blade.position.set((bladeIndex - 0.5) * 0.1, 0, bladeIndex === 0 ? -0.06 : 0.06);
+        blade.rotation.y = (hashedUnit(index, bladeIndex, seed ^ 0x2331_a7c4) * 1.6 - 0.8)
+          + bladeIndex * Math.PI * 0.58;
+        setScale(
+          blade,
+          0.72 + hashedUnit(index, bladeIndex, seed ^ 0x8f4c_d189) * 0.32,
+          0.72 + hashedUnit(index, bladeIndex, seed ^ 0xc401_72af) * 0.42,
+          1,
+        );
+        group.add(blade);
+      }
       this.#kelp.push({ group, phase: random.range(0, TAU) });
       this.#naturalRoot.add(group);
     }
 
-    const fishBodyGeometry = this.#ownGeometry(new SphereGeometry(0.32, 12, 8));
+    const fishBodyGeometry = this.#ownGeometry(new SphereGeometry(0.32, 18, 10));
     const fishTailGeometry = this.#ownGeometry(new ConeGeometry(0.22, 0.48, 3));
+    const fishFin = this.#ownGeometry(fishFinGeometry());
+    const fishEyeGeometry = this.#ownGeometry(new SphereGeometry(0.035, 7, 5));
     for (let index = 0; index < 28; index += 1) {
       const group = new Group();
       group.name = `hero-a:fish:${index}`;
       const material = index % 4 === 0 ? fishCoral : fishSilver;
       const body = new Mesh(fishBodyGeometry, material);
       body.name = `hero-a:fish-body:${index}`;
-      setScale(body, random.range(1.1, 1.8), random.range(0.45, 0.74), random.range(0.5, 0.82));
+      const bodyScaleX = random.range(1.1, 1.8);
+      const bodyScaleY = random.range(0.45, 0.74);
+      const bodyScaleZ = random.range(0.5, 0.82);
+      setScale(body, bodyScaleX, bodyScaleY, bodyScaleZ);
       const tail = new Mesh(fishTailGeometry, material);
       tail.name = `hero-a:fish-tail:${index}`;
       tail.rotation.z = -Math.PI / 2;
       tail.position.x = -0.52;
-      group.add(body, tail);
+      const dorsal = new Mesh(fishFin, material);
+      dorsal.name = `hero-a:fish-dorsal-fin:${index}`;
+      dorsal.position.set(-0.02, 0.14, 0);
+      setScale(dorsal, 0.72, 0.62, 0.72);
+      const leftFin = new Mesh(fishFin, material);
+      const rightFin = new Mesh(fishFin, material);
+      leftFin.name = `hero-a:fish-pectoral-fin:${index}:left`;
+      rightFin.name = `hero-a:fish-pectoral-fin:${index}:right`;
+      leftFin.position.set(0.02, -0.035, 0.08);
+      rightFin.position.set(0.02, -0.035, -0.08);
+      leftFin.rotation.x = Math.PI / 2;
+      rightFin.rotation.x = -Math.PI / 2;
+      setScale(leftFin, 0.58, 0.48, 0.58);
+      setScale(rightFin, 0.58, 0.48, 0.58);
+      const leftEye = new Mesh(fishEyeGeometry, fishEye);
+      const rightEye = new Mesh(fishEyeGeometry, fishEye);
+      leftEye.name = `hero-a:fish-eye:${index}:left`;
+      rightEye.name = `hero-a:fish-eye:${index}:right`;
+      const eyeX = bodyScaleX * 0.235;
+      const eyeZ = bodyScaleZ * 0.23;
+      leftEye.position.set(eyeX, bodyScaleY * 0.08, eyeZ);
+      rightEye.position.set(eyeX, bodyScaleY * 0.08, -eyeZ);
+      group.add(body, tail, dorsal, leftFin, rightFin, leftEye, rightEye);
       const scale = random.range(0.55, 1.15);
       group.scale.setScalar(scale);
       this.#fish.push({
@@ -558,18 +822,18 @@ export class OceanHeroFeature implements RenderFeature {
       this.#flowRoot.add(bubble);
     }
 
-    const causticGeometry = this.#ownGeometry(new TorusGeometry(1, 0.035, 5, 36, Math.PI * 1.4));
+    const causticGeometry = this.#ownGeometry(new PlaneGeometry(2.4, 2.4, 3, 3));
     for (let index = 0; index < 18; index += 1) {
       const caustic = new Mesh(causticGeometry, causticMaterial);
-      caustic.name = `hero-a:caustic:${index}`;
-      caustic.position.set(random.range(-9, 9), -3.12, random.range(-7, 2));
-      caustic.rotation.x = Math.PI / 2;
+      caustic.name = `hero-a:caustic-patch:${index}`;
+      caustic.position.set(random.range(-9, 9), -3.105, random.range(-7, 2));
+      caustic.rotation.x = -Math.PI / 2;
       caustic.rotation.z = random.range(0, TAU);
-      setScale(caustic, random.range(0.7, 2.4), random.range(0.45, 1.3), 1);
+      setScale(caustic, random.range(0.55, 1.65), random.range(0.38, 1.05), 1);
       this.#causticsRoot.add(caustic);
     }
 
-    const shaftGeometry = this.#ownGeometry(new ConeGeometry(2.2, 12, 8, 1, true));
+    const shaftGeometry = this.#ownGeometry(new ConeGeometry(2.4, 12, 20, 1, true));
     for (let index = 0; index < 5; index += 1) {
       const shaft = new Mesh(shaftGeometry, shaftMaterial);
       shaft.name = `hero-a:light-shaft:${index}`;
@@ -580,7 +844,7 @@ export class OceanHeroFeature implements RenderFeature {
     }
 
     this.#buildProtagonist(envelopeMaterial, coreMaterial);
-    this.#protagonistRoot.scale.setScalar(0.82);
+    this.#protagonistRoot.scale.setScalar(0.68);
     this.#buildPulseTarget(pulseMaterial, coralGold, coralRose);
     this.#buildVehicle(
       vehicleMetal,
@@ -778,7 +1042,7 @@ export class OceanHeroFeature implements RenderFeature {
   }
 
   #buildProtagonist(envelope: Material, core: Material): void {
-    const envelopeGeometry = this.#ownGeometry(new SphereGeometry(0.82, 24, 18));
+    const envelopeGeometry = this.#ownGeometry(livingDropletGeometry());
     const envelopeMesh = new Mesh(envelopeGeometry, envelope);
     envelopeMesh.name = "hero-a:protagonist-envelope";
     setScale(envelopeMesh, 0.72, 1.05, 0.5);
