@@ -36,9 +36,11 @@
         "Hero A, B, and C each pass frozen source, artifact, backend-parity, and blind visual review with zero open S0-S2"
       ],
       "evidence": [
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/hero-a-review.json", "description": "Hero A remains review_pending"},
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/hero-b-review.json", "description": "Hero B remains review_pending"},
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/hero-c-review.json", "description": "Hero C remains review_pending"}
+        {"kind": "historical", "artifact": ".quality-gates/receipts/hero-a-review.json", "description": "Pre-remediation Hero A candidate receipt"},
+        {"kind": "historical", "artifact": ".quality-gates/receipts/hero-b-review.json", "description": "Pre-remediation Hero B candidate receipt"},
+        {"kind": "historical", "artifact": ".quality-gates/receipts/hero-c-review.json", "description": "Pre-remediation Hero C candidate receipt"},
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/r2-g6-visual-remediation-review.json", "description": "Current A/B/C remediation is hash-bound together and remains review_pending"},
+        {"kind": "artifact", "artifact": ".quality-gates/r2-g6-b84a267-artifact.json", "description": "Current exact implementation/build/test/browser evidence"}
       ],
       "rollback_condition": "Any visual grammar, story marker, shader warm-up, parity, or ownership regression",
       "status": "in_progress"
@@ -50,7 +52,9 @@
         "180-second parity, 1,000 seeds, three-Hero isolation, ten restarts, ten full lifecycles, licenses, and blind review pass"
       ],
       "evidence": [
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/r2-g6-review.json", "description": "Exact candidate evidence is frozen; independent review remains pending"}
+        {"kind": "historical", "artifact": ".quality-gates/receipts/r2-g6-review.json", "description": "Pre-remediation R2-G6 candidate receipt"},
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/r2-g6-visual-remediation-review.json", "description": "Exact visual-remediation candidate is frozen; independent review remains pending"},
+        {"kind": "artifact", "artifact": ".quality-gates/r2-g6-b84a267-artifact.json", "description": "Bound source archive, tested dist, focused tests, production audit, and 8-case browser report"}
       ],
       "rollback_condition": "Any parity mismatch, resource growth, missing runtime notice, or open S0-S2 review finding",
       "status": "in_progress"
@@ -72,7 +76,7 @@
   "known_risks": [
     {"id":"R-HUMAN","description":"Contest consent, identity, rights attestation, Seoul attendance, and final submission require the responsible human","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Tracked as HUMAN_PENDING in docs/QA.md and Notion; not part of automated public deployment"}]},
     {"id":"R-HARDWARE","description":"Reference-device performance acceptance cannot be proven on the build host","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Automated telemetry is collected; final reference hardware remains HARDWARE_PENDING"}]},
-    {"id":"R-INDEPENDENT","description":"GFX-004/GFX-005, GFX-006, Hero A/B/C, and R2-G6 still require artifact-isolated independent review","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"Each candidate receipt and docs/QA.md remains review_pending"}]},
+    {"id":"R-INDEPENDENT","description":"GFX-004/GFX-005, GFX-006, and the current Hero A/B/C plus R2-G6 visual-remediation candidate still require artifact-isolated independent review","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"The current combined receipt and docs/QA.md remain review_pending; historical receipts do not transfer acceptance"}]},
     {"id":"R-INTEGRATION-RELEASE","description":"The v2 Hero presentation is intentionally not integrated into Main and Sites deployment is frozen until explicit human Merge, Partial Merge, or Reject","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"docs/SPEC.md, docs/GFX_FOUNDATION_DESIGN.md, and D-005 require the Human Acceptance Owner decision"}]}
   ],
   "project": "さみしき星のまたたきよ",

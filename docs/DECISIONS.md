@@ -214,6 +214,26 @@ An implementation checkpoint does not inherit the prior Hero receipt. Any art
 change invalidates the old source/build binding and must receive new artifact,
 blind visual, reference-hardware, and human acceptance at their separate gates.
 
+## D-020 — Hero B/C remediation adds depth through preallocated presentation layers
+
+Hero B and C follow the same D-019 boundary as Hero A. Hero B may add layered
+tree crowns and branches, grass, birds, clustered clouds, sky color, and richer
+surface response only as preallocated presentation-owned geometry/material
+state. Human architecture remains rectilinear and empty. Hero C may add a
+deterministic starfield, layered nebulae, denser ribbon tessellation, procedural
+Earth color, and iridescent material response, but S20 remains three incomplete
+peripheral arcs and S21 remains three closed curvilinear shells around an open
+central void with no cockpit or human-machine grammar.
+
+All added variation derives from the existing frozen seed without consuming or
+reordering canonical generation streams. Quality changes only visible density.
+No remediation may allocate after feature initialization, grow programs after
+ready, change runtime light cardinality, mutate story or Twinkle data, retain
+resources across Hero boundaries, or import the Notion reference boards into
+production. Historical Hero and R2-G6 receipts remain valid only for their exact
+older commits; the combined remediation requires a new frozen artifact and
+independent review before any gate can be promoted.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "gate": "R2-G6 visual-remediation parity, restart, license, and combined acceptance candidate",
+  "status": "review_pending",
+  "implementation": {
+    "commit": "b84a267ad6cb174af30ef11b6055889f6180e519",
+    "tree": "9600aec0c9edbcff211a092bed34fb2231047dbe",
+    "parentEvidenceCommit": "2b0f4db40a668dfae428a886d4c118781599dea5",
+    "visualRemediationCommits": {
+      "heroA": "8ca6e9a23930184454c1653131c637c5e1795f1c",
+      "heroB": "de559f8a60a9d838bd428ca8e604a6ee94efd4f7",
+      "heroC": "1d097899f08a74cfd649b91f48dc7ea1b20a43ef",
+      "provenance": "b84a267ad6cb174af30ef11b6055889f6180e519"
+    },
+    "orderedManifestEncoding": "sorted lines of sha256, two spaces, repository-relative path, newline",
+    "orderedManifestSha256": "3600ea30d111013892a0417adfc3e9f16966ed7d631315e309379eaeee1082f9",
+    "sourceArchiveSha256": "0ecd3258f54a73f113e057d9b28ceed988675041adbddc32a05d8e6609fadfab",
+    "sourceArchiveBytes": 123043840,
+    "sourceArchiveEntries": 282,
+    "sourceArchiveSymlinks": 0,
+    "sourceDeltaFilesFromParentEvidence": 14,
+    "files": {
+      "DEMO_SOURCE_PROVENANCE.csv": "6f923d76ba262713612e3d306bdf2ff444c38ff801f8658e2418917f620d7c10",
+      "src/gfx/v2/hero/forest-city-hero-feature.ts": "ab15fe861dcc335a5a64d58adbe8890c4fe48265829637bea4e733e2b2fa4f28",
+      "src/gfx/v2/hero/ocean-hero-feature.ts": "8c83a2b8581a4ce1b5367db6651bf69f4140c5c62cbcdae4c4acfd0e4d8e6d40",
+      "src/gfx/v2/hero/space-twinkle-hero-feature.ts": "be445a01f01b64a508b25918530de50a7dcc8183d7b4c7ce3c29f3eea74c0628",
+      "tests/e2e/gfx-hero-a.spec.ts": "01a8b105324022fd752243561532b4a4a122bad2f46d361b8373256e1466731d",
+      "tests/e2e/gfx-hero-b.spec.ts": "7af2121e2ac77a3b85f9d8bf3108844de9422f15093b51e7933c3ad8cc93dfe2",
+      "tests/e2e/gfx-hero-c.spec.ts": "7c36aa89afed14ce226d7eaafe79b257be212be57b693fa1bee039bb407c7db4",
+      "tests/gfx-v2/graphics-license.test.ts": "e40abc349b934186288092c79da07991d6713ead24ae5c426068ab12f664c1c8",
+      "tests/gfx-v2/hero-slice-a.test.ts": "f7c9f51147d9d3a8180e8b256450417dc7ed4b220720828c684b623abec3db4d",
+      "tests/gfx-v2/hero-slice-b.test.ts": "1651156eddf8f1849e331bccf257b7bdffacd8eea8c6e1073cf7ccf741e64865",
+      "tests/gfx-v2/hero-slice-c.test.ts": "3ad6a1010edc6e87217a8cc8a1be3c61e3cd656ee0d6450bc98b1b9badb789d5"
+    }
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/r2-g6-b84a267-dist.tar",
+    "archiveSha256": "f6eaff660192ebbbbde507b43aa10557b44978c46e0c21fdd622e528a0a71c35",
+    "archiveBytes": 5246976,
+    "fileCount": 100,
+    "contentRecordsSha256": "46405d4a1eecd911542e03558194c12f94f1ffe5b3819d42682ec07fb4fad28e",
+    "vinextBuildId": "476500e3-ee38-46da-9595-f2b67a372121",
+    "symlinkCount": 0,
+    "runtimeNotice": "dist/client/THIRD_PARTY_NOTICES.txt",
+    "runtimeNoticeSha256": "db77168a3a9106f127514a3eff4c59c99872885a85b8baea3ca2c0eaa14fb8ac",
+    "workerArtifactCopies": [
+      "dist/client/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/ssr/_next/static/world-chunk-worker-DCn2LUGC.js"
+    ],
+    "workerArtifactSha256": "928c30c2e085660e785e6de648688a1c885da2cce10bca9037003807d218216b",
+    "workerArtifactBytesEach": 58724,
+    "rawTypeScriptWorkerArtifacts": 0,
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "Vinext build IDs and generated chunk manifests are not claimed to be byte-reproducible; the exact tested dist archive is preserved"
+  },
+  "automatedEvidence": {
+    "completeVerification": "typecheck, global lint, 36 files / 620 tests, production build",
+    "focusedCommand": "rtk npx vitest run --config vitest.config.ts tests/gfx-v2/foundation-parity.test.ts tests/world-v2/world-plan-properties.test.ts tests/gfx-v2/hero-slice-a.test.ts tests/gfx-v2/hero-slice-b.test.ts tests/gfx-v2/hero-slice-c.test.ts tests/gfx-v2/hero-slice-integration.test.ts tests/gfx-v2/graphics-license.test.ts tests/gfx-v2/performance-telemetry.test.ts --reporter=json --outputFile=.quality-gates/r2-g6-b84a267-vitest.json",
+    "focusedReport": ".quality-gates/r2-g6-b84a267-vitest.json",
+    "focusedReportSha256": "0eef71dd3e7b00acda6e51ad2fc1e615042d8e3efe0a9cfa23090e58419365b3",
+    "focusedReportBytes": 22710,
+    "focusedFiles": 8,
+    "focusedPassed": 57,
+    "focusedFailed": 0,
+    "focusedPending": 0,
+    "focusedTodo": 0,
+    "productionAudit": ".quality-gates/r2-g6-b84a267-npm-audit.json",
+    "productionAuditSha256": "41e0957f81e8db3f722663db2e5f7c20bacfd3ceb9caba5820b350f3b86c18bd",
+    "productionAuditBytes": 365,
+    "productionAuditVulnerabilities": 0
+  },
+  "browserEvidence": {
+    "command": "rtk env GFX_SPIKE_PORT=41785 PLAYWRIGHT_JSON_OUTPUT_NAME=.quality-gates/r2-g6-b84a267-playwright.json PLAYWRIGHT_OUTPUT_DIR=.quality-gates/r2-g6-b84a267-playwright-output npx playwright test tests/e2e/gfx-foundation.spec.ts tests/e2e/gfx-hero-a.spec.ts tests/e2e/gfx-hero-b.spec.ts tests/e2e/gfx-hero-c.spec.ts --project=desktop-chromium --reporter=json",
+    "report": ".quality-gates/r2-g6-b84a267-playwright.json",
+    "reportSha256": "8e0a3a531fea072ce60c4217ce1e7ed969a6e2785148376e5c565e3eb0d88fa8",
+    "reportBytes": 33493650,
+    "durationMs": 173137.209,
+    "specs": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "flaky": 0,
+    "maximumRetry": 0,
+    "topLevelErrors": 0,
+    "resultErrorFields": 0,
+    "attachmentCount": 24,
+    "jsonAttachmentCount": 4,
+    "pngAttachmentCount": 20,
+    "pngViewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "telemetry": {
+      "forcedWebgl2": {
+        "actualBackend": "WebGL2",
+        "steadyFrames": 139,
+        "frameIntervalP95Ms": 42,
+        "mainThreadWorkP95Ms": 0.7000000476837158,
+        "runtimeSpikesOver50Ms": 0,
+        "gpuTimingSupported": false
+      },
+      "hostMetalWebgpu": {
+        "actualBackend": "WebGPU",
+        "steadyFrames": 239,
+        "frameIntervalP95Ms": 8.5,
+        "mainThreadWorkP95Ms": 0.6000001430511475,
+        "runtimeSpikesOver50Ms": 0,
+        "gpuTimingSupported": false
+      }
+    },
+    "restartPlateau": {
+      "cycles": 10,
+      "programsEveryCycle": 22,
+      "geometriesEveryCycle": 3,
+      "gpuOwnedEveryCycle": 4,
+      "logicalOwnersEveryCycle": 4,
+      "poolSlotsEveryCycle": 4,
+      "heapMinimumBytes": 18352632,
+      "heapMaximumBytes": 19630968,
+      "heapSpreadBytes": 1278336
+    },
+    "runtimeLifecycle": {
+      "generations": 10,
+      "terminalGpuOwnedCount": 0,
+      "terminalLogicalOwners": 0,
+      "terminalPoolSlots": 0,
+      "terminalBackendFailureReferences": 0,
+      "terminalTelemetryState": "disposed",
+      "runtimeSpikesOver50Ms": 0
+    },
+    "jsonAttachments": {
+      "webgl2-steady-telemetry": "f45bf3aeb2bbda35f1e7168a1b6669de9e51a4940f4259e6a10d3b6c126eb824",
+      "webgl2-ten-restart-plateau": "849a19af66725a3dc7eba4bb8c18388f8d1764e2f661f7eb6a22afc59b5a56f3",
+      "webgl2-ten-cycle-lifecycle": "aff7938c330626fd64320d46d5dfa5ae6454f4b0eea461a211abe657b2cba5e4",
+      "webgpu-steady-telemetry": "21a1cdd8a94bbced7099542799e0fa62a8bd1e544e8d5b4472e7b63a1c7bf00c"
+    },
+    "pngAttachments": {
+      "hero-a-webgl2-12s-life": "d54438d73333e53fcab02c84c9372ca056bb970663cabc9272c96a48f889b83d",
+      "hero-a-webgl2-27s-empty-seat": "d9dae3c180286fb27a3897c87eb1e829793eccb9e9c8ca2b23788af95bf56f85",
+      "hero-a-webgl2-37s-waterline": "8f66c19f93d693dabe1d2868300bbf16cdaa60f827accb45f7fedd4fb3c9fd21",
+      "hero-a-webgl2-fallback": "1fdaf53d8068e7838c5eadb50227e36eb9eae6fd9e49988443b76d8af912784c",
+      "hero-a-webgpu-12s-life": "772f090a105c3d8afe8f3aa7c1a252c52af2b98191c10912e1dd75e201013a67",
+      "hero-a-webgpu-27s-empty-seat": "9b670c83281dbb9cdf8b42b34066927dbbf55a7b9850a9b762406c1cc790fe93",
+      "hero-b-webgl2-58s-forest": "c40a2e40b6a7ff5a6ec68181c89a31ce2f30d6d5308862c1dcccf8f37d1fe7e4",
+      "hero-b-webgl2-75s-empty-city": "a25700f0d61ca8cbbbc8188b1c3fafbc307d02a59715abd997dc3b66167694df",
+      "hero-b-webgl2-75s-fallback": "a4ab93d86596e325df7a6e9bf2bb5a2779ecd8982f4f075a269446e3059de914",
+      "hero-b-webgpu-58s-forest": "7b305cd958c185df8a1bb80ef6965897ebcee2fb3242c591738e0cf62e3146ab",
+      "hero-b-webgpu-75s-empty-city": "4e7d37632a0f9a5e1f3e433c24d3775a2ffce2cd97850c1ed98792a22f196880",
+      "hero-c-webgl2-142s-human-debris": "75ea19f01bd3557b28d7bbbc796e20a08aa31cc2a4b6016b6363f05d5348f326",
+      "hero-c-webgl2-158s-peripheral-arcs": "919eee0258fa7551920f1733f10fda92216b7f6269ea014b8c9bcace07aec627",
+      "hero-c-webgl2-166s-three-ribbon-answer": "4073a41048ed9971ccba8b02bf4580ccd1d3d9594578c569425f756bb41871b4",
+      "hero-c-webgl2-176s-many-life-lights": "08945c0fc4f72218c34383fd8f3287846d0de5ffa95f9b0b4587ae4455337696",
+      "hero-c-webgl2-179s-formal-title": "b91f0461fa207861be9c1c527685f5b46e54b3c3b7047c684bf94c0496a4735b",
+      "hero-c-webgpu-142s-human-debris": "333cc7a96589d1aebf50be063473657f4599e101b83299a67e30a672e7c74158",
+      "hero-c-webgpu-158s-peripheral-arcs": "dc5fbf45d32fdd35ca940bd1f31e7d77e92ce75ae8a15dc286c434e7c6bdb6f7",
+      "hero-c-webgpu-166s-three-ribbon-answer": "7b900a5c7332c6a8c48de1cd76a5b49caa7c1a189e51ca890e3050ceefc0bd3f",
+      "hero-c-webgpu-176s-many-life-lights": "43eef1d7ba374b68dc5f86f8fa0308625b02488a701593e8fb6775b803381041"
+    }
+  },
+  "parityContract": {
+    "journeySeconds": 180,
+    "worldSeed": 20260818,
+    "worldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "worldPlanSeedsValidated": 1000,
+    "sameReplayAcrossRequestedQuality": true,
+    "sameReplayAcrossWebgpuAndWebgl2": true,
+    "rendererContainersDetachedFromLedger": true,
+    "heroSequenceMarkersSeconds": [12, 58, 75, 158, 166, 176],
+    "heroQualitySequence": ["high", "balanced", "low", "high"],
+    "heroStoryMutation": false,
+    "heroLedgerMutation": false,
+    "heroSceneChildrenRestored": true,
+    "heroBackgroundAndFogIdentityRestored": true,
+    "heroTerminalOwnedGeometries": 0,
+    "heroTerminalOwnedMaterials": 0,
+    "heroTerminalOwnedTextures": 0
+  },
+  "visualRemediation": {
+    "heroA": "preallocated tapered coral, kelp, fish detail, organic rocks, textured caustic floor",
+    "heroB": "layered tree crowns and branches, grass tufts, birds, cluster clouds, sunset dome, textured living forest",
+    "heroC": "depth starfield, layered nebulae, higher-resolution three-shell alien ribbons, procedural living Earth, iridescent protagonist",
+    "usesCanonicalPlanMutation": false,
+    "usesRuntimeAiOrPaidApi": false,
+    "postReadyProgramGrowth": 0,
+    "runtimeCompileEvents": 0,
+    "postInitializeHeroAllocations": 0
+  },
+  "licenseBoundary": {
+    "runtimePackages": {
+      "react": "19.2.6 MIT",
+      "react-dom": "19.2.6 MIT",
+      "scheduler": "0.27.0 MIT",
+      "three": "0.185.1 MIT"
+    },
+    "releaseNoticeIncluded": true,
+    "heroProvenanceRows": 3,
+    "heroAProvenanceCommit": "8ca6e9a23930184454c1653131c637c5e1795f1c",
+    "heroBProvenanceCommit": "de559f8a60a9d838bd428ca8e604a6ee94efd4f7",
+    "heroCProvenanceCommit": "1d097899f08a74cfd649b91f48dc7ea1b20a43ef",
+    "notionReferenceBoardsImportedByProduction": false,
+    "humanRightsAcceptance": "HUMAN_PENDING"
+  },
+  "frozenInputs": {
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "specSha256": "a2e557bbc3de8aba8a9f093271a55493900c34a34c9b6fa01eeec1f385f43055",
+    "gfx001Implementation": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+    "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+    "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a",
+    "gfx004Implementation": "370b019f5aee868449117b51a0da114b35ffc045",
+    "gfx005Implementation": "c6dd34dd9082e437e04d2fc7ccd1045a9a59ae1d",
+    "gfx005TransmissionFix": "170c0898e5223f46aaaaf03b5eee6a906602e9de",
+    "combinedFoundationIntegration": "e81c47846291018c37c3496c47b547fb0100375d",
+    "gfx006Implementation": "9597d9b8f905b492359590eed2cf3dbfdb5e73d8",
+    "canonicalWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd"
+  },
+  "sourceReview": {
+    "status": "implementation_self_audit_passed_independent_review_pending",
+    "independentFrozenFullScopeVerdict": "review_pending",
+    "reviewedHashesDrifted": null
+  },
+  "artifactReview": {
+    "status": "review_pending",
+    "reviewedEvidenceHead": null,
+    "reviewers": [],
+    "verdict": "review_pending",
+    "bindingsReproduced": false
+  },
+  "externalGates": {
+    "gfx004Gfx005FullReview": "PENDING",
+    "gfx006IndependentReview": "PENDING",
+    "heroAIndependentVisualReview": "PENDING",
+    "heroBIndependentVisualReview": "PENDING",
+    "heroCIndependentVisualReview": "PENDING",
+    "combinedIndependentReview": "PENDING",
+    "referenceHardware": "HARDWARE_PENDING",
+    "humanPlayAndVisualAcceptance": "HUMAN_PENDING",
+    "rightsAcceptance": "HUMAN_PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN",
+    "contestSubmission": "PENDING"
+  }
+}
