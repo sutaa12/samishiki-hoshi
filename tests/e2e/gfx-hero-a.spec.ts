@@ -115,7 +115,7 @@ function expectRuntimeBounded(value: HeroSnapshot): void {
 test.describe("R2-G3 Hero Slice A real browser candidate", () => {
   test.skip(({ isMobile }) => isMobile, "Hero Slice A is reviewed at the required 1920×1080 desktop size.");
 
-  test("binds the 12s, 27s, and waterline markers without runtime allocation growth", async ({ page }) => {
+  test("binds the 12s, 27s, and waterline markers without runtime allocation growth", async ({ page }, testInfo) => {
     test.setTimeout(90_000);
     await page.setViewportSize({ width: 1_920, height: 1_080 });
     await page.goto("/gfx-hero-a?backend=webgl2&qa=1");
@@ -161,6 +161,10 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     expect(life.heroA?.ownedObjects).toBeGreaterThan(0);
     if (!life.heroA) throw new Error("Hero Slice A ownership evidence is unavailable.");
     expectRuntimeBounded(life);
+    await testInfo.attach("hero-a-webgl2-12s-life", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
     const baselinePrograms = life.pipeline.programCountAtReady;
     const baselineGeometries = life.backendLifecycle.resources.geometries;
     const baselineHeroOwnership = Object.freeze({
@@ -192,6 +196,10 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     expect(emptySeat.backendLifecycle.resources.geometries).toBe(baselineGeometries);
     expect(emptySeat.heroA).toMatchObject(baselineHeroOwnership);
     expectRuntimeBounded(emptySeat);
+    await testInfo.attach("hero-a-webgl2-27s-empty-seat", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
 
     await page.getByRole("button", { name: "37s Waterline" }).click();
     const waterline = await waitForSnapshot(page, (value) => (
@@ -212,6 +220,10 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     expect(waterline.backendLifecycle.resources.geometries).toBe(baselineGeometries);
     expect(waterline.heroA).toMatchObject(baselineHeroOwnership);
     expectRuntimeBounded(waterline);
+    await testInfo.attach("hero-a-webgl2-37s-waterline", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
 
     await page.getByRole("button", { name: "Fallback" }).click();
     const fallback = await waitForSnapshot(page, (value) => value.quality.id === "low-static");
@@ -232,6 +244,10 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     expect(fallback.backendLifecycle.resources.geometries).toBe(baselineGeometries);
     expect(fallback.heroA).toMatchObject(baselineHeroOwnership);
     expectRuntimeBounded(fallback);
+    await testInfo.attach("hero-a-webgl2-fallback", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
 
     await page.getByRole("button", { name: "High", exact: true }).click();
     const restored = await waitForSnapshot(page, (value) => value.quality.id === "high-temporal");
@@ -308,6 +324,10 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
         allocationsAfterInitialize: 0,
       });
       expectRuntimeBounded(life);
+      await testInfo.attach("hero-a-webgpu-12s-life", {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
       const baselinePrograms = life.pipeline.programCountAtReady;
       const baselineGeometries = life.backendLifecycle.resources.geometries;
 
@@ -328,6 +348,10 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
       expect(emptySeat.pipeline.programCountAtReady).toBe(baselinePrograms);
       expect(emptySeat.backendLifecycle.resources.geometries).toBe(baselineGeometries);
       expectRuntimeBounded(emptySeat);
+      await testInfo.attach("hero-a-webgpu-27s-empty-seat", {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
       await page.waitForTimeout(2_500);
       await expect(page.getByTestId("gfx-hero-a")).toHaveAttribute("data-status", "ready");
       expect(runtimeErrors).toEqual([]);
