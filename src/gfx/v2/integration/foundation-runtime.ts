@@ -18,7 +18,9 @@ import {
   type TslMaterialLibrarySnapshot,
 } from "../materials";
 import {
+  ForestCityHeroFeature,
   OceanHeroFeature,
+  type ForestCityHeroFeatureSnapshot,
   type OceanHeroFeatureSnapshot,
 } from "../hero";
 import {
@@ -102,8 +104,9 @@ const WARMUP_PROFILES = Object.freeze(Object.values(FOUNDATION_QUALITY_PROFILES)
 const INITIAL_QUALITY: FoundationQualityId = "high-temporal";
 const INITIAL_CHUNK: StoryChunkId = "S08";
 const DEFAULT_HERO_A_MARKER_SECONDS = 12;
+const DEFAULT_HERO_B_MARKER_SECONDS = 58;
 
-export type GfxFoundationExperience = "foundation" | "hero-a";
+export type GfxFoundationExperience = "foundation" | "hero-a" | "hero-b";
 
 class BrowserFrameLoop implements RenderFrameLoop {
   running = false;
@@ -256,6 +259,7 @@ export interface GfxFoundationSnapshot {
   readonly frameLoop: Readonly<{ running: boolean; starts: number; stops: number; ticks: number }>;
   readonly scene: Readonly<{ objects: number; meshes: number; children: number }>;
   readonly heroA: Readonly<OceanHeroFeatureSnapshot> | null;
+  readonly heroB: Readonly<ForestCityHeroFeatureSnapshot> | null;
   readonly runtime: Readonly<{
     resizeListenerActive: boolean;
     resizeCalls: number;
@@ -303,7 +307,7 @@ async function performGfxFoundationConstruction(options: {
   let hostOwner: RenderHost | null = null;
   let resizeBindingOwner: FoundationResizeBinding | null = null;
   let telemetryOwner: RollingGfxPerformanceTelemetry | null = null;
-  let heroOwner: OceanHeroFeature | null = null;
+  let heroOwner: OceanHeroFeature | ForestCityHeroFeature | null = null;
   let unsubscribeHost: Unsubscribe = () => undefined;
   let constructionFailurePresent = false;
   let constructionFailure: unknown;
@@ -528,9 +532,14 @@ async function performGfxFoundationConstruction(options: {
     });
     const innerWorld = new WorldChunkRenderFeature(manager, persistentPass);
     const pooledWorld = new PooledWorldChunkFeature(innerWorld, uploader);
-    const hero = options.experience === "hero-a"
-      ? heroOwner = new OceanHeroFeature(scene, camera, plan)
+    const oceanHero = options.experience === "hero-a"
+      ? new OceanHeroFeature(scene, camera, plan)
       : null;
+    const forestCityHero = options.experience === "hero-b"
+      ? new ForestCityHeroFeature(scene, camera, plan)
+      : null;
+    const hero = oceanHero ?? forestCityHero;
+    heroOwner = hero;
     const frameLoop = frameLoopOwner = new BrowserFrameLoop();
     const observedEvents: string[] = [];
     const observer: RenderEventObserver = {
@@ -581,7 +590,8 @@ async function performGfxFoundationConstruction(options: {
       quality: qualityProvider.snapshot(),
       frameLoop: frameLoop.snapshot(),
       scene: sceneSnapshot(scene),
-      heroA: hero?.snapshot() ?? null,
+      heroA: oceanHero?.snapshot() ?? null,
+      heroB: forestCityHero?.snapshot() ?? null,
       runtime: Object.freeze({
         resizeListenerActive: resizeBinding.active,
         resizeCalls,
@@ -620,12 +630,17 @@ async function performGfxFoundationConstruction(options: {
       notify();
     });
 
-    await host.initialize(
-      options.experience === "hero-a"
-        ? renderSnapshotAt(plan, options.initialStoryTime ?? DEFAULT_HERO_A_MARKER_SECONDS)
-        : renderSnapshot(plan, INITIAL_CHUNK),
-      initialViewport,
-    );
+    const initialSnapshot = options.experience === "foundation"
+      ? renderSnapshot(plan, INITIAL_CHUNK)
+      : renderSnapshotAt(
+        plan,
+        options.initialStoryTime ?? (
+          options.experience === "hero-a"
+            ? DEFAULT_HERO_A_MARKER_SECONDS
+            : DEFAULT_HERO_B_MARKER_SECONDS
+        ),
+      );
+    await host.initialize(initialSnapshot, initialViewport);
     assertFoundationHostReady(host, "initialization");
     resizeBinding.attach();
     assertFoundationHostReady(host, "resize listener binding");
