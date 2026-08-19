@@ -192,6 +192,28 @@ play, public rights, Main integration, Sites deployment, or contest submission.
 Those gates remain independently owned and require their stated reviewers or
 the Human Acceptance Owner.
 
+## D-019 — Hero visual remediation preserves canonical and runtime topology
+
+Internal inspection of the R2-G6 frame set found that passing story, lifecycle,
+and performance checks was not sufficient evidence for Cinematic Procedural
+Realism. Hero visual remediation is therefore allowed to replace presentation-
+owned geometry, materials, and textures, but it may not change the canonical
+world plan, simulation/Twinkle inputs, chunk ownership, runtime light
+cardinality, or post-ready allocation contract.
+
+Hero A's first remediation uses preallocated tapered coral and kelp geometry,
+deterministic fish and reef detail, textured caustic patches, and one additional
+procedural surface texture. New decorative variation is derived directly from
+the existing seed through `hashedUnit`; it does not consume or reorder the
+established placement random stream. Every reachable material variant remains
+present before ready, and story visibility continues to change objects rather
+than shader or light topology. Forced-WebGL2 and host-Metal WebGPU must both
+retain zero post-ready program growth before a visual change is kept.
+
+An implementation checkpoint does not inherit the prior Hero receipt. Any art
+change invalidates the old source/build binding and must receive new artifact,
+blind visual, reference-hardware, and human acceptance at their separate gates.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

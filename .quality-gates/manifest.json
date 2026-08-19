@@ -1,17 +1,79 @@
 {
   "blind_reviews": [],
   "gates": [
-    {"id":"G0","name":"Foundation and source of truth","criteria":["Specifications and dependency baseline are reproducible"],"evidence":[],"rollback_condition":"Source or dependency baseline changes","status":"in_progress"},
-    {"id":"G1","name":"Deterministic story core","criteria":["Timeline, replay hash, and 1000-seed properties pass"],"evidence":[],"rollback_condition":"Any replay mismatch or invalid generated seed","status":"pending"},
-    {"id":"G2","name":"Playable 180-second journey","criteria":["All inputs, phases, shots, and end state work"],"evidence":[],"rollback_condition":"A required phase, input, or end state is unavailable","status":"pending"},
-    {"id":"G3","name":"Accessibility and presentation","criteria":["Settings, mute, mobile UI, and generated presentation assets pass"],"evidence":[],"rollback_condition":"Any supported input or accessibility mode blocks progress","status":"pending"},
-    {"id":"G4","name":"Independent acceptance","criteria":["Artifact-only SolMax review has zero open S0-S2"],"evidence":[],"rollback_condition":"Any open S0, S1, or S2 review finding","status":"pending"},
-    {"id":"G5","name":"Public release","criteria":["Anonymous HTTPS URL passes a real interaction smoke test"],"evidence":[],"rollback_condition":"Public URL or core interaction becomes unavailable","status":"pending"}
+    {
+      "id": "R2-G0/G1",
+      "name": "Isolated foundation, renderer, and deterministic world plan",
+      "criteria": [
+        "Main remains unchanged while accepted renderer, render-contract, and world-plan evidence is reproducible",
+        "Timeline, replay, named streams, canonical plan, and 1,000-seed properties pass"
+      ],
+      "evidence": [
+        {"kind": "artifact", "artifact": ".quality-gates/receipts/gfx001-review.json", "description": "Accepted GFX-001 renderer receipt"},
+        {"kind": "artifact", "artifact": ".quality-gates/receipts/gfx002-review.json", "description": "Accepted GFX-002 render-contract receipt"},
+        {"kind": "artifact", "artifact": ".quality-gates/receipts/gfx003-review.json", "description": "Accepted GFX-003 deterministic world-plan receipt"}
+      ],
+      "rollback_condition": "Any accepted source/hash drift, replay mismatch, or invalid canonical seed",
+      "status": "passed"
+    },
+    {
+      "id": "R2-G2",
+      "name": "Shared streaming, HDR, temporal, and telemetry foundation",
+      "criteria": [
+        "GFX-004, GFX-005, and GFX-006 pass frozen source and artifact review with zero open S0-S2"
+      ],
+      "evidence": [
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/gfx005-review.json", "description": "Combined GFX-004/GFX-005 receipt remains review_pending"},
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/gfx006-review.json", "description": "GFX-006 receipt remains review_pending"}
+      ],
+      "rollback_condition": "Any lifecycle, parity, performance, ownership, or evidence-binding regression",
+      "status": "in_progress"
+    },
+    {
+      "id": "R2-G3/G4/G5",
+      "name": "Three Cinematic Procedural Realism Hero Slices",
+      "criteria": [
+        "Hero A, B, and C each pass frozen source, artifact, backend-parity, and blind visual review with zero open S0-S2"
+      ],
+      "evidence": [
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/hero-a-review.json", "description": "Hero A remains review_pending"},
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/hero-b-review.json", "description": "Hero B remains review_pending"},
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/hero-c-review.json", "description": "Hero C remains review_pending"}
+      ],
+      "rollback_condition": "Any visual grammar, story marker, shader warm-up, parity, or ownership regression",
+      "status": "in_progress"
+    },
+    {
+      "id": "R2-G6",
+      "name": "Combined parity, restart, license, and acceptance review",
+      "criteria": [
+        "180-second parity, 1,000 seeds, three-Hero isolation, ten restarts, ten full lifecycles, licenses, and blind review pass"
+      ],
+      "evidence": [
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/r2-g6-review.json", "description": "Exact candidate evidence is frozen; independent review remains pending"}
+      ],
+      "rollback_condition": "Any parity mismatch, resource growth, missing runtime notice, or open S0-S2 review finding",
+      "status": "in_progress"
+    },
+    {
+      "id": "R2-G7",
+      "name": "Human integration and public release",
+      "criteria": [
+        "Human Acceptance Owner chooses Merge or Partial Merge",
+        "Final visual/play and rights acceptance are recorded",
+        "Exact accepted build is merged, deployed anonymously to Sites, and smoke-tested through a real interaction"
+      ],
+      "evidence": [],
+      "rollback_condition": "Human Reject, missing rights attestation, unavailable anonymous URL, or failed primary interaction",
+      "status": "pending"
+    }
   ],
   "human_gates": [],
   "known_risks": [
     {"id":"R-HUMAN","description":"Contest consent, identity, rights attestation, Seoul attendance, and final submission require the responsible human","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Tracked as HUMAN_PENDING in docs/QA.md and Notion; not part of automated public deployment"}]},
-    {"id":"R-HARDWARE","description":"Reference-device performance acceptance cannot be proven on the build host","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Automated telemetry is collected; final reference hardware remains HARDWARE_PENDING"}]}
+    {"id":"R-HARDWARE","description":"Reference-device performance acceptance cannot be proven on the build host","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Automated telemetry is collected; final reference hardware remains HARDWARE_PENDING"}]},
+    {"id":"R-INDEPENDENT","description":"GFX-004/GFX-005, GFX-006, Hero A/B/C, and R2-G6 still require artifact-isolated independent review","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"Each candidate receipt and docs/QA.md remains review_pending"}]},
+    {"id":"R-INTEGRATION-RELEASE","description":"The v2 Hero presentation is intentionally not integrated into Main and Sites deployment is frozen until explicit human Merge, Partial Merge, or Reject","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"docs/SPEC.md, docs/GFX_FOUNDATION_DESIGN.md, and D-005 require the Human Acceptance Owner decision"}]}
   ],
   "project": "さみしき星のまたたきよ",
   "release": {
@@ -34,9 +96,9 @@
     "S0": 0,
     "S1": 0,
     "S2": 0,
-    "S3": 2
+    "S3": 4
   },
   "source_of_truth": [
-    {"label":"Executable specification","location":"../docs/SPEC.md","sha256":"1717992d69d2b86695fc10faa6a810a41dcdc45e5bd040461cd211a44b480b0a"}
+    {"label":"Executable specification","location":"../docs/SPEC.md","sha256":"a2e557bbc3de8aba8a9f093271a55493900c34a34c9b6fa01eeec1f385f43055"}
   ]
 }
