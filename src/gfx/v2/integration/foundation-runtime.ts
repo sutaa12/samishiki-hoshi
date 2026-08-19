@@ -20,8 +20,10 @@ import {
 import {
   ForestCityHeroFeature,
   OceanHeroFeature,
+  SpaceTwinkleHeroFeature,
   type ForestCityHeroFeatureSnapshot,
   type OceanHeroFeatureSnapshot,
+  type SpaceTwinkleHeroFeatureSnapshot,
 } from "../hero";
 import {
   ProductionLinearHdrPipeline,
@@ -43,6 +45,7 @@ import type {
   RenderHostEvent,
   RenderHostProbeSnapshot,
   RenderQualityProfile,
+  RenderTwinkleSeedSnapshot,
   RenderQualityProvider,
   RenderViewport,
   Unsubscribe,
@@ -105,8 +108,40 @@ const INITIAL_QUALITY: FoundationQualityId = "high-temporal";
 const INITIAL_CHUNK: StoryChunkId = "S08";
 const DEFAULT_HERO_A_MARKER_SECONDS = 12;
 const DEFAULT_HERO_B_MARKER_SECONDS = 58;
+const DEFAULT_HERO_C_MARKER_SECONDS = 142;
 
-export type GfxFoundationExperience = "foundation" | "hero-a" | "hero-b";
+const EMPTY_RENDER_PULSES = Object.freeze([]) as readonly Readonly<RenderTwinkleSeedSnapshot>[];
+const HERO_C_REVIEW_PULSES: readonly Readonly<RenderTwinkleSeedSnapshot>[] = Object.freeze([
+  Object.freeze({
+    id: 1,
+    journeyTime: 5,
+    x: 0.091_909,
+    y: -0.146_463,
+    phase: "LIFE" as const,
+    source: "player" as const,
+    value: 953_532_373,
+  }),
+  Object.freeze({
+    id: 2,
+    journeyTime: 39,
+    x: 0.94,
+    y: 0.749_6,
+    phase: "EARTH" as const,
+    source: "player" as const,
+    value: 1_435_770_856,
+  }),
+  Object.freeze({
+    id: 3,
+    journeyTime: 166.4,
+    x: -0.94,
+    y: 0.94,
+    phase: "ANSWER" as const,
+    source: "player" as const,
+    value: 1_348_556_668,
+  }),
+]);
+
+export type GfxFoundationExperience = "foundation" | "hero-a" | "hero-b" | "hero-c";
 
 class BrowserFrameLoop implements RenderFrameLoop {
   running = false;
@@ -209,6 +244,8 @@ function renderSnapshot(plan: Readonly<WorldPlan>, chunkId: StoryChunkId): Reado
 function renderSnapshotAt(
   plan: Readonly<WorldPlan>,
   requestedStoryTime: number,
+  pulseLedger: readonly Readonly<RenderTwinkleSeedSnapshot>[] = EMPTY_RENDER_PULSES,
+  answerAt: number | null = null,
 ): Readonly<JourneyRenderSnapshot> {
   if (!Number.isFinite(requestedStoryTime)) {
     throw new TypeError("Foundation story time must be finite.");
@@ -220,6 +257,7 @@ function renderSnapshotAt(
     && (storyTimeMs < candidate.storyNode.endMs || candidate.id === "S24")
   ));
   if (!chunk) throw new RangeError(`World plan has no chunk at ${storyTime} seconds.`);
+  const pulses = Object.freeze(pulseLedger.filter((pulse) => pulse.journeyTime <= storyTime));
   return Object.freeze({
     seed: Number(plan.worldSeed),
     storyTime,
@@ -227,10 +265,26 @@ function renderSnapshotAt(
     shotId: chunk.id,
     position: Object.freeze({ x: 0, y: 0 }),
     velocity: Object.freeze({ x: 0, y: 0 }),
-    pulses: Object.freeze([]),
-    answerAt: null,
+    pulses,
+    answerAt: answerAt !== null && answerAt <= storyTime ? answerAt : null,
     finished: storyTime >= 180,
   });
+}
+
+function defaultMarkerFor(experience: GfxFoundationExperience): number {
+  if (experience === "hero-a") return DEFAULT_HERO_A_MARKER_SECONDS;
+  if (experience === "hero-b") return DEFAULT_HERO_B_MARKER_SECONDS;
+  if (experience === "hero-c") return DEFAULT_HERO_C_MARKER_SECONDS;
+  return 0;
+}
+
+function renderExperienceSnapshotAt(
+  plan: Readonly<WorldPlan>,
+  storyTime: number,
+  experience: GfxFoundationExperience,
+): Readonly<JourneyRenderSnapshot> {
+  if (experience !== "hero-c") return renderSnapshotAt(plan, storyTime);
+  return renderSnapshotAt(plan, storyTime, HERO_C_REVIEW_PULSES, 166.400_001);
 }
 
 function sceneSnapshot(scene: Scene) {
@@ -260,6 +314,7 @@ export interface GfxFoundationSnapshot {
   readonly scene: Readonly<{ objects: number; meshes: number; children: number }>;
   readonly heroA: Readonly<OceanHeroFeatureSnapshot> | null;
   readonly heroB: Readonly<ForestCityHeroFeatureSnapshot> | null;
+  readonly heroC: Readonly<SpaceTwinkleHeroFeatureSnapshot> | null;
   readonly runtime: Readonly<{
     resizeListenerActive: boolean;
     resizeCalls: number;
@@ -307,7 +362,7 @@ async function performGfxFoundationConstruction(options: {
   let hostOwner: RenderHost | null = null;
   let resizeBindingOwner: FoundationResizeBinding | null = null;
   let telemetryOwner: RollingGfxPerformanceTelemetry | null = null;
-  let heroOwner: OceanHeroFeature | ForestCityHeroFeature | null = null;
+  let heroOwner: OceanHeroFeature | ForestCityHeroFeature | SpaceTwinkleHeroFeature | null = null;
   let unsubscribeHost: Unsubscribe = () => undefined;
   let constructionFailurePresent = false;
   let constructionFailure: unknown;
@@ -538,7 +593,10 @@ async function performGfxFoundationConstruction(options: {
     const forestCityHero = options.experience === "hero-b"
       ? new ForestCityHeroFeature(scene, camera, plan)
       : null;
-    const hero = oceanHero ?? forestCityHero;
+    const spaceTwinkleHero = options.experience === "hero-c"
+      ? new SpaceTwinkleHeroFeature(scene, camera, plan)
+      : null;
+    const hero = oceanHero ?? forestCityHero ?? spaceTwinkleHero;
     heroOwner = hero;
     const frameLoop = frameLoopOwner = new BrowserFrameLoop();
     const observedEvents: string[] = [];
@@ -592,6 +650,7 @@ async function performGfxFoundationConstruction(options: {
       scene: sceneSnapshot(scene),
       heroA: oceanHero?.snapshot() ?? null,
       heroB: forestCityHero?.snapshot() ?? null,
+      heroC: spaceTwinkleHero?.snapshot() ?? null,
       runtime: Object.freeze({
         resizeListenerActive: resizeBinding.active,
         resizeCalls,
@@ -632,13 +691,10 @@ async function performGfxFoundationConstruction(options: {
 
     const initialSnapshot = options.experience === "foundation"
       ? renderSnapshot(plan, INITIAL_CHUNK)
-      : renderSnapshotAt(
+      : renderExperienceSnapshotAt(
         plan,
-        options.initialStoryTime ?? (
-          options.experience === "hero-a"
-            ? DEFAULT_HERO_A_MARKER_SECONDS
-            : DEFAULT_HERO_B_MARKER_SECONDS
-        ),
+        options.initialStoryTime ?? defaultMarkerFor(options.experience),
+        options.experience,
       );
     await host.initialize(initialSnapshot, initialViewport);
     assertFoundationHostReady(host, "initialization");
@@ -664,7 +720,10 @@ async function performGfxFoundationConstruction(options: {
         notify();
       },
       seekTime(storyTime) {
-        host.setSnapshot(renderSnapshotAt(plan, storyTime), "restart-or-qa-seek");
+        host.setSnapshot(
+          renderExperienceSnapshotAt(plan, storyTime, options.experience),
+          "restart-or-qa-seek",
+        );
         notify();
       },
       async setQuality(id) {
