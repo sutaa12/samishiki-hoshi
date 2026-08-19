@@ -145,6 +145,29 @@ variant. High/Low changes alter instance visibility only; no geometry,
 material, texture, light, story, seed, plan, or Twinkle ownership is allocated
 or replaced after initialization.
 
+## D-017 — Hero C separates human debris, alien grammar, and immutable Twinkle realization
+
+Hero Slice C reuses the D-015 presentation-layer boundary without importing or
+executing the game simulation. The isolated route supplies an exact frozen
+replay ledger to the accepted render contract, while the feature only reads the
+Host-owned story snapshot. At 142 seconds the seven human remnants remain
+rectilinear and the single amber beacon dies without machinery revival. S20
+shows exactly three incomplete peripheral arcs; the exact 161-second S21
+boundary replaces them with three thick closed cubic B-spline ribbon shells,
+parallel-transport frames, constrained superformula cross-sections, and a real
+open center. No cockpit, window, panel, thruster, front, or other human grammar
+is added to the unknown ship.
+
+The final life lights are one preallocated `InstancedMesh` whose transforms and
+visible count derive deterministically from the immutable ordered TwinkleSeed
+ledger. High/Low changes only that visible density; seed, plan, story, ledger,
+three-shell silhouette, and center void do not change. All reachable Hero
+objects remain present for ready-time warm-up. The three point lights stay on
+an always-visible root and vary only in intensity, so S18 through S24 cannot
+change shader light cardinality or introduce a post-ready program. The final
+two-line Japanese title is presentation-only and appears at the fixed S24
+marker.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

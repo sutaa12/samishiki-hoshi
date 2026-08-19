@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "gate": "R2-G5 Hero Slice C: space, alien, and Twinkle",
+  "status": "review_pending",
+  "implementation": {
+    "commit": "69fe2e47c5269ccc407c95a6c6491fbbff1ceb8c",
+    "tree": "a34cb017c28f638e251e4c978881fd6806d4f1eb",
+    "parentEvidenceCommit": "ba69c882cbc61f5482c8030790bcdcca49580871",
+    "orderedManifestEncoding": "sorted lines of sha256, two spaces, repository-relative path, newline",
+    "orderedManifestSha256": "aa37822e9818959acd4d305d7741fe758a822df6a858eb1b67109620bde3e2c1",
+    "sourceArchiveSha256": "bad0fdf9399afdb474e7dd9f81f47cf7c2a0d549b29f77fecbdb31cd7c04fdc4",
+    "sourceArchiveBytes": 75540480,
+    "sourceArchiveEntries": 264,
+    "sourceArchiveSymlinks": 0,
+    "sourceDeltaFilesFromParentEvidence": 8,
+    "files": {
+      "app/gfx-hero-c/gfx-hero-c-client.tsx": "c10cf141b72fed25787a776d77ec9dc9c796c9dce8cb51ebca21bff6d3aa2f53",
+      "app/gfx-hero-c/gfx-hero-c.module.css": "3b00b617f1700de38dbe37b8052fefc57c246a5534ec288c66090bf1d3117f52",
+      "app/gfx-hero-c/page.tsx": "102cd77bf462ffec454d2941e1bfd0612dc57cb0addc4c276d816d07d9497ad4",
+      "src/gfx/v2/hero/index.ts": "f1b207a4662662cc717296f3338ee7e30fcadbbdfbe4d44f02f77bf5df4f3935",
+      "src/gfx/v2/hero/space-twinkle-hero-feature.ts": "59e02a4e6783fec91a6591efd629ca537baf748ed40cc4dc639dab95eebba696",
+      "src/gfx/v2/integration/foundation-runtime.ts": "be465c27e864a4ac5c22798b909fd53504d133c05170458e1c8e1bd16b851ca3",
+      "tests/e2e/gfx-hero-c.spec.ts": "605e7fe3a3905475ae11be8d22f6263fdf11e8f5c13b6223a4ad4d4f18c268ba",
+      "tests/gfx-v2/hero-slice-c.test.ts": "67db2a0798fdeb9fc824ddd5984d279e1e4957055f239c222bed8cc0db4e807d"
+    }
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/hero-c-69fe2e4-dist.tar",
+    "archiveSha256": "9eddb1b93ad5998730a981bcdf05e90d1a54df816ec216d390e8ecab32567379",
+    "archiveBytes": 5219840,
+    "fileCount": 99,
+    "contentRecordsSha256": "9f8393d53669553bf5c48e0c00a1742b0eed5c654cb0be1b3cf7ba8e9e6b4a0c",
+    "vinextBuildId": "1a90dd05-1a36-4560-be80-0340c9d303dd",
+    "symlinkCount": 0,
+    "workerArtifactCopies": [
+      "dist/client/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/ssr/_next/static/world-chunk-worker-DCn2LUGC.js"
+    ],
+    "workerArtifactSha256": "928c30c2e085660e785e6de648688a1c885da2cce10bca9037003807d218216b",
+    "workerArtifactBytesEach": 58724,
+    "rawTypeScriptWorkerArtifacts": 0,
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "Vinext build IDs and generated chunk manifests are not claimed to be byte-reproducible; the exact tested dist archive is preserved"
+  },
+  "automatedEvidence": {
+    "completeVerification": "typecheck, global lint, 34 files / 613 tests, production build",
+    "focusedCommand": "rtk npx vitest run --config vitest.config.ts tests/gfx-v2/hero-slice-c.test.ts tests/gfx-v2/three-chunk-uploader.test.ts --reporter=json --outputFile=.quality-gates/hero-c-69fe2e4-vitest.json",
+    "focusedReport": ".quality-gates/hero-c-69fe2e4-vitest.json",
+    "focusedReportSha256": "5240f859e4285537e997833336b168e6422eb5f5fa6046fe34f028f0b9800e0a",
+    "focusedReportBytes": 4632,
+    "focusedFiles": 2,
+    "focusedPassed": 10,
+    "focusedFailed": 0,
+    "focusedPending": 0,
+    "focusedTodo": 0,
+    "productionAuditVulnerabilities": 0
+  },
+  "browserEvidence": {
+    "command": "rtk env GFX_SPIKE_PORT=41763 PLAYWRIGHT_JSON_OUTPUT_NAME=.quality-gates/hero-c-69fe2e4-playwright.json PLAYWRIGHT_OUTPUT_DIR=.quality-gates/hero-c-69fe2e4-playwright-output npx playwright test tests/e2e/gfx-hero-c.spec.ts --project=desktop-chromium --reporter=json",
+    "report": ".quality-gates/hero-c-69fe2e4-playwright.json",
+    "reportSha256": "2da130a841ad943b013a7461d2bf0853deff836d5574a5947076e0ef7cdbe70f",
+    "reportBytes": 9038175,
+    "specs": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "flaky": 0,
+    "maximumRetry": 0,
+    "topLevelErrors": 0,
+    "resultErrorFields": 0,
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "forcedWebgl2": {
+      "actualBackend": "WebGL2",
+      "renderer": "SwiftShader through the configured forced-WebGL2 Chromium path",
+      "markers": [142, 158, 166, 176, 179],
+      "fallbackTier": "low-static",
+      "programGrowthAfterReady": 0,
+      "runtimeCompileEvents": 0,
+      "runtimeSpikesOver50Ms": 0,
+      "mainThreadP95LimitMs": 50,
+      "referenceHardwareAccepted": false
+    },
+    "hostMetalWebgpu": {
+      "launchFlags": [
+        "--enable-unsafe-webgpu",
+        "--ignore-gpu-blocklist",
+        "--use-angle=metal"
+      ],
+      "actualBackend": "WebGPU",
+      "markers": [142, 158, 166, 176],
+      "programGrowthAfterReady": 0,
+      "runtimeCompileEvents": 0,
+      "runtimeSpikesOver50Ms": 0,
+      "runtimeErrors": 0,
+      "referenceHardwareAccepted": false
+    },
+    "screenshots": [
+      {
+        "name": "hero-c-webgl2-142s-human-debris",
+        "sha256": "bf40d7b7b9bebd7dee3d7ad48614df346a1e1c6d21fe10e137abedea49dc545d",
+        "bytes": 643558,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-158s-peripheral-arcs",
+        "sha256": "8857d17c6eb7cc02cc6e0e16e426db1dc70721fda72083eda675175b6236da30",
+        "bytes": 721113,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-166s-three-ribbon-answer",
+        "sha256": "1ff305a923e5851c1dc9dc388972305f0e3c67c14c315da6e7db1a67cdd2a6e3",
+        "bytes": 792555,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-176s-many-life-lights",
+        "sha256": "a31d76b617eff5fb7309c7d173945976722465ed86caf1df81d4a752282011a7",
+        "bytes": 849110,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-179s-formal-title",
+        "sha256": "4e3e60e18ae5cf1c6c5d989b80ca212de25577c6fbe4d167d29f1fb80c8f1127",
+        "bytes": 875663,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-142s-human-debris",
+        "sha256": "f7acb3745e39dccfe53cd2f3d57dc9c4408809e799e64c95a3374395313bfb3f",
+        "bytes": 621453,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-158s-peripheral-arcs",
+        "sha256": "55094153c921b9c1f6580e72837f48305a979b5b267c2fecb4fb3e3f08b692ea",
+        "bytes": 695622,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-166s-three-ribbon-answer",
+        "sha256": "d341aeb448ebebe754889fe209a167f903d11b59f95ccdd056e2b6741e77e822",
+        "bytes": 761864,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-176s-many-life-lights",
+        "sha256": "bd9b0e82d5d63d22975fedaf4d49cd8d360547b26887db29dcca49b27ebccd1e",
+        "bytes": 812087,
+        "width": 1920,
+        "height": 1080
+      }
+    ]
+  },
+  "heroContract": {
+    "worldSeed": 20260818,
+    "worldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "exactReplayHash": "09780631",
+    "fixedMarkersSeconds": [142, 158, 166, 176, 179],
+    "alienRevealBoundarySeconds": 161,
+    "debrisMarker": {
+      "shotId": "S18",
+      "humanDebrisForms": 7,
+      "solarPanels": 1,
+      "straightTrusses": 1,
+      "habitatModules": 1,
+      "slabRadiators": 1,
+      "rectangularAirlocks": 1,
+      "brokenObservationFrames": 1,
+      "emptyCockpits": 1,
+      "amberBeaconVisibleAt142": true,
+      "amberBeaconVisibleAt143": false,
+      "machineReactivated": false
+    },
+    "previewMarker": {
+      "shotId": "S20",
+      "peripheralArcCount": 3,
+      "peripheralArcsIncomplete": true,
+      "unknownShipVisible": false,
+      "centralVoidOpen": false
+    },
+    "alienMarker": {
+      "ribbonShellCount": 3,
+      "closedBsplineShells": true,
+      "parallelTransportFrames": true,
+      "constrainedSuperformulaSections": true,
+      "ribbonThickness": 0.1,
+      "minimumShipVertexRadiusGreaterThan": 1.5,
+      "centralVoidOpen": true,
+      "usesHumanGrammar": false,
+      "hasCockpitWindowThrusterOrFront": false
+    },
+    "twinkle": {
+      "sourceLedgerEntries": 3,
+      "ledgerOrderPreserved": true,
+      "answerAt": 166.400001,
+      "highVisibleStages": [1, 8, 40, 160],
+      "lowFinalVisible": 64,
+      "sourceMutation": false,
+      "protagonistWingsOpenAt176": true,
+      "earthVisibleAt176": true
+    },
+    "formalTitleAt179": ["さみしき星の", "またたきよ"],
+    "allocationsAfterInitialize": 0,
+    "ownedTextures": 0,
+    "builtInPhysicalTransmission": 0,
+    "shippedReferenceBackgroundImages": 0
+  },
+  "frozenInputs": {
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "gfx001Implementation": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+    "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+    "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a",
+    "gfx004Implementation": "370b019f5aee868449117b51a0da114b35ffc045",
+    "gfx005Implementation": "c6dd34dd9082e437e04d2fc7ccd1045a9a59ae1d",
+    "gfx005TransmissionFix": "170c0898e5223f46aaaaf03b5eee6a906602e9de",
+    "combinedFoundationIntegration": "e81c47846291018c37c3496c47b547fb0100375d",
+    "gfx006Implementation": "9597d9b8f905b492359590eed2cf3dbfdb5e73d8",
+    "heroAImplementation": "67dea2b1589c0e7f862cf76674b45b3cffbc04f1",
+    "heroAEvidence": "ef3b157a8c3f4b2939de82dfe71c1ac9ebc55051",
+    "heroBImplementation": "2fb5cade0c5e8df8b3e889a14a57867c8e0440ba",
+    "heroBEvidence": "ba69c882cbc61f5482c8030790bcdcca49580871",
+    "canonicalWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd"
+  },
+  "sourceReview": {
+    "status": "implementation_self_audit_passed_independent_review_pending",
+    "independentFrozenFullScopeVerdict": "review_pending",
+    "reviewedHashesDrifted": null
+  },
+  "artifactReview": {
+    "status": "review_pending",
+    "reviewedEvidenceHead": null,
+    "reviewers": [],
+    "verdict": "review_pending",
+    "bindingsReproduced": false
+  },
+  "externalGates": {
+    "gfx004Gfx005FullReview": "PENDING",
+    "gfx006IndependentReview": "PENDING",
+    "heroAIndependentVisualReview": "PENDING",
+    "heroBIndependentVisualReview": "PENDING",
+    "heroCIndependentVisualReview": "PENDING",
+    "combinedParityAndRestarts": "PENDING",
+    "referenceHardware": "HARDWARE_PENDING",
+    "humanPlayAndVisualAcceptance": "HUMAN_PENDING",
+    "rightsAcceptance": "PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN",
+    "contestSubmission": "PENDING"
+  }
+}
