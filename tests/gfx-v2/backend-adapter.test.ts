@@ -1,9 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
+import { HalfFloatType } from "three/webgpu";
 import {
   ThreeRenderBackendAdapter,
   type ThreeRendererPort,
 } from "../../src/gfx/v2/backend/backend-adapter";
 import type { BackendRuntimeEvent, RenderPass } from "../../src/gfx/v2/contracts";
+import type { ThreeRenderPipelinePort } from "../../src/gfx/v2/pipeline/contracts";
+import {
+  captureCreateThreeBackendOptions,
+  createThreeBackend,
+  createThreeRendererOptions,
+} from "../../src/gfx/v2/backend/create-backend";
 
 const viewport = { width: 800, height: 450, pixelRatio: 1 } as const;
 const probe = {
@@ -74,7 +81,11 @@ function fakeRenderer(actual: "webgpu" | "webgl2" = "webgl2"): ThreeRendererPort
   };
 }
 
-function adapter(renderer: ThreeRendererPort, request: "forced-webgl2" | "webgpu-preferred" = "forced-webgl2") {
+function adapter(
+  renderer: ThreeRendererPort,
+  request: "forced-webgl2" | "webgpu-preferred" = "forced-webgl2",
+  pipeline?: ThreeRenderPipelinePort,
+) {
   return new ThreeRenderBackendAdapter({
     request,
     lab: true,
@@ -84,11 +95,752 @@ function adapter(renderer: ThreeRendererPort, request: "forced-webgl2" | "webgpu
     webgl2ApiAvailable: true,
     navigatorProbe: probe,
     createRenderer: () => renderer,
+    pipeline,
     now: () => 42,
   });
 }
 
+function fakePipeline(
+  log: string[],
+  options: { failAttach?: boolean; resizeGate?: Promise<void> } = {},
+): ThreeRenderPipelinePort {
+  let disposePromise: Promise<void> | null = null;
+  return {
+    attachBackend: vi.fn(async (_renderer, actualApi, attachedViewport) => {
+      log.push(`pipeline.attach:${actualApi}:${attachedViewport.width}x${attachedViewport.height}`);
+      if (options.failAttach) throw new Error("pipeline attach failed");
+    }),
+    resize: vi.fn(async (next) => {
+      log.push(`pipeline.resize:${next.width}x${next.height}`);
+      if (options.resizeGate) {
+        await options.resizeGate;
+        log.push("pipeline.resize.done");
+      }
+    }),
+    precompile: vi.fn(async (passes: readonly Readonly<RenderPass>[]) => {
+      log.push(`pipeline.precompile:${passes.map((pass) => `${pass.name}/${pass.variant ?? "absent"}`).join(",")}`);
+    }),
+    submit: vi.fn(async (passes: readonly Readonly<RenderPass>[]) => {
+      log.push(`pipeline.submit:${passes.map((pass) => `${pass.name}/${pass.variant ?? "absent"}`).join(",")}`);
+    }),
+    dispose: vi.fn(() => {
+      log.push("pipeline.dispose");
+      disposePromise ??= Promise.resolve();
+      return disposePromise;
+    }),
+  };
+}
+
+function retryingDisposePipeline(
+  log: string[],
+  failedAttempts: number,
+): ThreeRenderPipelinePort & {
+  dispose: ReturnType<typeof vi.fn<() => Promise<void>>>;
+} {
+  const base = fakePipeline(log);
+  let attempts = 0;
+  const dispose = vi.fn(async () => {
+    attempts += 1;
+    log.push(`pipeline.dispose:${attempts}`);
+    if (attempts <= failedAttempts) {
+      throw new Error(`pipeline cleanup attempt ${attempts} failed`);
+    }
+  });
+  return { ...base, dispose };
+}
+
+function retainedFailureText(value: unknown): Readonly<{
+  totalUnits: number;
+  readonly fieldLengths: readonly number[];
+  allObjectsFrozen: boolean;
+  truncatedMarkers: number;
+}> {
+  const pending: unknown[] = [value];
+  const seen = new Set<object>();
+  const fieldLengths: number[] = [];
+  let totalUnits = 0;
+  let allObjectsFrozen = true;
+  let truncatedMarkers = 0;
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (typeof current === "string") {
+      fieldLengths.push(current.length);
+      totalUnits += current.length;
+      continue;
+    }
+    if (
+      (typeof current !== "object" && typeof current !== "function")
+      || current === null
+      || seen.has(current)
+    ) {
+      continue;
+    }
+    seen.add(current);
+    allObjectsFrozen &&= Object.isFrozen(current);
+    for (const [property, descriptor] of Object.entries(
+      Object.getOwnPropertyDescriptors(current),
+    )) {
+      if (property === "textTruncated" && descriptor.value === true) {
+        truncatedMarkers += 1;
+      }
+      if ("value" in descriptor) pending.push(descriptor.value);
+    }
+  }
+  return Object.freeze({
+    totalUnits,
+    fieldLengths: Object.freeze(fieldLengths),
+    allObjectsFrozen,
+    truncatedMarkers,
+  });
+}
+
+function expectBoundedFailureText(value: unknown): ReturnType<typeof retainedFailureText> {
+  const retained = retainedFailureText(value);
+  expect(retained.totalUnits).toBeLessThanOrEqual(4_096);
+  expect(retained.fieldLengths.every((length) => length <= 256)).toBe(true);
+  expect(retained.allObjectsFrozen).toBe(true);
+  return retained;
+}
+
 describe("GFX-002 Three backend adapter", () => {
+  it("keeps the no-pipeline renderer options exact and adds HalfFloat only for the GFX-005 seam", () => {
+    const canvas = {} as HTMLCanvasElement;
+    const direct = captureCreateThreeBackendOptions({
+      canvas,
+      request: "forced-webgl2",
+    });
+    expect(createThreeRendererOptions(direct)).toEqual({
+      canvas,
+      forceWebGL: true,
+      antialias: true,
+      alpha: false,
+      powerPreference: "high-performance",
+    });
+    expect("outputBufferType" in createThreeRendererOptions(direct)).toBe(false);
+
+    const pipeline = fakePipeline([]);
+    const pipelined = captureCreateThreeBackendOptions({
+      canvas,
+      request: "webgpu-preferred",
+      pipeline,
+    });
+    expect(createThreeRendererOptions(pipelined)).toEqual({
+      canvas,
+      forceWebGL: false,
+      antialias: false,
+      alpha: false,
+      powerPreference: "high-performance",
+      outputBufferType: HalfFloatType,
+    });
+  });
+
+  it("captures own backend options before await and rejects accessors without invoking them", () => {
+    const originalCanvas = {} as HTMLCanvasElement;
+    const replacementCanvas = {} as HTMLCanvasElement;
+    const originalPipeline = fakePipeline([]);
+    const replacementPipeline = fakePipeline([]);
+    const mutable = {
+      canvas: originalCanvas,
+      request: "forced-webgl2" as "forced-webgl2" | "webgpu-preferred",
+      pipeline: originalPipeline as ThreeRenderPipelinePort | undefined,
+      antialias: false,
+    };
+    const captured = captureCreateThreeBackendOptions(mutable);
+    mutable.canvas = replacementCanvas;
+    mutable.request = "webgpu-preferred";
+    mutable.pipeline = replacementPipeline;
+    mutable.antialias = true;
+
+    expect(captured).toMatchObject({
+      canvas: originalCanvas,
+      request: "forced-webgl2",
+      pipeline: originalPipeline,
+      antialias: false,
+    });
+    const getter = vi.fn(() => "webgpu-preferred");
+    const accessor = { canvas: originalCanvas } as Record<string, unknown>;
+    Object.defineProperty(accessor, "request", { enumerable: true, get: getter });
+    expect(() => captureCreateThreeBackendOptions(
+      accessor as unknown as Parameters<typeof captureCreateThreeBackendOptions>[0],
+    )).toThrow(/own data property/);
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  it("uses the synchronous options snapshot when the navigator probe settles later", async () => {
+    let resolveAdapter!: (value: null) => void;
+    const adapterProbe = new Promise<null>((resolve) => {
+      resolveAdapter = resolve;
+    });
+    vi.stubGlobal("navigator", {
+      gpu: { requestAdapter: vi.fn(() => adapterProbe) },
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({}) }),
+    });
+    const mutable = {
+      canvas: {} as HTMLCanvasElement,
+      request: "forced-webgl2" as "forced-webgl2" | "webgpu-preferred",
+    };
+    try {
+      const pending = createThreeBackend(mutable);
+      mutable.request = "webgpu-preferred";
+      resolveAdapter(null);
+      const backend = await pending;
+      expect(backend.facts).toMatchObject({
+        requestedPolicy: "forced-webgl2",
+        requestedApi: "WebGL2",
+        navigatorProbe: { attempted: true, available: false },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps diagnostic navigator probe failure total for a revoked Proxy rejection", async () => {
+    const rejection = Proxy.revocable({}, {});
+    rejection.revoke();
+    vi.stubGlobal("navigator", {
+      gpu: { requestAdapter: vi.fn(async () => Promise.reject(rejection.proxy)) },
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({}) }),
+    });
+    try {
+      const backend = await createThreeBackend({
+        canvas: {} as HTMLCanvasElement,
+        request: "forced-webgl2",
+      });
+      expect(backend.facts.navigatorProbe).toMatchObject({
+        attempted: true,
+        available: false,
+        error: "navigator adapter probe failed",
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("delegates whole-frame compile/render/resize/dispose to the optional GFX-005 pipeline seam", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const log: string[] = [];
+    const pipeline = fakePipeline(log);
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    const pass: RenderPass = {
+      name: "world",
+      kind: "scene",
+      variant: "webgpu-high-temporal",
+      scene: {},
+      camera: {},
+    };
+
+    await backend.initialize({ viewport });
+    await backend.precompile([pass]);
+    await backend.render([pass]);
+    await backend.resize({ width: 1024, height: 576, pixelRatio: 1.25 });
+    const first = backend.dispose();
+    const second = backend.dispose();
+    expect(second).toBe(first);
+    await first;
+
+    expect(log).toEqual([
+      "pipeline.attach:webgpu:800x450",
+      "pipeline.precompile:world/webgpu-high-temporal",
+      "pipeline.submit:world/webgpu-high-temporal",
+      "pipeline.resize:1024x576",
+      "pipeline.dispose",
+    ]);
+    expect(renderer.calls).not.toContain("compile");
+    expect(renderer.calls).not.toContain("render");
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+  });
+
+  it.each(["own", "inherited"] as const)(
+    "invokes a captured native backend disposer without consulting its %s call getter",
+    async (kind) => {
+      const renderer = fakeRenderer("webgpu");
+      let nativeDisposeCalls = 0;
+      const nativeDispose = () => { nativeDisposeCalls += 1; };
+      const callGetter = vi.fn(() => () => undefined);
+      if (kind === "own") {
+        Object.defineProperty(nativeDispose, "call", {
+          configurable: true,
+          get: callGetter,
+        });
+      } else {
+        Object.setPrototypeOf(nativeDispose, Object.create(Function.prototype, {
+          call: { configurable: true, get: callGetter },
+        }));
+      }
+      renderer.backend!.dispose = nativeDispose;
+      const backend = adapter(renderer, "webgpu-preferred");
+      await backend.initialize({ viewport });
+
+      await expect(backend.dispose()).resolves.toBeUndefined();
+      expect(callGetter).not.toHaveBeenCalled();
+      expect(nativeDisposeCalls).toBe(1);
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: "disposed",
+        backendDisposeInvoked: true,
+        backendDisposeCompleted: true,
+        rendererDisposeInvoked: true,
+        rendererDisposeCompleted: true,
+      });
+      await expect(backend.dispose()).resolves.toBeUndefined();
+      expect(nativeDisposeCalls).toBe(1);
+    },
+  );
+
+  it("retries only retained pipeline ownership after backend cleanup completed", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const log: string[] = [];
+    const pipeline = retryingDisposePipeline(log, 1);
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const failedAttempt = backend.dispose();
+    const concurrentFailedAttempt = backend.dispose();
+    expect(concurrentFailedAttempt).toBe(failedAttempt);
+    const failure = await failedAttempt.catch((error: unknown) => error);
+    expect(failure).toMatchObject({ message: "pipeline cleanup attempt 1 failed" });
+    expect(Object.isFrozen(failure)).toBe(true);
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      rendererDisposeCompleted: true,
+      backendDisposeCompleted: true,
+    });
+
+    const successfulRetry = backend.dispose();
+    const concurrentSuccessfulRetry = backend.dispose();
+    expect(successfulRetry).not.toBe(failedAttempt);
+    expect(concurrentSuccessfulRetry).toBe(successfulRetry);
+    await expect(successfulRetry).resolves.toBeUndefined();
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle().state).toBe("disposed");
+    expect(backend.dispose()).toBe(successfulRetry);
+    await expect(backend.dispose()).resolves.toBeUndefined();
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not erase terminal renderer cleanup evidence when a retained pipeline retry succeeds", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const pipeline = retryingDisposePipeline([], 1);
+    renderer.backend!.dispose = () => {
+      renderer.calls.push("backend.dispose");
+      throw new Error("native renderer cleanup failed terminally");
+    };
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const firstAttempt = backend.dispose();
+    expect(backend.dispose()).toBe(firstAttempt);
+    const firstFailure = await firstAttempt.catch((error: unknown) => error);
+    expect(firstFailure).toBeInstanceOf(AggregateError);
+    expect(Object.isFrozen(firstFailure)).toBe(true);
+    expect(Object.isFrozen((firstFailure as AggregateError).errors)).toBe(true);
+    expect((firstFailure as AggregateError).errors).toEqual([
+      expect.objectContaining({ message: "pipeline cleanup attempt 1 failed" }),
+      expect.objectContaining({ message: "native renderer cleanup failed terminally" }),
+    ]);
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      rendererDisposeCompleted: false,
+      backendDisposeInvoked: true,
+      backendDisposeCompleted: false,
+    });
+
+    const terminalAttempt = backend.dispose();
+    expect(terminalAttempt).not.toBe(firstAttempt);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    const terminalFailure = await terminalAttempt.catch((error: unknown) => error);
+    expect(terminalFailure).toMatchObject({
+      message: "native renderer cleanup failed terminally",
+    });
+    expect(Object.isFrozen(terminalFailure)).toBe(true);
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      rendererDisposeCompleted: false,
+      backendDisposeInvoked: true,
+      backendDisposeCompleted: false,
+    });
+    expect(backend.dispose()).toBe(terminalAttempt);
+    await expect(backend.dispose()).rejects.toMatchObject({
+      message: "native renderer cleanup failed terminally",
+    });
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { label: "null", thrown: null },
+    { label: "undefined", thrown: undefined },
+    { label: "NaN", thrown: Number.NaN },
+    { label: "negative zero", thrown: -0 },
+  ])("retains a $label primitive as exact terminal cleanup evidence", async ({ thrown }) => {
+    const renderer = fakeRenderer("webgpu");
+    const pipeline = retryingDisposePipeline([], 1);
+    renderer.backend!.dispose = () => {
+      renderer.calls.push("backend.dispose");
+      throw thrown;
+    };
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const firstAttempt = backend.dispose();
+    const firstFailure = await firstAttempt.catch((error: unknown) => error);
+    expect(firstFailure).toBeInstanceOf(AggregateError);
+    expect(Object.is((firstFailure as AggregateError).errors[1], thrown)).toBe(true);
+
+    const terminalAttempt = backend.dispose();
+    let terminalRejected = false;
+    let terminalFailure: unknown;
+    await terminalAttempt.then(
+      () => undefined,
+      (error: unknown) => {
+        terminalRejected = true;
+        terminalFailure = error;
+      },
+    );
+    expect(terminalRejected).toBe(true);
+    expect(Object.is(terminalFailure, thrown)).toBe(true);
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle().state).toBe("failed");
+    expect(backend.dispose()).toBe(terminalAttempt);
+  });
+
+  it("keeps native cleanup terminal when it fails during an awaited pipeline disposal", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const nativeFailure = new Error("native cleanup failed during pipeline await");
+    const pipelineFailure = new Error("deferred pipeline cleanup failed");
+    renderer.backend!.dispose = () => {
+      renderer.calls.push("backend.dispose");
+      throw nativeFailure;
+    };
+    let rejectFirstPipeline!: (error: unknown) => void;
+    let pipelineAttempts = 0;
+    const pipeline = {
+      ...fakePipeline([]),
+      dispose: vi.fn(() => {
+        pipelineAttempts += 1;
+        if (pipelineAttempts > 1) return Promise.resolve();
+        return new Promise<void>((_resolve, reject) => {
+          rejectFirstPipeline = reject;
+        });
+      }),
+    } satisfies ThreeRenderPipelinePort;
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const firstAttempt = backend.dispose();
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+    let directlyThrown: unknown;
+    try {
+      renderer.backend!.dispose!();
+    } catch (error: unknown) {
+      directlyThrown = error;
+    }
+    expect(directlyThrown).not.toBe(nativeFailure);
+    expect(Object.isFrozen(directlyThrown)).toBe(true);
+    rejectFirstPipeline(pipelineFailure);
+
+    const firstFailure = await firstAttempt.catch((error: unknown) => error);
+    expect(firstFailure).toBeInstanceOf(AggregateError);
+    expect((firstFailure as AggregateError).errors).toEqual([
+      expect.objectContaining({ message: nativeFailure.message }),
+      expect.objectContaining({ message: pipelineFailure.message }),
+    ]);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      backendDisposeInvoked: true,
+      backendDisposeCompleted: false,
+    });
+
+    const terminalAttempt = backend.dispose();
+    expect(terminalAttempt).not.toBe(firstAttempt);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    await expect(terminalAttempt).rejects.toMatchObject({ message: nativeFailure.message });
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      backendDisposeInvoked: true,
+      backendDisposeCompleted: false,
+    });
+    expect(backend.dispose()).toBe(terminalAttempt);
+  });
+
+  it("shares one hard text budget across deferred pipeline and concurrent native cleanup roots", async () => {
+    const wideFailure = (label: string): AggregateError => {
+      const field = label.padEnd(256, label.at(-1) ?? "x").slice(0, 256);
+      return new AggregateError(Array.from({ length: 12 }, () => field), field);
+    };
+    const renderer = fakeRenderer("webgpu");
+    const nativeFailure = wideFailure("native");
+    const pipelineFailure = wideFailure("pipeline");
+    renderer.backend!.dispose = () => {
+      renderer.calls.push("backend.dispose");
+      throw nativeFailure;
+    };
+    let rejectPipeline!: (error: unknown) => void;
+    let pipelineAttempts = 0;
+    const pipeline = {
+      ...fakePipeline([]),
+      dispose: vi.fn(() => {
+        pipelineAttempts += 1;
+        if (pipelineAttempts > 1) return Promise.resolve();
+        return new Promise<void>((_resolve, reject) => {
+          rejectPipeline = reject;
+        });
+      }),
+    } satisfies ThreeRenderPipelinePort;
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const firstAttempt = backend.dispose();
+    expect(backend.dispose()).toBe(firstAttempt);
+    let directlyThrown: unknown;
+    try {
+      renderer.backend!.dispose!();
+    } catch (error: unknown) {
+      directlyThrown = error;
+    }
+    expect(directlyThrown).not.toBe(nativeFailure);
+    expect(Object.isFrozen(directlyThrown)).toBe(true);
+    rejectPipeline(pipelineFailure);
+    const firstFailure = await firstAttempt.catch((error: unknown) => error);
+    const firstRetained = expectBoundedFailureText(firstFailure);
+    expect(firstRetained.totalUnits).toBe(4_096);
+    expect(firstRetained.truncatedMarkers).toBeGreaterThan(0);
+    expect(firstFailure).toBeInstanceOf(AggregateError);
+
+    const terminalAttempt = backend.dispose();
+    expect(terminalAttempt).not.toBe(firstAttempt);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    const terminalFailure = await terminalAttempt.catch((error: unknown) => error);
+    expectBoundedFailureText(terminalFailure);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      backendDisposeInvoked: true,
+      backendDisposeCompleted: false,
+    });
+  });
+
+  it("preserves a retained structural truncation marker across pipeline retry", async () => {
+    const exactBudgetFailure = new AggregateError([
+      ...Array.from({ length: 15 }, () => "x".repeat(256)),
+      "y".repeat(255),
+    ], "m");
+    const rendererFailure = new Error("renderer cleanup after exhausted pipeline evidence");
+    const renderer = fakeRenderer("webgpu");
+    renderer.dispose = () => { throw rendererFailure; };
+    let pipelineAttempts = 0;
+    const pipeline = {
+      ...fakePipeline([]),
+      dispose: vi.fn(async () => {
+        pipelineAttempts += 1;
+        if (pipelineAttempts === 1) throw exactBudgetFailure;
+      }),
+    } satisfies ThreeRenderPipelinePort;
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const firstAttempt = backend.dispose();
+    expect(backend.dispose()).toBe(firstAttempt);
+    const firstFailure = await firstAttempt.catch((error: unknown) => error) as AggregateError;
+    expect(firstFailure).toBeInstanceOf(AggregateError);
+    const firstMarker = firstFailure.errors.at(-1) as Error;
+    expect(firstMarker).toBeInstanceOf(Error);
+    expect(firstMarker.message).toBe("");
+    expect(Object.getOwnPropertyDescriptor(firstMarker, "textTruncated")?.value).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(firstMarker, "stack")?.value).toBeUndefined();
+    expectBoundedFailureText(firstFailure);
+
+    const terminalAttempt = backend.dispose();
+    expect(terminalAttempt).not.toBe(firstAttempt);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    const terminalFailure = await terminalAttempt.catch((error: unknown) => error) as Error;
+    expect(terminalFailure).toBeInstanceOf(Error);
+    expect(terminalFailure.message).toBe("");
+    expect(Object.getOwnPropertyDescriptor(terminalFailure, "textTruncated")?.value).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(terminalFailure, "stack")?.value).toBeUndefined();
+    expectBoundedFailureText(terminalFailure);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+    expect(backend.snapshotLifecycle().state).toBe("failed");
+  });
+
+  it("preserves a retained Aggregate accessor-cause marker across pipeline retry", async () => {
+    let causeReads = 0;
+    const rendererFailure = new AggregateError([], "renderer aggregate cleanup");
+    Object.defineProperty(rendererFailure, "cause", {
+      configurable: true,
+      get() {
+        causeReads += 1;
+        return "hostile aggregate cause";
+      },
+    });
+    const renderer = fakeRenderer("webgpu");
+    renderer.dispose = () => { throw rendererFailure; };
+    let pipelineAttempts = 0;
+    const pipeline = {
+      ...fakePipeline([]),
+      dispose: vi.fn(async () => {
+        pipelineAttempts += 1;
+        if (pipelineAttempts === 1) throw new Error("pipeline cleanup failed once");
+      }),
+    } satisfies ThreeRenderPipelinePort;
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const firstAttempt = backend.dispose();
+    expect(backend.dispose()).toBe(firstAttempt);
+    const firstFailure = await firstAttempt.catch((error: unknown) => error) as AggregateError;
+    const firstRendererFailure = firstFailure.errors.at(-1) as AggregateError;
+    expect(firstRendererFailure).toBeInstanceOf(AggregateError);
+    expect((firstRendererFailure.cause as Error).message).toBe(
+      "Aggregate failure cause accessor was detached.",
+    );
+    expect(causeReads).toBe(0);
+
+    const terminalAttempt = backend.dispose();
+    expect(terminalAttempt).not.toBe(firstAttempt);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    const terminalFailure = await terminalAttempt.catch((error: unknown) => error) as AggregateError;
+    expect(terminalFailure).toBeInstanceOf(AggregateError);
+    expect((terminalFailure.cause as Error).message).toBe(
+      "Aggregate failure cause accessor was detached.",
+    );
+    expect(Object.isFrozen(terminalFailure.cause)).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(terminalFailure.cause, "stack")?.value).toBeUndefined();
+    expect(causeReads).toBe(0);
+    expectBoundedFailureText(terminalFailure);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves a retained Aggregate cause marker at the depth-32 retry boundary", async () => {
+    let causeReads = 0;
+    const deepest = new AggregateError([], "deepest aggregate");
+    Object.defineProperty(deepest, "cause", {
+      configurable: true,
+      get() {
+        causeReads += 1;
+        return "hostile deepest cause";
+      },
+    });
+    let rendererFailure = deepest;
+    for (let depth = 0; depth < 32; depth += 1) {
+      rendererFailure = new AggregateError([rendererFailure], `aggregate level ${depth}`);
+    }
+    const renderer = fakeRenderer("webgpu");
+    renderer.dispose = () => { throw rendererFailure; };
+    let pipelineAttempts = 0;
+    const pipeline = {
+      ...fakePipeline([]),
+      dispose: vi.fn(async () => {
+        pipelineAttempts += 1;
+        if (pipelineAttempts === 1) throw new Error("pipeline cleanup failed once");
+      }),
+    } satisfies ThreeRenderPipelinePort;
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+    const deepestSnapshot = (root: AggregateError): AggregateError => {
+      let current = root;
+      for (let depth = 0; depth < 32; depth += 1) {
+        current = current.errors[0] as AggregateError;
+      }
+      return current;
+    };
+
+    const firstAttempt = backend.dispose();
+    expect(backend.dispose()).toBe(firstAttempt);
+    const firstFailure = await firstAttempt.catch((error: unknown) => error) as AggregateError;
+    const firstRendererFailure = firstFailure.errors.at(-1) as AggregateError;
+    expect((deepestSnapshot(firstRendererFailure).cause as Error).message).toBe(
+      "Aggregate failure cause accessor was detached.",
+    );
+    expect(causeReads).toBe(0);
+
+    const terminalAttempt = backend.dispose();
+    expect(terminalAttempt).not.toBe(firstAttempt);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    const terminalFailure = await terminalAttempt.catch((error: unknown) => error) as AggregateError;
+    expect((deepestSnapshot(terminalFailure).cause as Error).message).toBe(
+      "Aggregate failure cause accessor was detached.",
+    );
+    expect(causeReads).toBe(0);
+    expectBoundedFailureText(terminalFailure);
+    expect(backend.dispose()).toBe(terminalAttempt);
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps each failed pipeline-only cleanup attempt retryable until the third succeeds", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const pipeline = retryingDisposePipeline([], 2);
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const firstAttempt = backend.dispose();
+    expect(backend.dispose()).toBe(firstAttempt);
+    await expect(firstAttempt).rejects.toMatchObject({
+      message: "pipeline cleanup attempt 1 failed",
+    });
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+
+    const secondAttempt = backend.dispose();
+    expect(secondAttempt).not.toBe(firstAttempt);
+    expect(backend.dispose()).toBe(secondAttempt);
+    await expect(secondAttempt).rejects.toMatchObject({
+      message: "pipeline cleanup attempt 2 failed",
+    });
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+    expect(backend.snapshotLifecycle().state).toBe("failed");
+
+    const thirdAttempt = backend.dispose();
+    expect(thirdAttempt).not.toBe(secondAttempt);
+    expect(backend.dispose()).toBe(thirdAttempt);
+    await expect(thirdAttempt).resolves.toBeUndefined();
+    expect(pipeline.dispose).toHaveBeenCalledTimes(3);
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle().state).toBe("disposed");
+    expect(backend.dispose()).toBe(thirdAttempt);
+    expect(pipeline.dispose).toHaveBeenCalledTimes(3);
+  });
+
+  it("unwinds an attached pipeline exactly once before renderer cleanup fails closed", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const log: string[] = [];
+    const pipeline = fakePipeline(log, { failAttach: true });
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+
+    await expect(backend.initialize({ viewport })).rejects.toThrow(/pipeline attach failed/);
+    expect(log).toEqual([
+      "pipeline.attach:webgpu:800x450",
+      "pipeline.dispose",
+    ]);
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+    expect(renderer.disposed).toBe(true);
+    await backend.dispose();
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+  });
+
   it("captures constructor options instead of retaining caller-owned configuration", async () => {
     const renderer = fakeRenderer();
     const unexpectedRenderer = fakeRenderer("webgpu");
@@ -459,8 +1211,8 @@ describe("GFX-002 Three backend adapter", () => {
     const rejectedPrecompile = backend.precompile([replacementPass]).catch(
       (error: unknown) => error,
     );
-    expect(() => backend.resize({ width: 900, height: 600, pixelRatio: 2 })).toThrow(
-      "Cannot resize Three backend after disposal was requested.",
+    const rejectedResize = backend.resize({ width: 900, height: 600, pixelRatio: 2 }).catch(
+      (error: unknown) => error,
     );
     const lateListener = vi.fn<(event: BackendRuntimeEvent) => void>();
     const rejectedSubscription = backend.subscribeEvents(lateListener);
@@ -481,18 +1233,21 @@ describe("GFX-002 Three backend adapter", () => {
 
     let timeout: ReturnType<typeof setTimeout> | null = null;
     const boundedCompletion = Promise.race([
-      Promise.all([requestedDispose!, rejectedRender, rejectedPrecompile]),
+      Promise.all([requestedDispose!, rejectedRender, rejectedPrecompile, rejectedResize]),
       new Promise<never>((_resolve, reject) => {
         timeout = setTimeout(() => reject(new Error("deferred disposal deadlocked")), 250);
       }),
     ]);
-    const [, renderFailure, precompileFailure] = await boundedCompletion;
+    const [, renderFailure, precompileFailure, resizeFailure] = await boundedCompletion;
     if (timeout !== null) clearTimeout(timeout);
     expect(renderFailure).toMatchObject({
       message: "Cannot render Three backend after disposal was requested.",
     });
     expect(precompileFailure).toMatchObject({
       message: "Cannot precompile Three backend after disposal was requested.",
+    });
+    expect(resizeFailure).toMatchObject({
+      message: "Cannot resize Three backend after disposal was requested.",
     });
     expect(backend.snapshotLifecycle()).toMatchObject({
       state: "disposed",
@@ -626,7 +1381,7 @@ describe("GFX-002 Three backend adapter", () => {
     const diagnosticFailure = new Error("deferred telemetry diagnostic");
     const lateListener = vi.fn<(event: BackendRuntimeEvent) => void>();
     let reentrantInitialize: Promise<void> | null = null;
-    let resizeFailure: unknown = null;
+    let resizeFailure: Promise<unknown> | null = null;
     let renderFailure: Promise<unknown> | null = null;
     let precompileFailure: Promise<unknown> | null = null;
     let reenter = true;
@@ -635,11 +1390,9 @@ describe("GFX-002 Three backend adapter", () => {
       get() {
         if (reenter) {
           reentrantInitialize = backend.initialize({ viewport });
-          try {
-            backend.resize({ width: 900, height: 600, pixelRatio: 2 });
-          } catch (error: unknown) {
-            resizeFailure = error;
-          }
+          resizeFailure = backend.resize({ width: 900, height: 600, pixelRatio: 2 }).catch(
+            (error: unknown) => error,
+          );
           renderFailure = backend.render([]).catch((error: unknown) => error);
           precompileFailure = backend.precompile([]).catch((error: unknown) => error);
           backend.subscribeEvents(lateListener);
@@ -661,7 +1414,7 @@ describe("GFX-002 Three backend adapter", () => {
       appOwnership: { eventSubscribers: 0 },
     });
     expect(reentrantInitialize).toBe(initialization);
-    expect(resizeFailure).toMatchObject({
+    await expect(resizeFailure).resolves.toMatchObject({
       message: "Cannot resize Three backend while renderer telemetry observation is active.",
     });
     await expect(renderFailure).resolves.toMatchObject({
@@ -731,6 +1484,10 @@ describe("GFX-002 Three backend adapter", () => {
       expect(renderer.calls).toContain("compile.start");
       expect(renderer.calls).toContain("render.start");
     });
+    await expect(
+      backend.resize({ width: 900, height: 600, pixelRatio: 2 }),
+    ).rejects.toThrow(/another renderer operation is active/);
+    expect(backend.snapshotLifecycle().resizeCalls).toBe(0);
 
     const firstDispose = backend.dispose();
     const secondDispose = backend.dispose();
@@ -768,6 +1525,311 @@ describe("GFX-002 Three backend adapter", () => {
     );
   });
 
+  it("drains an asynchronous pipeline resize before pipeline and renderer disposal", async () => {
+    const renderer = fakeRenderer();
+    let releaseResize!: () => void;
+    const resizeGate = new Promise<void>((resolve) => { releaseResize = resolve; });
+    const log: string[] = [];
+    const pipeline = fakePipeline(log, { resizeGate });
+    const backend = adapter(renderer, "forced-webgl2", pipeline);
+    await backend.initialize({ viewport });
+
+    const resizing = backend.resize({ width: 900, height: 600, pixelRatio: 2 });
+    await vi.waitFor(() => expect(log).toContain("pipeline.resize:900x600"));
+    await expect(backend.precompile([])).rejects.toThrow(/resize is pending/);
+    await expect(backend.render([])).rejects.toThrow(/resize is pending/);
+    await expect(
+      backend.resize({ width: 1024, height: 576, pixelRatio: 1.25 }),
+    ).rejects.toThrow(/prior resize is pending/);
+    const joinedResize = backend.resize({ width: 900, height: 600, pixelRatio: 2 });
+    expect(renderer.calls).not.toContain("pixelRatio:1.25");
+    expect(renderer.calls).not.toContain("size:1024x576");
+    expect(renderer.calls).not.toContain("pixelRatio:2");
+    expect(renderer.calls).not.toContain("size:900x600");
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      precompileCalls: 0,
+      renderCalls: 0,
+      resizeCalls: 1,
+    });
+    const disposal = backend.dispose();
+    expect(pipeline.dispose).not.toHaveBeenCalled();
+    expect(renderer.disposed).toBe(false);
+
+    releaseResize();
+    await Promise.all([resizing, joinedResize]);
+    await disposal;
+    expect(log.indexOf("pipeline.resize.done")).toBeLessThan(log.indexOf("pipeline.dispose"));
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "disposed",
+      resizeCalls: 1,
+      rendererDisposeCompleted: true,
+    });
+  });
+
+  it("drains a rejected pipeline resize before terminal renderer cleanup", async () => {
+    const renderer = fakeRenderer();
+    let rejectResize!: (reason?: unknown) => void;
+    const resizeGate = new Promise<void>((_resolve, reject) => { rejectResize = reject; });
+    const log: string[] = [];
+    const pipeline = fakePipeline(log, { resizeGate });
+    const backend = adapter(renderer, "forced-webgl2", pipeline);
+    await backend.initialize({ viewport });
+
+    const resizing = backend.resize({ width: 900, height: 600, pixelRatio: 2 });
+    await vi.waitFor(() => expect(log).toContain("pipeline.resize:900x600"));
+    const disposal = backend.dispose();
+    rejectResize(new Error("pipeline resize rejected"));
+
+    await expect(resizing).rejects.toThrow("pipeline resize rejected");
+    await expect(disposal).resolves.toBeUndefined();
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls).not.toContain("pixelRatio:2");
+    expect(renderer.calls).not.toContain("size:900x600");
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "disposed",
+      resizeCalls: 1,
+      rendererDisposeCompleted: true,
+    });
+  });
+
+  it("rejects backend disposal reentry from pipeline resize and retries the same target", async () => {
+    const renderer = fakeRenderer();
+    const log: string[] = [];
+    const pipeline = fakePipeline(log);
+    const holder: { backend?: ThreeRenderBackendAdapter } = {};
+    vi.mocked(pipeline.resize).mockImplementationOnce(async () => {
+      await holder.backend!.dispose();
+    });
+    const backend = adapter(renderer, "forced-webgl2", pipeline);
+    holder.backend = backend;
+    await backend.initialize({ viewport });
+    const resized = { width: 900, height: 600, pixelRatio: 2 } as const;
+
+    await expect(backend.resize(resized)).rejects.toThrow(/reentrantly from a pipeline callback/);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "ready",
+      resizeCalls: 1,
+      disposeCalls: 0,
+    });
+    expect(renderer.calls).not.toContain("pixelRatio:2");
+    await expect(backend.resize({ ...resized })).resolves.toBeUndefined();
+    expect(vi.mocked(pipeline.resize)).toHaveBeenCalledTimes(2);
+    expect(renderer.calls).toContain("pixelRatio:2");
+    await expect(backend.dispose()).resolves.toBeUndefined();
+  });
+
+  it("rejects a pipeline callback that reenters the same backend resize transaction", async () => {
+    const renderer = fakeRenderer();
+    const log: string[] = [];
+    const pipeline = fakePipeline(log);
+    const holder: { backend?: ThreeRenderBackendAdapter } = {};
+    const resized = { width: 900, height: 600, pixelRatio: 2 } as const;
+    vi.mocked(pipeline.resize).mockImplementationOnce(async () => {
+      await holder.backend!.resize({ ...resized });
+    });
+    const backend = adapter(renderer, "forced-webgl2", pipeline);
+    holder.backend = backend;
+    await backend.initialize({ viewport });
+
+    await expect(backend.resize(resized)).rejects.toThrow(
+      /resize Three backend reentrantly from a pipeline callback/,
+    );
+    expect(backend.snapshotLifecycle()).toMatchObject({ state: "ready", resizeCalls: 1 });
+    expect(renderer.calls).not.toContain("pixelRatio:2");
+    expect(renderer.calls).not.toContain("size:900x600");
+
+    await expect(backend.resize({ ...resized })).resolves.toBeUndefined();
+    expect(vi.mocked(pipeline.resize)).toHaveBeenCalledTimes(2);
+    expect(renderer.calls).toContain("pixelRatio:2");
+    await expect(backend.dispose()).resolves.toBeUndefined();
+  });
+
+  it("rechecks resize admission after a viewport accessor requests disposal", async () => {
+    const renderer = fakeRenderer();
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+    let disposal: Promise<void> | null = null;
+    const widthGetter = vi.fn(() => {
+      disposal = backend.dispose();
+      return 900;
+    });
+    const hostileViewport = { height: 600, pixelRatio: 2 } as Record<string, unknown>;
+    Object.defineProperty(hostileViewport, "width", { enumerable: true, get: widthGetter });
+
+    await expect(
+      backend.resize(hostileViewport as unknown as typeof viewport),
+    ).rejects.toThrow(/while disposing|after disposal was requested/);
+    expect(widthGetter).toHaveBeenCalledOnce();
+    expect(backend.snapshotLifecycle().resizeCalls).toBe(0);
+    expect(renderer.calls).not.toContain("pixelRatio:2");
+    expect(renderer.calls).not.toContain("size:900x600");
+    await expect(disposal).resolves.toBeUndefined();
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "disposed",
+      rendererDisposeCompleted: true,
+    });
+  });
+
+  it("publishes resize admission before viewport accessors can start renderer operations", async () => {
+    const renderer = fakeRenderer();
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+    const pass: RenderPass = { name: "world", kind: "scene", scene: {}, camera: {} };
+    const reentrantFailures: Promise<unknown>[] = [];
+    const nestedWidthGetter = vi.fn(() => 900);
+    const nestedViewport = { height: 600, pixelRatio: 2 } as Record<string, unknown>;
+    Object.defineProperty(nestedViewport, "width", {
+      enumerable: true,
+      get: nestedWidthGetter,
+    });
+    const widthGetter = vi.fn(() => {
+      reentrantFailures.push(backend.precompile([pass]).catch((error: unknown) => error));
+      reentrantFailures.push(backend.render([pass]).catch((error: unknown) => error));
+      reentrantFailures.push(
+        backend.resize(nestedViewport as unknown as typeof viewport)
+          .catch((error: unknown) => error),
+      );
+      return 900;
+    });
+    const hostileViewport = { height: 600, pixelRatio: 2 } as Record<string, unknown>;
+    Object.defineProperty(hostileViewport, "width", { enumerable: true, get: widthGetter });
+
+    await expect(
+      backend.resize(hostileViewport as unknown as typeof viewport),
+    ).resolves.toBeUndefined();
+    const failures = await Promise.all(reentrantFailures);
+    expect(failures).toHaveLength(3);
+    expect(failures.every((error) => (
+      error instanceof Error && /resize admission|viewport capture/.test(error.message)
+    ))).toBe(true);
+    expect(widthGetter).toHaveBeenCalledOnce();
+    expect(nestedWidthGetter).not.toHaveBeenCalled();
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      precompileCalls: 0,
+      renderCalls: 0,
+      resizeCalls: 1,
+      appOwnership: { renderPasses: 0 },
+    });
+    expect(renderer.calls).not.toContain("compile");
+    expect(renderer.calls).not.toContain("render");
+    expect(renderer.calls).toContain("pixelRatio:2");
+    expect(renderer.calls).toContain("size:900x600");
+    await backend.dispose();
+  });
+
+  it("releases resize admission after viewport capture throws", async () => {
+    const renderer = fakeRenderer();
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+    const captureFailure = new Error("viewport width capture failed");
+    const hostileViewport = { height: 600, pixelRatio: 2 } as Record<string, unknown>;
+    Object.defineProperty(hostileViewport, "width", {
+      enumerable: true,
+      get() {
+        throw captureFailure;
+      },
+    });
+
+    await expect(
+      backend.resize(hostileViewport as unknown as typeof viewport),
+    ).rejects.toBe(captureFailure);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "ready",
+      resizeCalls: 0,
+      precompileCalls: 0,
+      renderCalls: 0,
+    });
+    await expect(backend.precompile([])).resolves.toBeUndefined();
+    await expect(backend.resize({ width: 900, height: 600, pixelRatio: 2 })).resolves.toBeUndefined();
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "ready",
+      resizeCalls: 1,
+      precompileCalls: 1,
+    });
+    await backend.dispose();
+  });
+
+  it("rejects a pipeline callback that reenters backend precompile", async () => {
+    const renderer = fakeRenderer();
+    const log: string[] = [];
+    const pipeline = fakePipeline(log);
+    const holder: { backend?: ThreeRenderBackendAdapter } = {};
+    vi.mocked(pipeline.precompile).mockImplementationOnce(async () => {
+      await holder.backend!.precompile([]);
+    });
+    const backend = adapter(renderer, "forced-webgl2", pipeline);
+    holder.backend = backend;
+    await backend.initialize({ viewport });
+    const pass: RenderPass = { name: "world", kind: "scene", scene: {}, camera: {} };
+
+    await expect(backend.precompile([pass])).rejects.toThrow(
+      /precompile Three backend reentrantly from a pipeline callback/,
+    );
+    expect(backend.snapshotLifecycle()).toMatchObject({ state: "ready", precompileCalls: 1 });
+    await expect(backend.precompile([pass])).resolves.toBeUndefined();
+    expect(vi.mocked(pipeline.precompile)).toHaveBeenCalledTimes(2);
+    await backend.dispose();
+  });
+
+  it("retries only the renderer phase after pipeline resize has completed", async () => {
+    const renderer = fakeRenderer();
+    const log: string[] = [];
+    const pipeline = fakePipeline(log);
+    const backend = adapter(renderer, "forced-webgl2", pipeline);
+    await backend.initialize({ viewport });
+    let failed = false;
+    renderer.setSize = (width, height) => {
+      renderer.calls.push(`size:${width}x${height}`);
+      if (width === 900 && !failed) {
+        failed = true;
+        throw new Error("renderer resize failed once");
+      }
+    };
+    const resized = { width: 900, height: 600, pixelRatio: 2 } as const;
+
+    await expect(backend.resize(resized)).rejects.toThrow("renderer resize failed once");
+    expect(vi.mocked(pipeline.resize)).toHaveBeenCalledOnce();
+    await expect(
+      backend.resize({ width: 1024, height: 576, pixelRatio: 1.25 }),
+    ).rejects.toThrow(/prior resize is pending/);
+    await expect(backend.resize({ ...resized })).resolves.toBeUndefined();
+
+    expect(vi.mocked(pipeline.resize)).toHaveBeenCalledOnce();
+    expect(renderer.calls.filter((call) => call === "pixelRatio:2")).toHaveLength(2);
+    expect(renderer.calls.filter((call) => call === "size:900x600")).toHaveLength(2);
+    expect(backend.snapshotLifecycle().resizeCalls).toBe(2);
+    await backend.dispose();
+  });
+
+  it("retains and retries a pipeline disposer that rejects backend disposal reentry", async () => {
+    const renderer = fakeRenderer();
+    const log: string[] = [];
+    const pipeline = fakePipeline(log);
+    const holder: { backend?: ThreeRenderBackendAdapter } = {};
+    vi.mocked(pipeline.dispose).mockImplementationOnce(async () => {
+      await holder.backend!.dispose();
+    });
+    const backend = adapter(renderer, "forced-webgl2", pipeline);
+    holder.backend = backend;
+    await backend.initialize({ viewport });
+
+    await expect(backend.dispose()).rejects.toMatchObject({
+      message: expect.stringMatching(/reentrantly from a pipeline callback/),
+    });
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      rendererDisposeCompleted: true,
+      backendDisposeCompleted: true,
+    });
+    await expect(backend.dispose()).resolves.toBeUndefined();
+    expect(vi.mocked(pipeline.dispose)).toHaveBeenCalledTimes(2);
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle().state).toBe("disposed");
+  });
+
   it("drains a resize that requests disposal before touching the renderer again", async () => {
     const renderer = fakeRenderer();
     const backend = adapter(renderer);
@@ -783,12 +1845,13 @@ describe("GFX-002 Three backend adapter", () => {
     };
     await backend.initialize({ viewport });
 
-    backend.resize({ width: 900, height: 600, pixelRatio: 2 });
+    const resizing = backend.resize({ width: 900, height: 600, pixelRatio: 2 });
 
-    expect(reentrantDispose).not.toBeNull();
+    await vi.waitFor(() => expect(reentrantDispose).not.toBeNull());
     expect(disposedAtResizeSetSize).toBe(false);
     expect(renderer.disposed).toBe(false);
     await reentrantDispose!;
+    await resizing;
     expect(renderer.disposed).toBe(true);
     expect(renderer.calls.indexOf("size:900x600")).toBeLessThan(
       renderer.calls.indexOf("dispose"),
@@ -1547,6 +2610,249 @@ describe("GFX-002 Three backend adapter", () => {
     });
   });
 
+  it("uses bounded identity propagation for unownable primitive native failures during initialization", async () => {
+    const cases = [
+      { label: "string", create: () => "s".repeat(2_000_000) as unknown },
+      { label: "BigInt", create: () => BigInt(1) << BigInt(2_000_000) as unknown },
+      { label: "Symbol", create: () => Symbol("s".repeat(2_000_000)) as unknown },
+    ] as const;
+
+    for (const { label, create } of cases) {
+      const renderer = fakeRenderer();
+      const stableMemory = renderer.info!.memory!;
+      const source = create();
+      renderer.backend!.dispose = () => { throw source; };
+      let infoReads = 0;
+      Object.defineProperty(renderer, "info", {
+        configurable: true,
+        get() {
+          infoReads += 1;
+          if (infoReads === 1) renderer.backend!.dispose!();
+          return { memory: stableMemory };
+        },
+      });
+      const backend = adapter(renderer);
+
+      const failure = await backend.initialize({ viewport }).catch((error: unknown) => error);
+      expect(Object.is(failure, source), `${label} raw identity`).toBe(false);
+      const retained = expectBoundedFailureText(failure);
+      expect(retained.totalUnits, `${label} retained units`).toBeLessThanOrEqual(4_096);
+      expect(infoReads, `${label} info reads`).toBe(3);
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: "failed",
+        backendDisposeInvoked: true,
+        backendDisposeCompleted: false,
+        retainedFailureReferences: 0,
+      });
+    }
+  });
+
+  it("keeps ready-state primitive throws exact while retaining only their bounded evidence", async () => {
+    const renderer = fakeRenderer();
+    const source = Symbol("s".repeat(2_000_000));
+    renderer.backend!.dispose = () => { throw source; };
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+
+    let directFailure: unknown;
+    try {
+      renderer.backend!.dispose!();
+    } catch (error: unknown) {
+      directFailure = error;
+    }
+    expect(Object.is(directFailure, source)).toBe(true);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "ready",
+      retainedFailureReferences: 1,
+      backendDisposeInvoked: true,
+      backendDisposeCompleted: false,
+    });
+
+    const terminalFailure = await backend.dispose().catch((error: unknown) => error);
+    expect(Object.is(terminalFailure, source)).toBe(false);
+    const retained = expectBoundedFailureText(terminalFailure);
+    expect(retained.totalUnits).toBeLessThanOrEqual(256);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      retainedFailureReferences: 0,
+    });
+  });
+
+  it("deduplicates an unownable native primitive through one bounded cleanup propagation", async () => {
+    const renderer = fakeRenderer();
+    const source = Symbol("s".repeat(2_000_000));
+    renderer.backend!.dispose = () => { throw source; };
+    renderer.dispose = () => {
+      renderer.calls.push("dispose");
+      renderer.backend!.dispose!();
+    };
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+
+    const failure = await backend.dispose().catch((error: unknown) => error);
+    expect(failure).not.toBeInstanceOf(AggregateError);
+    expect(Object.is(failure, source)).toBe(false);
+    const retained = expectBoundedFailureText(failure);
+    expect(retained.totalUnits).toBeLessThanOrEqual(256);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(0);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      rendererDisposeCompleted: false,
+      backendDisposeInvoked: true,
+      backendDisposeCompleted: false,
+      retainedFailureReferences: 0,
+    });
+  });
+
+  it("shares native propagation provenance across the pipeline cleanup fork", async () => {
+    const cases = [
+      { label: "Error", create: () => new Error("native object failure") as unknown },
+      { label: "negative zero", create: () => -0 as unknown },
+      { label: "NaN", create: () => Number.NaN as unknown },
+      { label: "Symbol", create: () => Symbol("s".repeat(2_000_000)) as unknown },
+    ] as const;
+
+    for (const { label, create } of cases) {
+      const renderer = fakeRenderer("webgpu");
+      const source = create();
+      let nativeCalls = 0;
+      renderer.backend!.dispose = () => {
+        nativeCalls += 1;
+        throw source;
+      };
+      let pipelineAttempts = 0;
+      const pipeline = {
+        ...fakePipeline([]),
+        dispose: vi.fn(async () => {
+          pipelineAttempts += 1;
+          if (pipelineAttempts === 1) renderer.backend!.dispose!();
+        }),
+      } satisfies ThreeRenderPipelinePort;
+      const backend = adapter(renderer, "webgpu-preferred", pipeline);
+      await backend.initialize({ viewport });
+
+      const firstAttempt = backend.dispose();
+      expect(backend.dispose(), `${label} concurrent first attempt`).toBe(firstAttempt);
+      const firstFailure = await firstAttempt.catch((error: unknown) => error);
+      expect(firstFailure, `${label} first aggregate`).not.toBeInstanceOf(AggregateError);
+      expectBoundedFailureText(firstFailure);
+
+      const terminalAttempt = backend.dispose();
+      expect(terminalAttempt, `${label} retry identity`).not.toBe(firstAttempt);
+      expect(backend.dispose(), `${label} concurrent retry`).toBe(terminalAttempt);
+      const terminalFailure = await terminalAttempt.catch((error: unknown) => error);
+      expect(terminalFailure, `${label} terminal aggregate`).not.toBeInstanceOf(AggregateError);
+      expectBoundedFailureText(terminalFailure);
+      expect(nativeCalls, `${label} native calls`).toBe(1);
+      expect(pipeline.dispose, `${label} pipeline calls`).toHaveBeenCalledTimes(2);
+      expect(backend.dispose(), `${label} stable terminal identity`).toBe(terminalAttempt);
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: "failed",
+        backendDisposeInvoked: true,
+        backendDisposeCompleted: false,
+        retainedFailureReferences: 0,
+      });
+    }
+  });
+
+  it("scopes an escaped propagation token to the adapter occurrence that created it", async () => {
+    const firstRenderer = fakeRenderer();
+    const firstMemory = firstRenderer.info!.memory!;
+    const nativeSource = Symbol("s".repeat(2_000_000));
+    firstRenderer.backend!.dispose = () => { throw nativeSource; };
+    firstRenderer.dispose = () => {
+      firstRenderer.calls.push("dispose");
+      firstRenderer.backend!.dispose!();
+    };
+    let leakedPropagation: unknown;
+    let firstInfoReads = 0;
+    Object.defineProperty(firstRenderer, "info", {
+      configurable: true,
+      get() {
+        firstInfoReads += 1;
+        if (firstInfoReads === 1) {
+          try {
+            firstRenderer.backend!.dispose!();
+          } catch (error: unknown) {
+            leakedPropagation = error;
+            throw error;
+          }
+        }
+        return { memory: firstMemory };
+      },
+    });
+    const firstBackend = adapter(firstRenderer);
+    const firstFailure = await firstBackend.initialize({ viewport }).catch(
+      (error: unknown) => error,
+    );
+    expect(Object.is(firstFailure, nativeSource)).toBe(false);
+    expect(leakedPropagation).toBeDefined();
+    expectBoundedFailureText(firstFailure);
+
+    const secondRenderer = fakeRenderer();
+    const secondMemory = secondRenderer.info!.memory!;
+    secondRenderer.backend!.dispose = () => { throw leakedPropagation; };
+    secondRenderer.dispose = () => {
+      secondRenderer.calls.push("dispose");
+      secondRenderer.backend!.dispose!();
+    };
+    let secondInfoReads = 0;
+    Object.defineProperty(secondRenderer, "info", {
+      configurable: true,
+      get() {
+        secondInfoReads += 1;
+        if (secondInfoReads === 1) secondRenderer.backend!.dispose!();
+        return { memory: secondMemory };
+      },
+    });
+    const secondBackend = adapter(secondRenderer);
+    const secondFailure = await secondBackend.initialize({ viewport }).catch(
+      (error: unknown) => error,
+    );
+    expect(secondFailure).toBe(leakedPropagation);
+    expect(secondBackend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      retainedFailureReferences: 0,
+    });
+  });
+
+  it("rebudgets initialization propagation evidence with its cleanup suffix", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const stableMemory = renderer.info!.memory!;
+    const nativeSource = "n".repeat(2_000_000);
+    renderer.backend!.dispose = () => { throw nativeSource; };
+    let infoReads = 0;
+    Object.defineProperty(renderer, "info", {
+      configurable: true,
+      get() {
+        infoReads += 1;
+        if (infoReads === 1) renderer.backend!.dispose!();
+        return { memory: stableMemory };
+      },
+    });
+    const pipeline = {
+      ...fakePipeline([]),
+      dispose: vi.fn(async () => {
+        throw new AggregateError([
+          ...Array.from({ length: 15 }, () => "x".repeat(256)),
+          "y".repeat(255),
+        ], "m");
+      }),
+    } satisfies ThreeRenderPipelinePort;
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+
+    const failure = await backend.initialize({ viewport }).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(AggregateError);
+    const retained = expectBoundedFailureText(failure);
+    expect(retained.totalUnits).toBeLessThanOrEqual(4_096);
+    expect(retained.truncatedMarkers).toBeGreaterThan(0);
+    expect(Object.is(failure, nativeSource)).toBe(false);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      retainedFailureReferences: 0,
+    });
+  });
+
   it("defers reentrant disposal until hostile native evidence capture is published", async () => {
     const renderer = fakeRenderer();
     const hostileFailure = new Error();
@@ -1608,6 +2914,149 @@ describe("GFX-002 Three backend adapter", () => {
     });
   });
 
+  it.each([255, 256, 257])(
+    "bounds a %i-unit cleanup Error message with its truthful suffix and no stack",
+    async (messageLength) => {
+      const renderer = fakeRenderer();
+      const source = new Error("x".repeat(messageLength));
+      renderer.dispose = () => { throw source; };
+      const backend = adapter(renderer);
+      await backend.initialize({ viewport });
+
+      const failure = await backend.dispose().catch((error: unknown) => error) as Error;
+      expect(failure).toBeInstanceOf(Error);
+      expect(failure).not.toBe(source);
+      expect(Object.getOwnPropertyDescriptor(failure, "stack")?.value).toBeUndefined();
+      expect(failure.message).toHaveLength(Math.min(messageLength, 256));
+      if (messageLength <= 256) expect(failure.message).toBe(source.message);
+      else expect(failure.message).toMatch(/\[truncated \d+ UTF-16 code units\]$/);
+      const retained = expectBoundedFailureText(failure);
+      expect(retained.totalUnits).toBe(Math.min(messageLength, 256));
+    },
+  );
+
+  it.each([4_095, 4_096, 4_097])(
+    "enforces one %i-unit aggregate cleanup text boundary",
+    async (sourceTextUnits) => {
+      const fixedEntries = Array.from({ length: 15 }, () => "x".repeat(256));
+      const finalLength = sourceTextUnits - 1 - (15 * 256);
+      const finalEntry = "y".repeat(finalLength);
+      const source = new AggregateError([...fixedEntries, finalEntry], "m");
+      const renderer = fakeRenderer();
+      renderer.dispose = () => { throw source; };
+      const backend = adapter(renderer);
+      await backend.initialize({ viewport });
+
+      const failure = await backend.dispose().catch((error: unknown) => error) as AggregateError;
+      expect(failure).toBeInstanceOf(AggregateError);
+      expect(failure).not.toBe(source);
+      expect(Object.getOwnPropertyDescriptor(failure, "stack")?.value).toBeUndefined();
+      const retained = expectBoundedFailureText(failure);
+      expect(retained.totalUnits).toBe(Math.min(sourceTextUnits, 4_096));
+      const capturedFinal = failure.errors.at(-1);
+      expect(typeof capturedFinal).toBe("string");
+      if (sourceTextUnits <= 4_096) expect(capturedFinal).toBe(finalEntry);
+      else expect(capturedFinal).toMatch(/\[truncated \d+ UTF-16 code units\]$/);
+    },
+  );
+
+  it("marks a primitive omission structurally after the shared text budget is exhausted", async () => {
+    const source = new AggregateError([
+      ...Array.from({ length: 15 }, () => "x".repeat(256)),
+      "y".repeat(255),
+      "tail after exact exhaustion",
+    ], "m");
+    const renderer = fakeRenderer();
+    renderer.dispose = () => { throw source; };
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+
+    const failure = await backend.dispose().catch((error: unknown) => error) as AggregateError;
+    const omitted = failure.errors.at(-1) as Error;
+    expect(omitted).toBeInstanceOf(Error);
+    expect(omitted.message).toBe("");
+    expect(Object.getOwnPropertyDescriptor(omitted, "textTruncated")?.value).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(omitted, "stack")?.value).toBeUndefined();
+    const retained = expectBoundedFailureText(failure);
+    expect(retained.totalUnits).toBe(4_096);
+    expect(retained.truncatedMarkers).toBeGreaterThan(0);
+  });
+
+  it("bounds and detaches 2MB nested messages, causes, entries, BigInt, and Symbol text", async () => {
+    const huge = "z".repeat(2_000_000);
+    const hugeBigInt = BigInt("9".repeat(512));
+    const hugeSymbol = Symbol(huge);
+    const nested = new Error(huge, { cause: huge });
+    const nestedAggregate = new AggregateError([huge], huge, { cause: huge });
+    const source = new AggregateError(
+      [hugeBigInt, hugeSymbol, nested, huge, nestedAggregate],
+      huge,
+      { cause: huge },
+    );
+    const renderer = fakeRenderer();
+    renderer.dispose = () => { throw source; };
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+
+    const failure = await backend.dispose().catch((error: unknown) => error) as AggregateError;
+    source.message = "mutated aggregate";
+    nested.message = "mutated nested";
+    source.errors.splice(0, source.errors.length, "mutated entries");
+
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect(failure).not.toBe(source);
+    expect(failure.errors[0]).toMatch(/bigint omitted beyond 128 decimal digits/);
+    expect(failure.errors[1]).toMatch(/^Symbol\(/);
+    expect(failure.errors[1]).toMatch(/\[truncated \d+ UTF-16 code units\]\)$/);
+    expect((failure.errors[2] as Error).message).not.toBe("mutated nested");
+    const retained = expectBoundedFailureText(failure);
+    expect(retained.fieldLengths).not.toContain(huge.length);
+    expect(Object.getOwnPropertyDescriptor(failure, "stack")?.value).toBeUndefined();
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      retainedFailureReferences: 0,
+    });
+  });
+
+  it("bounds BigInt magnitude and charges Symbol wrappers without changing numeric primitives", async () => {
+    const magnitude = BigInt(`1${"0".repeat(128)}`);
+    const source = new AggregateError([
+      magnitude - BigInt(1),
+      magnitude,
+      -magnitude,
+      Symbol(),
+      Symbol("bounded"),
+      undefined,
+      Number.NaN,
+      Number.NEGATIVE_INFINITY,
+      Number.POSITIVE_INFINITY,
+      -0,
+      +0,
+    ], "primitive boundaries");
+    const renderer = fakeRenderer();
+    renderer.dispose = () => { throw source; };
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+
+    const failure = await backend.dispose().catch((error: unknown) => error) as AggregateError;
+    expect(failure.errors[0]).toBe((magnitude - BigInt(1)).toString());
+    expect(failure.errors[1]).toBe("[bigint omitted beyond 128 decimal digits]");
+    expect(failure.errors[2]).toBe("-[bigint omitted beyond 128 decimal digits]");
+    expect(failure.errors[3]).toBe("Symbol()");
+    expect(failure.errors[4]).toBe("Symbol(bounded)");
+    for (const [index, expected] of [
+      [5, undefined],
+      [6, Number.NaN],
+      [7, Number.NEGATIVE_INFINITY],
+      [8, Number.POSITIVE_INFINITY],
+      [9, -0],
+      [10, +0],
+    ] as const) {
+      expect(Object.is(failure.errors[index], expected)).toBe(true);
+    }
+    expectBoundedFailureText(failure);
+  });
+
   it("preserves own primitive AggregateError causes for empty and nonempty evidence", async () => {
     const snapshotAggregate = async (source: AggregateError): Promise<AggregateError> => {
       const renderer = fakeRenderer();
@@ -1632,6 +3081,8 @@ describe("GFX-002 Three backend adapter", () => {
       undefined,
       null,
       Number.NaN,
+      Number.NEGATIVE_INFINITY,
+      Number.POSITIVE_INFINITY,
       -0,
       +0,
       42,
@@ -1840,7 +3291,6 @@ describe("GFX-002 Three backend adapter", () => {
     const pending: unknown[] = [failure];
     let evidenceNodes = 0;
     let aggregateCauseNodes = 0;
-    let totalBudgetMarkers = 0;
     while (pending.length > 0) {
       const current = pending.pop();
       evidenceNodes += 1;
@@ -1851,7 +3301,6 @@ describe("GFX-002 Three backend adapter", () => {
           pending.push(current.cause);
         }
       } else if (current instanceof Error) {
-        if (current.message.includes("total node limit")) totalBudgetMarkers += 1;
         if (Object.prototype.hasOwnProperty.call(current, "cause")) {
           pending.push(current.cause);
         }
@@ -1861,8 +3310,52 @@ describe("GFX-002 Three backend adapter", () => {
     expect(infoReads).toBe(2);
     expect(accessorReads).toBe(0);
     expect(aggregateCauseNodes).toBeGreaterThan(0);
-    expect(totalBudgetMarkers).toBeGreaterThan(0);
     expect(evidenceNodes).toBeLessThanOrEqual(2_100);
+    expectBoundedFailureText(failure);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      retainedFailureReferences: 0,
+    });
+  });
+
+  it("shares one cleanup evidence budget across pipeline and renderer failure roots", async () => {
+    const explosive = (label: string): unknown => {
+      let graph: unknown = new Error(`${label} shared leaf`);
+      for (let depth = 0; depth < 8; depth += 1) {
+        graph = new AggregateError(
+          Array.from({ length: 32 }, () => graph),
+          `${label} shared fanout ${depth}`,
+        );
+      }
+      return graph;
+    };
+    const renderer = fakeRenderer("webgpu");
+    renderer.dispose = () => { throw explosive("renderer"); };
+    const pipeline = {
+      ...fakePipeline([]),
+      dispose: vi.fn(async () => { throw explosive("pipeline"); }),
+    } satisfies ThreeRenderPipelinePort;
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    await backend.initialize({ viewport });
+
+    const failure = await backend.dispose().catch((error: unknown) => error);
+    const pending: unknown[] = [failure];
+    let evidenceNodes = 0;
+    while (pending.length > 0) {
+      const current = pending.pop();
+      evidenceNodes += 1;
+      if (current instanceof AggregateError) {
+        pending.push(...current.errors);
+      } else if (current instanceof Error) {
+        if (Object.prototype.hasOwnProperty.call(current, "cause")) {
+          pending.push(current.cause);
+        }
+      }
+    }
+
+    expect(evidenceNodes).toBeLessThanOrEqual(2_100);
+    expectBoundedFailureText(failure);
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
     expect(backend.snapshotLifecycle()).toMatchObject({
       state: "failed",
       retainedFailureReferences: 0,
@@ -1979,7 +3472,7 @@ describe("GFX-002 Three backend adapter", () => {
     });
   });
 
-  it("uses SameValue semantics to deduplicate a propagated NaN cleanup failure", async () => {
+  it("does not conflate a renderer-rethrown NaN with its native cleanup occurrence", async () => {
     const renderer = fakeRenderer();
     renderer.backend!.dispose = () => { throw Number.NaN; };
     renderer.dispose = () => {
@@ -2001,7 +3494,11 @@ describe("GFX-002 Three backend adapter", () => {
       failure = error;
     }
     expect(rejected).toBe(true);
-    expect(Object.is(failure, Number.NaN)).toBe(true);
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toHaveLength(2);
+    expect((failure as AggregateError).errors.every(
+      (entry) => Object.is(entry, Number.NaN),
+    )).toBe(true);
     expect(backend.snapshotLifecycle()).toMatchObject({
       state: "failed",
       retainedFailureReferences: 0,
@@ -2275,13 +3772,11 @@ describe("GFX-002 Three backend adapter", () => {
     ) as AggregateError;
     const pending: unknown[] = [failure];
     let evidenceNodes = 0;
-    let totalBudgetMarkers = 0;
     while (pending.length > 0) {
       const current = pending.pop();
       evidenceNodes += 1;
       if (current instanceof AggregateError) pending.push(...current.errors);
       else if (current instanceof Error) {
-        if (current.message.includes("total node limit")) totalBudgetMarkers += 1;
         if (Object.prototype.hasOwnProperty.call(current, "cause")) {
           pending.push(current.cause);
         }
@@ -2292,7 +3787,6 @@ describe("GFX-002 Three backend adapter", () => {
     expect(failure.errors).toHaveLength(4);
     expect(failure.errors[0]).toBe(primary);
     expect(infoReads).toBe(2);
-    expect(totalBudgetMarkers).toBeGreaterThan(0);
     expect(evidenceNodes).toBeLessThanOrEqual(2_100);
     expect(backend.snapshotLifecycle()).toMatchObject({
       state: "failed",
@@ -2471,7 +3965,18 @@ describe("GFX-002 Three backend adapter", () => {
     expect(failure).toBeInstanceOf(AggregateError);
     expect(Object.isFrozen(failure)).toBe(true);
     expect(Object.isFrozen(failure.errors)).toBe(true);
-    expect(failure.errors).toEqual([beforeError, afterError]);
+    expect(failure.errors.map((error) => (error as Error).message)).toEqual([
+      beforeError.message,
+      afterError.message,
+    ]);
+    for (const [snapshot, source] of [
+      [failure.errors[0], beforeError],
+      [failure.errors[1], afterError],
+    ] as const) {
+      expect(snapshot).not.toBe(source);
+      expect(Object.isFrozen(snapshot)).toBe(true);
+      expect(Object.getOwnPropertyDescriptor(snapshot, "stack")?.value).toBeUndefined();
+    }
     expect(backend.snapshotLifecycle()).toMatchObject({
       state: "failed",
       resourceCounterProvenance: "unavailable",

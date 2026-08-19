@@ -8,6 +8,10 @@ import type {
   RenderViewport,
   Unsubscribe,
 } from "../contracts";
+import type { ThreeRenderPipelinePort } from "../pipeline/contracts";
+
+const intrinsicHasOwnProperty = Object.prototype.hasOwnProperty;
+const intrinsicReflectApply = Reflect.apply;
 
 export type ThreeBackendRequest = "forced-webgl2" | "webgpu-preferred";
 export type ThreeActualBackend = "webgl2" | "webgpu";
@@ -133,6 +137,8 @@ export interface ThreeBackendAdapterOptions {
   readonly webgl2ApiAvailable: boolean;
   readonly navigatorProbe: Readonly<NavigatorAdapterProbe>;
   readonly createRenderer: () => ThreeRendererPort;
+  /** Optional GFX-005 whole-frame submission seam. The direct GFX-002 path remains the default. */
+  readonly pipeline?: ThreeRenderPipelinePort;
   readonly now?: () => number;
 }
 
@@ -202,7 +208,7 @@ function passObjects(passes: readonly RenderPass[]): number {
       );
     }
     for (let index = 0; index < length; index += 1) {
-      if (!Object.prototype.hasOwnProperty.call(children, index)) continue;
+      if (!intrinsicReflectApply(intrinsicHasOwnProperty, children, [index])) continue;
       pending.push(children[index]);
     }
   }
@@ -318,16 +324,58 @@ type ImmutableCauseSnapshot = Readonly<
 >;
 
 const absentImmutableCause: ImmutableCauseSnapshot = Object.freeze({ present: false });
+const ownedFailureSnapshots = new WeakSet<object>();
+
+function defineImmutableFailureField(
+  target: object,
+  property: "cause" | "errors" | "message" | "stack" | "textTruncated",
+  value: unknown,
+): void {
+  Object.defineProperty(target, property, {
+    configurable: false,
+    enumerable: false,
+    value,
+    writable: false,
+  });
+}
+
+function immutableError(
+  message?: string,
+  cause: ImmutableCauseSnapshot = absentImmutableCause,
+  textTruncated = false,
+): Error {
+  const error = Object.create(Error.prototype) as Error;
+  if (message !== undefined) defineImmutableFailureField(error, "message", message);
+  if (cause.present) defineImmutableFailureField(error, "cause", cause.value);
+  if (textTruncated) defineImmutableFailureField(error, "textTruncated", true);
+  defineImmutableFailureField(error, "stack", undefined);
+  ownedFailureSnapshots.add(error);
+  Object.freeze(error);
+  return error;
+}
 
 function immutableAggregateError(
   errors: readonly unknown[],
   message?: string,
   cause: ImmutableCauseSnapshot = absentImmutableCause,
+  context?: FailureSnapshotContext,
+  messageAlreadyTruncated = false,
 ): AggregateError {
-  const aggregate = cause.present
-    ? new AggregateError([...errors], message, { cause: cause.value })
-    : new AggregateError([...errors], message);
-  Object.freeze(aggregate.errors);
+  const boundedMessage = message === undefined || context === undefined
+    ? Object.freeze({ value: message, truncated: messageAlreadyTruncated })
+    : boundedFailureText(message, context);
+  const aggregate = Object.create(AggregateError.prototype) as AggregateError;
+  const immutableErrors = Object.freeze([...errors]);
+  defineImmutableFailureField(aggregate, "errors", immutableErrors);
+  if (boundedMessage.value !== undefined) {
+    defineImmutableFailureField(aggregate, "message", boundedMessage.value);
+  }
+  if (cause.present) defineImmutableFailureField(aggregate, "cause", cause.value);
+  if (boundedMessage.truncated) {
+    defineImmutableFailureField(aggregate, "textTruncated", true);
+  }
+  defineImmutableFailureField(aggregate, "stack", undefined);
+  ownedFailureSnapshots.add(aggregate);
   Object.freeze(aggregate);
   return aggregate;
 }
@@ -335,6 +383,8 @@ function immutableAggregateError(
 function immutableAggregateCauseSnapshot(
   value: unknown,
   context: FailureSnapshotContext,
+  ownedSnapshot = false,
+  depth = 0,
 ): ImmutableCauseSnapshot {
   let descriptor: PropertyDescriptor | undefined;
   try {
@@ -359,6 +409,15 @@ function immutableAggregateCauseSnapshot(
     });
   }
   const cause = descriptor.value;
+  if (ownedSnapshot) {
+    return Object.freeze({
+      present: true,
+      // Untrusted Aggregate causes are captured as one special owned node
+      // without advancing the errors-list depth. Rebudget that trusted node at
+      // the same depth so retry cannot relabel an accepted depth-32 marker.
+      value: immutableFailureSnapshot(cause, depth, context),
+    });
+  }
   const hasIdentity = (typeof cause === "object" && cause !== null)
     || typeof cause === "function";
   if (hasIdentity) {
@@ -373,7 +432,7 @@ function immutableAggregateCauseSnapshot(
   return Object.freeze({
     present: true,
     value: claimFailureSnapshotNode(context)
-      ? cause
+      ? immutableFailurePrimitiveSnapshot(cause, context)
       : immutableFailureLimitMarker(context),
   });
 }
@@ -382,13 +441,106 @@ type FailureSnapshotContext = {
   readonly activePath: Set<unknown>;
   visitedNodes: number;
   readonly maximumNodes: number;
+  remainingTextUnits: number;
   limitMarker: Error | null;
+  textLimitMarker: Error | null;
 };
 
-function immutableFailureMarker(message: string): Error {
-  const marker = new Error(message);
-  Object.freeze(marker);
-  return marker;
+type BoundedFailureText = Readonly<{
+  value?: string;
+  truncated: boolean;
+}>;
+
+const maximumFailureSnapshotNodes = 2_048;
+const maximumFailureTextUnits = 4_096;
+const maximumFailureTextFieldUnits = 256;
+const maximumInlineFailureBigIntMagnitude = BigInt(`1${"0".repeat(128)}`);
+
+function createFailureSnapshotContext(): FailureSnapshotContext {
+  return {
+    activePath: new Set(),
+    visitedNodes: 0,
+    maximumNodes: maximumFailureSnapshotNodes,
+    remainingTextUnits: maximumFailureTextUnits,
+    limitMarker: null,
+    textLimitMarker: null,
+  };
+}
+
+function boundedFailureText(
+  value: string,
+  context: FailureSnapshotContext,
+  prefix = "",
+  suffix = "",
+): BoundedFailureText {
+  const wrapperLength = prefix.length + suffix.length;
+  const maximumOutputLength = Math.min(
+    maximumFailureTextFieldUnits,
+    context.remainingTextUnits,
+  );
+  if (wrapperLength > maximumOutputLength) return { truncated: true };
+  const maximumValueOutputLength = maximumOutputLength - wrapperLength;
+  if (value.length <= maximumValueOutputLength) {
+    const output = `${prefix}${value}${suffix}`;
+    context.remainingTextUnits -= output.length;
+    return { value: output, truncated: false };
+  }
+  let retainedLength = maximumValueOutputLength;
+  let truncationSuffix = "";
+  for (;;) {
+    truncationSuffix = `[truncated ${value.length - retainedLength} UTF-16 code units]`;
+    const nextRetainedLength = Math.max(
+      0,
+      maximumValueOutputLength - truncationSuffix.length,
+    );
+    if (nextRetainedLength === retainedLength) break;
+    retainedLength = nextRetainedLength;
+  }
+  if (truncationSuffix.length > maximumValueOutputLength) return { truncated: true };
+  const output = `${prefix}${value.slice(0, retainedLength)}${truncationSuffix}${suffix}`;
+  context.remainingTextUnits -= output.length;
+  return { value: output, truncated: true };
+}
+
+function immutableFailurePrimitiveSnapshot(
+  value: unknown,
+  context: FailureSnapshotContext,
+): unknown {
+  if (typeof value === "string") {
+    const bounded = boundedFailureText(value, context);
+    return bounded.value ?? immutableFailureTextLimitMarker(context);
+  }
+  if (typeof value === "bigint") {
+    const text = value > -maximumInlineFailureBigIntMagnitude
+      && value < maximumInlineFailureBigIntMagnitude
+      ? value.toString()
+      : `${value < BigInt(0) ? "-" : ""}[bigint omitted beyond 128 decimal digits]`;
+    const bounded = boundedFailureText(text, context);
+    return bounded.value ?? immutableFailureTextLimitMarker(context);
+  }
+  if (typeof value === "symbol") {
+    const description = value.description;
+    const bounded = description === undefined
+      ? boundedFailureText("Symbol()", context)
+      : boundedFailureText(description, context, "Symbol(", ")");
+    return bounded.value ?? immutableFailureTextLimitMarker(context);
+  }
+  return value;
+}
+
+function immutableFailureMarker(
+  message: string,
+  context: FailureSnapshotContext = createFailureSnapshotContext(),
+  suffix = "",
+): Error {
+  const bounded = boundedFailureText(message, context, "", suffix);
+  return immutableError(bounded.value, absentImmutableCause, bounded.truncated);
+}
+
+function immutableFailureTextLimitMarker(context: FailureSnapshotContext): Error {
+  if (context.textLimitMarker !== null) return context.textLimitMarker;
+  context.textLimitMarker = immutableError(undefined, absentImmutableCause, true);
+  return context.textLimitMarker;
 }
 
 function failureSnapshotNodeCapacity(context: FailureSnapshotContext): boolean {
@@ -409,6 +561,7 @@ function immutableFailureLimitMarker(context: FailureSnapshotContext): Error {
   if (context.limitMarker !== null) return context.limitMarker;
   const marker = immutableFailureMarker(
     "Backend failure evidence exceeded the total node limit.",
+    context,
   );
   context.limitMarker = marker;
   if (context.visitedNodes < context.maximumNodes) context.visitedNodes += 1;
@@ -420,7 +573,7 @@ function immutableFailureDetailMarker(
   message: string,
 ): Error {
   return claimFailureSnapshotNode(context)
-    ? immutableFailureMarker(message)
+    ? immutableFailureMarker(message, context)
     : immutableFailureLimitMarker(context);
 }
 
@@ -438,21 +591,19 @@ function immutableInvalidAggregateDetails(
 function immutableFailureSnapshot(
   value: unknown,
   depth = 0,
-  context: FailureSnapshotContext = {
-    activePath: new Set(),
-    visitedNodes: 0,
-    maximumNodes: 2_048,
-    limitMarker: null,
-  },
+  context: FailureSnapshotContext = createFailureSnapshotContext(),
 ): unknown {
   if (!claimFailureSnapshotNode(context)) return immutableFailureLimitMarker(context);
   const hasIdentity = (typeof value === "object" && value !== null)
     || typeof value === "function";
-  if (!hasIdentity) return value;
+  if (!hasIdentity) return immutableFailurePrimitiveSnapshot(value, context);
   if (depth > 32 || context.activePath.has(value)) {
-    return immutableFailureMarker(depth > 32
-      ? "Backend failure evidence exceeded the snapshot depth limit."
-      : "Cyclic backend failure evidence was sanitized.");
+    return immutableFailureMarker(
+      depth > 32
+        ? "Backend failure evidence exceeded the snapshot depth limit."
+        : "Cyclic backend failure evidence was sanitized.",
+      context,
+    );
   }
 
   context.activePath.add(value);
@@ -463,45 +614,69 @@ function immutableFailureSnapshot(
       isAggregate = value instanceof AggregateError;
       isError = value instanceof Error;
     } catch {
-      return immutableFailureMarker("Opaque backend failure evidence was sanitized.");
+      return immutableFailureMarker("Opaque backend failure evidence was sanitized.", context);
     }
 
-    let message = isAggregate
+    const ownedSnapshot = ownedFailureSnapshots.has(value as object);
+    let rawMessage: string | undefined = isAggregate
       ? "Backend operation failed with multiple errors."
       : "Backend operation failed.";
-    try {
-      const observed = (value as { readonly message?: unknown }).message;
-      if (typeof observed === "string" && observed.length > 0) message = observed;
-    } catch {
-      // The safe snapshot intentionally keeps no reference to the source value.
+    let sourceMessageTruncated = false;
+    if (ownedSnapshot) {
+      const messageDescriptor = Object.getOwnPropertyDescriptor(value, "message");
+      rawMessage = messageDescriptor && "value" in messageDescriptor
+        && typeof messageDescriptor.value === "string"
+        ? messageDescriptor.value
+        : undefined;
+      const truncatedDescriptor = Object.getOwnPropertyDescriptor(value, "textTruncated");
+      sourceMessageTruncated = truncatedDescriptor !== undefined
+        && "value" in truncatedDescriptor
+        && truncatedDescriptor.value === true;
+    } else {
+      try {
+        const observed = (value as { readonly message?: unknown }).message;
+        if (typeof observed === "string" && observed.length > 0) rawMessage = observed;
+      } catch {
+        // The safe snapshot intentionally keeps no reference to the source value.
+      }
     }
 
     if (isAggregate) {
-      const cause = immutableAggregateCauseSnapshot(value, context);
+      const message = rawMessage === undefined
+        ? Object.freeze({ value: undefined, truncated: sourceMessageTruncated })
+        : boundedFailureText(rawMessage, context);
+      const messageTruncated = sourceMessageTruncated || message.truncated;
+      const cause = immutableAggregateCauseSnapshot(value, context, ownedSnapshot, depth);
       let entries: unknown;
       try {
         entries = (value as AggregateError).errors;
       } catch {
         return immutableAggregateError(
           immutableInvalidAggregateDetails(context),
-          message,
+          message.value,
           cause,
+          undefined,
+          messageTruncated,
         );
       }
       try {
         if (!Array.isArray(entries)) {
           return immutableAggregateError(
             immutableInvalidAggregateDetails(context),
-            message,
+            message.value,
             cause,
+            undefined,
+            messageTruncated,
           );
         }
         const length = entries.length;
         if (!Number.isSafeInteger(length) || length < 0 || length > 256) {
           return immutableAggregateError(
             immutableInvalidAggregateDetails(context),
-            message,
+            message.value,
             cause,
+            undefined,
+            messageTruncated,
           );
         }
         const snapshots: unknown[] = [];
@@ -510,15 +685,23 @@ function immutableFailureSnapshot(
             snapshots.push(immutableFailureLimitMarker(context));
             break;
           }
-          if (!Object.prototype.hasOwnProperty.call(entries, index)) continue;
+          if (!intrinsicReflectApply(intrinsicHasOwnProperty, entries, [index])) continue;
           snapshots.push(immutableFailureSnapshot(entries[index], depth + 1, context));
         }
-        return immutableAggregateError(snapshots, message, cause);
+        return immutableAggregateError(
+          snapshots,
+          message.value,
+          cause,
+          undefined,
+          messageTruncated,
+        );
       } catch {
         return immutableAggregateError(
           immutableInvalidAggregateDetails(context),
-          message,
+          message.value,
           cause,
+          undefined,
+          messageTruncated,
         );
       }
     }
@@ -527,19 +710,28 @@ function immutableFailureSnapshot(
       let causePresent = false;
       let cause: unknown;
       try {
-        causePresent = Object.prototype.hasOwnProperty.call(value, "cause");
+        causePresent = intrinsicReflectApply(intrinsicHasOwnProperty, value, ["cause"]);
         if (causePresent) cause = (value as Error).cause;
       } catch {
-        return immutableFailureMarker(`${message} (cause was sanitized)`);
+        return immutableFailureMarker(
+          rawMessage ?? "Backend operation failed.",
+          context,
+          " (cause was sanitized)",
+        );
       }
-      const snapshot = causePresent
-        ? new Error(message, { cause: immutableFailureSnapshot(cause, depth + 1, context) })
-        : new Error(message);
-      Object.freeze(snapshot);
-      return snapshot;
+      const message = rawMessage === undefined
+        ? Object.freeze({ value: undefined, truncated: sourceMessageTruncated })
+        : boundedFailureText(rawMessage, context);
+      const messageTruncated = sourceMessageTruncated || message.truncated;
+      return causePresent
+        ? immutableError(message.value, Object.freeze({
+            present: true,
+            value: immutableFailureSnapshot(cause, depth + 1, context),
+          }), messageTruncated)
+        : immutableError(message.value, absentImmutableCause, messageTruncated);
     }
 
-    return immutableFailureMarker("Opaque backend failure evidence was sanitized.");
+    return immutableFailureMarker("Opaque backend failure evidence was sanitized.", context);
   } finally {
     context.activePath.delete(value);
   }
@@ -547,96 +739,151 @@ function immutableFailureSnapshot(
 
 type FailureOccurrenceTokens = {
   identities: WeakSet<object>;
-  readonly primitives: unknown[];
+  propagations: WeakSet<object>;
+  readonly primitives: Array<null | undefined | boolean | number>;
 };
 
 const maximumFailurePrimitiveTokens = 32;
 
-function createFailureOccurrenceTokens(): FailureOccurrenceTokens {
-  return { identities: new WeakSet<object>(), primitives: [] };
+function createNativeBackendFailurePropagation(tokens: FailureOccurrenceTokens): object {
+  const propagation = Object.freeze(Object.create(null)) as object;
+  tokens.identities.add(propagation);
+  tokens.propagations.add(propagation);
+  return propagation;
 }
 
-function rememberFailureOccurrence(tokens: FailureOccurrenceTokens, error: unknown): void {
+type FailureOccurrenceMatch = "propagation" | "source";
+
+function createFailureOccurrenceTokens(): FailureOccurrenceTokens {
+  return {
+    identities: new WeakSet<object>(),
+    propagations: new WeakSet<object>(),
+    primitives: [],
+  };
+}
+
+function rememberFailureOccurrence(tokens: FailureOccurrenceTokens, error: unknown): boolean {
   const hasIdentity = (typeof error === "object" && error !== null)
     || typeof error === "function";
   if (hasIdentity) {
     tokens.identities.add(error as object);
-  } else if (
-    tokens.primitives.length < maximumFailurePrimitiveTokens
-    && !tokens.primitives.some((token) => Object.is(token, error))
-  ) {
-    tokens.primitives.push(error);
+    return true;
   }
+  // String, BigInt, and Symbol cannot be represented with exact SameValue
+  // semantics in a bounded, non-owning token. Never retain them here. Internal
+  // propagation uses an adapter-owned identity token instead, while a direct
+  // ready-state caller still receives the original thrown primitive.
+  if (
+    typeof error === "string"
+    || typeof error === "bigint"
+    || typeof error === "symbol"
+  ) return false;
+  if (tokens.primitives.some((token) => Object.is(token, error))) return true;
+  if (tokens.primitives.length >= maximumFailurePrimitiveTokens) return false;
+  tokens.primitives.push(error as null | undefined | boolean | number);
+  return true;
 }
 
-function consumeFailureOccurrence(tokens: FailureOccurrenceTokens, error: unknown): boolean {
+function consumeFailureOccurrence(
+  tokens: FailureOccurrenceTokens,
+  error: unknown,
+): FailureOccurrenceMatch | null {
   const hasIdentity = (typeof error === "object" && error !== null)
     || typeof error === "function";
   if (hasIdentity) {
-    if (!tokens.identities.has(error as object)) return false;
+    if (!tokens.identities.has(error as object)) return null;
+    const match = tokens.propagations.has(error as object) ? "propagation" : "source";
     tokens.identities.delete(error as object);
-    return true;
+    tokens.propagations.delete(error as object);
+    return match;
   }
   const index = tokens.primitives.findIndex((token) => Object.is(token, error));
-  if (index < 0) return false;
+  if (index < 0) return null;
   tokens.primitives.splice(index, 1);
-  return true;
+  return "source";
 }
 
 function clearFailureOccurrences(tokens: FailureOccurrenceTokens): void {
   tokens.identities = new WeakSet<object>();
+  tokens.propagations = new WeakSet<object>();
   tokens.primitives.length = 0;
 }
 
 type CleanupFailureCollector = Readonly<{
   readonly length: number;
-  add(error: unknown): void;
-  addNativeBackend(error: unknown): void;
+  add(error: unknown): unknown;
+  capture(error: unknown): unknown;
+  aggregate(errors: readonly unknown[], message: string): AggregateError;
+  appendSnapshots(snapshots: readonly unknown[]): void;
+  addNativeBackend(error: unknown): unknown;
   consumeNativeBackend(error: unknown): boolean;
   clearNativeBackendOccurrences(): void;
+  fork(): CleanupFailureCollector;
   snapshots(): readonly unknown[];
   releaseRawReferences(): void;
 }>;
 
-function createCleanupFailureCollector(): CleanupFailureCollector {
-  const nativeOccurrences = createFailureOccurrenceTokens();
+function createCleanupFailureCollector(
+  sharedContext?: FailureSnapshotContext,
+  sharedOccurrences?: FailureOccurrenceTokens,
+): CleanupFailureCollector {
+  const nativeOccurrences = sharedOccurrences ?? createFailureOccurrenceTokens();
   const immutableSnapshots: unknown[] = [];
-  const context: FailureSnapshotContext = {
-    activePath: new Set(),
-    visitedNodes: 0,
-    maximumNodes: 2_048,
-    limitMarker: null,
-  };
+  const ownsContext = sharedContext === undefined;
+  const ownsOccurrences = sharedOccurrences === undefined;
+  const context = sharedContext ?? createFailureSnapshotContext();
   const addSnapshot = (error: unknown) => {
     // Snapshot at the catch boundary, before any awaited cleanup stage can
     // give caller-owned errors an opportunity to mutate. One context bounds
     // the entire cleanup suffix rather than granting each error a new budget.
-    immutableSnapshots.push(immutableFailureSnapshot(error, 0, context));
+    const snapshot = immutableFailureSnapshot(error, 0, context);
+    immutableSnapshots.push(snapshot);
+    return snapshot;
   };
   return {
     get length() {
       return immutableSnapshots.length;
     },
     add(error: unknown) {
-      addSnapshot(error);
+      return addSnapshot(error);
+    },
+    capture(error: unknown) {
+      return immutableFailureSnapshot(error, 0, context);
+    },
+    aggregate(errors: readonly unknown[], message: string) {
+      return immutableAggregateError(errors, message, absentImmutableCause, context);
+    },
+    appendSnapshots(snapshots: readonly unknown[]) {
+      // Fork snapshots already consumed this collector's shared traversal
+      // budget. Append them without re-reading the failure graph.
+      immutableSnapshots.push(...snapshots);
     },
     addNativeBackend(error: unknown) {
-      rememberFailureOccurrence(nativeOccurrences, error);
       addSnapshot(error);
+      const propagation = createNativeBackendFailurePropagation(nativeOccurrences);
+      // The renderer-facing throw carries no caller primitive. The immutable
+      // snapshot already records the native failure in this collector.
+      return propagation;
     },
     consumeNativeBackend(error: unknown) {
-      return consumeFailureOccurrence(nativeOccurrences, error);
+      return consumeFailureOccurrence(nativeOccurrences, error) !== null;
     },
     clearNativeBackendOccurrences() {
       clearFailureOccurrences(nativeOccurrences);
+    },
+    fork() {
+      return createCleanupFailureCollector(context, nativeOccurrences);
     },
     snapshots() {
       return Object.freeze([...immutableSnapshots]);
     },
     releaseRawReferences() {
-      clearFailureOccurrences(nativeOccurrences);
-      context.activePath.clear();
-      context.limitMarker = null;
+      if (ownsOccurrences) clearFailureOccurrences(nativeOccurrences);
+      if (ownsContext) {
+        context.activePath.clear();
+        context.limitMarker = null;
+        context.textLimitMarker = null;
+      }
     },
   };
 }
@@ -687,7 +934,7 @@ function createRendererEventBridge(
     const outermost = !relay.dispatching;
     if (outermost) relay.dispatching = true;
     try {
-      currentListener.call(renderer, error);
+      intrinsicReflectApply(currentListener, renderer, [error]);
     } finally {
       if (outermost) {
         try {
@@ -759,12 +1006,34 @@ function revokeRendererEventRelay(relay: RendererEventRelay | null): void {
   relay.nodes.clear();
 }
 
+function sameRenderViewport(
+  left: Readonly<RenderViewport>,
+  right: Readonly<RenderViewport>,
+): boolean {
+  return left.width === right.width
+    && left.height === right.height
+    && left.pixelRatio === right.pixelRatio;
+}
+
+type PendingBackendResize = {
+  readonly viewport: Readonly<RenderViewport>;
+  pipelineComplete: boolean;
+  rendererComplete: boolean;
+  attempt: Promise<void> | null;
+};
+
+type RendererOperation = Readonly<{
+  renderer: ThreeRendererPort;
+  release(): void;
+}>;
+
 /**
  * Backend implementation with the raw Three renderer held in a private field.
  * RenderHost is the sole animation-loop owner; this adapter never starts one.
  */
 export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
   readonly #options: ThreeBackendAdapterOptions;
+  #pipeline: ThreeRenderPipelinePort | null;
   readonly #listeners = new Set<(event: BackendRuntimeEvent) => void>();
   readonly #now: () => number;
   #renderer: ThreeRendererPort | null = null;
@@ -808,6 +1077,8 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     "live-renderer-info";
   #threeInfoResetObserved = false;
   #cleanupFailed = false;
+  #nonRetryableCleanupFailure: unknown = null;
+  #nonRetryableCleanupFailurePresent = false;
   #runtimeFailureClaimed = false;
   #eventEmissionActive = false;
   #runtimeFailure: Readonly<BackendRuntimeEvent> | null = null;
@@ -815,9 +1086,14 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
   readonly #cameraAspects = new WeakMap<object, number>();
   #activeRendererOperations = 0;
   #activeRendererOperationsDrain: ReturnType<typeof deferredVoid> | null = null;
+  #resizeOperationActive = false;
+  #pendingResize: PendingBackendResize | null = null;
+  #resizeCaptureActive = false;
+  #externalPipelineCallbackDepth = 0;
   #telemetrySamplingActive = false;
 
   constructor(options: ThreeBackendAdapterOptions) {
+    this.#pipeline = options.pipeline ?? null;
     this.#options = Object.freeze({
       request: options.request,
       lab: options.lab,
@@ -855,6 +1131,11 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
   }
 
   initialize(context: BackendInitializationContext): Promise<void> {
+    if (this.#externalPipelineCallbackDepth !== 0) {
+      return Promise.reject(new Error(
+        "Cannot initialize Three backend reentrantly from a pipeline callback.",
+      ));
+    }
     if (
       this.#disposePromise !== null
       && (
@@ -937,17 +1218,35 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       }
       this.#viewport = context.viewport;
       this.#applyViewport(context.viewport);
+      await this.#invokePipelineCallback(
+        () => this.#pipeline?.attachBackend(renderer, observedBackend, context.viewport),
+      );
+      this.#assertNoRuntimeFailure("attach Linear HDR pipeline");
       this.#state = "ready";
     } catch (error: unknown) {
       const cleanupErrors = createCleanupFailureCollector();
       const priorCleanupErrors = this.#activeCleanupErrors;
       this.#activeCleanupErrors = cleanupErrors;
       try {
-        if (!this.#consumePendingBackendDisposePrimary(error)) {
+        const pendingPrimary = this.#consumePendingBackendDisposePrimary(error);
+        const primaryError = pendingPrimary === null
+          ? error
+          : pendingPrimary.requiresRebudget
+            ? cleanupErrors.capture(pendingPrimary.value)
+            : pendingPrimary.value;
+        if (pendingPrimary === null) {
           this.#transferPendingBackendDisposeEvidence(cleanupErrors);
         }
         if (renderer) {
           this.#captureResourcesBeforeRendererDispose(renderer, cleanupErrors);
+        }
+        const pipelineCleanupErrors = cleanupErrors.fork();
+        if (this.#pipeline) await this.#disposePipeline(pipelineCleanupErrors);
+        const pipelineFailureStart = cleanupErrors.length;
+        cleanupErrors.appendSnapshots(pipelineCleanupErrors.snapshots());
+        const pipelineFailureEnd = cleanupErrors.length;
+        pipelineCleanupErrors.releaseRawReferences();
+        if (renderer) {
           this.#deactivateRendererEvents();
           await this.#disposeRenderer(renderer, cleanupErrors);
           try {
@@ -975,12 +1274,17 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
         this.#cleanupFailed = cleanupErrors.length > 0;
         this.#state = "failed";
         const cleanupSnapshots = cleanupErrors.snapshots();
+        this.#rememberNonRetryableCleanupFailure(
+          cleanupErrors,
+          pipelineFailureStart,
+          pipelineFailureEnd,
+        );
         const terminalFailure = cleanupErrors.length > 0
-          ? immutableAggregateError(
-            [error, ...cleanupSnapshots],
+          ? cleanupErrors.aggregate(
+            [primaryError, ...cleanupSnapshots],
             "Three backend initialization failed and renderer cleanup also failed.",
           )
-          : error;
+          : primaryError;
         cleanupErrors.releaseRawReferences();
         this.#releaseFailureReferences();
         throw terminalFailure;
@@ -992,44 +1296,133 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     }
   }
 
-  resize(viewport: RenderViewport): void {
+  async resize(viewport: RenderViewport): Promise<void> {
+    if (this.#externalPipelineCallbackDepth !== 0) {
+      throw new Error("Cannot resize Three backend reentrantly from a pipeline callback.");
+    }
     if (this.#telemetrySamplingActive) {
       throw telemetryMutationError("resize Three backend");
     }
     this.#assertNoPendingDisposal("resize");
     this.#assertReady("resize");
     this.#assertNoRuntimeFailure("resize");
-    const operation = this.#beginRendererOperation();
+    if (this.#resizeCaptureActive) {
+      throw new Error("Cannot resize Three backend reentrantly during viewport capture.");
+    }
+    const pendingAtAdmission = this.#pendingResize;
+    const existingAttempt = pendingAtAdmission?.attempt ?? null;
+    const operation = existingAttempt === null
+      ? this.#beginRendererOperation("resize")
+      : null;
     try {
+      this.#resizeCaptureActive = true;
+      let next: Readonly<RenderViewport>;
+      try {
+        next = Object.freeze({
+          width: viewport.width,
+          height: viewport.height,
+          pixelRatio: viewport.pixelRatio,
+        });
+      } finally {
+        this.#resizeCaptureActive = false;
+      }
+      this.#assertNoPendingDisposal("resize");
+      this.#assertReady("resize");
+      this.#assertNoRuntimeFailure("resize");
+      let transaction = this.#pendingResize;
+      if (transaction) {
+        if (!sameRenderViewport(transaction.viewport, next)) {
+          throw new Error("Cannot change the Three backend resize target while a prior resize is pending.");
+        }
+        if (transaction.attempt) {
+          await transaction.attempt;
+          return;
+        }
+      } else {
+        transaction = {
+          viewport: next,
+          pipelineComplete: false,
+          rendererComplete: false,
+          attempt: null,
+        };
+        this.#pendingResize = transaction;
+      }
+      if (!operation) {
+        throw new Error("Cannot retry Three backend resize without an exclusive renderer reservation.");
+      }
+      const deferred = deferredVoid();
+      const attempt = deferred.promise;
+      transaction.attempt = attempt;
       this.#resizeCalls += 1;
-      this.#viewport = viewport;
-      this.#applyViewport(viewport);
-      this.#assertNoRuntimeFailure("complete resize");
+      void this.#performResize(transaction, operation).then(deferred.resolve, deferred.reject);
+      try {
+        await attempt;
+      } finally {
+        if (transaction.attempt === attempt) transaction.attempt = null;
+        if (
+          transaction.pipelineComplete
+          && transaction.rendererComplete
+          && this.#pendingResize === transaction
+        ) {
+          this.#pendingResize = null;
+        }
+      }
     } finally {
-      operation.release();
+      operation?.release();
+    }
+  }
+
+  async #performResize(
+    transaction: PendingBackendResize,
+    operation: RendererOperation,
+  ): Promise<void> {
+    if (this.#renderer !== operation.renderer) {
+      throw new Error("Three backend renderer changed during an admitted resize transaction.");
+    }
+    if (!transaction.pipelineComplete) {
+      const pipeline = this.#pipeline;
+      if (pipeline) {
+        await this.#invokePipelineCallback(() => pipeline.resize(transaction.viewport));
+      }
+      transaction.pipelineComplete = true;
+    }
+    if (!transaction.rendererComplete) {
+      this.#assertNoRuntimeFailure("complete resize");
+      this.#applyViewport(transaction.viewport);
+      this.#viewport = transaction.viewport;
+      transaction.rendererComplete = true;
     }
   }
 
   async precompile(passes: readonly RenderPass[]): Promise<void> {
+    if (this.#externalPipelineCallbackDepth !== 0) {
+      throw new Error("Cannot precompile Three backend reentrantly from a pipeline callback.");
+    }
     if (this.#telemetrySamplingActive) {
       throw telemetryMutationError("precompile Three backend");
     }
     this.#assertNoPendingDisposal("precompile");
     this.#assertReady("precompile");
     this.#assertNoRuntimeFailure("precompile");
-    const operation = this.#beginRendererOperation();
+    this.#assertNoPendingResize("precompile");
+    const operation = this.#beginRendererOperation("precompile");
     try {
       const capturedPasses = this.#capturePasses(passes, "capture precompile passes");
       this.#assertNoRuntimeFailure("capture precompile passes");
       this.#precompileCalls += 1;
       this.#passes = capturedPasses;
       if (this.#viewport) this.#applyViewport(this.#viewport);
-      for (const pass of capturedPasses) {
+      if (this.#pipeline) {
+        await this.#invokePipelineCallback(() => this.#pipeline!.precompile(capturedPasses));
         this.#assertNoRuntimeFailure("continue precompile");
-        if (pass.scene != null && pass.camera != null) {
-          await operation.renderer.compileAsync(pass.scene, pass.camera);
+      } else {
+        for (const pass of capturedPasses) {
+          this.#assertNoRuntimeFailure("continue precompile");
+          if (pass.scene != null && pass.camera != null) {
+            await operation.renderer.compileAsync(pass.scene, pass.camera);
+          }
+          this.#assertNoRuntimeFailure("continue precompile");
         }
-        this.#assertNoRuntimeFailure("continue precompile");
       }
       const telemetry = this.#captureTelemetry(
         operation.renderer,
@@ -1045,25 +1438,34 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
   }
 
   async render(passes: readonly RenderPass[]): Promise<void> {
+    if (this.#externalPipelineCallbackDepth !== 0) {
+      throw new Error("Cannot render Three backend reentrantly from a pipeline callback.");
+    }
     if (this.#telemetrySamplingActive) {
       throw telemetryMutationError("render Three backend");
     }
     this.#assertNoPendingDisposal("render");
     this.#assertReady("render");
     this.#assertNoRuntimeFailure("render");
-    const operation = this.#beginRendererOperation();
+    this.#assertNoPendingResize("render");
+    const operation = this.#beginRendererOperation("render");
     try {
       const capturedPasses = this.#capturePasses(passes, "capture render passes");
       this.#assertNoRuntimeFailure("capture render passes");
       this.#renderCalls += 1;
       this.#passes = capturedPasses;
       if (this.#viewport) this.#applyPassCameras(this.#viewport);
-      for (const pass of capturedPasses) {
+      if (this.#pipeline) {
+        await this.#invokePipelineCallback(() => this.#pipeline!.submit(capturedPasses));
         this.#assertNoRuntimeFailure("continue render");
-        if (pass.scene != null && pass.camera != null) {
-          await operation.renderer.render(pass.scene, pass.camera);
+      } else {
+        for (const pass of capturedPasses) {
+          this.#assertNoRuntimeFailure("continue render");
+          if (pass.scene != null && pass.camera != null) {
+            await operation.renderer.render(pass.scene, pass.camera);
+          }
+          this.#assertNoRuntimeFailure("continue render");
         }
-        this.#assertNoRuntimeFailure("continue render");
       }
       const telemetry = this.#captureTelemetry(
         operation.renderer,
@@ -1197,10 +1599,15 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
   }
 
   dispose(): Promise<void> {
+    if (this.#externalPipelineCallbackDepth !== 0) {
+      return Promise.reject(new Error(
+        "Cannot dispose Three backend reentrantly from a pipeline callback.",
+      ));
+    }
     this.#disposeCalls += 1;
     if (this.#disposePromise) return this.#disposePromise;
     if (this.#state === "disposed") return Promise.resolve();
-    if (this.#state === "failed" && this.#renderer === null) {
+    if (this.#state === "failed" && this.#renderer === null && this.#pipeline === null) {
       // Initialization already reported any cleanup failure together with its
       // primary error. Disposal acknowledges that completed cleanup attempt so
       // a composing owner does not count the same failure a second time.
@@ -1208,9 +1615,21 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       return this.#disposePromise;
     }
     const deferred = deferredVoid();
-    this.#disposePromise = deferred.promise;
+    const attempt = deferred.promise;
+    this.#disposePromise = attempt;
     const beginDisposal = () => {
-      void this.#performDispose().then(deferred.resolve, deferred.reject);
+      void this.#performDispose().then(
+        deferred.resolve,
+        (error: unknown) => {
+          // Concurrent callers share one attempt. A pipeline retained after a
+          // rejection remains a real cleanup obligation, so only that failed
+          // attempt latch is cleared before its rejection reaches callers.
+          if (this.#pipeline !== null && this.#disposePromise === attempt) {
+            this.#disposePromise = null;
+          }
+          deferred.reject(error);
+        },
+      );
     };
     if (this.#telemetrySamplingActive || this.#failureSnapshotCaptureActive) {
       // Disposal is the one mutating API whose stable promise must be handed
@@ -1220,7 +1639,7 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     } else {
       beginDisposal();
     }
-    return this.#disposePromise;
+    return attempt;
   }
 
   async #performDispose(): Promise<void> {
@@ -1233,14 +1652,28 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     if (this.#state === "disposed") return;
     this.#state = "disposing";
     if (this.#activeRendererOperations > 0) await this.#drainRendererOperations();
+    this.#pendingResize = null;
     const renderer = this.#renderer;
     const cleanupErrors = createCleanupFailureCollector();
     const priorCleanupErrors = this.#activeCleanupErrors;
     this.#activeCleanupErrors = cleanupErrors;
     try {
+      if (this.#nonRetryableCleanupFailurePresent) {
+        this.#nonRetryableCleanupFailure = cleanupErrors.add(
+          this.#nonRetryableCleanupFailure,
+        );
+      }
       this.#transferPendingBackendDisposeEvidence(cleanupErrors);
       if (renderer) {
         this.#captureResourcesBeforeRendererDispose(renderer, cleanupErrors);
+      }
+      const pipelineCleanupErrors = cleanupErrors.fork();
+      if (this.#pipeline) await this.#disposePipeline(pipelineCleanupErrors);
+      const pipelineFailureStart = cleanupErrors.length;
+      cleanupErrors.appendSnapshots(pipelineCleanupErrors.snapshots());
+      const pipelineFailureEnd = cleanupErrors.length;
+      pipelineCleanupErrors.releaseRawReferences();
+      if (renderer) {
         this.#deactivateRendererEvents();
         await this.#disposeRenderer(renderer, cleanupErrors);
         try {
@@ -1260,6 +1693,11 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       }
       this.#renderer = null;
       this.#eventBridgeActive = false;
+      this.#rememberNonRetryableCleanupFailure(
+        cleanupErrors,
+        pipelineFailureStart,
+        pipelineFailureEnd,
+      );
       const cleanupError = this.#collapseCleanupErrors(cleanupErrors);
       this.#cleanupFailed = cleanupErrors.length > 0;
       this.#state = this.#cleanupFailed ? "failed" : "disposed";
@@ -1395,6 +1833,41 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
 
   #deactivateRendererEvents(): void {
     this.#eventBridgeActive = false;
+  }
+
+  async #disposePipeline(cleanupErrors: CleanupFailureCollector): Promise<void> {
+    const pipeline = this.#pipeline;
+    if (!pipeline) return;
+    try {
+      await this.#invokePipelineCallback(() => pipeline.dispose());
+      if (this.#pipeline === pipeline) this.#pipeline = null;
+    } catch (error: unknown) {
+      const nativePropagation = this.#activeCleanupErrors?.consumeNativeBackend(error) ?? false;
+      if (!nativePropagation && !cleanupErrors.consumeNativeBackend(error)) {
+        cleanupErrors.add(error);
+      }
+    }
+  }
+
+  #rememberNonRetryableCleanupFailure(
+    errors: CleanupFailureCollector,
+    pipelineFailureStart: number,
+    pipelineFailureEnd: number,
+  ): void {
+    if (this.#nonRetryableCleanupFailurePresent) return;
+    const snapshots = errors.snapshots();
+    const evidence = Object.freeze([
+      ...snapshots.slice(0, pipelineFailureStart),
+      ...snapshots.slice(pipelineFailureEnd),
+    ]);
+    if (evidence.length === 0) return;
+    this.#nonRetryableCleanupFailure = evidence.length === 1
+      ? evidence[0]
+      : errors.aggregate(
+        evidence,
+        "Three backend retained non-retryable cleanup failure evidence.",
+      );
+    this.#nonRetryableCleanupFailurePresent = true;
   }
 
   #restoreRendererEvents(renderer: ThreeRendererPort): void {
@@ -1663,20 +2136,23 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       if (this.#backendDisposeInvoked) return;
       this.#backendDisposeInvoked = true;
       try {
-        originalDispose.call(backend);
+        intrinsicReflectApply(originalDispose, backend, []);
         this.#backendDisposeCompleted = true;
       } catch (error: unknown) {
         // Capture native failure evidence before renderer cleanup can swallow
         // it or a queued microtask can mutate its caller-owned graph.
         const cleanupErrors = this.#activeCleanupErrors;
         if (cleanupErrors) {
-          cleanupErrors.addNativeBackend(error);
+          throw cleanupErrors.addNativeBackend(error);
         } else {
           // Publish a provisional, reference-free obligation before inspecting
           // hostile Error/AggregateError properties. A message getter may call
           // dispose reentrantly, but that disposal must wait for the completed
           // immutable snapshot instead of observing "no failure".
-          rememberFailureOccurrence(this.#pendingBackendDisposeOccurrences, error);
+          const occurrenceRemembered = rememberFailureOccurrence(
+            this.#pendingBackendDisposeOccurrences,
+            error,
+          );
           this.#pendingBackendDisposeEvidence = immutableFailureMarker(
             "Native backend failure evidence capture is in progress.",
           );
@@ -1686,6 +2162,12 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
             this.#pendingBackendDisposeEvidence = immutableFailureSnapshot(error);
           } finally {
             this.#failureSnapshotCaptureActive = false;
+          }
+          if (!occurrenceRemembered && this.#state === "initializing") {
+            const propagation = createNativeBackendFailurePropagation(
+              this.#pendingBackendDisposeOccurrences,
+            );
+            throw propagation;
           }
         }
         throw error;
@@ -1807,31 +2289,37 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     cleanupErrors.add(evidence);
   }
 
-  #consumePendingBackendDisposePrimary(error: unknown): boolean {
-    if (
-      !this.#pendingBackendDisposeEvidencePresent
-      || !consumeFailureOccurrence(this.#pendingBackendDisposeOccurrences, error)
-    ) {
-      return false;
+  #consumePendingBackendDisposePrimary(error: unknown): Readonly<{
+    value: unknown;
+    requiresRebudget: boolean;
+  }> | null {
+    if (!this.#pendingBackendDisposeEvidencePresent) {
+      return null;
     }
+    const match = consumeFailureOccurrence(this.#pendingBackendDisposeOccurrences, error);
+    if (match === null) return null;
+    const evidence = this.#pendingBackendDisposeEvidence;
     this.#pendingBackendDisposeEvidence = undefined;
     this.#pendingBackendDisposeEvidencePresent = false;
     clearFailureOccurrences(this.#pendingBackendDisposeOccurrences);
-    return true;
+    return Object.freeze({
+      value: match === "propagation" ? evidence : error,
+      requiresRebudget: match === "propagation",
+    });
   }
 
   #collapseCleanupErrors(errors: CleanupFailureCollector): unknown {
     if (errors.length === 0) return null;
     const snapshots = errors.snapshots();
     if (snapshots.length === 1) return snapshots[0];
-    return immutableAggregateError(
+    return errors.aggregate(
       snapshots,
       "Three backend cleanup failed in multiple operations.",
     );
   }
 
   #isFailedWithoutRenderer(): boolean {
-    return this.#state === "failed" && this.#renderer === null;
+    return this.#state === "failed" && this.#renderer === null && this.#pipeline === null;
   }
 
   #applyViewport(viewport: RenderViewport): void {
@@ -1866,7 +2354,7 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
         this.#assertNoRuntimeFailure("update viewport camera aspect");
         const updateProjectionMatrix = camera.updateProjectionMatrix;
         this.#assertNoRuntimeFailure("inspect viewport projection update");
-        updateProjectionMatrix?.call(camera);
+        if (updateProjectionMatrix) intrinsicReflectApply(updateProjectionMatrix, camera, []);
         this.#assertNoRuntimeFailure("update viewport projection");
         this.#cameraAspects.set(camera, aspect);
       }
@@ -1882,7 +2370,7 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     }
     const captured: RenderPass[] = [];
     for (let index = 0; index < length; index += 1) {
-      const present = Object.prototype.hasOwnProperty.call(passes, index);
+      const present = intrinsicReflectApply(intrinsicHasOwnProperty, passes, [index]);
       this.#assertNoRuntimeFailure(operation);
       if (!present) continue;
       const pass = passes[index];
@@ -1897,35 +2385,48 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       if (typeof kind !== "string" || !kind.trim()) {
         throw new TypeError("A render pass requires non-empty name and kind fields.");
       }
+      const variant = pass.variant;
+      this.#assertNoRuntimeFailure(operation);
+      if (variant !== undefined && (typeof variant !== "string" || !variant.trim())) {
+        throw new TypeError("A render pass variant must be a non-empty string when present.");
+      }
       const scene = pass.scene;
       this.#assertNoRuntimeFailure(operation);
       const camera = pass.camera;
       this.#assertNoRuntimeFailure(operation);
       const payload = pass.payload;
       this.#assertNoRuntimeFailure(operation);
-      captured.push(Object.freeze(payload === undefined
+      const capturedPass = variant === undefined
         ? { name, kind, scene, camera }
-        : { name, kind, scene, camera, payload }));
+        : { name, kind, variant, scene, camera };
+      captured.push(Object.freeze(payload === undefined
+        ? capturedPass
+        : { ...capturedPass, payload }));
     }
     return Object.freeze(captured);
   }
 
-  #beginRendererOperation(): Readonly<{
-    renderer: ThreeRendererPort;
-    release(): void;
-  }> {
+  #beginRendererOperation(kind: "precompile" | "render" | "resize"): RendererOperation {
     const renderer = this.#renderer;
     if (!renderer) throw new Error("Cannot begin a renderer operation without a renderer.");
+    if (kind === "resize" && this.#activeRendererOperations !== 0) {
+      throw new Error("Cannot resize Three backend while another renderer operation is active.");
+    }
+    if (kind !== "resize" && this.#resizeOperationActive) {
+      throw new Error(`Cannot ${kind} Three backend while a resize is active.`);
+    }
     if (this.#activeRendererOperations === 0) {
       this.#activeRendererOperationsDrain = deferredVoid();
     }
     this.#activeRendererOperations += 1;
+    if (kind === "resize") this.#resizeOperationActive = true;
     let released = false;
     return Object.freeze({
       renderer,
       release: () => {
         if (released) return;
         released = true;
+        if (kind === "resize") this.#resizeOperationActive = false;
         this.#activeRendererOperations -= 1;
         if (this.#activeRendererOperations !== 0) return;
         const drain = this.#activeRendererOperationsDrain;
@@ -1933,6 +2434,15 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
         drain?.resolve();
       },
     });
+  }
+
+  #invokePipelineCallback<T>(callback: () => T): T {
+    this.#externalPipelineCallbackDepth += 1;
+    try {
+      return callback();
+    } finally {
+      this.#externalPipelineCallbackDepth -= 1;
+    }
   }
 
   async #drainRendererOperations(): Promise<void> {
@@ -1957,6 +2467,15 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       throw new Error(
         `Cannot ${operation} Three backend after disposal was requested.`,
       );
+    }
+  }
+
+  #assertNoPendingResize(operation: string): void {
+    if (this.#pendingResize !== null) {
+      throw new Error(`Cannot ${operation} Three backend while a resize is pending.`);
+    }
+    if (this.#resizeCaptureActive || this.#resizeOperationActive) {
+      throw new Error(`Cannot ${operation} Three backend while resize admission is active.`);
     }
   }
 }
