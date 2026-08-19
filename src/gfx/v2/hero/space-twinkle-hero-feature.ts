@@ -123,6 +123,7 @@ export interface SpaceTwinkleHeroFeatureSnapshot {
   readonly ledgerOrderPreserved: boolean;
   readonly finalLifeLightsTemporalStable: boolean;
   readonly formalTitleVisible: boolean;
+  readonly visibleDistantStars: number;
   readonly ownedGeometries: number;
   readonly ownedMaterials: number;
   readonly ownedTextures: number;
@@ -150,6 +151,107 @@ function mix32(value: number): number {
   let mixed = Math.imul(value ^ (value >>> 16), 0x7feb_352d);
   mixed = Math.imul(mixed ^ (mixed >>> 15), 0x846c_a68b);
   return (mixed ^ (mixed >>> 16)) >>> 0;
+}
+
+function hashedUnit(x: number, y: number, seed: number): number {
+  return mix32(
+    seed
+    ^ Math.imul(x + 1, 0x85eb_ca6b)
+    ^ Math.imul(y + 1, 0xc2b2_ae35),
+  ) / 0x1_0000_0000;
+}
+
+function organicAsteroidGeometry(seed: number): IcosahedronGeometry {
+  const geometry = new IcosahedronGeometry(0.55, 2);
+  const positions = geometry.attributes.position;
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const z = positions.getZ(index);
+    const longitude = Math.round((Math.atan2(z, x) + Math.PI) * 2_048);
+    const latitude = Math.round((y + 0.75) * 4_096);
+    const variation = 0.76 + hashedUnit(longitude, latitude, seed) * 0.42;
+    positions.setXYZ(index, x * variation, y * variation * 0.84, z * variation * 1.08);
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function nebulaLobeGeometry(seed: number): SphereGeometry {
+  const radius = 1;
+  const geometry = new SphereGeometry(radius, 24, 16);
+  const positions = geometry.attributes.position;
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const z = positions.getZ(index);
+    const longitude = Math.round((Math.atan2(z, x) + Math.PI) * 1_024);
+    const latitude = Math.round((y + radius) * 2_048);
+    const lowFrequency = Math.sin(longitude * 0.008 + seed * 0.000_013) * 0.075;
+    const variation = 0.86
+      + lowFrequency
+      + hashedUnit(longitude, latitude, seed) * 0.2;
+    positions.setXYZ(index, x * variation, y * variation, z * variation);
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function livingDropletGeometry(): SphereGeometry {
+  const radius = 0.7;
+  const geometry = new SphereGeometry(radius, 24, 18);
+  const positions = geometry.attributes.position;
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const z = positions.getZ(index);
+    const normalizedY = y / radius;
+    const lowerTaper = normalizedY < -0.08
+      ? Math.max(0.4, 1 + (normalizedY + 0.08) * 0.58)
+      : 1;
+    positions.setXYZ(
+      index,
+      x * lowerTaper * (1 + Math.sin(normalizedY * 4.8) * 0.035),
+      y + (1 - Math.abs(normalizedY)) * 0.04,
+      z * lowerTaper,
+    );
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function livingEarthGeometry(seed: number): SphereGeometry {
+  const radius = 1.58;
+  const geometry = new SphereGeometry(radius, 40, 28);
+  const positions = geometry.attributes.position;
+  const colors = new Float32Array(positions.count * 3);
+  const color = new Color();
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index) / radius;
+    const y = positions.getY(index) / radius;
+    const z = positions.getZ(index) / radius;
+    const longitude = Math.atan2(z, x);
+    const continent = Math.sin(longitude * 2.4 + y * 4.8 + seed * 0.000_002)
+      + Math.cos(longitude * 5.1 - y * 3.2) * 0.58
+      + Math.sin((x + z) * 7.2) * 0.24;
+    if (Math.abs(y) > 0.82) {
+      color.setHex(0xdce8df);
+    } else if (continent > 0.58) {
+      const warmth = Math.max(0, Math.min(1, (continent - 0.58) * 1.7));
+      color.setRGB(0.12 + warmth * 0.12, 0.32 + warmth * 0.16, 0.13 + warmth * 0.05);
+    } else {
+      const depth = Math.max(0, Math.min(1, -continent * 0.22 + 0.38));
+      color.setRGB(0.045, 0.2 + depth * 0.13, 0.37 + depth * 0.22);
+    }
+    colors[index * 3] = color.r;
+    colors[index * 3 + 1] = color.g;
+    colors[index * 3 + 2] = color.b;
+  }
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  return geometry;
 }
 
 function finiteStoryTime(value: number): number {
@@ -253,8 +355,8 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
     ));
   }
 
-  const segments = 96;
-  const acrossSegments = 6;
+  const segments = 144;
+  const acrossSegments = 10;
   const centers: Vector3[] = [];
   const tangents: Vector3[] = [];
   const normals: Vector3[] = [];
@@ -295,6 +397,9 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
   const acrossCount = acrossSegments + 1;
   const layerSize = longitudinalCount * acrossCount;
   const positions: number[] = [];
+  const colors: number[] = [];
+  const shellHues = [0.48, 0.94, 0.075] as const;
+  const vertexColor = new Color();
   let minimumVertexRadius = Number.POSITIVE_INFINITY;
   const vertex = new Vector3();
   for (let layer = 0; layer < 2; layer += 1) {
@@ -304,10 +409,23 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
       const width = (0.47 + shellIndex * 0.035) * superformulaRadius(theta + phase, shellIndex);
       for (let across = 0; across <= acrossSegments; across += 1) {
         const lateral = -1 + (across / acrossSegments) * 2;
+        const surfaceRipple = Math.sin(
+          theta * (5 + shellIndex * 2) + lateral * 2.2 + phase,
+        ) * 0.018 * (1 - Math.abs(lateral) * 0.3);
         vertex.copy(centers[along]!)
           .addScaledVector(normals[along]!, lateral * width)
-          .addScaledVector(binormals[along]!, thicknessOffset);
+          .addScaledVector(binormals[along]!, thicknessOffset + surfaceRipple);
         positions.push(vertex.x, vertex.y, vertex.z);
+        const shimmer = 0.5 + Math.sin(
+          theta * (3 + shellIndex) - lateral * 1.8 + layer * 0.7,
+        ) * 0.5;
+        const edgeLight = 1 - Math.abs(lateral) * 0.42;
+        vertexColor.setHSL(
+          shellHues[shellIndex]! + Math.sin(theta * 2 + phase) * 0.012,
+          0.62,
+          0.17 + shimmer * 0.2 + edgeLight * 0.08,
+        );
+        colors.push(vertexColor.r, vertexColor.g, vertexColor.b);
         minimumVertexRadius = Math.min(minimumVertexRadius, vertex.length());
       }
     }
@@ -344,6 +462,7 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
 
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
@@ -379,6 +498,7 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
   readonly #geometries: HeroOwnedGeometry[] = [];
   readonly #shellMaterials: MeshStandardNodeMaterial[] = [];
   readonly #previewArcs: Mesh[] = [];
+  readonly #distantStars: InstancedMesh;
   readonly #twinkleMesh: InstancedMesh;
   readonly #twinkleDummy = new Object3D();
   readonly #twinkleColors = Object.freeze([
@@ -467,6 +587,45 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     this.#root.add(this.#alienLight, this.#beaconLight, this.#earthLight);
     scene.add(this.#ambient, this.#hemisphere, this.#keyLight);
 
+    const distantStarGeometry = this.#ownGeometry(new IcosahedronGeometry(0.045, 1));
+    const distantStarMaterial = this.#ownMaterial(additiveMaterial(0xd8e7ff, 0.64));
+    const distantStars = this.#distantStars = new InstancedMesh(
+      distantStarGeometry,
+      distantStarMaterial,
+      180,
+    );
+    distantStars.name = "hero-c:distant-starfield";
+    const distantStarDummy = new Object3D();
+    const starColors = [
+      new Color(0xd8e7ff),
+      new Color(0xffd9ad),
+      new Color(0x9ee7dc),
+      new Color(0xc8b8ff),
+    ] as const;
+    for (let index = 0; index < 180; index += 1) {
+      const xUnit = hashedUnit(index, 0, seed ^ 0x53ac_190d);
+      const yUnit = hashedUnit(index, 1, seed ^ 0x8e21_b746);
+      let x = (xUnit * 2 - 1) * 13.4;
+      const y = (yUnit * 2 - 1) * 7.2;
+      if ((x - 1.7) ** 2 + (y - 0.15) ** 2 < 10.5) {
+        x += x < 1.7 ? -4.2 : 4.2;
+      }
+      distantStarDummy.position.set(
+        x,
+        y,
+        -9.5 - hashedUnit(index, 2, seed ^ 0x319d_65c2) * 10.5,
+      );
+      const scale = 0.45 + hashedUnit(index, 3, seed ^ 0xb817_42e3) * 1.5;
+      distantStarDummy.scale.setScalar(scale);
+      distantStarDummy.rotation.set(0, 0, hashedUnit(index, 4, seed) * TAU);
+      distantStarDummy.updateMatrix();
+      distantStars.setMatrixAt(index, distantStarDummy.matrix);
+      distantStars.setColorAt(index, starColors[index % starColors.length]!);
+    }
+    distantStars.instanceMatrix.needsUpdate = true;
+    if (distantStars.instanceColor) distantStars.instanceColor.needsUpdate = true;
+    this.#root.add(distantStars);
+
     const humanMetal = this.#ownMaterial(standardMaterial(0x5b6471, 0.68, 0.72));
     const humanPanel = this.#ownMaterial(standardMaterial(0x243b57, 0.48, 0.52));
     const humanLight = this.#ownMaterial(standardMaterial(0x6f431d, 0.35, 0.4));
@@ -478,7 +637,7 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     const panel = this.#ownGeometry(new PlaneGeometry(1, 1, 1, 1));
     this.#buildHumanDebris(box, panel, humanMetal, humanPanel, humanLight, humanVoid);
 
-    const asteroidGeometry = this.#ownGeometry(new IcosahedronGeometry(0.55, 1));
+    const asteroidGeometry = this.#ownGeometry(organicAsteroidGeometry(seed ^ 0x6d91_3ac7));
     const asteroids = new InstancedMesh(asteroidGeometry, asteroidMaterial, 18);
     asteroids.name = "hero-c:nonuniform-asteroid-field";
     const asteroidDummy = new Object3D();
@@ -497,21 +656,26 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     asteroids.instanceMatrix.needsUpdate = true;
     this.#debrisRoot.add(asteroids);
 
-    this.#buildNebula();
+    this.#buildNebula(seed);
     this.#buildPreviewArcs();
 
     let minimumShipVertexRadius = Number.POSITIVE_INFINITY;
-    const shellColors = [0x223d46, 0x493143, 0x4a3928] as const;
     const shellEmissive = [0x0e5c59, 0x6c2637, 0x7a441a] as const;
     for (let shellIndex = 0; shellIndex < ALIEN_SHELL_COUNT; shellIndex += 1) {
       const built = buildAlienRibbonGeometry(shellIndex);
       minimumShipVertexRadius = Math.min(minimumShipVertexRadius, built.minimumVertexRadius);
       const geometry = this.#ownGeometry(built.geometry);
       geometry.name = `hero-c:closed-bspline-ribbon-${shellIndex + 1}`;
-      const material = this.#ownMaterial(standardMaterial(shellColors[shellIndex]!, 0.24, 0.72));
+      const material = this.#ownMaterial(physicalMaterial(0xffffff, 1, 0.18, 0.56));
       material.name = `hero-c:pearl-mineral-shell-${shellIndex + 1}`;
+      material.vertexColors = true;
+      material.clearcoat = 1;
+      material.clearcoatRoughness = 0.12 + shellIndex * 0.025;
+      material.iridescence = 0.58 + shellIndex * 0.08;
+      material.iridescenceIOR = 1.22 + shellIndex * 0.04;
+      material.iridescenceThicknessRange = [115 + shellIndex * 35, 410 + shellIndex * 55];
       material.emissive.setHex(shellEmissive[shellIndex]!);
-      material.emissiveIntensity = 0.42;
+      material.emissiveIntensity = 0.34;
       this.#shellMaterials.push(material);
       const shell = new Mesh(geometry, material);
       shell.name = `hero-c:alien-ribbon-shell-${shellIndex + 1}`;
@@ -522,10 +686,15 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     this.#alienRoot.position.set(1.7, 0.15, -1.8);
     this.#alienRoot.rotation.x = -0.08;
 
-    const earthMaterial = this.#ownMaterial(standardMaterial(0x287fc0, 0.58, 0.08));
+    const earthMaterial = this.#ownMaterial(physicalMaterial(0xffffff, 1, 0.48, 0.05));
+    earthMaterial.vertexColors = true;
+    earthMaterial.clearcoat = 0.62;
+    earthMaterial.clearcoatRoughness = 0.28;
+    earthMaterial.iridescence = 0.08;
+    earthMaterial.iridescenceIOR = 1.24;
     earthMaterial.emissive.setHex(0x0c355c);
-    earthMaterial.emissiveIntensity = 0.72;
-    const earthGeometry = this.#ownGeometry(new SphereGeometry(1.58, 32, 22));
+    earthMaterial.emissiveIntensity = 0.34;
+    const earthGeometry = this.#ownGeometry(livingEarthGeometry(seed ^ 0x26c8_41b5));
     const earth = new Mesh(earthGeometry, earthMaterial);
     earth.name = "hero-c:living-earth-sphere";
     this.#earthRoot.add(earth);
@@ -533,6 +702,14 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     const earthAura = new Mesh(this.#ownGeometry(new SphereGeometry(1.76, 24, 18)), earthAuraMaterial);
     earthAura.name = "hero-c:earth-atmosphere-aura";
     this.#earthRoot.add(earthAura);
+    const earthCloudMaterial = this.#ownMaterial(additiveMaterial(0xe7f5f2, 0.065));
+    const earthClouds = new Mesh(
+      this.#ownGeometry(new SphereGeometry(1.64, 32, 22)),
+      earthCloudMaterial,
+    );
+    earthClouds.name = "hero-c:earth-cloud-veil";
+    earthClouds.scale.set(1, 0.985, 1);
+    this.#earthRoot.add(earthClouds);
     this.#earthRoot.position.set(4.7, -1.2, -4.7);
 
     const twinkleGeometry = this.#ownGeometry(new IcosahedronGeometry(0.08, 1));
@@ -543,8 +720,12 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     this.#twinkleRoot.add(this.#twinkleMesh);
 
     const protagonistEnvelope = this.#ownMaterial(physicalMaterial(0xa9e9e0, 0.62, 0.24, 0.08));
+    protagonistEnvelope.clearcoat = 1;
+    protagonistEnvelope.iridescence = 0.48;
+    protagonistEnvelope.iridescenceIOR = 1.23;
+    protagonistEnvelope.iridescenceThicknessRange = [105, 340];
     const protagonistCore = this.#ownMaterial(additiveMaterial(0xffe5a3, 0.98));
-    const protagonistGeometry = this.#ownGeometry(new SphereGeometry(0.7, 24, 18));
+    const protagonistGeometry = this.#ownGeometry(livingDropletGeometry());
     const protagonist = new Mesh(protagonistGeometry, protagonistEnvelope);
     protagonist.name = "hero-c:protagonist-envelope";
     protagonist.scale.set(0.72, 1.1, 0.52);
@@ -630,6 +811,7 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     this.#previewRoot.rotation.z = Math.sin(time * 0.19) * 0.08;
     this.#alienRoot.rotation.y = Math.sin(time * 0.12) * 0.08;
     this.#alienRoot.rotation.z = Math.sin(time * 0.08) * 0.035;
+    this.#earthRoot.rotation.y = time * 0.018;
     this.#protagonistRoot.position.y = -0.35 + Math.sin(time * 0.72) * 0.12;
     this.#pulseRoot.position.y = this.#protagonistRoot.position.y;
     const wingOpen = this.#storyTime >= TWINKLE_START_SECONDS;
@@ -787,6 +969,7 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
       ledgerOrderPreserved: this.#ledgerOrderPreserved,
       finalLifeLightsTemporalStable: true,
       formalTitleVisible: this.#storyTime >= FINAL_TITLE_SECONDS,
+      visibleDistantStars: this.#distantStars.count,
       ownedGeometries: this.#geometries.filter((entry) => !entry.disposed).length,
       ownedMaterials: this.#materials.filter((entry) => !entry.disposed).length,
       ownedTextures: 0,
@@ -910,7 +1093,7 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     this.#debrisRoot.add(cockpit);
   }
 
-  #buildNebula(): void {
+  #buildNebula(seed: number): void {
     const colors = [0x8a4fbe, 0x39b7ad, 0xe36e83, 0xe2ad4f] as const;
     const positions = [
       [-7.8, 3.3, -8.5],
@@ -918,16 +1101,44 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
       [-8.3, -4.1, -7.4],
       [8.7, -3.7, -8.8],
     ] as const;
-    const geometry = this.#ownGeometry(new IcosahedronGeometry(2.8, 2));
+    const geometries = [
+      this.#ownGeometry(nebulaLobeGeometry(seed ^ 0x1f82_a6c3)),
+      this.#ownGeometry(nebulaLobeGeometry(seed ^ 0x6c17_39de)),
+    ] as const;
     for (let index = 0; index < colors.length; index += 1) {
-      const material = this.#ownMaterial(additiveMaterial(colors[index]!, 0.105));
-      const cloud = new Mesh(geometry, material);
-      cloud.name = `hero-c:peripheral-nebula-${index + 1}`;
+      const cluster = new Group();
+      cluster.name = `hero-c:peripheral-nebula-${index + 1}`;
       const position = positions[index]!;
-      cloud.position.set(position[0], position[1], position[2]);
-      cloud.scale.set(1.7 + index * 0.12, 1.1 + (index % 2) * 0.3, 0.72);
-      cloud.rotation.set(index * 0.42, index * 0.31, index * 0.58);
-      this.#nebulaRoot.add(cloud);
+      cluster.position.set(position[0], position[1], position[2]);
+      cluster.rotation.set(index * 0.08, index * 0.11, index * 0.16);
+      const coreMaterial = this.#ownMaterial(additiveMaterial(colors[index]!, 0.048));
+      const haloMaterial = this.#ownMaterial(additiveMaterial(colors[index]!, 0.017));
+      for (let lobeIndex = 0; lobeIndex < 4; lobeIndex += 1) {
+        const angle = (lobeIndex / 4) * TAU
+          + hashedUnit(index, lobeIndex, seed ^ 0xc72b_491d) * 0.64;
+        const radius = 0.45 + hashedUnit(index, lobeIndex, seed ^ 0x39ad_6107) * 0.85;
+        const scaleX = 2.25 + hashedUnit(index, lobeIndex, seed ^ 0x9d42_18f5) * 1.05;
+        const scaleY = 1.25 + hashedUnit(index, lobeIndex, seed ^ 0x4b61_e82a) * 0.88;
+        const scaleZ = 0.62 + hashedUnit(index, lobeIndex, seed ^ 0xe73c_2904) * 0.48;
+        const geometry = geometries[(index + lobeIndex) % geometries.length]!;
+        const lobe = new Mesh(geometry, coreMaterial);
+        lobe.name = `hero-c:peripheral-nebula-${index + 1}-lobe-${lobeIndex + 1}`;
+        lobe.position.set(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius * 0.72,
+          (hashedUnit(index, lobeIndex, seed ^ 0x72a6_d30b) - 0.5) * 0.7,
+        );
+        lobe.rotation.set(angle * 0.13, angle * 0.2, angle + index * 0.28);
+        lobe.scale.set(scaleX, scaleY, scaleZ);
+
+        const halo = new Mesh(geometry, haloMaterial);
+        halo.name = `hero-c:peripheral-nebula-${index + 1}-halo-${lobeIndex + 1}`;
+        halo.position.copy(lobe.position);
+        halo.rotation.copy(lobe.rotation);
+        halo.scale.set(scaleX * 1.28, scaleY * 1.3, scaleZ * 1.36);
+        cluster.add(halo, lobe);
+      }
+      this.#nebulaRoot.add(cluster);
     }
   }
 
@@ -1027,6 +1238,11 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     this.#twinkleMesh.count = this.#twinkleStage === "none"
       ? 0
       : Math.min(highCounts[this.#twinkleStage], caps[this.#twinkleStage]);
+    this.#distantStars.count = this.#qualityTier === "high"
+      ? 180
+      : this.#qualityTier === "balanced"
+        ? 128
+        : 72;
   }
 
   #cameraForStory(): void {

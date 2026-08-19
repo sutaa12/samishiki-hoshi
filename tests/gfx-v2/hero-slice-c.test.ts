@@ -1,5 +1,8 @@
 import {
   Color,
+  InstancedMesh,
+  Mesh,
+  MeshPhysicalNodeMaterial,
   PerspectiveCamera,
   Scene,
 } from "three/webgpu";
@@ -145,6 +148,7 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
       earthVisible: false,
       twinkleStage: "none",
       visibleTwinkles: 0,
+      visibleDistantStars: 180,
       allocationsAfterInitialize: 0,
     });
     expect(scene.getObjectByName("hero-c:debris-form-1-square-solar-panel")).toBeDefined();
@@ -236,6 +240,44 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
     expect(scene.getObjectByName("hero-c:alien-ribbon-shell-4")).toBeUndefined();
   });
 
+  it("preallocates layered nebulae, a sparse depth field, and pearl-shaded ribbon surfaces", async () => {
+    const { scene, feature } = harness();
+    await feature.initialize({} as FeatureInitContext);
+
+    let nebulaLobes = 0;
+    let nebulaHalos = 0;
+    scene.traverse((object) => {
+      if (/^hero-c:peripheral-nebula-\d-lobe-\d$/.test(object.name)) nebulaLobes += 1;
+      if (/^hero-c:peripheral-nebula-\d-halo-\d$/.test(object.name)) nebulaHalos += 1;
+    });
+    expect({ nebulaLobes, nebulaHalos }).toEqual({ nebulaLobes: 16, nebulaHalos: 16 });
+
+    const starfield = scene.getObjectByName("hero-c:distant-starfield");
+    expect(starfield).toBeInstanceOf(InstancedMesh);
+    if (starfield instanceof InstancedMesh) expect(starfield.count).toBe(180);
+    for (let index = 1; index <= 3; index += 1) {
+      const shell = scene.getObjectByName(`hero-c:alien-ribbon-shell-${index}`);
+      expect(shell).toBeInstanceOf(Mesh);
+      if (!(shell instanceof Mesh) || Array.isArray(shell.material)) continue;
+      expect(shell.geometry.getAttribute("color")?.count).toBeGreaterThan(0);
+      expect(shell.material).toBeInstanceOf(MeshPhysicalNodeMaterial);
+      if (shell.material instanceof MeshPhysicalNodeMaterial) {
+        expect(shell.material.iridescence).toBeGreaterThan(0.5);
+        expect(shell.material.clearcoat).toBe(1);
+      }
+    }
+    const earth = scene.getObjectByName("hero-c:living-earth-sphere");
+    expect(earth).toBeInstanceOf(Mesh);
+    if (earth instanceof Mesh) {
+      expect(earth.geometry.getAttribute("color")?.count).toBeGreaterThan(0);
+    }
+    expect(feature.snapshot()).toMatchObject({
+      state: "ready",
+      visibleDistantStars: 180,
+      allocationsAfterInitialize: 0,
+    });
+  });
+
   it("consumes the immutable ledger in order and stages one, few, tens, then many stable life lights", async () => {
     const { world, feature } = harness();
     await feature.initialize({} as FeatureInitContext);
@@ -268,6 +310,7 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
       earthVisible: true,
       twinkleStage: "many",
       visibleTwinkles: 160,
+      visibleDistantStars: 180,
       twinkleSourceCount: 3,
       ledgerOrderPreserved: true,
       finalLifeLightsTemporalStable: true,
@@ -284,10 +327,14 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
       alienRibbonShellCount: 3,
       centralVoidOpen: true,
       visibleTwinkles: 64,
+      visibleDistantStars: 72,
       allocationsAfterInitialize: 0,
     });
     feature.quality(HIGH);
-    expect(feature.snapshot().visibleTwinkles).toBe(160);
+    expect(feature.snapshot()).toMatchObject({
+      visibleTwinkles: 160,
+      visibleDistantStars: 180,
+    });
   });
 
   it("keeps the final formal-title state and releases all owned resources once", async () => {

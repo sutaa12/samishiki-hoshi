@@ -92,6 +92,7 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
       peripheralArcsVisible: false,
       unknownShipVisible: false,
       visibleTwinkles: 0,
+      visibleDistantStars: 180,
       allocationsAfterInitialize: 0,
     });
     if (!debris.heroC) throw new Error("Hero Slice C ownership evidence is unavailable.");
@@ -130,6 +131,7 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
       alienRibbonShellCount: 0,
       centralVoidOpen: false,
       visibleTwinkles: 0,
+      visibleDistantStars: 180,
       allocationsAfterInitialize: 0,
     });
     expect(arcs.pipeline.programCountAtReady).toBe(baselinePrograms);
@@ -162,6 +164,7 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
       responseWindowOpen: true,
       answerReceived: false,
       visibleTwinkles: 0,
+      visibleDistantStars: 180,
       allocationsAfterInitialize: 0,
     });
     expect(answer.heroC?.minimumShipVertexRadius).toBeGreaterThan(1.5);
@@ -189,6 +192,7 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
       earthVisible: true,
       twinkleStage: "many",
       visibleTwinkles: 160,
+      visibleDistantStars: 180,
       twinkleSourceCount: 3,
       ledgerOrderPreserved: true,
       finalLifeLightsTemporalStable: true,
@@ -210,6 +214,7 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
       alienRibbonShellCount: 3,
       centralVoidOpen: true,
       visibleTwinkles: 64,
+      visibleDistantStars: 72,
       twinkleSourceCount: 3,
       allocationsAfterInitialize: 0,
     });
@@ -223,6 +228,7 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
     expect(restored.heroC).toMatchObject({
       qualityTier: "high",
       visibleTwinkles: 160,
+      visibleDistantStars: 180,
       alienRibbonShellCount: 3,
       centralVoidOpen: true,
       allocationsAfterInitialize: 0,
@@ -260,7 +266,11 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
 
     const steady = await waitForSnapshot(
       page,
-      (value) => value.telemetry.window.steadyFrames >= 120,
+      (value) => (
+        value.telemetry.window.steadyFrames >= 120
+        && value.telemetry.frameIntervalMs.p95 !== null
+        && value.telemetry.mainThreadWorkMs.p95 !== null
+      ),
       30_000,
     );
     expect(steady.telemetry.frameIntervalMs.p95).not.toBeNull();
