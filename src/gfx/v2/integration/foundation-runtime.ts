@@ -18,6 +18,10 @@ import {
   type TslMaterialLibrarySnapshot,
 } from "../materials";
 import {
+  OceanHeroFeature,
+  type OceanHeroFeatureSnapshot,
+} from "../hero";
+import {
   ProductionLinearHdrPipeline,
   type LinearHdrPipelineSnapshot,
 } from "../pipeline";
@@ -97,6 +101,9 @@ export const FOUNDATION_QUALITY_PROFILES: Readonly<
 const WARMUP_PROFILES = Object.freeze(Object.values(FOUNDATION_QUALITY_PROFILES));
 const INITIAL_QUALITY: FoundationQualityId = "high-temporal";
 const INITIAL_CHUNK: StoryChunkId = "S08";
+const DEFAULT_HERO_A_MARKER_SECONDS = 12;
+
+export type GfxFoundationExperience = "foundation" | "hero-a";
 
 class BrowserFrameLoop implements RenderFrameLoop {
   running = false;
@@ -196,6 +203,33 @@ function renderSnapshot(plan: Readonly<WorldPlan>, chunkId: StoryChunkId): Reado
   });
 }
 
+function renderSnapshotAt(
+  plan: Readonly<WorldPlan>,
+  requestedStoryTime: number,
+): Readonly<JourneyRenderSnapshot> {
+  if (!Number.isFinite(requestedStoryTime)) {
+    throw new TypeError("Foundation story time must be finite.");
+  }
+  const storyTime = Math.max(0, Math.min(180, requestedStoryTime));
+  const storyTimeMs = Math.round(storyTime * 1000);
+  const chunk = plan.chunks.find((candidate) => (
+    storyTimeMs >= candidate.storyNode.startMs
+    && (storyTimeMs < candidate.storyNode.endMs || candidate.id === "S24")
+  ));
+  if (!chunk) throw new RangeError(`World plan has no chunk at ${storyTime} seconds.`);
+  return Object.freeze({
+    seed: Number(plan.worldSeed),
+    storyTime,
+    phase: chunk.storyNode.phase,
+    shotId: chunk.id,
+    position: Object.freeze({ x: 0, y: 0 }),
+    velocity: Object.freeze({ x: 0, y: 0 }),
+    pulses: Object.freeze([]),
+    answerAt: null,
+    finished: storyTime >= 180,
+  });
+}
+
 function sceneSnapshot(scene: Scene) {
   let objects = 0;
   let meshes = 0;
@@ -221,6 +255,7 @@ export interface GfxFoundationSnapshot {
   readonly quality: Readonly<{ id: FoundationQualityId; subscribers: number }>;
   readonly frameLoop: Readonly<{ running: boolean; starts: number; stops: number; ticks: number }>;
   readonly scene: Readonly<{ objects: number; meshes: number; children: number }>;
+  readonly heroA: Readonly<OceanHeroFeatureSnapshot> | null;
   readonly runtime: Readonly<{
     resizeListenerActive: boolean;
     resizeCalls: number;
@@ -234,6 +269,7 @@ export interface GfxFoundationRuntime {
   getSnapshot(): Readonly<GfxFoundationSnapshot>;
   subscribe(listener: () => void): Unsubscribe;
   seek(chunkId: StoryChunkId): void;
+  seekTime(storyTime: number): void;
   setQuality(id: FoundationQualityId): Promise<void>;
   dispose(): Promise<Readonly<GfxFoundationSnapshot>>;
   diagnostics: ThreeBackendAdapter["diagnostics"];
@@ -250,6 +286,8 @@ async function performGfxFoundationConstruction(options: {
   readonly request: ThreeBackendRequest;
   readonly qa: boolean;
   readonly generation: number;
+  readonly experience: GfxFoundationExperience;
+  readonly initialStoryTime?: number;
 }, admission: FoundationConstructionAdmission<FoundationConstructionCleanupOwner>): Promise<GfxFoundationRuntime> {
   let sceneOwner: Scene | null = null;
   let pipelineOwner: ProductionLinearHdrPipeline | null = null;
@@ -265,6 +303,7 @@ async function performGfxFoundationConstruction(options: {
   let hostOwner: RenderHost | null = null;
   let resizeBindingOwner: FoundationResizeBinding | null = null;
   let telemetryOwner: RollingGfxPerformanceTelemetry | null = null;
+  let heroOwner: OceanHeroFeature | null = null;
   let unsubscribeHost: Unsubscribe = () => undefined;
   let constructionFailurePresent = false;
   let constructionFailure: unknown;
@@ -320,6 +359,7 @@ async function performGfxFoundationConstruction(options: {
         uploadsOwner = null;
         resourcesOwner = null;
         uploaderOwner = null;
+        heroOwner = null;
         frameLoopOwner = null;
         if (rollbackFailures.length === 0) hostOwner = null;
       } else {
@@ -347,6 +387,13 @@ async function performGfxFoundationConstruction(options: {
           await attempt(
             () => exactFrameLoop.stop(),
             () => { if (frameLoopOwner === exactFrameLoop) frameLoopOwner = null; },
+          );
+        }
+        if (heroOwner) {
+          const exactHero = heroOwner;
+          await attempt(
+            () => exactHero.dispose(),
+            () => { if (heroOwner === exactHero) heroOwner = null; },
           );
         }
         if (uploaderOwner) {
@@ -448,7 +495,9 @@ async function performGfxFoundationConstruction(options: {
       (event) => telemetry.recordOperation(event),
     );
     const resources = resourcesOwner = new LogicalChunkResourceRegistry();
-    const uploader = uploaderOwner = new ProductionThreeChunkUploader(scene, materials);
+    const uploader = uploaderOwner = new ProductionThreeChunkUploader(scene, materials, {
+      presentRuntimeObjects: options.experience === "foundation",
+    });
     const qualityProvider = qualityOwner = new FoundationQualityProvider();
     const initialViewport = viewportFor(options.canvas, qualityProvider.getProfile());
     worker = createBrowserWorldChunkWorker();
@@ -479,6 +528,9 @@ async function performGfxFoundationConstruction(options: {
     });
     const innerWorld = new WorldChunkRenderFeature(manager, persistentPass);
     const pooledWorld = new PooledWorldChunkFeature(innerWorld, uploader);
+    const hero = options.experience === "hero-a"
+      ? heroOwner = new OceanHeroFeature(scene, camera, plan)
+      : null;
     const frameLoop = frameLoopOwner = new BrowserFrameLoop();
     const observedEvents: string[] = [];
     const observer: RenderEventObserver = {
@@ -491,7 +543,7 @@ async function performGfxFoundationConstruction(options: {
       {
         backend,
         frameLoop,
-        features: [pipeline, pooledWorld],
+        features: hero ? [pipeline, hero, pooledWorld] : [pipeline, pooledWorld],
         materials,
         uploads,
         resources,
@@ -529,6 +581,7 @@ async function performGfxFoundationConstruction(options: {
       quality: qualityProvider.snapshot(),
       frameLoop: frameLoop.snapshot(),
       scene: sceneSnapshot(scene),
+      heroA: hero?.snapshot() ?? null,
       runtime: Object.freeze({
         resizeListenerActive: resizeBinding.active,
         resizeCalls,
@@ -567,7 +620,12 @@ async function performGfxFoundationConstruction(options: {
       notify();
     });
 
-    await host.initialize(renderSnapshot(plan, INITIAL_CHUNK), initialViewport);
+    await host.initialize(
+      options.experience === "hero-a"
+        ? renderSnapshotAt(plan, options.initialStoryTime ?? DEFAULT_HERO_A_MARKER_SECONDS)
+        : renderSnapshot(plan, INITIAL_CHUNK),
+      initialViewport,
+    );
     assertFoundationHostReady(host, "initialization");
     resizeBinding.attach();
     assertFoundationHostReady(host, "resize listener binding");
@@ -590,6 +648,10 @@ async function performGfxFoundationConstruction(options: {
         host.setSnapshot(renderSnapshot(plan, chunkId), "restart-or-qa-seek");
         notify();
       },
+      seekTime(storyTime) {
+        host.setSnapshot(renderSnapshotAt(plan, storyTime), "restart-or-qa-seek");
+        notify();
+      },
       async setQuality(id) {
         const next = qualityProvider.profile(id);
         await host.setQuality(next);
@@ -601,6 +663,7 @@ async function performGfxFoundationConstruction(options: {
       diagnostics: backend.diagnostics,
     };
     telemetryOwner = null;
+    heroOwner = null;
     admission.transfer(constructionOwner);
     return runtime;
   } catch (error: unknown) {
@@ -627,8 +690,13 @@ export function createGfxFoundationRuntime(options: {
   readonly request: ThreeBackendRequest;
   readonly qa: boolean;
   readonly generation: number;
+  readonly experience?: GfxFoundationExperience;
+  readonly initialStoryTime?: number;
 }): Promise<GfxFoundationRuntime> {
   return foundationConstructionAdmission.run((admission) => (
-    performGfxFoundationConstruction(options, admission)
+    performGfxFoundationConstruction({
+      ...options,
+      experience: options.experience ?? "foundation",
+    }, admission)
   ));
 }

@@ -216,6 +216,41 @@ describe("ProductionThreeChunkUploader", () => {
     await uploader.dispose();
   });
 
+  it("keeps chunk ownership live while a dedicated Hero feature hides placeholder objects", async () => {
+    const scene = new Scene();
+    const materials = new StubMaterialLibrary();
+    const uploader = new ProductionThreeChunkUploader(scene, materials, {
+      presentRuntimeObjects: false,
+    });
+
+    uploader.initializePool();
+    expect(scene.children).toHaveLength(4);
+    uploader.beginRuntime();
+    expect(scene.children).toEqual([]);
+
+    const { result } = finishJob(uploader);
+    if (result.kind !== "complete") throw new Error("Expected a completed hidden upload lease.");
+    result.lease.setActive?.(true);
+
+    expect(scene.children).toHaveLength(1);
+    expect(scene.children[0]?.visible).toBe(false);
+    expect(uploader.snapshot()).toMatchObject({
+      activeLeases: 1,
+      completedLeases: 1,
+      ownedGeometries: 1,
+      ownedObjects: 4 * (WORLD_MATERIAL_FAMILIES.length + 1),
+    });
+
+    await result.lease.dispose();
+    expect(scene.children).toEqual([]);
+    await uploader.dispose();
+    expect(uploader.snapshot()).toMatchObject({
+      activeLeases: 0,
+      ownedGeometries: 0,
+      ownedObjects: 0,
+    });
+  });
+
   it("uses only the validated closed material-family inventory", () => {
     expect(PAYLOAD.manifest.materialFamilies.every((family) => (
       WORLD_MATERIAL_FAMILIES.includes(family)

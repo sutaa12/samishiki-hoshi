@@ -15,6 +15,11 @@ import { WORLD_MATERIAL_FAMILIES } from "../../../world/v2";
 const UINT32_SCALE = 1 / 0x1_0000_0000;
 export const PRODUCTION_CHUNK_GPU_SLOTS = 4;
 
+export interface ProductionThreeChunkUploaderOptions {
+  /** Keep lifecycle ownership active while a dedicated Hero feature supplies art. */
+  readonly presentRuntimeObjects?: boolean;
+}
+
 export interface ThreeChunkUploaderSnapshot {
   readonly initialized: boolean;
   readonly runtimeStarted: boolean;
@@ -210,6 +215,7 @@ class ThreeChunkUploadJob {
 export class ProductionThreeChunkUploader implements ChunkUploader {
   readonly #scene: Scene;
   readonly #materials: TslMaterialLibrary;
+  readonly #presentRuntimeObjects: boolean;
   readonly #counters: Counters = {
     createdJobs: 0,
     cancelledJobs: 0,
@@ -224,9 +230,14 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
   #disposed = false;
   #disposePromise: Promise<void> | null = null;
 
-  constructor(scene: Scene, materials: TslMaterialLibrary) {
+  constructor(
+    scene: Scene,
+    materials: TslMaterialLibrary,
+    options: Readonly<ProductionThreeChunkUploaderOptions> = {},
+  ) {
     this.#scene = scene;
     this.#materials = materials;
+    this.#presentRuntimeObjects = options.presentRuntimeObjects ?? true;
   }
 
   initializePool(): void {
@@ -277,6 +288,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
       if (slot.state !== "prewarm") continue;
       this.#scene.remove(slot.group);
       slot.group.scale.setScalar(1);
+      slot.group.visible = this.#presentRuntimeObjects;
       slot.active = false;
       slot.state = "free";
     }
@@ -316,6 +328,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
     this.#assertSlotOwner(slot, ownerId, "activate");
     if (slot.state !== "lease" || slot.active === active) return;
     if (active) {
+      slot.group.visible = this.#presentRuntimeObjects;
       this.#scene.add(slot.group);
       this.#counters.activeLeases += 1;
     } else {
@@ -335,6 +348,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
     slot.ownerId = null;
     slot.state = "free";
     slot.group.name = `gfx004:free:${slot.id}`;
+    slot.group.visible = this.#presentRuntimeObjects;
     slot.group.position.set(0, 0, 0);
     slot.group.rotation.set(0, 0, 0);
     slot.group.scale.setScalar(1);
