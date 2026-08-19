@@ -168,6 +168,30 @@ change shader light cardinality or introduce a post-ready program. The final
 two-line Japanese title is presentation-only and appears at the fixed S24
 marker.
 
+## D-018 — R2-G6 binds additive acceptance evidence without promoting external gates
+
+R2-G6 does not change the accepted simulation, canonical world plan, renderer,
+streaming, material, pipeline, telemetry, or Hero implementations. It adds one
+cross-Hero lifecycle oracle, one runtime-license/provenance oracle, and a
+release-copy notice. The three-Hero oracle runs A, B, and C sequentially through
+one scene and proves quality-only realization, immutable story/ledger inputs,
+identity restoration, and zero feature-owned resources between slices. The
+existing Foundation browser gate remains the authority for ten live restart
+plateaus and ten complete zero-owner runtime generations.
+
+The release notice covers the exact non-dev browser package closure in the
+lockfile: React, React DOM, Scheduler, and Three.js, all MIT. Reference-gallery
+images remain review-only and are excluded from production imports. This is an
+engineering provenance and packaging boundary, not a legal opinion or public
+rights attestation.
+
+Automated parity, restart, browser, build, and license success can create only a
+`review_pending` R2-G6 receipt. It cannot accept the underlying review-pending
+GFX/Hero candidates, Cinematic Procedural Realism, reference hardware, human
+play, public rights, Main integration, Sites deployment, or contest submission.
+Those gates remain independently owned and require their stated reviewers or
+the Human Acceptance Owner.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

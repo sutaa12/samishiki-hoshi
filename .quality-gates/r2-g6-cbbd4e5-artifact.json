@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "gate": "R2-G6 parity, restart, license, and combined acceptance candidate",
+  "status": "review_pending",
+  "implementation": {
+    "commit": "cbbd4e5e0824846c1172c60fa24476ae973de8ca",
+    "tree": "85f624d0b0543da91674cf69c60b2ecc3fe0a934",
+    "parentEvidenceCommit": "20dfa3cb082a40b53a947ef72a7ecd81f049faf8",
+    "orderedManifestEncoding": "sorted lines of sha256, two spaces, repository-relative path, newline",
+    "orderedManifestSha256": "03b100dde94ebdfbe13a79c008638306259c62f5cc245a802b50902e1f36e7e8",
+    "sourceArchiveSha256": "1e75703d0233ae8982adf609219c73cb42b46e8e35ce70483d38b17f7251985b",
+    "sourceArchiveBytes": 89845760,
+    "sourceArchiveEntries": 274,
+    "sourceArchiveSymlinks": 0,
+    "sourceDeltaFilesFromParentEvidence": 6,
+    "files": {
+      "DEMO_SOURCE_PROVENANCE.csv": "c877b6e0a499a258ce979042045ed7a062e4915e8b37d7d40c092f34750555d3",
+      "THIRD_PARTY_NOTICES.md": "2bfa5da8224d1420abe338fe8151ea216b4b874062081184b5741dc29143d4dc",
+      "docs/ASSET_RIGHTS.md": "67f194542a98c981e00e7f59c5ff7be5b078256b161c4c4386ef85193c57538f",
+      "public/THIRD_PARTY_NOTICES.txt": "db77168a3a9106f127514a3eff4c59c99872885a85b8baea3ca2c0eaa14fb8ac",
+      "tests/gfx-v2/graphics-license.test.ts": "f386feaf041d26ce2d742f939769dd97f48b674240c77a30051420f4808ad5ab",
+      "tests/gfx-v2/hero-slice-integration.test.ts": "22ce59d63deb2dd18b8ecddbbbdf67483f9fa32e4495e949e33afbf93d9a38e2"
+    }
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/r2-g6-cbbd4e5-dist.tar",
+    "archiveSha256": "08def5b7e01ad50a1431cead2767003d044c12638b65778d49eccc1d132c9726",
+    "archiveBytes": 5224448,
+    "fileCount": 100,
+    "contentRecordsSha256": "c65dee41fdf5f41d369c448fed7d253dba78cb677a33ed8748fab4266aedaf53",
+    "vinextBuildId": "ed723687-abcb-4f10-95db-d83872b9b3b2",
+    "symlinkCount": 0,
+    "runtimeNotice": "dist/client/THIRD_PARTY_NOTICES.txt",
+    "runtimeNoticeSha256": "db77168a3a9106f127514a3eff4c59c99872885a85b8baea3ca2c0eaa14fb8ac",
+    "workerArtifactCopies": [
+      "dist/client/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/ssr/_next/static/world-chunk-worker-DCn2LUGC.js"
+    ],
+    "workerArtifactSha256": "928c30c2e085660e785e6de648688a1c885da2cce10bca9037003807d218216b",
+    "workerArtifactBytesEach": 58724,
+    "rawTypeScriptWorkerArtifacts": 0,
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "Vinext build IDs and generated chunk manifests are not claimed to be byte-reproducible; the exact tested dist archive is preserved"
+  },
+  "automatedEvidence": {
+    "completeVerification": "typecheck, global lint, 36 files / 617 tests, production build",
+    "focusedCommand": "rtk npx vitest run --config vitest.config.ts tests/gfx-v2/foundation-parity.test.ts tests/world-v2/world-plan-properties.test.ts tests/gfx-v2/hero-slice-a.test.ts tests/gfx-v2/hero-slice-b.test.ts tests/gfx-v2/hero-slice-c.test.ts tests/gfx-v2/hero-slice-integration.test.ts tests/gfx-v2/graphics-license.test.ts tests/gfx-v2/performance-telemetry.test.ts --reporter=json --outputFile=.quality-gates/r2-g6-cbbd4e5-vitest.json",
+    "focusedReport": ".quality-gates/r2-g6-cbbd4e5-vitest.json",
+    "focusedReportSha256": "85002173e82b22b2445ffcf551fdb5661d2f38fbe2ad6cd3ba2944f91193a1fa",
+    "focusedReportBytes": 21539,
+    "focusedFiles": 8,
+    "focusedPassed": 54,
+    "focusedFailed": 0,
+    "focusedPending": 0,
+    "focusedTodo": 0,
+    "productionAudit": ".quality-gates/r2-g6-cbbd4e5-npm-audit.json",
+    "productionAuditSha256": "41e0957f81e8db3f722663db2e5f7c20bacfd3ceb9caba5820b350f3b86c18bd",
+    "productionAuditBytes": 365,
+    "productionAuditVulnerabilities": 0
+  },
+  "browserEvidence": {
+    "command": "rtk env GFX_SPIKE_PORT=41769 PLAYWRIGHT_JSON_OUTPUT_NAME=.quality-gates/r2-g6-cbbd4e5-playwright.json PLAYWRIGHT_OUTPUT_DIR=.quality-gates/r2-g6-cbbd4e5-playwright-output npx playwright test tests/e2e/gfx-foundation.spec.ts tests/e2e/gfx-hero-a.spec.ts tests/e2e/gfx-hero-b.spec.ts tests/e2e/gfx-hero-c.spec.ts --project=desktop-chromium --reporter=json",
+    "report": ".quality-gates/r2-g6-cbbd4e5-playwright.json",
+    "reportSha256": "d914f4c115a758c728f8c3e806fa726ed6e7c55a1f9ca54cfd331914fb26fe7e",
+    "reportBytes": 27873422,
+    "durationMs": 164154.948,
+    "specs": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "flaky": 0,
+    "maximumRetry": 0,
+    "topLevelErrors": 0,
+    "resultErrorFields": 0,
+    "attachmentCount": 24,
+    "jsonAttachmentCount": 4,
+    "pngAttachmentCount": 20,
+    "pngViewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "telemetry": {
+      "forcedWebgl2": {
+        "actualBackend": "WebGL2",
+        "steadyFrames": 131,
+        "frameIntervalP95Ms": 48.20000000000073,
+        "mainThreadWorkP95Ms": 0.7999999523162842,
+        "runtimeSpikesOver50Ms": 0,
+        "gpuTimingSupported": false
+      },
+      "hostMetalWebgpu": {
+        "actualBackend": "WebGPU",
+        "steadyFrames": 127,
+        "frameIntervalP95Ms": 9.299999999999955,
+        "mainThreadWorkP95Ms": 0.7000000476837158,
+        "runtimeSpikesOver50Ms": 0,
+        "gpuTimingSupported": false
+      }
+    },
+    "restartPlateau": {
+      "cycles": 10,
+      "programsEveryCycle": 22,
+      "geometriesEveryCycle": 3,
+      "gpuOwnedEveryCycle": 4,
+      "logicalOwnersEveryCycle": 4,
+      "poolSlotsEveryCycle": 4,
+      "heapMinimumBytes": 18472424,
+      "heapMaximumBytes": 19373388,
+      "heapSpreadBytes": 900964
+    },
+    "runtimeLifecycle": {
+      "generations": 10,
+      "terminalGpuOwnedCount": 0,
+      "terminalLogicalOwners": 0,
+      "terminalPoolSlots": 0,
+      "terminalBackendFailureReferences": 0,
+      "terminalTelemetryState": "disposed",
+      "runtimeSpikesOver50Ms": 0
+    },
+    "jsonAttachments": {
+      "webgl2-steady-telemetry": "53612da23718f433bfccb277766d2eab82a1ee6e1e663374239b2a80eda4eb3f",
+      "webgl2-ten-restart-plateau": "45fe13715943022a1deeb78a49d28ad38207940cbef392580b60b168800e4b49",
+      "webgl2-ten-cycle-lifecycle": "1d5a09716ba8e41accd9e548e52dfcb4ba2e580db9f1645d082905deb6d4b2dd",
+      "webgpu-steady-telemetry": "17377ceafacbc46a98e91ddc0493c5e944b5d1b8e4d325716d1ae7765267b62b"
+    },
+    "pngAttachments": {
+      "hero-a-webgl2-12s-life": "92f5fe9a4b3a8efae0b36cccdb2990b96050ebd9a682437aa881ddfbac151604",
+      "hero-a-webgl2-27s-empty-seat": "eb590689e677e71393f526ad2af6e35ca3f57e1407c339ac28bbb617797e27c6",
+      "hero-a-webgl2-37s-waterline": "0be96bcbdc445616b08e3db9bb68013cf15f06fb3ccb2cb397f9abd91f360c77",
+      "hero-a-webgl2-fallback": "352e6e1346a8c2e3d8f1e8856df56ecc223b061c6fbd9f3143879c353f8b875e",
+      "hero-a-webgpu-12s-life": "00421035afd12028e409be82f15807d0f10b14c88fd4706c64b528aa9676460c",
+      "hero-a-webgpu-27s-empty-seat": "bd4d45c30461cd532a3643d56f9c3ec3b31847ac82f46c6d9bf4d4945b3207ba",
+      "hero-b-webgl2-58s-forest": "5d26d16e04a3ad1db0ce3b8e805dc59a46a038ced5e9252548832330d0b892ba",
+      "hero-b-webgl2-75s-empty-city": "938d447bcab83fcc44d59b195a13df524218084b7dc39d68c7743d7af1146a27",
+      "hero-b-webgl2-75s-fallback": "20602f953b21589d5221786de28034983db5398b673e93e989843f476a34bad8",
+      "hero-b-webgpu-58s-forest": "a62ea1d92cc369594a0e3e676bd2727aca9025881226530826a64e44e3f0947e",
+      "hero-b-webgpu-75s-empty-city": "6c4a845d3e9f6a6503880ec5712eafe2ff42a962d5a6c5e4d6ec0458bdc3eb5c",
+      "hero-c-webgl2-142s-human-debris": "e23ecf45f2843506a8c7c7858b0ae52e1eec397af9df20d07ebb312e7f322972",
+      "hero-c-webgl2-158s-peripheral-arcs": "7484dabbfc70b4eef4148d63e4011e9d790abd1030484ebbeec915faf88552a8",
+      "hero-c-webgl2-166s-three-ribbon-answer": "df8d5590ead7d3bb2b4f257891bab80f22697a6d1e848ad4f29ae47424db8fe3",
+      "hero-c-webgl2-176s-many-life-lights": "c1ebb15ae0d8a0edbf251e14a409a25561dd1938ddf94515d680e25d1eb48326",
+      "hero-c-webgl2-179s-formal-title": "25bd74303d239bca4a17d1f644de7749280ad6db1ffbb59500e2296b86976100",
+      "hero-c-webgpu-142s-human-debris": "e5c4f4cbc349fa575d984683fc9c53d1a05d3e5080e16a38d61f38bd991fb897",
+      "hero-c-webgpu-158s-peripheral-arcs": "57fdf54f84620a483d7f6fea883d6ec18faf3a7264ba7e6de9a91f6f394d059a",
+      "hero-c-webgpu-166s-three-ribbon-answer": "017afc4cfda54850fd410f4bd963132128a1dfe92d65155998de69c7076371f6",
+      "hero-c-webgpu-176s-many-life-lights": "c6bd0cc5fa0510dce5a0b1e589ca3547ea0be591bfd813707cd707e3703c8d67"
+    }
+  },
+  "parityContract": {
+    "journeySeconds": 180,
+    "worldSeed": 20260818,
+    "worldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "worldPlanSeedsValidated": 1000,
+    "sameReplayAcrossRequestedQuality": true,
+    "sameReplayAcrossWebgpuAndWebgl2": true,
+    "rendererContainersDetachedFromLedger": true,
+    "heroSequenceMarkersSeconds": [12, 75, 176],
+    "heroQualitySequence": ["high", "balanced", "low", "high"],
+    "heroStoryMutation": false,
+    "heroLedgerMutation": false,
+    "heroSceneChildrenRestored": true,
+    "heroBackgroundAndFogIdentityRestored": true,
+    "heroTerminalOwnedGeometries": 0,
+    "heroTerminalOwnedMaterials": 0,
+    "heroTerminalOwnedTextures": 0
+  },
+  "licenseBoundary": {
+    "runtimePackages": {
+      "react": "19.2.6 MIT",
+      "react-dom": "19.2.6 MIT",
+      "scheduler": "0.27.0 MIT",
+      "three": "0.185.1 MIT"
+    },
+    "releaseNoticeIncluded": true,
+    "heroProvenanceRows": 3,
+    "notionReferenceBoardsImportedByProduction": false,
+    "humanRightsAcceptance": "HUMAN_PENDING"
+  },
+  "frozenInputs": {
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "gfx001Implementation": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+    "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+    "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a",
+    "gfx004Implementation": "370b019f5aee868449117b51a0da114b35ffc045",
+    "gfx005Implementation": "c6dd34dd9082e437e04d2fc7ccd1045a9a59ae1d",
+    "gfx005TransmissionFix": "170c0898e5223f46aaaaf03b5eee6a906602e9de",
+    "combinedFoundationIntegration": "e81c47846291018c37c3496c47b547fb0100375d",
+    "gfx006Implementation": "9597d9b8f905b492359590eed2cf3dbfdb5e73d8",
+    "heroAImplementation": "67dea2b1589c0e7f862cf76674b45b3cffbc04f1",
+    "heroAEvidence": "ef3b157a8c3f4b2939de82dfe71c1ac9ebc55051",
+    "heroBImplementation": "2fb5cade0c5e8df8b3e889a14a57867c8e0440ba",
+    "heroBEvidence": "ba69c882cbc61f5482c8030790bcdcca49580871",
+    "heroCImplementation": "69fe2e47c5269ccc407c95a6c6491fbbff1ceb8c",
+    "heroCEvidence": "20dfa3cb082a40b53a947ef72a7ecd81f049faf8",
+    "canonicalWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd"
+  },
+  "sourceReview": {
+    "status": "implementation_self_audit_passed_independent_review_pending",
+    "independentFrozenFullScopeVerdict": "review_pending",
+    "reviewedHashesDrifted": null
+  },
+  "artifactReview": {
+    "status": "review_pending",
+    "reviewedEvidenceHead": null,
+    "reviewers": [],
+    "verdict": "review_pending",
+    "bindingsReproduced": false
+  },
+  "externalGates": {
+    "gfx004Gfx005FullReview": "PENDING",
+    "gfx006IndependentReview": "PENDING",
+    "heroAIndependentVisualReview": "PENDING",
+    "heroBIndependentVisualReview": "PENDING",
+    "heroCIndependentVisualReview": "PENDING",
+    "combinedIndependentReview": "PENDING",
+    "referenceHardware": "HARDWARE_PENDING",
+    "humanPlayAndVisualAcceptance": "HUMAN_PENDING",
+    "rightsAcceptance": "HUMAN_PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN",
+    "contestSubmission": "PENDING"
+  }
+}
