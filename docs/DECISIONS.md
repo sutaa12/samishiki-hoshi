@@ -127,6 +127,24 @@ as backgrounds under D-003; built-in physical-material transmission remains
 zero under D-013. This pattern may be reused by Hero B/C only if each slice
 retains the same deterministic, preallocated, exact-ownership boundary.
 
+## D-016 — Hero B keeps nature and renderer topology continuous across the city reveal
+
+Hero Slice B reuses the D-015 presentation-layer boundary over the unchanged
+canonical plan and chunk lifecycle. The forest, river, waterfall, mist, birds,
+and protagonist remain present through the city phase; a separately owned
+rectilinear city root becomes visible at the exact 62-second boundary. Ruin
+towers stay outside the measured safe corridor, while the empty bench,
+playground, observation frame, rooftop planting, and window birds communicate
+human absence and continued non-human life without narration or revival.
+
+All city resources are visible during precompile and are only hidden after the
+Host reaches ready. The amber city light remains attached to the persistent
+Hero root at every marker and changes intensity rather than scene membership,
+so the 58-to-75-second transition cannot introduce a new light-topology shader
+variant. High/Low changes alter instance visibility only; no geometry,
+material, texture, light, story, seed, plan, or Twinkle ownership is allocated
+or replaced after initialization.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.
