@@ -2,6 +2,7 @@ import {
   RENDER_HISTORY_INVALIDATION_REASONS,
   type BackendRuntimeEvent,
   type JourneyRenderSnapshot,
+  type RenderBackendFrameTelemetry,
   type RenderHostDependencies,
   type RenderHostEvent,
   type RenderHostLifecycle,
@@ -12,10 +13,16 @@ import {
   type RenderPass,
   type RenderPassRecorder,
   type RenderQualityProfile,
+  type RenderResourceSnapshot,
   type RenderViewport,
   type Unsubscribe,
   type VisualClock,
 } from "./contracts";
+import type {
+  GfxFrameTelemetryInput,
+  GfxOperationalEventInput,
+  GfxTelemetrySink,
+} from "./telemetry/contracts";
 import {
   attachRenderHostCleanupFailures,
   hostError,
@@ -100,6 +107,118 @@ class FramePassRecorder implements RenderPassRecorder {
     this.record({ name, kind, scene, camera });
   }
 }
+
+export interface RenderHostInstrumentation {
+  readonly telemetry: GfxTelemetrySink;
+  readonly now: () => number;
+}
+
+interface CapturedRenderHostInstrumentation {
+  readonly now: () => number;
+  readonly recordFrame: (sample: Readonly<GfxFrameTelemetryInput>) => void;
+  readonly recordOperation: (event: Readonly<GfxOperationalEventInput>) => void;
+}
+
+interface PendingDroppedTelemetryFrame {
+  readonly frameId: number;
+  readonly rafTimestampMs: number;
+  readonly storyTime: number;
+  readonly qualityTier: RenderQualityProfile["tier"];
+}
+
+function instrumentationOwnDataValue(
+  input: object,
+  key: PropertyKey,
+  label: string,
+): unknown {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = Reflect.getOwnPropertyDescriptor(input, key);
+  } catch {
+    throw new TypeError(`${label}.${String(key)} could not be inspected.`);
+  }
+  if (!descriptor || !("value" in descriptor)) {
+    throw new TypeError(`${label}.${String(key)} must be an own data property.`);
+  }
+  return descriptor.value;
+}
+
+function instrumentationMethod(
+  receiver: object,
+  key: "recordFrame" | "recordOperation",
+): (...args: unknown[]) => unknown {
+  let owner: object | null = receiver;
+  for (let depth = 0; depth < 8 && owner !== null; depth += 1) {
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Reflect.getOwnPropertyDescriptor(owner, key);
+    } catch {
+      throw new TypeError(`RenderHost telemetry ${key} could not be inspected.`);
+    }
+    if (descriptor) {
+      if (!("value" in descriptor) || typeof descriptor.value !== "function") {
+        throw new TypeError(`RenderHost telemetry ${key} must be a data method.`);
+      }
+      return descriptor.value as (...args: unknown[]) => unknown;
+    }
+    try {
+      owner = Reflect.getPrototypeOf(owner);
+    } catch {
+      throw new TypeError(`RenderHost telemetry ${key} prototype could not be inspected.`);
+    }
+  }
+  throw new TypeError(`RenderHost telemetry ${key} is missing.`);
+}
+
+function captureRenderHostInstrumentation(
+  input: Readonly<RenderHostInstrumentation>,
+): Readonly<CapturedRenderHostInstrumentation> {
+  if (typeof input !== "object" || input === null) {
+    throw new TypeError("RenderHost instrumentation must be an object.");
+  }
+  const telemetry = instrumentationOwnDataValue(input, "telemetry", "instrumentation");
+  const now = instrumentationOwnDataValue(input, "now", "instrumentation");
+  if ((typeof telemetry !== "object" || telemetry === null) && typeof telemetry !== "function") {
+    throw new TypeError("RenderHost instrumentation telemetry must be an object.");
+  }
+  if (typeof now !== "function") {
+    throw new TypeError("RenderHost instrumentation now must be a function.");
+  }
+  const recordFrame = instrumentationMethod(telemetry as object, "recordFrame");
+  const recordOperation = instrumentationMethod(telemetry as object, "recordOperation");
+  return Object.freeze({
+    now: () => Reflect.apply(now, input, []),
+    recordFrame: (sample: Readonly<GfxFrameTelemetryInput>) => {
+      Reflect.apply(recordFrame, telemetry, [sample]);
+    },
+    recordOperation: (event: Readonly<GfxOperationalEventInput>) => {
+      Reflect.apply(recordOperation, telemetry, [event]);
+    },
+  });
+}
+
+const UNAVAILABLE_FRAME_TELEMETRY = Object.freeze({
+  available: false,
+  drawCalls: null,
+  triangles: null,
+  lines: null,
+  points: null,
+  pixelRatio: null,
+  drawingBufferWidth: null,
+  drawingBufferHeight: null,
+  gpuTimeMs: null,
+}) satisfies Readonly<RenderBackendFrameTelemetry>;
+
+const EMPTY_TELEMETRY_RESOURCES = Object.freeze({
+  geometries: 0,
+  textures: 0,
+  renderTargets: 0,
+  programs: 0,
+  nodes: 0,
+  objects: 0,
+  subscribers: 0,
+  pendingUploads: 0,
+}) satisfies Readonly<RenderResourceSnapshot>;
 
 function freezeSnapshot(snapshot: JourneyRenderSnapshot): JourneyRenderSnapshot {
   const sourcePulses = snapshot.pulses;
@@ -536,6 +655,7 @@ function immutableFailureOccurrence(
  */
 export class RenderHost {
   readonly #dependencies: RenderHostDependencies;
+  readonly #instrumentation: Readonly<CapturedRenderHostInstrumentation> | null;
   readonly #errorOwner = Object.freeze({});
   #lifecycle: RenderHostLifecycle = "new";
   #snapshot: JourneyRenderSnapshot | null = null;
@@ -591,6 +711,7 @@ export class RenderHost {
   #probeListeners = new Set<() => void>();
   #nextProbeEventId = 1;
   #frameCallbacks = 0;
+  #pendingDroppedTelemetryFrames: Readonly<PendingDroppedTelemetryFrame>[] = [];
   #submittedFrames = 0;
   #droppedFrames = 0;
   #backendEvents = 0;
@@ -603,7 +724,10 @@ export class RenderHost {
   #frameLoopStopFailure: Error | null = null;
   #ownedCallbackDepth = 0;
 
-  constructor(dependencies: RenderHostDependencies) {
+  constructor(
+    dependencies: RenderHostDependencies,
+    instrumentation?: Readonly<RenderHostInstrumentation>,
+  ) {
     this.#dependencies = Object.freeze({
       backend: dependencies.backend,
       frameLoop: dependencies.frameLoop,
@@ -614,6 +738,9 @@ export class RenderHost {
       qualityProvider: dependencies.qualityProvider,
       observer: dependencies.observer,
     });
+    this.#instrumentation = instrumentation === undefined
+      ? null
+      : captureRenderHostInstrumentation(instrumentation);
   }
 
   get state(): RenderHostLifecycle {
@@ -940,6 +1067,20 @@ export class RenderHost {
     snapshot: JourneyRenderSnapshot,
     viewport: RenderViewport,
   ): Promise<void> {
+    const initializationStartedAt = this.#sampleTelemetryNow();
+    let initializationTelemetryComplete = false;
+    const completeInitializationTelemetry = (success: boolean): void => {
+      if (initializationTelemetryComplete) return;
+      initializationTelemetryComplete = true;
+      this.#completeTelemetryOperation({
+        kind: "initialization",
+        name: "render-host-initialization",
+        frameId: null,
+        storyTime: null,
+        success,
+        affectsStoryTime: false,
+      }, initializationStartedAt);
+    };
     const initialSnapshotVersion = this.#snapshotVersion;
     this.#transition("initializing");
 
@@ -1136,9 +1277,23 @@ export class RenderHost {
         }
       }
       this.#assertInitializing();
-      await this.#invokeOwnedCallback(
-        () => this.#dependencies.backend.precompile(Object.freeze(uniqueWarmupPasses.slice())),
-      );
+      const compileStartedAt = this.#sampleTelemetryNow();
+      let compileSucceeded = false;
+      try {
+        await this.#invokeOwnedCallback(
+          () => this.#dependencies.backend.precompile(Object.freeze(uniqueWarmupPasses.slice())),
+        );
+        compileSucceeded = true;
+      } finally {
+        this.#completeTelemetryOperation({
+          kind: "compile",
+          name: "render-host-warmup",
+          frameId: null,
+          storyTime: null,
+          success: compileSucceeded,
+          affectsStoryTime: false,
+        }, compileStartedAt);
+      }
       this.#assertInitializing();
       while (this.#pendingQualityDuringInitialization !== null) {
         await this.#drainPendingInitializationQuality();
@@ -1164,7 +1319,9 @@ export class RenderHost {
           this.#errorOwner,
         );
       }
+      completeInitializationTelemetry(true);
     } catch (error: unknown) {
+      completeInitializationTelemetry(false);
       if (
         this.#lifecycle === "failed"
         && this.#terminalError !== null
@@ -1294,8 +1451,29 @@ export class RenderHost {
 
   #onFrame(nowMs: number): void {
     this.#frameCallbacks += 1;
-    if (this.#lifecycle !== "ready" || this.#framePromise || this.#pendingControlOperations > 0) {
+    if (this.#lifecycle !== "ready") {
       this.#droppedFrames += 1;
+      this.#notifyProbeListeners();
+      return;
+    }
+    const frameId = this.#frame;
+    this.#frame += 1;
+    if (this.#framePromise || this.#pendingControlOperations > 0) {
+      this.#droppedFrames += 1;
+      const entry = this.#captureDroppedTelemetryFrame(frameId, nowMs);
+      if (this.#framePromise && entry !== null) {
+        const pending = this.#pendingDroppedTelemetryFrames;
+        if (pending.length < 600) {
+          pending[pending.length] = entry;
+        } else {
+          for (let index = 1; index < pending.length; index += 1) {
+            pending[index - 1] = pending[index]!;
+          }
+          pending[pending.length - 1] = entry;
+        }
+      } else if (entry !== null) {
+        this.#recordDroppedTelemetryFrame(entry);
+      }
       this.#notifyProbeListeners();
       return;
     }
@@ -1303,7 +1481,7 @@ export class RenderHost {
     const operation = deferred.promise;
     this.#framePromise = operation;
     void Promise.resolve()
-      .then(() => this.#renderFrame(nowMs))
+      .then(() => this.#renderFrame(nowMs, frameId))
       .then(deferred.resolve, deferred.reject);
     void operation
       .catch((error: unknown) => {
@@ -1314,41 +1492,52 @@ export class RenderHost {
       });
   }
 
-  async #renderFrame(nowMs: number): Promise<void> {
+  async #renderFrame(nowMs: number, frameId: number): Promise<void> {
     this.#assertFrameCanContinue();
     const snapshot = this.#snapshot;
     if (!snapshot) throw new Error("RenderHost has no journey snapshot.");
+    const frameStartedAt = this.#sampleTelemetryNow();
 
     const firstFrameAtMs = this.#firstFrameAtMs ?? nowMs;
     const previousFrameAtMs = this.#lastFrameAtMs ?? nowMs;
     const clock: VisualClock = Object.freeze({
-      frame: this.#frame,
+      frame: frameId,
       nowMs,
       deltaSeconds: Math.max(0, nowMs - previousFrameAtMs) / 1000,
       elapsedSeconds: Math.max(0, nowMs - firstFrameAtMs) / 1000,
     });
     this.#firstFrameAtMs = firstFrameAtMs;
     this.#lastFrameAtMs = nowMs;
-    this.#frame += 1;
-
-    await this.#invokeOwnedCallback(
-      () => this.#dependencies.uploads.flush(clock, this.#quality ?? undefined),
-    );
-    this.#assertFrameCanContinue();
-    for (const feature of this.#dependencies.features) {
-      this.#invokeOwnedCallback(() => feature.update(snapshot, clock));
+    let submitted = false;
+    let framePasses: readonly RenderPass[] = Object.freeze([]);
+    try {
+      await this.#invokeOwnedCallback(
+        () => this.#dependencies.uploads.flush(clock, this.#quality ?? undefined),
+      );
       this.#assertFrameCanContinue();
-    }
+      for (const feature of this.#dependencies.features) {
+        this.#invokeOwnedCallback(() => feature.update(snapshot, clock));
+        this.#assertFrameCanContinue();
+      }
 
-    const recorder = new FramePassRecorder(() => this.#assertFrameCanContinue());
-    for (const feature of this.#dependencies.features) {
-      this.#invokeOwnedCallback(() => feature.render(recorder));
+      const recorder = new FramePassRecorder(() => this.#assertFrameCanContinue());
+      for (const feature of this.#dependencies.features) {
+        this.#invokeOwnedCallback(() => feature.render(recorder));
+        this.#assertFrameCanContinue();
+      }
+      framePasses = recorder.passes;
+      await this.#invokeOwnedCallback(() => this.#dependencies.backend.render(framePasses));
       this.#assertFrameCanContinue();
+      this.#submittedFrames += 1;
+      submitted = true;
+      this.#notifyProbeListeners();
+    } finally {
+      this.#recordTelemetryFrame(clock, snapshot, frameStartedAt, submitted, framePasses);
+      // Publish the active frame before later RAF callbacks. Keeping this flush
+      // inside the frame operation also guarantees cleanup cannot race ahead
+      // and leave callback-time snapshots retained in the Host.
+      this.#flushDroppedTelemetryFrames();
     }
-    await this.#invokeOwnedCallback(() => this.#dependencies.backend.render(recorder.passes));
-    this.#assertFrameCanContinue();
-    this.#submittedFrames += 1;
-    this.#notifyProbeListeners();
   }
 
   async #applyQuality(profile: Readonly<RenderQualityProfile>): Promise<void> {
@@ -1362,21 +1551,39 @@ export class RenderHost {
       );
     }
     const previous = this.#quality;
-    await this.#invokeOwnedCallback(() => this.#dependencies.materials.quality(profile));
-    this.#assertControlCanContinue();
-    await this.#invokeOwnedCallback(() => {
-      const quality = this.#dependencies.uploads.quality;
-      return quality?.call(this.#dependencies.uploads, profile);
-    });
-    this.#assertControlCanContinue();
-    for (const feature of this.#dependencies.features) {
-      this.#invokeOwnedCallback(() => feature.quality(profile));
+    const changed = previous !== null && !qualityProfilesEqual(previous, profile);
+    const qualityStartedAt = changed ? this.#sampleTelemetryNow() : null;
+    const affectsStoryTime = this.#lifecycle === "ready";
+    let qualitySucceeded = false;
+    try {
+      await this.#invokeOwnedCallback(() => this.#dependencies.materials.quality(profile));
       this.#assertControlCanContinue();
-    }
-    this.#quality = profile;
-    if (previous !== null && !qualityProfilesEqual(previous, profile) && this.#snapshot !== null) {
-      this.#invalidateFeatureHistory("quality-change", this.#snapshot, this.#snapshot);
+      await this.#invokeOwnedCallback(() => {
+        const quality = this.#dependencies.uploads.quality;
+        return quality?.call(this.#dependencies.uploads, profile);
+      });
       this.#assertControlCanContinue();
+      for (const feature of this.#dependencies.features) {
+        this.#invokeOwnedCallback(() => feature.quality(profile));
+        this.#assertControlCanContinue();
+      }
+      this.#quality = profile;
+      if (changed && this.#snapshot !== null) {
+        this.#invalidateFeatureHistory("quality-change", this.#snapshot, this.#snapshot);
+        this.#assertControlCanContinue();
+      }
+      qualitySucceeded = true;
+    } finally {
+      if (changed) {
+        this.#completeTelemetryOperation({
+          kind: "quality-change",
+          name: `${previous.tier}-to-${profile.tier}`,
+          frameId: null,
+          storyTime: this.#snapshot?.storyTime ?? null,
+          success: qualitySucceeded,
+          affectsStoryTime,
+        }, qualityStartedAt);
+      }
     }
   }
 
@@ -1385,19 +1592,35 @@ export class RenderHost {
     previous: JourneyRenderSnapshot | null,
     next: JourneyRenderSnapshot,
   ): void {
+    const historyStartedAt = this.#sampleTelemetryNow();
+    const affectsStoryTime = this.#lifecycle === "ready";
+    let historySucceeded = false;
     const event: Readonly<RenderHistoryInvalidation> = Object.freeze({
       reason,
       previousShotId: previous?.shotId ?? null,
       nextShotId: next.shotId,
       storyTime: next.storyTime,
     });
-    for (const feature of this.#dependencies.features) {
-      this.#invokeOwnedCallback(() => {
-        const invalidateHistory = feature.invalidateHistory;
-        invalidateHistory?.call(feature, event);
-      });
-      if (this.#lifecycle === "initializing") this.#assertInitializing();
-      else this.#assertControlCanContinue();
+    try {
+      for (const feature of this.#dependencies.features) {
+        this.#invokeOwnedCallback(() => {
+          const invalidateHistory = feature.invalidateHistory;
+          invalidateHistory?.call(feature, event);
+        });
+        if (this.#lifecycle === "initializing") this.#assertInitializing();
+        else this.#assertControlCanContinue();
+      }
+      historySucceeded = true;
+    } finally {
+      this.#completeTelemetryOperation({
+        kind: "history-reset",
+        name: reason,
+        frameId: null,
+        storyTime: next.storyTime,
+        success: historySucceeded,
+        affectsStoryTime,
+        historyReason: reason,
+      }, historyStartedAt);
     }
   }
 
@@ -1634,6 +1857,9 @@ export class RenderHost {
         recordOperationRejection(error);
       }
     }
+    // A frame can fail before entering its internal telemetry finally block.
+    // Drain any callback-time snapshots once the exact frame promise settles.
+    this.#flushDroppedTelemetryFrames();
     try {
       await this.#controlTail;
     } catch (error: unknown) {
@@ -2762,6 +2988,7 @@ export class RenderHost {
   }
 
   #releaseIntermediateFailureSnapshots(): void {
+    this.#pendingDroppedTelemetryFrames = [];
     this.#preCleanupFailures = [];
     this.#preCleanupFailureChannels = [];
     this.#cleanupFailureWorkspace = null;
@@ -2840,6 +3067,187 @@ export class RenderHost {
       throw this.#frameLoopStopFailure;
     }
     this.#frameLoopStopped = true;
+  }
+
+  #sampleTelemetryNow(): number | null {
+    const instrumentation = this.#instrumentation;
+    if (instrumentation === null) return null;
+    try {
+      const observed = this.#invokeOwnedCallback(instrumentation.now);
+      return typeof observed === "number"
+        && Number.isFinite(observed)
+        && observed >= 0
+        && !Object.is(observed, -0)
+        ? observed
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  #recordTelemetryOperation(event: Readonly<GfxOperationalEventInput>): void {
+    const instrumentation = this.#instrumentation;
+    if (instrumentation === null) return;
+    try {
+      this.#invokeOwnedCallback(() => instrumentation.recordOperation(Object.freeze(event)));
+    } catch {
+      // Performance evidence is diagnostic and cannot affect renderer lifecycle.
+    }
+  }
+
+  #completeTelemetryOperation(
+    input: Omit<GfxOperationalEventInput, "durationMs" | "startedAtMs">,
+    startedAtMs: number | null,
+  ): void {
+    if (startedAtMs === null) return;
+    const endedAtMs = this.#sampleTelemetryNow();
+    if (endedAtMs === null) return;
+    this.#recordTelemetryOperation({
+      ...input,
+      startedAtMs,
+      durationMs: Math.max(0, endedAtMs - startedAtMs),
+    });
+  }
+
+  #telemetryBackendFrame(): Readonly<RenderBackendFrameTelemetry> {
+    try {
+      return this.#invokeOwnedCallback(() => {
+        const backend = this.#dependencies.backend;
+        const snapshot = backend.snapshotFrameTelemetry;
+        return typeof snapshot === "function"
+          ? Reflect.apply(snapshot, backend, [])
+          : UNAVAILABLE_FRAME_TELEMETRY;
+      });
+    } catch {
+      return UNAVAILABLE_FRAME_TELEMETRY;
+    }
+  }
+
+  #telemetryResources(): Readonly<RenderResourceSnapshot> {
+    try {
+      return this.#invokeOwnedCallback(() => {
+        const backendResources = this.#dependencies.backend.snapshotResources();
+        const pendingUploads = this.#dependencies.uploads.pendingCount();
+        return Object.freeze({ ...backendResources, pendingUploads });
+      });
+    } catch {
+      try {
+        return this.#invokeOwnedCallback(() => {
+          const resources = this.#dependencies.resources.snapshot();
+          const pendingUploads = this.#dependencies.uploads.pendingCount();
+          return Object.freeze({ ...resources, pendingUploads });
+        });
+      } catch {
+        return EMPTY_TELEMETRY_RESOURCES;
+      }
+    }
+  }
+
+  #telemetryBackendApi(): "WebGPU" | "WebGL2" | null {
+    try {
+      const actualApi = this.#invokeOwnedCallback(
+        () => this.#dependencies.backend.facts.actualApi,
+      );
+      return actualApi === "WebGPU" || actualApi === "WebGL2" ? actualApi : null;
+    } catch {
+      return null;
+    }
+  }
+
+  #recordTelemetryFrame(
+    clock: Readonly<VisualClock>,
+    snapshot: Readonly<JourneyRenderSnapshot>,
+    startedAtMs: number | null,
+    submitted: boolean,
+    passes: readonly RenderPass[],
+  ): void {
+    const instrumentation = this.#instrumentation;
+    const quality = this.#quality;
+    if (instrumentation === null || quality === null || startedAtMs === null) return;
+    const endedAtMs = this.#sampleTelemetryNow();
+    if (endedAtMs === null) return;
+    let transparentPasses = 0;
+    let fullscreenPasses = 0;
+    for (let index = 0; index < passes.length; index += 1) {
+      const kind = passes[index]!.kind.toLowerCase();
+      if (kind.includes("transparent")) transparentPasses += 1;
+      if (
+        kind.includes("fullscreen")
+        || kind.includes("post")
+        || kind.includes("temporal")
+        || kind.includes("composite")
+      ) {
+        fullscreenPasses += 1;
+      }
+    }
+    const frame = Object.freeze({
+      frameId: clock.frame,
+      rafTimestampMs: clock.nowMs,
+      storyTime: snapshot.storyTime,
+      qualityTier: quality.tier,
+      backendApi: this.#telemetryBackendApi(),
+      mainThreadWorkMs: Math.max(0, endedAtMs - startedAtMs),
+      submitted,
+      passCount: passes.length,
+      transparentPasses,
+      fullscreenPasses,
+      renderer: this.#telemetryBackendFrame(),
+      resources: this.#telemetryResources(),
+    }) satisfies Readonly<GfxFrameTelemetryInput>;
+    try {
+      this.#invokeOwnedCallback(() => instrumentation.recordFrame(frame));
+    } catch {
+      // Performance evidence is diagnostic and cannot affect renderer lifecycle.
+    }
+  }
+
+  #captureDroppedTelemetryFrame(
+    frameId: number,
+    rafTimestampMs: number,
+  ): Readonly<PendingDroppedTelemetryFrame> | null {
+    const instrumentation = this.#instrumentation;
+    const snapshot = this.#snapshot;
+    const quality = this.#quality;
+    if (instrumentation === null || snapshot === null || quality === null) return null;
+    return Object.freeze({
+      frameId,
+      rafTimestampMs,
+      storyTime: snapshot.storyTime,
+      qualityTier: quality.tier,
+    });
+  }
+
+  #recordDroppedTelemetryFrame(entry: Readonly<PendingDroppedTelemetryFrame>): void {
+    const instrumentation = this.#instrumentation;
+    if (instrumentation === null) return;
+    const frame = Object.freeze({
+      frameId: entry.frameId,
+      rafTimestampMs: entry.rafTimestampMs,
+      storyTime: entry.storyTime,
+      qualityTier: entry.qualityTier,
+      backendApi: this.#telemetryBackendApi(),
+      mainThreadWorkMs: 0,
+      submitted: false,
+      passCount: 0,
+      transparentPasses: 0,
+      fullscreenPasses: 0,
+      renderer: UNAVAILABLE_FRAME_TELEMETRY,
+      resources: EMPTY_TELEMETRY_RESOURCES,
+    }) satisfies Readonly<GfxFrameTelemetryInput>;
+    try {
+      this.#invokeOwnedCallback(() => instrumentation.recordFrame(frame));
+    } catch {
+      // Performance evidence is diagnostic and cannot affect renderer lifecycle.
+    }
+  }
+
+  #flushDroppedTelemetryFrames(): void {
+    const pending = this.#pendingDroppedTelemetryFrames;
+    this.#pendingDroppedTelemetryFrames = [];
+    for (let index = 0; index < pending.length; index += 1) {
+      const entry = pending[index]!;
+      this.#recordDroppedTelemetryFrame(entry);
+    }
   }
 
   #invokeOwnedCallback<T>(operation: () => T): T {

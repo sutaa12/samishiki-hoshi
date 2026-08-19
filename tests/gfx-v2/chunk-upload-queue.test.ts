@@ -91,6 +91,60 @@ function job(options: {
 }
 
 describe("GFX-004 incremental upload queue", () => {
+  it("reports each executed upload slice against its frame without trusting the observer", async () => {
+    const time = { value: 0 };
+    const events: unknown[] = [];
+    const queue = new IncrementalChunkUploadQueue(
+      () => time.value,
+      (event) => events.push(event),
+    );
+    queue.initialize(CONTEXT);
+    const ticket = queue.enqueue(job({
+      requestId: 0,
+      now: time,
+      durations: [0.4],
+      bytes: 4,
+    }));
+
+    await queue.flush(CLOCK, PROFILE);
+    expect(await ticket.result).toMatchObject({ kind: "complete" });
+    expect(events).toEqual([expect.objectContaining({
+      kind: "upload",
+      name: "chunk-s08-0-upload-slice",
+      startedAtMs: 0,
+      durationMs: 0.4,
+      frameId: 1,
+      storyTime: 1 / 60,
+      success: true,
+      affectsStoryTime: true,
+    })]);
+    expect(Object.isFrozen(events[0])).toBe(true);
+
+    const hostileTime = { value: 0 };
+    const hostileRef: { current: IncrementalChunkUploadQueue | null } = { current: null };
+    let nestedDispose: Promise<void> | null = null;
+    const hostile = new IncrementalChunkUploadQueue(
+      () => hostileTime.value,
+      () => {
+        nestedDispose = hostileRef.current?.dispose() ?? null;
+        throw new Error("telemetry observer failed");
+      },
+    );
+    hostileRef.current = hostile;
+    hostile.initialize(CONTEXT);
+    const hostileTicket = hostile.enqueue(job({
+      requestId: 99,
+      now: hostileTime,
+      durations: [0.4],
+      bytes: 4,
+    }));
+    await expect(hostile.flush(CLOCK, PROFILE)).resolves.toBeUndefined();
+    expect(await hostileTicket.result).toMatchObject({ kind: "complete" });
+    await nestedDispose;
+    expect(hostile.snapshot().disposed).toBe(false);
+    await hostile.dispose();
+  });
+
   it("uses bounded incremental FIFO slices and completes without ownership retention", async () => {
     const time = { value: 0 };
     const queue = new IncrementalChunkUploadQueue(() => time.value);

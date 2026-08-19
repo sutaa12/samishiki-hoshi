@@ -234,6 +234,70 @@ describe("GFX-002 Three backend adapter", () => {
     });
   });
 
+  it("publishes bounded frame counters and degrades hostile renderer telemetry to unavailable", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const originalInfo = renderer.info;
+    renderer.info = {
+      ...originalInfo,
+      render: {
+        calls: 7,
+        triangles: 144,
+        lines: 3,
+        points: 2,
+      },
+    };
+    const subject = adapter(renderer, "webgpu-preferred");
+    await subject.initialize({ viewport: { width: 800, height: 450, pixelRatio: 1.5 } });
+
+    expect(subject.snapshotFrameTelemetry()).toEqual({
+      available: true,
+      drawCalls: 7,
+      triangles: 144,
+      lines: 3,
+      points: 2,
+      pixelRatio: 1.5,
+      drawingBufferWidth: 1200,
+      drawingBufferHeight: 675,
+      gpuTimeMs: null,
+    });
+
+    renderer.info = {
+      ...originalInfo,
+      render: { calls: -0, triangles: 0, lines: 0, points: 0 },
+    };
+    expect(subject.snapshotFrameTelemetry()).toMatchObject({
+      available: false,
+      drawCalls: null,
+    });
+
+    let getterCalls = 0;
+    Object.defineProperty(renderer, "info", {
+      configurable: true,
+      get() {
+        getterCalls += 1;
+        throw new Error("hostile renderer info");
+      },
+    });
+    expect(subject.snapshotFrameTelemetry()).toEqual({
+      available: false,
+      drawCalls: null,
+      triangles: null,
+      lines: null,
+      points: null,
+      pixelRatio: null,
+      drawingBufferWidth: null,
+      drawingBufferHeight: null,
+      gpuTimeMs: null,
+    });
+    expect(getterCalls).toBe(1);
+    Object.defineProperty(renderer, "info", {
+      configurable: true,
+      value: originalInfo,
+      writable: true,
+    });
+    await subject.dispose();
+  });
+
   it("captures own backend options before await and rejects accessors without invoking them", () => {
     const originalCanvas = {} as HTMLCanvasElement;
     const replacementCanvas = {} as HTMLCanvasElement;

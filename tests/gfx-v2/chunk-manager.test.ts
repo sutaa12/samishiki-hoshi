@@ -7,6 +7,7 @@ import type {
   RenderServiceInitializationContext,
   VisualClock,
 } from "../../src/gfx/v2/contracts";
+import type { GfxOperationalEventInput, GfxTelemetrySink } from "../../src/gfx/v2/telemetry";
 import { STORY_CHUNK_IDS, type StoryChunkId, type WorldPlan } from "../../src/world/v2/contracts";
 import { createWorldGenerationContext } from "../../src/world/v2/seed-streams";
 import { generateWorldPlan } from "../../src/world/v2/world-plan";
@@ -333,6 +334,7 @@ function createHarness(options: {
   readonly adoptGate?: Promise<void>;
   readonly releaseRejection?: Rejection;
   readonly disposeRejection?: Rejection;
+  readonly telemetry?: GfxTelemetrySink;
 } = {}): Harness {
   const time = { value: 0 };
   const trace: string[] = [];
@@ -358,6 +360,8 @@ function createHarness(options: {
     uploader,
     resources,
     generationConcurrency: 2,
+    now: () => time.value,
+    ...(options.telemetry ? { telemetry: options.telemetry } : {}),
   });
   return { manager, worker, uploads, uploader, resources, trace, frame: 0 };
 }
@@ -451,6 +455,81 @@ class MismatchedTicketQueue extends RejectingUploadQueue {
 }
 
 describe("GFX-004 chunk manager", () => {
+  it("reports successful lease activation on the exact update frame", async () => {
+    const events: Readonly<GfxOperationalEventInput>[] = [];
+    const harness = createHarness({
+      telemetry: {
+        recordFrame(): void {},
+        recordOperation(event): void {
+          events.push(event);
+        },
+      },
+    });
+    await harness.manager.initialize();
+    harness.manager.setFocus("S08");
+    await driveDesiredToTerminal(harness);
+
+    const activations = events.filter((event) => event.kind === "activation");
+    expect(activations.length).toBeGreaterThan(0);
+    expect(activations.every((event) => (
+      /^chunk-s\d{2}-\d+-lease-activation$/.test(event.name)
+      && event.frameId !== null
+      && event.storyTime !== null
+      && event.durationMs === 0
+      && event.success
+      && event.affectsStoryTime
+      && Object.isFrozen(event)
+    ))).toBe(true);
+    await disposeCleanHarness(harness);
+  });
+
+  it("captures telemetry without getters and blocks diagnostic callback mutation", async () => {
+    const managerRef: { current: ChunkManager | null } = { current: null };
+    const nestedFailures: unknown[] = [];
+    const telemetry: GfxTelemetrySink = {
+      recordFrame(): void {},
+      recordOperation(): void {
+        try {
+          managerRef.current?.setFocus("S24");
+        } catch (error: unknown) {
+          nestedFailures.push(error);
+        }
+      },
+    };
+    const harness = createHarness({ telemetry });
+    const manager = harness.manager;
+    managerRef.current = manager;
+    await manager.initialize();
+    manager.setFocus("S08");
+    await driveDesiredToTerminal(harness);
+    expect(nestedFailures.length).toBeGreaterThan(0);
+    expect(nestedFailures.every((error) => (
+      error instanceof Error && /telemetry callback/.test(error.message)
+    ))).toBe(true);
+    expect(manager.snapshot().focusChunkId).toBe("S08");
+
+    let getterCalls = 0;
+    const hostileTelemetry = Object.defineProperty({ recordFrame(): void {} }, "recordOperation", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return () => undefined;
+      },
+    });
+    const base = createHarness();
+    expect(() => new ChunkManager({
+      plan: WORLD_PLAN,
+      worker: base.worker,
+      uploads: base.uploads,
+      uploader: base.uploader,
+      resources: base.resources,
+      telemetry: hostileTelemetry as unknown as GfxTelemetrySink,
+    })).toThrow(/data method/);
+    expect(getterCalls).toBe(0);
+    await disposeCleanHarness(harness);
+    await disposeCleanHarness(base);
+  });
+
   it.each([
     { label: "adopt-only", missing: "releaseOwner" as const },
     { label: "release-only", missing: "adopt" as const },

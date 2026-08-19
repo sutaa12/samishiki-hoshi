@@ -43,6 +43,10 @@ import type {
 } from "../contracts";
 import { RenderHost } from "../render-host";
 import {
+  RollingGfxPerformanceTelemetry,
+  type GfxPerformanceTelemetrySnapshot,
+} from "../telemetry";
+import {
   WORLD_GENERATOR_VERSION,
   createWorldGenerationContext,
   digestWorldPlan,
@@ -213,6 +217,7 @@ export interface GfxFoundationSnapshot {
   readonly chunks: Readonly<ChunkRuntimeSnapshot>;
   readonly uploader: Readonly<ThreeChunkUploaderSnapshot>;
   readonly logicalResources: Readonly<LogicalResourceRegistrySnapshot>;
+  readonly telemetry: Readonly<GfxPerformanceTelemetrySnapshot>;
   readonly quality: Readonly<{ id: FoundationQualityId; subscribers: number }>;
   readonly frameLoop: Readonly<{ running: boolean; starts: number; stops: number; ticks: number }>;
   readonly scene: Readonly<{ objects: number; meshes: number; children: number }>;
@@ -259,6 +264,7 @@ async function performGfxFoundationConstruction(options: {
   let frameLoopOwner: BrowserFrameLoop | null = null;
   let hostOwner: RenderHost | null = null;
   let resizeBindingOwner: FoundationResizeBinding | null = null;
+  let telemetryOwner: RollingGfxPerformanceTelemetry | null = null;
   let unsubscribeHost: Unsubscribe = () => undefined;
   let constructionFailurePresent = false;
   let constructionFailure: unknown;
@@ -393,6 +399,13 @@ async function performGfxFoundationConstruction(options: {
           () => { if (qualityOwner === exactQuality) qualityOwner = null; },
         );
       }
+      if (telemetryOwner) {
+        const exactTelemetry = telemetryOwner;
+        await attempt(
+          () => exactTelemetry.dispose(),
+          () => { if (telemetryOwner === exactTelemetry) telemetryOwner = null; },
+        );
+      }
       if (sceneOwner) {
         const exactScene = sceneOwner;
         await attempt(
@@ -428,7 +441,12 @@ async function performGfxFoundationConstruction(options: {
 
     const pipeline = pipelineOwner = new ProductionLinearHdrPipeline({ temporalHistoryWeight: 0.1 });
     const materials = materialsOwner = new ProductionTslMaterialLibrary();
-    const uploads = uploadsOwner = new IncrementalChunkUploadQueue(() => performance.now());
+    const telemetry = telemetryOwner = new RollingGfxPerformanceTelemetry();
+    const monotonicNow = () => performance.now();
+    const uploads = uploadsOwner = new IncrementalChunkUploadQueue(
+      monotonicNow,
+      (event) => telemetry.recordOperation(event),
+    );
     const resources = resourcesOwner = new LogicalChunkResourceRegistry();
     const uploader = uploaderOwner = new ProductionThreeChunkUploader(scene, materials);
     const qualityProvider = qualityOwner = new FoundationQualityProvider();
@@ -449,6 +467,8 @@ async function performGfxFoundationConstruction(options: {
       uploader,
       resources,
       generationConcurrency: 2,
+      now: monotonicNow,
+      telemetry,
     });
     const persistentPass = Object.freeze({
       name: "gfx-foundation-world",
@@ -467,16 +487,19 @@ async function performGfxFoundationConstruction(options: {
         if (observedEvents.length > 256) observedEvents.shift();
       },
     };
-    const host = hostOwner = new RenderHost({
-      backend,
-      frameLoop,
-      features: [pipeline, pooledWorld],
-      materials,
-      uploads,
-      resources,
-      qualityProvider,
-      observer,
-    });
+    const host = hostOwner = new RenderHost(
+      {
+        backend,
+        frameLoop,
+        features: [pipeline, pooledWorld],
+        materials,
+        uploads,
+        resources,
+        qualityProvider,
+        observer,
+      },
+      Object.freeze({ telemetry, now: monotonicNow }),
+    );
 
     const listeners = new Set<() => void>();
     let resizeCalls = 0;
@@ -502,6 +525,7 @@ async function performGfxFoundationConstruction(options: {
       chunks: manager.snapshot(),
       uploader: uploader.snapshot(),
       logicalResources: resources.snapshotEvidence(),
+      telemetry: telemetry.snapshot(),
       quality: qualityProvider.snapshot(),
       frameLoop: frameLoop.snapshot(),
       scene: sceneSnapshot(scene),
@@ -524,6 +548,7 @@ async function performGfxFoundationConstruction(options: {
       )];
       qualityProvider.dispose();
       scene.clear();
+      telemetry.dispose();
       if (failures.length === 1) throw failures[0];
       if (failures.length > 1) {
         throw immutableGfxContractAggregate(failures, "GFX foundation runtime cleanup failed.");
@@ -575,6 +600,7 @@ async function performGfxFoundationConstruction(options: {
       dispose: disposal.run,
       diagnostics: backend.diagnostics,
     };
+    telemetryOwner = null;
     admission.transfer(constructionOwner);
     return runtime;
   } catch (error: unknown) {

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { projectJourneyState } from "../../src/gfx/v2/project-journey";
 import { hashJourney, simulateJourney } from "../../src/game/simulation";
+import { generateChunkPayload } from "../../src/gfx/v2/chunks/worker-kernel";
+import { makeChunkGenerationToken } from "../../src/gfx/v2/chunks/worker-client";
+import {
+  WORLD_GENERATOR_VERSION,
+  createWorldGenerationContext,
+  digestWorldPlan,
+  generateWorldPlan,
+  projectTwinkleSemantics,
+} from "../../src/world/v2";
 
 const REPLAY = [
   { at: 5, moveX: 0.7, moveY: 0.1, pulse: true },
@@ -9,6 +18,51 @@ const REPLAY = [
 ] as const;
 
 describe("GFX-002 frozen replay fixture", () => {
+  it("keeps game, ledger, world plan, and chunk payloads identical across the GFX-006 backend-quality matrix", () => {
+    const results = (["WebGPU", "WebGL2"] as const).flatMap((backend) => (
+      (["low", "balanced", "high"] as const).map((quality) => {
+        const state = simulateJourney(REPLAY, { seed: 778, quality });
+        const plan = generateWorldPlan(createWorldGenerationContext({
+          worldSeed: state.seed,
+          generatorVersion: WORLD_GENERATOR_VERSION,
+        }));
+        const planDigest = digestWorldPlan(plan);
+        const twinkles = projectTwinkleSemantics(plan, state.pulses);
+        const chunkDigests = plan.chunks.map((chunk, index) => generateChunkPayload(
+          plan,
+          makeChunkGenerationToken({
+            planDigest,
+            chunkId: chunk.id,
+            epoch: 1,
+            requestId: index + 1,
+          }),
+        ).contentDigest);
+        return Object.freeze({
+          backend,
+          quality,
+          journeyHash: hashJourney(state),
+          ledger: state.pulses,
+          planDigest,
+          twinkleSignatures: Object.freeze(twinkles.map((entry) => entry.signature)),
+          chunkDigests: Object.freeze(chunkDigests),
+        });
+      })
+    ));
+    const baseline = results[0]!;
+    expect(baseline.journeyHash).toBe("09780631");
+    for (const result of results) {
+      expect(result.journeyHash, `${result.backend}/${result.quality}`).toBe(baseline.journeyHash);
+      expect(result.ledger, `${result.backend}/${result.quality}`).toEqual(baseline.ledger);
+      expect(result.planDigest, `${result.backend}/${result.quality}`).toBe(baseline.planDigest);
+      expect(result.twinkleSignatures, `${result.backend}/${result.quality}`).toEqual(
+        baseline.twinkleSignatures,
+      );
+      expect(result.chunkDigests, `${result.backend}/${result.quality}`).toEqual(
+        baseline.chunkDigests,
+      );
+    }
+  });
+
   it("pins the gameplay hash independently from requested render quality", () => {
     const low = simulateJourney(REPLAY, { seed: 778, quality: "low" });
     const high = simulateJourney(REPLAY, { seed: 778, quality: "high" });

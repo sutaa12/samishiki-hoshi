@@ -5,6 +5,7 @@ import type {
   RenderUploadQueue,
   VisualClock,
 } from "../contracts";
+import type { GfxOperationalEventInput } from "../telemetry/contracts";
 import {
   CHUNK_UPLOAD_HARD_CAP_MS,
   CHUNK_UPLOAD_TARGET_MS,
@@ -26,6 +27,9 @@ import {
 import { validateChunkGenerationToken } from "./worker-protocol";
 
 export type ChunkMonotonicClock = () => number;
+export type ChunkUploadTelemetryObserver = (
+  event: Readonly<GfxOperationalEventInput>,
+) => void;
 
 interface CapturedUploadJob {
   readonly id: string;
@@ -315,6 +319,7 @@ function captureStep(input: unknown, ownerId: string): Readonly<ChunkUploadStepR
 
 export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUploadQueueLike {
   readonly #now: ChunkMonotonicClock;
+  readonly #telemetryObserver: ChunkUploadTelemetryObserver | null;
   readonly #queue: PendingUpload[] = [];
   readonly #knownIds = new Set<string>();
   readonly #events: Readonly<ChunkRuntimeEvent>[] = [];
@@ -337,23 +342,34 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
   #disposePromise: Promise<void> | null = null;
   #flushDrain: Promise<void> = Promise.resolve();
   #resolveFlushDrain: (() => void) | null = null;
+  #telemetryObserverActive = false;
 
-  constructor(now: ChunkMonotonicClock) {
+  constructor(
+    now: ChunkMonotonicClock,
+    telemetryObserver?: ChunkUploadTelemetryObserver,
+  ) {
     if (typeof now !== "function") throw new TypeError("Chunk upload queue requires an injected monotonic clock.");
+    if (telemetryObserver !== undefined && typeof telemetryObserver !== "function") {
+      throw new TypeError("Chunk upload queue telemetry observer must be a function.");
+    }
     this.#now = now;
+    this.#telemetryObserver = telemetryObserver ?? null;
   }
 
   initialize(context: RenderServiceInitializationContext): void {
+    this.#assertNoTelemetryObserverMutation("initialize");
     void context;
     if (this.#disposed) throw new Error("Cannot initialize a disposed chunk upload queue.");
     this.#initialized = true;
   }
 
   quality(profile: Readonly<RenderQualityProfile>): void {
+    this.#assertNoTelemetryObserverMutation("change quality");
     this.#budgetMs = captureProfileBudget(profile);
   }
 
   enqueue(job: Readonly<ChunkUploadJob>): Readonly<ChunkUploadTicket> {
+    this.#assertNoTelemetryObserverMutation("enqueue");
     if (!this.#initialized || this.#disposed) throw new Error("Chunk upload queue is not active.");
     if (this.pendingCount() >= MAX_CHUNK_PENDING_UPLOADS) {
       throw Object.assign(new RangeError(`Chunk upload queue exceeds ${MAX_CHUNK_PENDING_UPLOADS} jobs.`), {
@@ -382,6 +398,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
   }
 
   async cancelOwner(ownerId: string): Promise<void> {
+    if (this.#telemetryObserverActive) return;
     if (typeof ownerId !== "string" || ownerId.length === 0) throw new TypeError("Chunk upload owner id is required.");
     const matches: PendingUpload[] = [];
     for (let index = this.#queue.length - 1; index >= 0; index -= 1) {
@@ -407,6 +424,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
   }
 
   async flush(clock: VisualClock, profile?: Readonly<RenderQualityProfile>): Promise<void> {
+    if (this.#telemetryObserverActive) return;
     if (!this.#initialized || this.#disposed) return;
     if (this.#flushing) throw new Error("Chunk upload queue flush cannot reenter.");
     this.#flushing = true;
@@ -480,6 +498,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
           );
         }
         if (duration > pending.job.maximumSliceMs && !pending.settled) {
+          this.#recordUploadTelemetry(pending.job, ownedClock, sliceStart, duration, false);
           this.#fail(pending, uploadIssue(
             "UPLOAD_HARD_CAP_EXCEEDED",
             `Chunk upload slice took ${duration} ms, exceeding its declared ${pending.job.maximumSliceMs} ms upper bound.`,
@@ -488,6 +507,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
           break;
         }
         if ((duration > hardCap || aggregateDuration > hardCap) && !pending.settled) {
+          this.#recordUploadTelemetry(pending.job, ownedClock, sliceStart, duration, false);
           this.#fail(pending, uploadIssue(
             "UPLOAD_HARD_CAP_EXCEEDED",
             `Chunk upload work reached ${aggregateDuration} ms with a ${duration} ms slice, exceeding the ${hardCap} ms hard cap.`,
@@ -496,15 +516,18 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
           break;
         }
         if (pending.settled || !step) {
+          this.#recordUploadTelemetry(pending.job, ownedClock, sliceStart, duration, false);
           this.#active = null;
           continue;
         }
         if (pending.cancelRequested) {
+          this.#recordUploadTelemetry(pending.job, ownedClock, sliceStart, duration, false);
           this.#cancel(pending);
           this.#active = null;
           continue;
         }
         if (step.uploadedBytes > pending.job.byteLength - pending.uploadedBytes) {
+          this.#recordUploadTelemetry(pending.job, ownedClock, sliceStart, duration, false);
           this.#fail(pending, uploadIssue("UPLOAD_FAILED", "Chunk upload reported more bytes than its declared payload."));
           this.#active = null;
           continue;
@@ -512,17 +535,27 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
         pending.uploadedBytes += step.uploadedBytes;
         this.#totalUploadedBytes += step.uploadedBytes;
         this.#event("upload", "slice", pending.job.token.chunkId, pending.job.token.requestId, ownedClock.frame, step.uploadedBytes);
+        let sliceSucceeded = true;
         if (step.kind === "complete") {
           if (pending.uploadedBytes !== pending.job.byteLength) {
+            sliceSucceeded = false;
             this.#fail(pending, uploadIssue("UPLOAD_FAILED", "Completed upload byte count differs from the declared payload."));
           } else {
             this.#complete(pending, step.lease);
           }
         } else if (pending.uploadedBytes >= pending.job.byteLength) {
+          sliceSucceeded = false;
           this.#fail(pending, uploadIssue("UPLOAD_FAILED", "Pending upload exhausted its declared payload without a lease."));
         } else {
           this.#queue.push(pending);
         }
+        this.#recordUploadTelemetry(
+          pending.job,
+          ownedClock,
+          sliceStart,
+          duration,
+          sliceSucceeded,
+        );
         this.#active = null;
         if (this.#sampleNow() - start >= hardCap) break;
       }
@@ -561,6 +594,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
   }
 
   dispose(): Promise<void> {
+    if (this.#telemetryObserverActive) return Promise.resolve();
     if (this.#disposePromise) return this.#disposePromise;
     const deferred = deferredVoid();
     this.#disposePromise = deferred.promise;
@@ -712,6 +746,41 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
       return complete;
     }
     return this.#cancelJobForCleanup(pending.job);
+  }
+
+  #recordUploadTelemetry(
+    job: CapturedUploadJob,
+    clock: Readonly<VisualClock>,
+    startedAtMs: number,
+    durationMs: number,
+    success: boolean,
+  ): void {
+    const observer = this.#telemetryObserver;
+    if (observer === null) return;
+    if (this.#telemetryObserverActive) return;
+    this.#telemetryObserverActive = true;
+    try {
+      observer(Object.freeze({
+        kind: "upload",
+        name: `chunk-${job.token.chunkId.toLowerCase()}-${job.token.requestId}-upload-slice`,
+        startedAtMs,
+        durationMs: Math.max(0, durationMs),
+        frameId: clock.frame,
+        storyTime: clock.elapsedSeconds,
+        success,
+        affectsStoryTime: true,
+      }));
+    } catch {
+      // Upload telemetry cannot affect queue scheduling or ownership.
+    } finally {
+      this.#telemetryObserverActive = false;
+    }
+  }
+
+  #assertNoTelemetryObserverMutation(operation: string): void {
+    if (this.#telemetryObserverActive) {
+      throw new Error(`Chunk upload queue cannot ${operation} from a telemetry callback.`);
+    }
   }
 
   #event(

@@ -3,6 +3,7 @@ import type {
   RenderResourceRegistry,
   VisualClock,
 } from "../contracts";
+import type { GfxTelemetrySink } from "../telemetry/contracts";
 import {
   STORY_CHUNK_IDS,
   type StoryChunkId,
@@ -63,6 +64,7 @@ interface LeaseCleanupState {
 
 type ResourceAdopt = NonNullable<RenderResourceRegistry["adopt"]>;
 type ResourceReleaseOwner = NonNullable<RenderResourceRegistry["releaseOwner"]>;
+type TelemetryRecordOperation = GfxTelemetrySink["recordOperation"];
 
 export interface ChunkManagerOptions {
   readonly plan: Readonly<WorldPlan>;
@@ -71,6 +73,8 @@ export interface ChunkManagerOptions {
   readonly uploader: ChunkUploader;
   readonly resources: RenderResourceRegistry;
   readonly generationConcurrency?: number;
+  readonly now?: () => number;
+  readonly telemetry?: GfxTelemetrySink;
 }
 
 function runtimeIssue(
@@ -114,6 +118,46 @@ function ownDataValue(input: unknown, key: string, label: string): unknown {
     throw new TypeError(`${label}.${key} must be an enumerable data property.`);
   }
   return descriptor.value;
+}
+
+function optionalOwnDataValue(input: object, key: string, label: string): unknown {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = Reflect.getOwnPropertyDescriptor(input, key);
+  } catch {
+    throw new TypeError(`${label}.${key} could not be inspected.`);
+  }
+  if (!descriptor) return undefined;
+  if (!("value" in descriptor)) {
+    throw new TypeError(`${label}.${key} must be an own data property when present.`);
+  }
+  return descriptor.value;
+}
+
+function captureTelemetryRecordOperation(
+  telemetry: GfxTelemetrySink,
+): TelemetryRecordOperation {
+  let owner: object | null = telemetry;
+  for (let depth = 0; depth < 8 && owner !== null; depth += 1) {
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Reflect.getOwnPropertyDescriptor(owner, "recordOperation");
+    } catch {
+      throw new TypeError("Chunk manager telemetry method could not be inspected.");
+    }
+    if (descriptor) {
+      if (!("value" in descriptor) || typeof descriptor.value !== "function") {
+        throw new TypeError("Chunk manager telemetry recordOperation must be a data method.");
+      }
+      return descriptor.value as TelemetryRecordOperation;
+    }
+    try {
+      owner = Reflect.getPrototypeOf(owner);
+    } catch {
+      throw new TypeError("Chunk manager telemetry prototype could not be inspected.");
+    }
+  }
+  throw new TypeError("Chunk manager telemetry recordOperation is missing.");
 }
 
 function captureResourceMethod(
@@ -358,6 +402,9 @@ export class ChunkManager implements ChunkManagerLike {
   readonly #resourceAdopt: ResourceAdopt | null;
   readonly #resourceReleaseOwner: ResourceReleaseOwner | null;
   readonly #generationConcurrency: number;
+  readonly #now: (() => number) | null;
+  readonly #telemetryReceiver: GfxTelemetrySink | null;
+  readonly #telemetryRecordOperation: TelemetryRecordOperation | null;
   readonly #records = new Map<StoryChunkId, ChunkRecord>();
   readonly #epochs = new Map<StoryChunkId, number>();
   readonly #events: Readonly<ChunkRuntimeEvent>[] = [];
@@ -383,6 +430,7 @@ export class ChunkManager implements ChunkManagerLike {
   #initializePromise: Promise<void> | null = null;
   #disposePromise: Promise<void> | null = null;
   #qualityProfile: Readonly<RenderQualityProfile> | null = null;
+  #telemetryCallbackActive = false;
 
   constructor(options: Readonly<ChunkManagerOptions>) {
     this.#sourcePlan = options.plan;
@@ -390,6 +438,23 @@ export class ChunkManager implements ChunkManagerLike {
     this.#uploads = options.uploads;
     this.#uploader = options.uploader;
     this.#resources = options.resources;
+    const now = optionalOwnDataValue(options, "now", "Chunk manager options");
+    const telemetry = optionalOwnDataValue(options, "telemetry", "Chunk manager options");
+    if (now !== undefined && typeof now !== "function") {
+      throw new TypeError("Chunk manager monotonic clock must be a function when present.");
+    }
+    if (
+      telemetry !== undefined
+      && ((typeof telemetry !== "object" || telemetry === null)
+        && typeof telemetry !== "function")
+    ) {
+      throw new TypeError("Chunk manager telemetry sink must be an object when present.");
+    }
+    this.#now = (now as (() => number) | undefined) ?? null;
+    this.#telemetryReceiver = (telemetry as GfxTelemetrySink | undefined) ?? null;
+    this.#telemetryRecordOperation = this.#telemetryReceiver === null
+      ? null
+      : captureTelemetryRecordOperation(this.#telemetryReceiver);
     this.#resourceAdopt = captureResourceMethod(this.#resources, "adopt");
     this.#resourceReleaseOwner = captureResourceMethod(this.#resources, "releaseOwner");
     if ((this.#resourceAdopt === null) !== (this.#resourceReleaseOwner === null)) {
@@ -413,6 +478,7 @@ export class ChunkManager implements ChunkManagerLike {
   }
 
   initialize(): Promise<void> {
+    this.#assertNoTelemetryCallbackReentry("initialize");
     if (this.#initializePromise) return this.#initializePromise;
     if (this.#disposed) {
       this.#initializePromise = Promise.reject(new Error("Cannot initialize a disposed chunk manager."));
@@ -425,6 +491,7 @@ export class ChunkManager implements ChunkManagerLike {
   }
 
   setFocus(chunkId: StoryChunkId): void {
+    this.#assertNoTelemetryCallbackReentry("set focus");
     assertStoryChunkId(chunkId);
     if (this.#disposed) return;
     if (this.#focusChunkId === chunkId) return;
@@ -433,6 +500,7 @@ export class ChunkManager implements ChunkManagerLike {
   }
 
   quality(profile: Readonly<RenderQualityProfile>): void {
+    this.#assertNoTelemetryCallbackReentry("change quality");
     if (this.#disposed) return;
     const owned = captureQualityProfile(profile);
     this.#qualityProfile = owned;
@@ -447,6 +515,7 @@ export class ChunkManager implements ChunkManagerLike {
   }
 
   update(clock: VisualClock): void {
+    this.#assertNoTelemetryCallbackReentry("update");
     if (!this.#initialized || this.#disposed || !this.#planDigest || !this.#plan || this.#updateActive) return;
     this.#updateActive = true;
     try {
@@ -487,6 +556,7 @@ export class ChunkManager implements ChunkManagerLike {
   }
 
   dispose(): Promise<void> {
+    this.#assertNoTelemetryCallbackReentry("dispose");
     if (this.#disposePromise) return this.#disposePromise;
     const deferred = deferredVoid();
     this.#disposePromise = deferred.promise;
@@ -883,7 +953,13 @@ export class ChunkManager implements ChunkManagerLike {
         continue;
       }
       if (!adopt) {
-        if (!this.#setLeaseActive(lease, true, entry.token.chunkId, entry.token.requestId)) {
+        if (!this.#setLeaseActive(
+          lease,
+          true,
+          entry.token.chunkId,
+          entry.token.requestId,
+          clock,
+        )) {
           this.#failLeaseRecord(record, lease, "Chunk visual activation failed.", clock.frame);
           continue;
         }
@@ -929,7 +1005,13 @@ export class ChunkManager implements ChunkManagerLike {
         ), true, clock);
         continue;
       }
-      if (!this.#setLeaseActive(entry.lease, true, entry.token.chunkId, entry.token.requestId)) {
+      if (!this.#setLeaseActive(
+        entry.lease,
+        true,
+        entry.token.chunkId,
+        entry.token.requestId,
+        clock,
+      )) {
         this.#failLeaseRecord(record, entry.lease, "Chunk visual activation failed.", clock.frame);
         continue;
       }
@@ -1097,12 +1179,16 @@ export class ChunkManager implements ChunkManagerLike {
     active: boolean,
     chunkId: StoryChunkId | null,
     requestId: number | null,
+    clock: Readonly<VisualClock> | null = null,
   ): boolean {
     this.#ownLease(lease);
     if (this.#leaseActive.get(lease) === active) return true;
+    const startedAtMs = active ? this.#sampleTelemetryNow() : null;
+    let success = false;
     try {
       lease.setActive?.(active);
       this.#leaseActive.set(lease, active);
+      success = true;
       return true;
     } catch {
       this.#recordCleanupFailure(
@@ -1111,6 +1197,76 @@ export class ChunkManager implements ChunkManagerLike {
         requestId,
       );
       return false;
+    } finally {
+      if (active) {
+        this.#recordActivationTelemetry(
+          clock,
+          startedAtMs,
+          success,
+          chunkId,
+          requestId,
+        );
+      }
+    }
+  }
+
+  #sampleTelemetryNow(): number | null {
+    const now = this.#now;
+    if (now === null) return null;
+    if (this.#telemetryCallbackActive) return null;
+    this.#telemetryCallbackActive = true;
+    try {
+      const value = Reflect.apply(now, undefined, []);
+      return typeof value === "number" && Number.isFinite(value) && value >= 0
+        && !Object.is(value, -0)
+        ? value
+        : null;
+    } catch {
+      return null;
+    } finally {
+      this.#telemetryCallbackActive = false;
+    }
+  }
+
+  #recordActivationTelemetry(
+    clock: Readonly<VisualClock> | null,
+    startedAtMs: number | null,
+    success: boolean,
+    chunkId: StoryChunkId | null,
+    requestId: number | null,
+  ): void {
+    const receiver = this.#telemetryReceiver;
+    const recordOperation = this.#telemetryRecordOperation;
+    if (receiver === null || recordOperation === null || clock === null || startedAtMs === null) {
+      return;
+    }
+    const endedAtMs = this.#sampleTelemetryNow();
+    if (endedAtMs === null) return;
+    if (this.#telemetryCallbackActive) return;
+    this.#telemetryCallbackActive = true;
+    try {
+      Reflect.apply(recordOperation, receiver, [Object.freeze({
+        kind: "activation",
+        name: chunkId === null || requestId === null
+          ? "chunk-lease-activation"
+          : `chunk-${chunkId.toLowerCase()}-${requestId}-lease-activation`,
+        startedAtMs,
+        durationMs: Math.max(0, endedAtMs - startedAtMs),
+        frameId: clock.frame,
+        storyTime: clock.elapsedSeconds,
+        success,
+        affectsStoryTime: true,
+      })]);
+    } catch {
+      // Activation telemetry cannot affect lease ownership or chunk state.
+    } finally {
+      this.#telemetryCallbackActive = false;
+    }
+  }
+
+  #assertNoTelemetryCallbackReentry(operation: string): void {
+    if (this.#telemetryCallbackActive) {
+      throw new Error(`Chunk manager cannot ${operation} from a telemetry callback.`);
     }
   }
 

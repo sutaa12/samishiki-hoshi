@@ -84,6 +84,19 @@ export interface RenderResourceSnapshot {
   readonly pendingUploads: number;
 }
 
+/** Backend-owned, frame-local counters. Null means the backend cannot observe the metric. */
+export interface RenderBackendFrameTelemetry {
+  readonly available: boolean;
+  readonly drawCalls: number | null;
+  readonly triangles: number | null;
+  readonly lines: number | null;
+  readonly points: number | null;
+  readonly pixelRatio: number | null;
+  readonly drawingBufferWidth: number | null;
+  readonly drawingBufferHeight: number | null;
+  readonly gpuTimeMs: number | null;
+}
+
 export type BackendRuntimeEventKind = "renderer-error" | "device-lost";
 
 export interface BackendRuntimeEvent {
@@ -124,6 +137,7 @@ export interface RenderBackendAdapter {
   render(passes: readonly RenderPass[]): MaybePromise<void>;
   subscribeEvents(listener: (event: BackendRuntimeEvent) => void): Unsubscribe;
   snapshotResources(): Readonly<RenderResourceSnapshot>;
+  snapshotFrameTelemetry?(): Readonly<RenderBackendFrameTelemetry>;
   dispose(): Promise<void>;
 }
 

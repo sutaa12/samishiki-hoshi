@@ -2,6 +2,7 @@ import type {
   BackendInitializationContext,
   BackendRuntimeEvent,
   RenderBackendAdapter,
+  RenderBackendFrameTelemetry,
   RenderBackendFacts,
   RenderPass,
   RenderResourceSnapshot,
@@ -98,6 +99,12 @@ type RendererInfoProbe = {
     readonly textures?: number;
     readonly total?: number;
     readonly uniformBuffers?: number;
+  };
+  readonly render?: {
+    readonly calls?: number;
+    readonly triangles?: number;
+    readonly lines?: number;
+    readonly points?: number;
   };
 };
 
@@ -301,6 +308,68 @@ function unavailableRendererTelemetry(subscribers: number): RendererTelemetrySam
     available: false,
     rendererMemory: Object.freeze(unavailableRendererMemory()),
     resources: Object.freeze(emptyResources(subscribers)),
+  });
+}
+
+const unavailableFrameTelemetry = Object.freeze({
+  available: false,
+  drawCalls: null,
+  triangles: null,
+  lines: null,
+  points: null,
+  pixelRatio: null,
+  drawingBufferWidth: null,
+  drawingBufferHeight: null,
+  gpuTimeMs: null,
+}) satisfies Readonly<RenderBackendFrameTelemetry>;
+
+function frameCounter(value: unknown, label: string): number {
+  if (
+    typeof value !== "number"
+    || !Number.isSafeInteger(value)
+    || value < 0
+    || Object.is(value, -0)
+  ) {
+    throw new TypeError(`Renderer ${label} telemetry is invalid.`);
+  }
+  return value;
+}
+
+function captureRendererFrameTelemetry(
+  renderer: ThreeRendererPort,
+  viewport: Readonly<RenderViewport>,
+): Readonly<RenderBackendFrameTelemetry> {
+  const info = renderer.info;
+  const render = info?.render;
+  if (!render) return unavailableFrameTelemetry;
+  const drawCalls = frameCounter(render.calls, "draw-call");
+  const triangles = frameCounter(render.triangles, "triangle");
+  const lines = frameCounter(render.lines, "line");
+  const points = frameCounter(render.points, "point");
+  const pixelRatio = viewport.pixelRatio;
+  const drawingBufferWidth = Math.round(viewport.width * pixelRatio);
+  const drawingBufferHeight = Math.round(viewport.height * pixelRatio);
+  if (
+    !Number.isFinite(pixelRatio)
+    || pixelRatio < 0
+    || Object.is(pixelRatio, -0)
+    || !Number.isSafeInteger(drawingBufferWidth)
+    || drawingBufferWidth < 0
+    || !Number.isSafeInteger(drawingBufferHeight)
+    || drawingBufferHeight < 0
+  ) {
+    throw new TypeError("Renderer drawing-buffer telemetry is invalid.");
+  }
+  return Object.freeze({
+    available: true,
+    drawCalls,
+    triangles,
+    lines,
+    points,
+    pixelRatio,
+    drawingBufferWidth,
+    drawingBufferHeight,
+    gpuTimeMs: null,
   });
 }
 
@@ -1514,6 +1583,28 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       return telemetry.resources;
     }
     return this.#terminalResources ?? Object.freeze(emptyResources(this.#listeners.size));
+  }
+
+  snapshotFrameTelemetry(): Readonly<RenderBackendFrameTelemetry> {
+    const renderer = this.#renderer;
+    const viewport = this.#viewport;
+    if (
+      renderer === null
+      || viewport === null
+      || this.#state === "disposed"
+      || this.#state === "failed"
+      || this.#telemetrySamplingActive
+    ) {
+      return unavailableFrameTelemetry;
+    }
+    this.#telemetrySamplingActive = true;
+    try {
+      return captureRendererFrameTelemetry(renderer, viewport);
+    } catch {
+      return unavailableFrameTelemetry;
+    } finally {
+      this.#telemetrySamplingActive = false;
+    }
   }
 
   snapshotLifecycle(): Readonly<ThreeBackendLifecycleSnapshot> {

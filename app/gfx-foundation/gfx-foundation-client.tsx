@@ -199,15 +199,15 @@ export function GfxFoundationClient() {
           ref={canvasRef}
           className={styles.canvas}
           data-testid="gfx-foundation-canvas"
-          aria-label="GFX-004 and GFX-005 streaming foundation scene"
+          aria-label="GFX-004 through GFX-006 streaming foundation scene"
         />
       </div>
       <section className={styles.panel} aria-labelledby="gfx-foundation-title">
         <p className={styles.warning}>INTEGRATION LAB · REAL WORKER · NOT FINAL ART</p>
-        <p className={styles.eyebrow}>R2 FOUNDATION · GFX-004 / GFX-005</p>
-        <h1 id="gfx-foundation-title">Streaming world + Linear HDR</h1>
+        <p className={styles.eyebrow}>R2 FOUNDATION · GFX-004 / GFX-005 / GFX-006</p>
+        <h1 id="gfx-foundation-title">Streaming world + Linear HDR + telemetry</h1>
         <p className={styles.summary}>
-          canonical world plan を Dedicated Worker へ転送し、最大4chunkを常駐GPU poolへ1ms刻みで反映します。
+          canonical world plan を Dedicated Worker へ転送し、最大4chunkを常駐GPU poolへ1ms刻みで反映しながら600frameを計測します。
         </p>
         <dl className={styles.facts}>
           <div><dt>status</dt><dd data-testid="gfx-foundation-status">{status}</dd></div>
@@ -218,6 +218,10 @@ export function GfxFoundationClient() {
           <div><dt>quality</dt><dd>{snapshot?.quality.id ?? "pending"}</dd></div>
           <div><dt>program growth</dt><dd>{snapshot?.pipeline.programGrowthAfterReady ?? 0}</dd></div>
           <div><dt>pool slots</dt><dd>{snapshot?.uploader.poolSlots ?? 0}</dd></div>
+          <div><dt>steady frames</dt><dd>{snapshot?.telemetry.window.steadyFrames ?? 0}</dd></div>
+          <div><dt>frame P95</dt><dd>{snapshot?.telemetry.frameIntervalMs.p95?.toFixed(2) ?? "pending"}</dd></div>
+          <div><dt>main P95</dt><dd>{snapshot?.telemetry.mainThreadWorkMs.p95?.toFixed(2) ?? "pending"}</dd></div>
+          <div><dt>GPU P95</dt><dd>{snapshot?.telemetry.gpuTimeMs.p95?.toFixed(2) ?? "unsupported"}</dd></div>
         </dl>
         {failure ? <p className={styles.failure} data-testid="gfx-foundation-failure">{failure}</p> : null}
         <div className={styles.actions}>
