@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "gate": "R2-G3 Hero Slice A: ocean",
+  "status": "review_pending",
+  "implementation": {
+    "commit": "67dea2b1589c0e7f862cf76674b45b3cffbc04f1",
+    "tree": "1ed67a9ca783905034b7dbb496040b2f8416a8a1",
+    "parentEvidenceCommit": "f2a4dc0c840b875afbbf0f8c43c8c2be55572f8d",
+    "orderedManifestSha256": "94342b494c93fb9eed59e2cc40a594459ec0c21c235b0b5a1a42b220b5c25a31",
+    "sourceArchiveSha256": "0c005f320a9333230857bb956f06f0909caec7d6b9f23db70f78c81a43256a1e",
+    "sourceArchiveBytes": 46264320,
+    "sourceArchiveEntries": 236,
+    "sourceArchiveSymlinks": 0,
+    "sourceDeltaFilesFromParentEvidence": 10,
+    "files": {
+      "app/gfx-hero-a/gfx-hero-a-client.tsx": "1071f7f09c9c5b12b57558785a548531df28c00be96f16b6d5fad7334f607027",
+      "app/gfx-hero-a/gfx-hero-a.module.css": "0476a25a9f9c10b14af2073d8c4d62ac5579ed5f576a75320bd45bef8cbc1952",
+      "app/gfx-hero-a/page.tsx": "eae6661d29fd01e87155d7436b8351e41118c44b68916eac1f42097d650ba20b",
+      "src/gfx/v2/hero/index.ts": "8638f0556562dfb53ba2ddef45bd0eff41320c20daffc63f0822d1d57f4c6505",
+      "src/gfx/v2/hero/ocean-hero-feature.ts": "5fa65929ffbdcc80d079a65c8e6f9496f0fca6dce7ebe095e5d9a3751c7627b5",
+      "src/gfx/v2/integration/foundation-runtime.ts": "4234f00557170bc2930da0138311f391a5d437d2c8e00b46f942cdbc68b7cccf",
+      "src/gfx/v2/integration/three-chunk-uploader.ts": "d764b878362512493e2cd0417cde10f4bd8464d6b56c522c6ab631ee7c8ebe6e",
+      "tests/e2e/gfx-hero-a.spec.ts": "23840abe2a7c1cf0b68c4c123e177be99b8adc027fd01ad9cff24b900daab3a5",
+      "tests/gfx-v2/hero-slice-a.test.ts": "bab836293e83ca7bacf95ab5a8d4462190cc8554d8ca0ff047a11b6c488eb941",
+      "tests/gfx-v2/three-chunk-uploader.test.ts": "a2bd4a967d8aac5b5bd554c666deef3580b64af6cda15d09e590009c0bfd7743"
+    }
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/hero-a-67dea2b-dist.tar",
+    "archiveSha256": "fdc4cc67f41249335d46f00f9d58fb061fad7def7b4ea2f934cc013e597b32c2",
+    "archiveBytes": 5069824,
+    "fileCount": 89,
+    "contentRecordsSha256": "2305e051e3744d9c094ebd89f6c4d7b25b17162b6ac296246d14b1f02e8e943b",
+    "vinextBuildId": "8ef869f9-4197-4232-97db-90ec00a4a25c",
+    "symlinkCount": 0,
+    "workerArtifactCopies": [
+      "dist/client/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/ssr/_next/static/world-chunk-worker-DCn2LUGC.js"
+    ],
+    "workerArtifactSha256": "928c30c2e085660e785e6de648688a1c885da2cce10bca9037003807d218216b",
+    "workerArtifactBytesEach": 58724,
+    "rawTypeScriptWorkerArtifacts": 0,
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "Vinext build IDs and generated chunk manifests are not claimed to be byte-reproducible; the exact tested dist archive is preserved"
+  },
+  "automatedEvidence": {
+    "completeVerification": "typecheck, global lint, 32 files / 603 tests, production build",
+    "focusedCommand": "rtk npx vitest run --config vitest.config.ts tests/gfx-v2/hero-slice-a.test.ts tests/gfx-v2/three-chunk-uploader.test.ts --reporter=json --outputFile=.quality-gates/hero-a-67dea2b-vitest.json",
+    "focusedReport": ".quality-gates/hero-a-67dea2b-vitest.json",
+    "focusedReportSha256": "0ae27b9647397c32f4066fbda3fef4b13e14ffaf83a3de9e535b669b0db548ad",
+    "focusedReportBytes": 4581,
+    "focusedFiles": 2,
+    "focusedPassed": 10,
+    "focusedFailed": 0,
+    "focusedPending": 0,
+    "focusedTodo": 0,
+    "productionAuditVulnerabilities": 0
+  },
+  "browserEvidence": {
+    "command": "rtk env GFX_SPIKE_PORT=41745 PLAYWRIGHT_JSON_OUTPUT_NAME=.quality-gates/hero-a-67dea2b-playwright.json PLAYWRIGHT_OUTPUT_DIR=.quality-gates/hero-a-67dea2b-playwright-output npx playwright test tests/e2e/gfx-hero-a.spec.ts --project=desktop-chromium --reporter=json",
+    "report": ".quality-gates/hero-a-67dea2b-playwright.json",
+    "reportSha256": "09fe279d19de944679a9ae4a8a866b38740eb236230fe8cee1a97104eca290ce",
+    "reportBytes": 9690792,
+    "specs": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "flaky": 0,
+    "maximumRetry": 0,
+    "topLevelErrors": 0,
+    "resultErrorFields": 0,
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "forcedWebgl2": {
+      "actualBackend": "WebGL2",
+      "renderer": "SwiftShader through the configured forced-WebGL2 Chromium path",
+      "markers": [12, 27, 37],
+      "fallbackTier": "low-static",
+      "programGrowthAfterReady": 0,
+      "runtimeCompileEvents": 0,
+      "runtimeSpikesOver50Ms": 0,
+      "mainThreadP95LimitMs": 50,
+      "referenceHardwareAccepted": false
+    },
+    "hostMetalWebgpu": {
+      "launchFlags": [
+        "--enable-unsafe-webgpu",
+        "--ignore-gpu-blocklist",
+        "--use-angle=metal"
+      ],
+      "actualBackend": "WebGPU",
+      "markers": [12, 27],
+      "programGrowthAfterReady": 0,
+      "runtimeCompileEvents": 0,
+      "runtimeSpikesOver50Ms": 0,
+      "runtimeErrors": 0,
+      "referenceHardwareAccepted": false
+    },
+    "screenshots": [
+      {
+        "name": "hero-a-webgl2-12s-life",
+        "sha256": "0c34d44d0f8e2ab7cbc9151818e8bf6e67e13bfd733766743309b62328e9f184",
+        "bytes": 1361179,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-27s-empty-seat",
+        "sha256": "8a9d582a4ae3c54228bf53475abc3b4b2cc38b599437f91f797cc0ac20a864da",
+        "bytes": 1395946,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-37s-waterline",
+        "sha256": "17ae4e8045ccf29041ac6fe67aaebe39db644944266a58165251e4b0e0985fa3",
+        "bytes": 960529,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-fallback",
+        "sha256": "3d0c43395f62fbbfdb0bef5d8f4e4eb1c8546112fde8972afbd0242a9a5f22fd",
+        "bytes": 889119,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgpu-12s-life",
+        "sha256": "5b3e2e35996695bd20154b6e69ca31c8b0025c60025cd3e984abff25f7e76e4a",
+        "bytes": 1314313,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgpu-27s-empty-seat",
+        "sha256": "6a9572692eb3879f30f23009f6fb896505f3c4aaa8cc204eca74fa3ecba2305e",
+        "bytes": 1341925,
+        "width": 1920,
+        "height": 1080
+      }
+    ]
+  },
+  "heroContract": {
+    "worldSeed": 20260818,
+    "worldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "fixedMarkersSeconds": [12, 27],
+    "waterlineEvidenceSeconds": 37,
+    "humanRevealBoundarySeconds": 18,
+    "lifeMarker": {
+      "shotId": "S03",
+      "humanArtifactsVisible": false,
+      "visibleFishHigh": 28,
+      "visibleCoralClustersHigh": 20,
+      "visibleKelpHigh": 18,
+      "visibleBubblesHigh": 36,
+      "playerFlowPulseVisible": true
+    },
+    "emptySeatMarker": {
+      "shotId": "S05",
+      "humanArtifactsVisible": true,
+      "vehicleModules": 55,
+      "emptySeats": 5,
+      "rectangularWindowCells": 7,
+      "railSegments": 7
+    },
+    "fallback": {
+      "visibleFish": 16,
+      "visibleCoralClusters": 13,
+      "visibleKelp": 11,
+      "visibleBubbles": 20
+    },
+    "allocationsAfterInitialize": 0,
+    "ownedTextures": 2,
+    "builtInPhysicalTransmission": 0,
+    "shippedReferenceBackgroundImages": 0
+  },
+  "frozenInputs": {
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "gfx001Implementation": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+    "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+    "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a",
+    "gfx004Implementation": "370b019f5aee868449117b51a0da114b35ffc045",
+    "gfx005Implementation": "c6dd34dd9082e437e04d2fc7ccd1045a9a59ae1d",
+    "gfx005TransmissionFix": "170c0898e5223f46aaaaf03b5eee6a906602e9de",
+    "combinedFoundationIntegration": "e81c47846291018c37c3496c47b547fb0100375d",
+    "gfx006Implementation": "9597d9b8f905b492359590eed2cf3dbfdb5e73d8",
+    "gfx006Evidence": "f2a4dc0c840b875afbbf0f8c43c8c2be55572f8d",
+    "canonicalWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd"
+  },
+  "sourceReview": {
+    "status": "implementation_self_audit_passed_independent_review_pending",
+    "independentFrozenFullScopeVerdict": "review_pending",
+    "reviewedHashesDrifted": null
+  },
+  "artifactReview": {
+    "status": "review_pending",
+    "reviewedEvidenceHead": null,
+    "reviewers": [],
+    "verdict": "review_pending",
+    "bindingsReproduced": false
+  },
+  "externalGates": {
+    "gfx004Gfx005FullReview": "PENDING",
+    "gfx006IndependentReview": "PENDING",
+    "heroAIndependentVisualReview": "PENDING",
+    "referenceHardware": "HARDWARE_PENDING",
+    "humanPlayAndVisualAcceptance": "HUMAN_PENDING",
+    "rightsAcceptance": "PENDING",
+    "heroSliceB": "PENDING",
+    "heroSliceC": "PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN",
+    "contestSubmission": "PENDING"
+  }
+}

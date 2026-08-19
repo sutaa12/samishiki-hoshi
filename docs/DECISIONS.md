@@ -109,6 +109,24 @@ preserved as automated evidence, while reference CPU/GPU acceptance remains
 `HARDWARE_PENDING` until the designated machine supplies timestamp support and
 the required measurements.
 
+## D-015 — Hero Slice art is a preallocated presentation layer over the canonical chunk lifecycle
+
+Hero Slice A keeps the accepted GFX-003 world plan, GFX-004 Worker/chunk/upload
+lifecycle, GFX-005 HDR pipeline, and GFX-006 telemetry active. Its dedicated
+`OceanHeroFeature` owns the high-detail procedural geometry, materials,
+textures, scene membership, and fixed-marker camera presentation. The generic
+chunk uploader continues to generate, adopt, retire, and account for the four
+canonical resident chunks, but its diagnostic placeholder boxes are hidden for
+the Hero route so they do not become the shipped art direction.
+
+Every Hero resource is allocated before ready, quality changes alter only
+visibility counts, and disposal releases the dedicated graph before the shared
+pipeline. The feature never writes story time, shot, seed, world-plan, or
+Twinkle state. Reference images remain review inputs only and are not shipped
+as backgrounds under D-003; built-in physical-material transmission remains
+zero under D-013. This pattern may be reused by Hero B/C only if each slice
+retains the same deterministic, preallocated, exact-ownership boundary.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.
