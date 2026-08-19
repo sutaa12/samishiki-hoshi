@@ -199,6 +199,22 @@ describe("GFX-005 TSL material library", () => {
       expect(handle.material.isNodeMaterial).toBe(true);
       expect((handle.material as { isShaderMaterial?: boolean }).isShaderMaterial).not.toBe(true);
       expect(Object.isFrozen(handle)).toBe(true);
+      const material = handle.material as typeof handle.material & {
+        transmission?: number;
+        transmissionNode?: unknown;
+        opacityNode?: unknown;
+      };
+      const descriptor = WORLD_MATERIAL_LIBRARY.find((candidate) => candidate.family === family)!;
+      const descriptorTransmission = (
+        descriptor.transmissionPermille[0] + descriptor.transmissionPermille[1]
+      ) / 2000;
+      if (descriptorTransmission > 0) {
+        expect(material.transmission).toBe(0);
+        expect(material.transmissionNode).toBeNull();
+        expect(material.opacityNode).not.toBeNull();
+        expect(material.transparent).toBe(true);
+        expect(material.depthWrite).toBe(false);
+      }
     }
     await library.dispose();
   });

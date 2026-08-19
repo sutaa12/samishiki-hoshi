@@ -277,9 +277,22 @@ function defaultMaterialFactory(
     emission,
   });
   if (material instanceof MeshPhysicalNodeMaterial) {
-    material.transmissionNode = float(lean ? transmission * 0.65 : transmission);
+    const effectiveTransmission = lean ? transmission * 0.65 : transmission;
+    // Three's built-in physical transmission samples the currently bound
+    // framebuffer through a singleton BGRA8 viewport texture. Our Linear HDR
+    // graphs render into RGBA16F targets, so that path is invalid on WebGPU.
+    // Keep the dielectric response and descriptor provenance, but realize
+    // transmission as TSL alpha inside the graph's native half-float target.
+    // This avoids a hidden framebuffer copy and remains valid for WebGL2.
+    material.transmission = 0;
+    material.transmissionNode = null;
     material.ior = descriptor.family === "water" ? 1.333 : 1.45;
     material.thickness = lean ? 0.02 : 0.08;
+    if (effectiveTransmission > 0) {
+      material.opacityNode = float(Math.max(0.25, 1 - effectiveTransmission * 0.55));
+      material.transparent = true;
+      material.depthWrite = false;
+    }
   }
   return material;
 }
