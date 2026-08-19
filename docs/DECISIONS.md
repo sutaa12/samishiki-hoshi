@@ -76,6 +76,18 @@ historical baseline, while the combined foundation must rerun its complete
 GFX-002 regression suite and receive new source/artifact review before GFX-004
 or GFX-005 can be promoted.
 
+## D-013 — Transmission remains inside the Linear HDR graph
+
+Three r185's built-in physical-material transmission copies the current
+framebuffer into a shared BGRA8 viewport texture. The GFX-005 production graph
+renders scene passes into RGBA16F targets, so enabling that path creates an
+invalid cross-format framebuffer copy on actual WebGPU even when shader warm-up
+passes. Water and glass/foil therefore keep their descriptor IOR and thickness
+semantics but realize positive transmission with a TSL-owned opacity node inside
+the half-float graph; built-in `transmission` stays zero. This preserves one HDR
+topology on WebGPU and forced WebGL2, avoids post-ready program growth, and is
+covered by both material-contract tests and actual host-Metal browser evidence.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

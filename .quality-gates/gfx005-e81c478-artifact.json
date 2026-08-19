@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "gate": "GFX-004/GFX-005 combined foundation",
+  "status": "review_pending",
+  "implementation": {
+    "integrationCommit": "e81c47846291018c37c3496c47b547fb0100375d",
+    "integrationTree": "9406bb8492d1bf22e26554d96785a5b524cef787",
+    "gfx004Commit": "370b019f5aee868449117b51a0da114b35ffc045",
+    "gfx005Commit": "c6dd34dd9082e437e04d2fc7ccd1045a9a59ae1d",
+    "gfx005TransmissionFixCommit": "170c0898e5223f46aaaaf03b5eee6a906602e9de",
+    "sourceArchiveSha256": "4dea2a34132f77ce2c395a93f37bb6e28c3685589cdcf9d5903731492ef6f099",
+    "sourceArchiveBytes": 35696640,
+    "sourceArchiveEntries": 206,
+    "sourceArchiveSymlinks": 0,
+    "sourceDeltaFilesFromGfx003Acceptance": 54
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/gfx005-e81c478-dist.tar",
+    "archiveSha256": "f6c31315a65e851a16313c4872056290928f166bad806634aa6abe41a309bfeb",
+    "archiveBytes": 4955648,
+    "fileCount": 82,
+    "contentRecordsSha256": "c5628a02024ed5c22354b4c804e40c2246a3319a9189c9679fbd3d8f10fd2f42",
+    "vinextBuildId": "f5f882cb-6d3a-4df3-b22f-e7daa1247730",
+    "symlinkCount": 0,
+    "workerArtifact": "dist/server/_next/static/world-chunk-worker-DCn2LUGC.js",
+    "workerArtifactSha256": "928c30c2e085660e785e6de648688a1c885da2cce10bca9037003807d218216b",
+    "workerArtifactBytes": 58724,
+    "rawTypeScriptWorkerArtifacts": 0,
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "vinext build IDs and generated chunk manifests are not claimed to be byte-reproducible; the exact candidate dist archive is preserved"
+  },
+  "automatedEvidence": {
+    "completeVerification": "typecheck, lint, 29 files / 579 tests, production build",
+    "focusedCommand": "rtk npm exec vitest run -- --config vitest.config.ts --reporter=json --outputFile=.quality-gates/gfx005-e81c478-vitest-report.json tests/gfx-v2",
+    "focusedReport": ".quality-gates/gfx005-e81c478-vitest-report.json",
+    "focusedReportSha256": "2d37036345459132ca0b1dd13c221725f9c4c45bf674832fe2e71638b0b2a7ee",
+    "focusedReportBytes": 167923,
+    "focusedFiles": 19,
+    "focusedPassed": 481,
+    "focusedFailed": 0,
+    "gfx004FocusedFiles": 8,
+    "gfx004FocusedPassed": 57,
+    "gfx005FocusedFiles": 5,
+    "gfx005FocusedPassed": 230,
+    "productionAuditVulnerabilities": 0
+  },
+  "browserEvidence": {
+    "command": "rtk env PLAYWRIGHT_JSON_OUTPUT_FILE=.quality-gates/gfx005-e81c478-playwright-report.json npm exec -- playwright test tests/e2e/gfx-foundation.spec.ts --project=desktop-chromium --reporter=json",
+    "report": ".quality-gates/gfx005-e81c478-playwright-report.json",
+    "reportSha256": "df3a064f4eaaf057fdaf50f3f28701bfd3a03e4e45f17af61d9ee0f48e188ad4",
+    "reportBytes": 5512,
+    "specs": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "flaky": 0,
+    "maximumRetry": 0,
+    "topLevelErrors": 0,
+    "resultErrorFields": 0,
+    "forcedWebgl2": {
+      "actualBackend": "webgl2",
+      "pipelineGraphs": 3,
+      "programGrowthAfterReady": 0,
+      "realWorker": true,
+      "residentChunks": 4,
+      "terminalOwners": 0
+    },
+    "hostMetalWebgpu": {
+      "launchFlags": [
+        "--enable-unsafe-webgpu",
+        "--ignore-gpu-blocklist",
+        "--use-angle=metal"
+      ],
+      "actualBackend": "webgpu",
+      "pipelineGraphs": 5,
+      "programGrowthAfterReady": 0,
+      "runtimeErrors": 0,
+      "residentChunks": 4,
+      "terminalOwners": 0
+    }
+  },
+  "frozenInputs": {
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "gfx001Implementation": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+    "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+    "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a",
+    "canonicalWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "modelSha256": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
+    "simulationSha256": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7",
+    "proceduralSha256": "a47ac1b6e2191aadf4d3ef391d5409791d87431f886588e9ecdcbc314843fbb5",
+    "audioSha256": "c86f1881832ea45a025f9c580afdc5396a53f9e199afab061dfaf3c0f6a7f57f",
+    "gameClientSha256": "680a8297c274d3bd73f299f1c6eb2c44be13b2681ede2a089d16d5f4803987d2"
+  },
+  "sourceReview": {
+    "status": "scoped_reviews_passed_full_review_pending",
+    "gfx004TransportVerdict": "pass",
+    "gfx004SeverityCounts": {
+      "S0": 0,
+      "S1": 0,
+      "S2": 0
+    },
+    "integrationOwnershipVerdict": "pass",
+    "gfx005FinalFrozenFullScopeVerdict": "review_pending",
+    "reviewedHashesDrifted": false
+  },
+  "artifactReview": {
+    "status": "review_pending",
+    "reviewedEvidenceHead": null,
+    "reviewers": [],
+    "verdict": "review_pending",
+    "bindingsReproduced": false
+  },
+  "externalGates": {
+    "gfx006": "PENDING",
+    "referenceHardware": "HARDWARE_PENDING",
+    "tenActualRestarts": "GFX-006_PENDING",
+    "heroSlices": "PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN"
+  }
+}
