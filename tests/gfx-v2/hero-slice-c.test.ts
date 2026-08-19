@@ -151,6 +151,12 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
     expect(scene.getObjectByName("hero-c:debris-form-5-rectangular-airlock")).toBeDefined();
     expect(scene.getObjectByName("hero-c:debris-form-6-broken-square-observation-frame")).toBeDefined();
     expect(scene.getObjectByName("hero-c:debris-form-7-box-empty-cockpit")).toBeDefined();
+
+    feature.update(frame(world, 143), CLOCK);
+    expect(feature.snapshot()).toMatchObject({
+      amberBeaconVisible: false,
+      machineReactivated: false,
+    });
   });
 
   it("keeps S20 to exactly three incomplete peripheral arcs with no full ship or center void", async () => {
@@ -176,6 +182,25 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
       twinkleStage: "none",
       visibleTwinkles: 0,
       allocationsAfterInitialize: 0,
+    });
+
+    feature.update(frame(world, 160.999), CLOCK);
+    expect(feature.snapshot()).toMatchObject({
+      shotId: "S20",
+      peripheralArcsVisible: true,
+      peripheralArcCount: 3,
+      unknownShipVisible: false,
+      alienRibbonShellCount: 0,
+      centralVoidOpen: false,
+    });
+    feature.update(frame(world, 161), CLOCK);
+    expect(feature.snapshot()).toMatchObject({
+      shotId: "S21",
+      peripheralArcsVisible: false,
+      peripheralArcCount: 0,
+      unknownShipVisible: true,
+      alienRibbonShellCount: 3,
+      centralVoidOpen: true,
     });
   });
 
