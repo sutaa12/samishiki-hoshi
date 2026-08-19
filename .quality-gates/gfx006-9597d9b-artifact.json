@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "gate": "GFX-006 telemetry, parity, and lifecycle",
+  "status": "review_pending",
+  "implementation": {
+    "commit": "9597d9b8f905b492359590eed2cf3dbfdb5e73d8",
+    "tree": "1f17032cd8cda87b187c7e881bf32b7ad5567104",
+    "parentEvidenceCommit": "e93f842807051dc9e9fd0ca835576b7b6bb92d84",
+    "orderedManifestSha256": "aac7b2ba8d4618d1e67337985ef423a8e6cc5e57f2d1d96f3d6012e71d21aff6",
+    "sourceArchiveSha256": "dfc657f16c112bd77b1fc7b8fb3de7ccd6ada6f3cbfc818e449c9b8ca628fb4b",
+    "sourceArchiveBytes": 40949760,
+    "sourceArchiveEntries": 220,
+    "sourceArchiveSymlinks": 0,
+    "sourceDeltaFilesFromParentEvidence": 17,
+    "files": {
+      "app/gfx-foundation/gfx-foundation-client.tsx": "4b842b54092f2781978c73b067b480e36de3321ad35fb5d76bfbe100634fdea7",
+      "src/gfx/v2/backend/backend-adapter.ts": "c1c9a0ca1ed687990297d6c01b12846c079b5f314276300fcbb4a47f8d28f37b",
+      "src/gfx/v2/chunks/chunk-manager.ts": "0a6146b809415bfb025f7756a29957f43a436c099b9e5341dbd5331d54261ce4",
+      "src/gfx/v2/chunks/upload-queue.ts": "7a5ea80f4058169c4db7d5c26459242d59641ac7bd99e746284dfd136a5a1b3e",
+      "src/gfx/v2/contracts.ts": "53ee0fedba591d0c912f068227942c9f82504f4f214e0117fdf2a61d74c3d9c2",
+      "src/gfx/v2/integration/foundation-runtime.ts": "246a262bd809bec1b534c96799d3db1003fc2ea82d8759a570cd463f0d7b58aa",
+      "src/gfx/v2/render-host.ts": "19bb629c4802fd855d1168e176aa446126e59dff0e2ad4ee5b32001c1666e43c",
+      "src/gfx/v2/telemetry/contracts.ts": "73235c8e3073401bcb5efaa6328ddd3aa6e4b2273d539f8ce5b91c3e3443772a",
+      "src/gfx/v2/telemetry/index.ts": "d011f54cc852d5b9739e55356f920b0344bf5dad455d4fdbc7a5d0ead64cff5d",
+      "src/gfx/v2/telemetry/performance-telemetry.ts": "10ed107079dc6d4020a55f882af574c3f2058c29203030f23210ef87eca3d6a3",
+      "tests/e2e/gfx-foundation.spec.ts": "74a99e3aaf1618eab9fdd04f1367c18043a0f2010d3a269dd51c3f7d113b998c",
+      "tests/gfx-v2/backend-adapter.test.ts": "2df273fec16cfd160a3ad2f47a4f68cb4262969932702c5740b459723cccf2da",
+      "tests/gfx-v2/chunk-manager.test.ts": "0c5bd92aa1551101df1827e5e83e298da20664dc93e0dc268871490c7a4062e4",
+      "tests/gfx-v2/chunk-upload-queue.test.ts": "d56ab8bad530e7255a584e85766171481eaff5c04fefaca3385589969b82248d",
+      "tests/gfx-v2/foundation-parity.test.ts": "7f2309f3231f95f41a244019a2f3e3ad8c9ab11170a0e6c393c13bf315eb5776",
+      "tests/gfx-v2/performance-telemetry.test.ts": "a1bd2ae84cfee589484ddca1322e1e25eda0d4ef5c45f3fa6ed3a9e95604c3b0",
+      "tests/gfx-v2/render-host-telemetry.test.ts": "f459d98545d35db0f5f00297d661a81487ccfa893227157e779a639872c13db6"
+    }
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/gfx006-9597d9b-dist.tar",
+    "archiveSha256": "3266c87766500b389cc0105d528b3e990a74d5ca67fe89b48986a2c2d7afdb60",
+    "archiveBytes": 4992512,
+    "fileCount": 82,
+    "contentRecordsSha256": "51d3b08114e5bf0a680725ec2eef8dc7b75243ce14daa63ea0bc43d3e5c11dba",
+    "vinextBuildId": "9070c0ea-5af1-4814-804d-51450c5dc656",
+    "symlinkCount": 0,
+    "workerArtifactCopies": [
+      "dist/client/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/_next/static/world-chunk-worker-DCn2LUGC.js",
+      "dist/server/ssr/_next/static/world-chunk-worker-DCn2LUGC.js"
+    ],
+    "workerArtifactSha256": "928c30c2e085660e785e6de648688a1c885da2cce10bca9037003807d218216b",
+    "workerArtifactBytesEach": 58724,
+    "rawTypeScriptWorkerArtifacts": 0,
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "Vinext build IDs and generated chunk manifests are not claimed to be byte-reproducible; the exact tested dist archive is preserved"
+  },
+  "automatedEvidence": {
+    "completeVerification": "typecheck, global lint, 31 files / 597 tests, production build",
+    "focusedCommand": "rtk npm exec vitest run -- --config vitest.config.ts --reporter=json --outputFile=.quality-gates/gfx006-9597d9b-vitest-report.json tests/gfx-v2",
+    "focusedReport": ".quality-gates/gfx006-9597d9b-vitest-report.json",
+    "focusedReportSha256": "65d1053f651491fbd1f71eca7779f047dc7f1bd1789190530298f424817257ba",
+    "focusedReportBytes": 174876,
+    "focusedFiles": 21,
+    "focusedPassed": 499,
+    "focusedFailed": 0,
+    "focusedPending": 0,
+    "focusedTodo": 0,
+    "productionAuditVulnerabilities": 0
+  },
+  "browserEvidence": {
+    "command": "rtk run 'GFX_SPIKE_PORT=41744 PLAYWRIGHT_JSON_OUTPUT_FILE=.quality-gates/gfx006-9597d9b-playwright-report.json npx playwright test tests/e2e/gfx-foundation.spec.ts --project=desktop-chromium --reporter=json'",
+    "report": ".quality-gates/gfx006-9597d9b-playwright-report.json",
+    "reportSha256": "9ca1a141500a1c5c7fe3817f4b54a8743c002ee1207114363acf288ac4c57df9",
+    "reportBytes": 38198,
+    "specs": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "flaky": 0,
+    "maximumRetry": 0,
+    "topLevelErrors": 0,
+    "resultErrorFields": 0,
+    "forcedWebgl2": {
+      "actualBackend": "WebGL2",
+      "renderer": "SwiftShader through the configured forced-WebGL2 Chromium project",
+      "window": {
+        "capacity": 600,
+        "minimumSamples": 120,
+        "retained": 127,
+        "steady": 122,
+        "operational": 5
+      },
+      "frameIntervalMs": {
+        "samples": 121,
+        "p50": 33.399999999999636,
+        "p95": 41.80000000000018,
+        "p99": 91.69999999999982
+      },
+      "hostFrameWorkMs": {
+        "samples": 122,
+        "p50": 0.5,
+        "p95": 0.6000001430511475,
+        "p99": 1.1999998092651367
+      },
+      "gpuTimeMs": {
+        "supported": false,
+        "samples": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "initialUploadMaximumMs": 0.20000004768371582,
+      "initialActivationMaximumMs": 0,
+      "runtimeSpikesOver50Ms": 0,
+      "programGrowthAfterReady": 0,
+      "realWorker": true,
+      "residentChunks": 4,
+      "tenRestartPlateau": {
+        "cycles": 10,
+        "programs": 22,
+        "geometries": 3,
+        "gpuOwnedCount": 4,
+        "logicalOwners": 4,
+        "poolSlots": 4,
+        "firstHeapUsedBytes": 18126332,
+        "lastHeapUsedBytes": 19195996,
+        "lastFiveHeapSpreadBytes": 668368,
+        "heapSpreadLimitBytes": 16777216
+      },
+      "tenCompleteRuntimeGenerations": 10,
+      "allTerminalOwnersZero": true
+    },
+    "hostMetalWebgpu": {
+      "launchFlags": [
+        "--enable-unsafe-webgpu",
+        "--ignore-gpu-blocklist",
+        "--use-angle=metal"
+      ],
+      "actualBackend": "WebGPU",
+      "window": {
+        "capacity": 600,
+        "minimumSamples": 120,
+        "retained": 135,
+        "steady": 127,
+        "operational": 8
+      },
+      "frameIntervalMs": {
+        "samples": 126,
+        "p50": 8.299999999999955,
+        "p95": 9.599999999999909,
+        "p99": 10.399999999999977
+      },
+      "hostFrameWorkMs": {
+        "samples": 127,
+        "p50": 0.40000009536743164,
+        "p95": 0.6000001430511475,
+        "p99": 1
+      },
+      "gpuTimeMs": {
+        "supported": false,
+        "samples": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "initialUploadMaximumMs": 0.20000004768371582,
+      "initialActivationMaximumMs": 0,
+      "runtimeSpikesOver50Ms": 0,
+      "programGrowthAfterReady": 0,
+      "realWorker": true,
+      "residentChunks": 4,
+      "terminalOwners": 0
+    },
+    "referenceHardwareAccepted": false
+  },
+  "parity": {
+    "backendLabels": [
+      "WebGPU",
+      "WebGL2"
+    ],
+    "qualityTiers": [
+      "low",
+      "balanced",
+      "high"
+    ],
+    "journeyHash": "09780631",
+    "sameLedger": true,
+    "sameWorldPlanDigest": true,
+    "sameTwinkleSignatures": true,
+    "sameTwentyFourChunkDigests": true,
+    "browserWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "browserInitialChunkDigests": {
+      "S07": "chunk-payload-v1:e7837c38fc5babe8",
+      "S08": "chunk-payload-v1:93460b22f054e880",
+      "S09": "chunk-payload-v1:954d37f91ff79283",
+      "S10": "chunk-payload-v1:9ba7999780ef5119"
+    }
+  },
+  "frozenInputs": {
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "gfx001Implementation": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+    "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+    "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a",
+    "gfx004Implementation": "370b019f5aee868449117b51a0da114b35ffc045",
+    "gfx005Implementation": "c6dd34dd9082e437e04d2fc7ccd1045a9a59ae1d",
+    "gfx005TransmissionFix": "170c0898e5223f46aaaaf03b5eee6a906602e9de",
+    "combinedFoundationIntegration": "e81c47846291018c37c3496c47b547fb0100375d",
+    "combinedCandidateEvidence": "e93f842807051dc9e9fd0ca835576b7b6bb92d84",
+    "canonicalWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "modelSha256": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
+    "simulationSha256": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7",
+    "proceduralSha256": "a47ac1b6e2191aadf4d3ef391d5409791d87431f886588e9ecdcbc314843fbb5",
+    "audioSha256": "c86f1881832ea45a025f9c580afdc5396a53f9e199afab061dfaf3c0f6a7f57f",
+    "gameClientSha256": "680a8297c274d3bd73f299f1c6eb2c44be13b2681ede2a089d16d5f4803987d2"
+  },
+  "sourceReview": {
+    "status": "implementation_self_audit_passed_independent_review_pending",
+    "independentFrozenFullScopeVerdict": "review_pending",
+    "reviewedHashesDrifted": null
+  },
+  "artifactReview": {
+    "status": "review_pending",
+    "reviewedEvidenceHead": null,
+    "reviewers": [],
+    "verdict": "review_pending",
+    "bindingsReproduced": false
+  },
+  "externalGates": {
+    "gfx004Gfx005FullReview": "PENDING",
+    "gfx006IndependentReview": "PENDING",
+    "referenceHardware": "HARDWARE_PENDING",
+    "heroSlices": "PENDING",
+    "humanPlayAndVisualAcceptance": "HUMAN_PENDING",
+    "rightsAcceptance": "PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "FROZEN",
+    "contestSubmission": "PENDING"
+  }
+}

@@ -88,6 +88,27 @@ the half-float graph; built-in `transmission` stays zero. This preserves one HDR
 topology on WebGPU and forced WebGL2, avoids post-ready program growth, and is
 covered by both material-contract tests and actual host-Metal browser evidence.
 
+## D-014 — GFX-006 measures one unfiltered RAF window without becoming lifecycle authority
+
+Each foundation runtime owns one telemetry collector shared by RenderHost, the
+incremental upload queue, and the chunk manager. The collector retains the last
+600 RAF callbacks in callback order and publishes nearest-rank P50/P95/P99 only
+after 120 samples. RAF intervals include dropped callbacks; main-work and GPU
+samples exist only for submitted frames. Upload and activation mark their exact
+frame as operational so it is excluded from steady-state percentiles, while
+initialization, compile, quality, and history events remain separately counted.
+Unsupported GPU timestamps are represented only as `null`, never estimated.
+
+Telemetry is diagnostic, bounded, and one-way: caller inputs are captured,
+operation events are capped, and telemetry callbacks cannot mutate renderer,
+queue, or chunk lifecycle. A sink failure is contained. The current
+`mainThreadWorkMs` value is the Host-owned frame-work wall-time envelope around
+upload, update, pass recording, and backend submission; it is not a CPU profiler
+or reference-device result. Browser-lab percentiles and forced-GC plateaus are
+preserved as automated evidence, while reference CPU/GPU acceptance remains
+`HARDWARE_PENDING` until the designated machine supplies timestamp support and
+the required measurements.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.
