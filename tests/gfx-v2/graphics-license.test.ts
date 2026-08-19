@@ -64,11 +64,11 @@ describe("R2-G6 runtime license and provenance boundary", () => {
 
     const provenance = readFileSync(join(root, "DEMO_SOURCE_PROVENANCE.csv"), "utf8");
     expect(provenance).toContain("HERO-A-20260820");
-    expect(provenance).toContain("67dea2b1589c0e7f862cf76674b45b3cffbc04f1");
+    expect(provenance).toContain("8ca6e9a23930184454c1653131c637c5e1795f1c");
     expect(provenance).toContain("HERO-B-20260820");
-    expect(provenance).toContain("2fb5cade0c5e8df8b3e889a14a57867c8e0440ba");
+    expect(provenance).toContain("de559f8a60a9d838bd428ca8e604a6ee94efd4f7");
     expect(provenance).toContain("HERO-C-20260820");
-    expect(provenance).toContain("69fe2e47c5269ccc407c95a6c6491fbbff1ceb8c");
+    expect(provenance).toContain("1d097899f08a74cfd649b91f48dc7ea1b20a43ef");
   });
 
   it("keeps the Notion reference boards outside every production module", () => {
