@@ -1543,13 +1543,6 @@ export class RenderHost {
   }
 
   dispose(): Promise<void> {
-    if (this.#ownedCallbackDepth > 0) {
-      return Promise.reject(lifecycleError(
-        "dispose from an owned dependency callback",
-        this.#lifecycle,
-        this.#errorOwner,
-      ));
-    }
     if (this.#pendingWarmupSchedulerCallbacks > 0) {
       if (this.#warmupSchedulerDisposalRejection === null) {
         const deferred = deferredVoid();
@@ -1561,6 +1554,13 @@ export class RenderHost {
         ));
       }
       return this.#warmupSchedulerDisposalRejection;
+    }
+    if (this.#ownedCallbackDepth > 0) {
+      return Promise.reject(lifecycleError(
+        "dispose from an owned dependency callback",
+        this.#lifecycle,
+        this.#errorOwner,
+      ));
     }
     if (this.#disposePromise) return this.#disposePromise;
     if (this.#lifecycle === "disposed") return Promise.resolve();

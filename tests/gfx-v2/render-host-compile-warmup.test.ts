@@ -362,11 +362,13 @@ describe("GFX-006 atomic compile warm-up", () => {
   it("rejects synchronous scheduler disposal reentry without an initialization-disposal cycle", async () => {
     const owner: { host: RenderHost | null } = { host: null };
     let reentrantDispose: Promise<void> | null = null;
+    let repeatedDispose: Promise<void> | null = null;
     const test = harness({
       now: () => 1,
       yieldToMain(): Promise<void> {
         if (owner.host === null) throw new Error("scheduler host was not installed");
         reentrantDispose = owner.host.dispose();
+        repeatedDispose = owner.host.dispose();
         return reentrantDispose;
       },
       async precompile(runner): Promise<Readonly<RenderPrecompileReceipt>> {
@@ -381,6 +383,7 @@ describe("GFX-006 atomic compile warm-up", () => {
       JOURNEY,
       { width: 800, height: 450, pixelRatio: 1 },
     )).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
+    expect(repeatedDispose).toBe(reentrantDispose);
     await expect(reentrantDispose).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
     const terminalError = host.error;
     const terminalCleanup = host.dispose();
@@ -418,10 +421,12 @@ describe("GFX-006 atomic compile warm-up", () => {
   it("rejects synchronous settle disposal reentry before backend precompile starts", async () => {
     const owner: { host: RenderHost | null } = { host: null };
     let reentrantDispose: Promise<void> | null = null;
+    let repeatedDispose: Promise<void> | null = null;
     const test = harness({
       settleBeforeWarmup(): Promise<void> {
         if (owner.host === null) throw new Error("scheduler host was not installed");
         reentrantDispose = owner.host.dispose();
+        repeatedDispose = owner.host.dispose();
         return reentrantDispose;
       },
       async precompile(): Promise<Readonly<RenderPrecompileReceipt>> {
@@ -434,6 +439,7 @@ describe("GFX-006 atomic compile warm-up", () => {
       JOURNEY,
       { width: 800, height: 450, pixelRatio: 1 },
     )).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
+    expect(repeatedDispose).toBe(reentrantDispose);
     await expect(reentrantDispose).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
     expect(test.precompileCalls()).toBe(0);
     expect(test.telemetry.snapshot().eventTotals.compile).toBe(0);
