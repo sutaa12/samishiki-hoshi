@@ -727,14 +727,14 @@ describe("GFX-006 atomic compile warm-up", () => {
     expect(messageChannelCalls).toBe(0);
   });
 
-  it("uses one captured 500ms timer for the renderer-context settle window", async () => {
+  it("uses one captured timer for the 500ms settle and 4ms inter-step cooldown", async () => {
     let timerCalls = 0;
-    let observedDelay: unknown = null;
+    const observedDelays: unknown[] = [];
     let receiverMatched = false;
     const scope = Object.freeze({
       setTimeout(this: unknown, callback: () => void, delay: unknown) {
         timerCalls += 1;
-        observedDelay = delay;
+        observedDelays.push(delay);
         receiverMatched = Object.is(this, scope);
         queueMicrotask(callback);
         return 1;
@@ -744,8 +744,9 @@ describe("GFX-006 atomic compile warm-up", () => {
     const scheduler = createBrowserRenderWarmupScheduler(scope);
 
     await scheduler.settleBeforeWarmup();
-    expect(timerCalls).toBe(1);
-    expect(observedDelay).toBe(500);
+    await scheduler.yieldToMain();
+    expect(timerCalls).toBe(2);
+    expect(observedDelays).toEqual([500, 4]);
     expect(receiverMatched).toBe(true);
   });
 

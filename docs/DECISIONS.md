@@ -292,7 +292,9 @@ normal ownership cleanup path.
 The settle window is not reported as a compile action because it performs no
 renderer work and does not occupy the main thread. After it resolves, every
 renderer-facing compile and first-draw action is still individually measured;
-strict `>50 ms` telemetry and rejection remain unchanged. The value is fixed
+each completed action is followed by a four-millisecond cooperative cooldown
+outside that timing interval to drain driver work before the next action.
+Strict `>50 ms` telemetry and rejection remain unchanged. The value is fixed
 from cold Chromium evidence: 100 milliseconds admitted an intermittent 55.9 ms
 Hero C final-output draw, while five independent 500-millisecond cold runs kept
 all 258 WebGL2 actions between 21.6 and 26.4 ms. This is local laboratory

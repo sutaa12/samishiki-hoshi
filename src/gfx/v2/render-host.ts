@@ -63,6 +63,7 @@ const hostIntrinsicSetForEach = Set.prototype.forEach;
 const hostIntrinsicSetHas = Set.prototype.has;
 const hostIntrinsicSetSize = Object.getOwnPropertyDescriptor(Set.prototype, "size")!.get!;
 const RENDER_CONTEXT_SETTLE_MS = 500;
+const RENDER_COMPILE_COOLDOWN_MS = 4;
 
 function captureRenderPass(
   pass: RenderPass,
@@ -420,24 +421,28 @@ export function createBrowserRenderWarmupScheduler(
   const port2Getter = messageChannelPrototypeObject === null
     ? null
     : safeAccessorGetter(messageChannelPrototypeObject, "port2");
+  const waitForTimer = (delayMs: number): Promise<void> => {
+    if (setTimeoutMethod === null) {
+      return new hostIntrinsicPromise<void>((_resolve, reject) => {
+        reject(new hostIntrinsicError("A safe renderer-context settle timer is unavailable."));
+      });
+    }
+    return new hostIntrinsicPromise<void>((resolve, reject) => {
+      try {
+        hostIntrinsicReflectApply(setTimeoutMethod, scope, [resolve, delayMs]);
+      } catch (error: unknown) {
+        reject(error);
+      }
+    });
+  };
   return hostIntrinsicObjectFreeze({
     settleBeforeWarmup(): Promise<void> {
-      if (setTimeoutMethod === null) {
-        return new hostIntrinsicPromise<void>((_resolve, reject) => {
-          reject(new hostIntrinsicError("A safe renderer-context settle timer is unavailable."));
-        });
-      }
-      return new hostIntrinsicPromise<void>((resolve, reject) => {
-        try {
-          hostIntrinsicReflectApply(setTimeoutMethod, scope, [resolve, RENDER_CONTEXT_SETTLE_MS]);
-        } catch (error: unknown) {
-          reject(error);
-        }
-      });
+      return waitForTimer(RENDER_CONTEXT_SETTLE_MS);
     },
     async yieldToMain(): Promise<void> {
       if (schedulerYield !== null) {
         await hostIntrinsicReflectApply(schedulerYield, scheduler, []);
+        if (setTimeoutMethod !== null) await waitForTimer(RENDER_COMPILE_COOLDOWN_MS);
         return;
       }
       if (
@@ -551,6 +556,7 @@ export function createBrowserRenderWarmupScheduler(
           reject(error);
         }
       });
+      if (setTimeoutMethod !== null) await waitForTimer(RENDER_COMPILE_COOLDOWN_MS);
     },
   });
 }
