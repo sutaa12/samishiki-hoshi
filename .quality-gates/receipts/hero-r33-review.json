@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
-  "review_id": "hero-r33-artifact-review-pending-2026-08-20",
+  "review_id": "hero-r33-independent-artifact-review-2026-08-20",
   "gate": "Hero R33 automated technical and visual acceptance",
   "implementation_commit": "e1b101b9438097f739437e0a50af80774fd707ed",
   "implementation_tree": "5c7540fdb86831d46411c7d7aadbabc0e75770ba",
-  "reviewed_evidence_head": null,
+  "reviewed_evidence_head": "0c869ab1087f8940015706c2f4d83977ec1bab05",
+  "reviewed_evidence_tree": "e5669970d1115db9370ad6bb6a4d95b7be50023c",
   "artifact_manifest": ".quality-gates/hero-r33-e1b101b-artifact.json",
-  "artifact_manifest_sha256": "ec86593cfe910bdae2f97e8d1e7a49ac6f7fac4ec3f0adb320a3ba318e917efb",
+  "reviewed_candidate_artifact_manifest_sha256": "ec86593cfe910bdae2f97e8d1e7a49ac6f7fac4ec3f0adb320a3ba318e917efb",
   "source_archive_sha256": "7167c754d0c43fc89e91463969bc79a8ab8071d322ec298aee118abb655c971b",
   "build_archive": ".quality-gates/hero-r33-e1b101b-dist.tar",
   "build_archive_sha256": "6f0d286923d3bd6a6cc87bf8dc16ba5cb17727a9233ebdd3c2e6dd4814b835e4",
@@ -18,14 +19,16 @@
   "asset_intake_manifest_sha256": "7b030d03e52350fd02e8bd25170e8ec6d513d501c7cf6eed29e5e62dff112b88",
   "reviewers": [
     "independent-blind-visual-review",
-    "independent-technical-pre-freeze-review"
+    "independent-technical-pre-freeze-review",
+    "hero_r33_artifact_recheck"
   ],
   "pre_freeze_verdict": "accept",
-  "artifact_verdict": "review_pending",
+  "artifact_verdict": "accept",
   "severity_counts": {
     "s0": 0,
     "s1": 0,
-    "s2": 0
+    "s2": 0,
+    "s3": 0
   },
   "observations": {
     "complete_test_files": 36,
@@ -43,11 +46,10 @@
     "generated_assets_verified": "10/10"
   },
   "limitations": [
-    "The evidence commit and artifact manifest still require a fresh artifact-only binding review.",
     "This Hero-only receipt does not promote R2-G6 or accept GFX-004, GFX-005, or GFX-006.",
     "The browser evidence is local-host evidence and does not replace reference-hardware acceptance.",
     "Automated provenance and license inventory do not replace human public-use and contest-rights acceptance.",
     "Main integration, Sites deployment, and contest submission require the D-005 human decision."
   ],
-  "release_effect": "No merge to Main, Sites save/deploy, public release, contest submission, human acceptance, rights acceptance, reference-hardware acceptance, or R2-G6 promotion is authorized by this review-pending receipt."
+  "release_effect": "This accepts only the exact Hero R33 automated technical, visual, and artifact scope. No merge to Main, Sites save/deploy, public release, contest submission, human acceptance, rights acceptance, reference-hardware acceptance, or R2-G6 promotion is authorized."
 }

@@ -234,6 +234,23 @@ production. Historical Hero and R2-G6 receipts remain valid only for their exact
 older commits; the combined remediation requires a new frozen artifact and
 independent review before any gate can be promoted.
 
+## D-021 — Hero R33 acceptance is Hero-only and cannot authorize release
+
+Hero R33 binds implementation `e1b101b9438097f739437e0a50af80774fd707ed`
+to independently reviewed evidence `0c869ab1087f8940015706c2f4d83977ec1bab05`.
+The technical, blind visual, and artifact reviews each report no S0, S1, or S2;
+the artifact recheck also reports S3=0. This accepts the automated R2-G3,
+R2-G4, and R2-G5 Hero scope for that exact source and evidence only.
+
+Hero acceptance does not inherit into R2-G6. Foundation parity, restart,
+telemetry, and combined evidence remain independently gated. Generated-asset
+checks and provenance are engineering evidence, not the Human Acceptance
+Owner's public-use or contest-rights attestation. Reference hardware remains
+`HARDWARE_PENDING`; human visual/play and rights remain `HUMAN_PENDING`.
+Accordingly D-005 still prohibits Main integration, Sites save/deployment, and
+submission until the Human Acceptance Owner chooses `Merge`, `Partial Merge`,
+or `Reject` and records the required rights decision.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

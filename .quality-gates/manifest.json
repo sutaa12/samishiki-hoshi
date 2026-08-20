@@ -39,11 +39,11 @@
         {"kind": "historical", "artifact": ".quality-gates/receipts/hero-a-review.json", "description": "Pre-remediation Hero A candidate receipt"},
         {"kind": "historical", "artifact": ".quality-gates/receipts/hero-b-review.json", "description": "Pre-remediation Hero B candidate receipt"},
         {"kind": "historical", "artifact": ".quality-gates/receipts/hero-c-review.json", "description": "Pre-remediation Hero C candidate receipt"},
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/r2-g6-visual-remediation-review.json", "description": "Current A/B/C remediation is hash-bound together and remains review_pending"},
-        {"kind": "artifact", "artifact": ".quality-gates/r2-g6-b84a267-artifact.json", "description": "Current exact implementation/build/test/browser evidence"}
+        {"kind": "accepted", "artifact": ".quality-gates/receipts/hero-r33-review.json", "description": "Exact Hero R33 technical, visual, and artifact acceptance"},
+        {"kind": "artifact", "artifact": ".quality-gates/hero-r33-e1b101b-artifact.json", "description": "Accepted Hero-only source/build/test/browser evidence"}
       ],
       "rollback_condition": "Any visual grammar, story marker, shader warm-up, parity, or ownership regression",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "id": "R2-G6",
@@ -76,7 +76,7 @@
   "known_risks": [
     {"id":"R-HUMAN","description":"Contest consent, identity, rights attestation, Seoul attendance, and final submission require the responsible human","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Tracked as HUMAN_PENDING in docs/QA.md and Notion; not part of automated public deployment"}]},
     {"id":"R-HARDWARE","description":"Reference-device performance acceptance cannot be proven on the build host","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Automated telemetry is collected; final reference hardware remains HARDWARE_PENDING"}]},
-    {"id":"R-INDEPENDENT","description":"GFX-004/GFX-005, GFX-006, and the current Hero A/B/C plus R2-G6 visual-remediation candidate still require artifact-isolated independent review","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"The current combined receipt and docs/QA.md remain review_pending; historical receipts do not transfer acceptance"}]},
+    {"id":"R-INDEPENDENT","description":"GFX-004/GFX-005, GFX-006, and combined R2-G6 still require current artifact-isolated independent review; Hero R33 is accepted separately","severity":"S3","status":"open","evidence":[{"kind":"accepted","artifact":".quality-gates/receipts/hero-r33-review.json","description":"Hero-only independent review is complete; combined foundation and R2-G6 remain separate"}]},
     {"id":"R-INTEGRATION-RELEASE","description":"The v2 Hero presentation is intentionally not integrated into Main and Sites deployment is frozen until explicit human Merge, Partial Merge, or Reject","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"docs/SPEC.md, docs/GFX_FOUNDATION_DESIGN.md, and D-005 require the Human Acceptance Owner decision"}]}
   ],
   "project": "さみしき星のまたたきよ",

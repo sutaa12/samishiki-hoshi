@@ -1,6 +1,6 @@
 # Hero R33 automated technical and visual evidence
 
-> **Current verdict: source and visual scope accepted; artifact binding pending.**
+> **Current verdict: accepted for the exact automated Hero-only scope.**
 > Implementation `e1b101b9438097f739437e0a50af80774fd707ed` passes the
 > automated and independent Hero A/B/C gates below. This Hero-only result does
 > not accept R2-G6 as a whole, human rights/play/visual quality, reference
@@ -56,6 +56,10 @@
   lights, and the formal two-line title.
 - Independent visual and technical reviewers returned `ACCEPT`, with
   `S0=0`, `S1=0`, and `S2=0`, on the exact source/report/asset pins.
+- The isolated artifact recheck reproduced evidence commit
+  `0c869ab1087f8940015706c2f4d83977ec1bab05`, source archive, all 23
+  implementation hashes, extracted-build digest, reports, 20 embedded PNGs,
+  and ten asset checks with `S0=0`, `S1=0`, `S2=0`, and `S3=0`.
 
 ## Provenance and release boundary
 
@@ -69,6 +73,5 @@ This evidence supports automated Hero A/B/C acceptance only. Human public-use
 and contest-rights attestation remains `HUMAN_PENDING`; reference-hardware
 acceptance remains `HARDWARE_PENDING`. D-005 still requires the Human Acceptance
 Owner to choose `Merge`, `Partial Merge`, or `Reject` before Main integration or
-Sites deployment. The current artifact manifest and receipt remain
-`artifact_review_pending` until a fresh isolated reviewer reproduces the bound
-evidence commit without drift.
+Sites deployment. This receipt accepts only Hero R33; it does not promote the
+combined R2-G6 gate or any human/external release gate.

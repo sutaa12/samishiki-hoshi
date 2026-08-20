@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gate": "Hero R33 automated technical and visual acceptance",
-  "status": "artifact_review_pending",
+  "status": "accepted",
   "implementation": {
     "commit": "e1b101b9438097f739437e0a50af80774fd707ed",
     "tree": "5c7540fdb86831d46411c7d7aadbabc0e75770ba",
@@ -114,11 +114,23 @@
     "heroCTestSha256": "7c36aa89afed14ce226d7eaafe79b257be212be57b693fa1bee039bb407c7db4"
   },
   "artifactReview": {
-    "reviewedEvidenceHead": null,
-    "reviewers": [],
-    "verdict": "review_pending",
-    "bindingsReproduced": false,
-    "drift": null
+    "reviewedEvidenceHead": "0c869ab1087f8940015706c2f4d83977ec1bab05",
+    "reviewedEvidenceTree": "e5669970d1115db9370ad6bb6a4d95b7be50023c",
+    "date": "2026-08-20",
+    "reviewers": [
+      "independent-blind-visual-review",
+      "independent-technical-pre-freeze-review",
+      "hero_r33_artifact_recheck"
+    ],
+    "verdict": "accept",
+    "severityCounts": {
+      "S0": 0,
+      "S1": 0,
+      "S2": 0,
+      "S3": 0
+    },
+    "bindingsReproduced": true,
+    "drift": false
   },
   "externalGates": {
     "r2G6CombinedAcceptance": "PENDING",
