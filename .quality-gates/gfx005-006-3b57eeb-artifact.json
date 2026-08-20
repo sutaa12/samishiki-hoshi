@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gate": "GFX-004/GFX-005/GFX-006 shared foundation acceptance",
-  "status": "source_accepted_artifact_review_pending",
+  "status": "accepted",
   "implementation": {
     "commit": "3b57eeb213df7a945f13b93c62188f62a9c003b5",
     "tree": "2c65c8ebb0b8e366b562687b1063e50cc111b109",
@@ -190,11 +190,23 @@
     "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a"
   },
   "artifactReview": {
-    "status": "review_pending",
-    "reviewedEvidenceHead": null,
-    "reviewers": [],
-    "verdict": "review_pending",
-    "bindingsReproduced": false
+    "status": "accepted",
+    "reviewedEvidenceHead": "6e1ff9b7c6f4c790035aa54eb608861bf54617b6",
+    "reviewedEvidenceTree": "b3aa59df8fd47db4a6adc446d052fb8bba42f0de",
+    "reviewedCandidateArtifactManifestSha256": "b4dc8f170d0b20d3a6128f79ce4430a617b7f71e9d254ac6b647642e0eb2e911",
+    "date": "2026-08-20",
+    "reviewers": [
+      "gfx005_006_artifact_acceptance"
+    ],
+    "verdict": "accept",
+    "severityCounts": {
+      "S0": 0,
+      "S1": 0,
+      "S2": 0,
+      "S3": 0
+    },
+    "bindingsReproduced": true,
+    "drift": false
   },
   "externalGates": {
     "referenceHardware": "HARDWARE_PENDING",

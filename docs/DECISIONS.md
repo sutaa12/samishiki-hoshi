@@ -251,6 +251,35 @@ Accordingly D-005 still prohibits Main integration, Sites save/deployment, and
 submission until the Human Acceptance Owner chooses `Merge`, `Partial Merge`,
 or `Reject` and records the required rights decision.
 
+## D-022 — Compile telemetry measures atomic renderer actions, not one aggregate warm-up
+
+GFX-006 no longer treats one multi-profile `precompile()` Promise as a compile
+event. RenderHost owns a required compile-step runner; each descriptor encloses
+exactly one renderer-facing action, samples one monotonic clock before and after
+that action's settlement, records the result, and only then yields to the next
+browser task outside the timed interval. Direct-backend and pipeline planning
+capture the same bounded drawable identities used for execution. Nested
+drawables are isolated, every target/MRT/visibility/renderer mutation is
+restored on success or failure, and the receipt must exactly match Host-owned
+IDs, phase counts, and completed steps before ready.
+
+The default production graph is deduplicated only by topology: forced WebGL2
+uses one static representative and WebGPU uses one temporal plus one static
+representative. Custom graph factories retain their distinct 3/5-profile
+behavior. Runtime-object compile/draw, isolated material compile,
+runtime-material topology, PassNode first draw, and final quad first draw are
+separate measured actions. In the accepted composition this yields 88 WebGL2
+and 176 WebGPU steps; these are receipt values for this exact topology, not
+universal constants.
+
+The Page-12 spike gate applies to compile, upload, and activation whenever the
+measured duration is strictly greater than 50 ms, independent of whether an
+event affects story time. The composed Host initialization event remains
+visible and can exceed 50 ms, but it is not relabeled as one atomic compile
+spike. Constant-zero compile counters are not acceptance evidence. Local
+browser timings remain laboratory evidence; GPU timestamps were unavailable
+and reference-device acceptance remains `HARDWARE_PENDING`.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.
