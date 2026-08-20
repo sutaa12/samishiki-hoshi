@@ -5,6 +5,7 @@ import {
   MeshPhysicalNodeMaterial,
   PerspectiveCamera,
   Scene,
+  Vector3,
 } from "three/webgpu";
 import { describe, expect, it } from "vitest";
 import type {
@@ -226,6 +227,10 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
       constrainedSuperformulaSections: true,
       ribbonThickness: 0.1,
       centralVoidOpen: true,
+      ribbonTopologyManifold: true,
+      ribbonBoundaryEdges: 0,
+      ribbonNonManifoldEdges: 0,
+      ribbonDegenerateTriangles: 0,
       alienUsesHumanGrammar: false,
       alienHasCockpitWindowThrusterOrFront: false,
       responseWindowOpen: true,
@@ -234,8 +239,36 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
       allocationsAfterInitialize: 0,
     });
     expect(feature.snapshot().minimumShipVertexRadius).toBeGreaterThan(1.5);
+    expect(feature.snapshot().ribbonMaximumSeamPositionError).toBeLessThanOrEqual(1e-6);
+    expect(feature.snapshot().ribbonMinimumSeamNormalDot).toBeGreaterThanOrEqual(0.999_99);
+    expect(feature.snapshot().ribbonMaximumHolonomyCorrection).toBeGreaterThan(0);
     for (let index = 1; index <= 3; index += 1) {
-      expect(scene.getObjectByName(`hero-c:alien-ribbon-shell-${index}`)).toBeDefined();
+      const shell = scene.getObjectByName(`hero-c:alien-ribbon-shell-${index}`);
+      expect(shell).toBeInstanceOf(Mesh);
+      if (!(shell instanceof Mesh)) continue;
+      const geometryIndex = shell.geometry.getIndex();
+      expect(geometryIndex).not.toBeNull();
+      if (!geometryIndex) continue;
+      const edgeIncidence = new Map<string, number>();
+      for (let offset = 0; offset < geometryIndex.count; offset += 3) {
+        const a = geometryIndex.getX(offset);
+        const b = geometryIndex.getX(offset + 1);
+        const c = geometryIndex.getX(offset + 2);
+        for (const [from, to] of [[a, b], [b, c], [c, a]] as const) {
+          const key = from < to ? `${from}:${to}` : `${to}:${from}`;
+          edgeIncidence.set(key, (edgeIncidence.get(key) ?? 0) + 1);
+        }
+      }
+      expect([...edgeIncidence.values()].every((incidence) => incidence === 2)).toBe(true);
+
+      const positions = shell.geometry.getAttribute("position");
+      const transformed = new Vector3();
+      let transformedMinimum = Number.POSITIVE_INFINITY;
+      for (let vertexIndex = 0; vertexIndex < positions.count; vertexIndex += 1) {
+        transformed.fromBufferAttribute(positions, vertexIndex).applyEuler(shell.rotation);
+        transformedMinimum = Math.min(transformedMinimum, transformed.length());
+      }
+      expect(transformedMinimum).toBeGreaterThan(1.5);
     }
     expect(scene.getObjectByName("hero-c:alien-ribbon-shell-4")).toBeUndefined();
   });
@@ -263,7 +296,12 @@ describe("R2-G5 Hero Slice C space/alien/Twinkle realization", () => {
       expect(shell.material).toBeInstanceOf(MeshPhysicalNodeMaterial);
       if (shell.material instanceof MeshPhysicalNodeMaterial) {
         expect(shell.material.iridescence).toBeGreaterThan(0.5);
-        expect(shell.material.clearcoat).toBe(1);
+        expect(shell.material.clearcoat).toBeGreaterThanOrEqual(0.9);
+        expect(shell.material.opacityNode).not.toBeNull();
+        expect(shell.material.transparent).toBe(true);
+        expect(shell.material.depthWrite).toBe(false);
+        expect(shell.material.transmission).toBe(0);
+        expect(shell.material.color.r + shell.material.color.g + shell.material.color.b).toBeLessThan(1);
       }
     }
     const earth = scene.getObjectByName("hero-c:living-earth-sphere");

@@ -1,4 +1,14 @@
-import { Color, Mesh, MeshPhysicalNodeMaterial, PerspectiveCamera, Scene } from "three/webgpu";
+import {
+  Color,
+  InstancedMesh,
+  Mesh,
+  MeshPhysicalNodeMaterial,
+  MeshStandardNodeMaterial,
+  NoColorSpace,
+  PerspectiveCamera,
+  Scene,
+  SRGBColorSpace,
+} from "three/webgpu";
 import { describe, expect, it } from "vitest";
 import type {
   FeatureInitContext,
@@ -98,7 +108,7 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
     });
     expect(snapshot.ownedGeometries).toBeGreaterThan(30);
     expect(snapshot.ownedMaterials).toBeGreaterThan(15);
-    expect(snapshot.ownedTextures).toBe(3);
+    expect(snapshot.ownedTextures).toBe(12);
     expect(scene.getObjectByName("hero-a:submerged-vehicle")?.visible).toBe(false);
     expect(scene.getObjectByName("hero-a:life-droplet")?.visible).toBe(true);
     expect(scene.getObjectByName("hero-a:pulse-living-target")?.visible).toBe(true);
@@ -109,6 +119,20 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
     });
     expect(physicalMaterials.size).toBeGreaterThanOrEqual(4);
     expect([...physicalMaterials].every((material) => material.transmission === 0)).toBe(true);
+    const mappedSurfaces = new Set<MeshStandardNodeMaterial>();
+    scene.traverse((object) => {
+      if (!(object instanceof Mesh) || Array.isArray(object.material)) return;
+      if (object.material instanceof MeshStandardNodeMaterial
+        && object.material.map
+        && object.material.bumpMap) mappedSurfaces.add(object.material);
+    });
+    expect(mappedSurfaces.size).toBeGreaterThanOrEqual(8);
+    for (const material of mappedSurfaces) {
+      expect(material.bumpMap).not.toBe(material.map);
+      expect(material.map?.colorSpace).toBe(SRGBColorSpace);
+      expect(material.bumpMap?.colorSpace).toBe(NoColorSpace);
+      expect(material.roughnessMap).toBeNull();
+    }
   });
 
   it("uses the exact 18-second boundary and keeps a readable rectilinear empty-seat inventory at 27 seconds", async () => {
@@ -140,42 +164,218 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
     const { scene, feature } = harness();
     await feature.initialize({} as FeatureInitContext);
     const inventory = {
-      coralLaterals: 0,
-      coralSideBlooms: 0,
+      continuousBranchCorals: 0,
+      denseBushCorals: 0,
+      volumetricPolypColonies: 0,
+      coralPolypInstances: 0,
+      coralMounds: 0,
+      seaFans: 0,
+      seaFanTissues: 0,
+      seaFanPolypColonies: 0,
+      seaFanPolypInstances: 0,
+      tableCorals: 0,
+      foregroundReefWalls: 0,
       kelpBlades: 0,
       dorsalFins: 0,
+      analFins: 0,
       pectoralFins: 0,
+      forkedTails: 0,
       fishEyes: 0,
       causticPatches: 0,
+      photorealCoralCards: 0,
+      volumetricHazeLayers: 0,
     };
+    const fishSpecies = new Set<string>();
     scene.traverse((object) => {
-      if (object.name.startsWith("hero-a:coral-lateral:")) inventory.coralLaterals += 1;
-      if (object.name.startsWith("hero-a:coral-side-bloom:")) inventory.coralSideBlooms += 1;
+      if (object.name.startsWith("hero-a:continuous-branch-coral:")) {
+        inventory.continuousBranchCorals += 1;
+      }
+      if (object.name.startsWith("hero-a:dense-bush-coral:")) inventory.denseBushCorals += 1;
+      if (object.name.startsWith("hero-a:volumetric-coral-polyps:")) {
+        inventory.volumetricPolypColonies += 1;
+        if (object instanceof InstancedMesh) inventory.coralPolypInstances += object.count;
+      }
+      if (object.name.startsWith("hero-a:coral-organic-mound:")) inventory.coralMounds += 1;
+      if (object.name.startsWith("hero-a:coral-sea-fan:")) inventory.seaFans += 1;
+      if (object.name.startsWith("hero-a:coral-sea-fan-tissue:")) inventory.seaFanTissues += 1;
+      if (object.name.startsWith("hero-a:sea-fan-edge-polyps:")) {
+        inventory.seaFanPolypColonies += 1;
+        if (object instanceof InstancedMesh) inventory.seaFanPolypInstances += object.count;
+      }
+      if (object.name.startsWith("hero-a:coral-table-plate:")) inventory.tableCorals += 1;
+      if (object.name.startsWith("hero-a:foreground-reef-wall:")) inventory.foregroundReefWalls += 1;
       if (object.name.startsWith("hero-a:kelp-blade:")) inventory.kelpBlades += 1;
       if (object.name.startsWith("hero-a:fish-dorsal-fin:")) inventory.dorsalFins += 1;
+      if (object.name.startsWith("hero-a:fish-anal-fin:")) inventory.analFins += 1;
       if (object.name.startsWith("hero-a:fish-pectoral-fin:")) inventory.pectoralFins += 1;
+      if (object.name.startsWith("hero-a:fish-forked-tail:")) inventory.forkedTails += 1;
       if (object.name.startsWith("hero-a:fish-eye:")) inventory.fishEyes += 1;
       if (object.name.startsWith("hero-a:caustic-patch:")) inventory.causticPatches += 1;
+      if (object.name.startsWith("hero-a:photoreal-coral-card:")) inventory.photorealCoralCards += 1;
+      if (object.name.startsWith("hero-a:volumetric-haze-layer:")) inventory.volumetricHazeLayers += 1;
+      if (object.name.startsWith("hero-a:fish-body:")) {
+        const species = object.name.split(":").at(-1);
+        if (species) fishSpecies.add(species);
+      }
     });
 
     expect(inventory).toEqual({
-      coralLaterals: 79,
-      coralSideBlooms: 79,
+      continuousBranchCorals: 20,
+      denseBushCorals: 20,
+      volumetricPolypColonies: 20,
+      coralPolypInstances: 536,
+      coralMounds: 21,
+      seaFans: 7,
+      seaFanTissues: 7,
+      seaFanPolypColonies: 7,
+      seaFanPolypInstances: 84,
+      tableCorals: 18,
+      foregroundReefWalls: 8,
       kelpBlades: 36,
       dorsalFins: 28,
+      analFins: 28,
       pectoralFins: 56,
-      fishEyes: 56,
+      forkedTails: 28,
+      fishEyes: 0,
       causticPatches: 18,
+      photorealCoralCards: 0,
+      volumetricHazeLayers: 4,
     });
+    expect([...fishSpecies].sort()).toEqual(["species-0", "species-1", "species-2"]);
+    expect(scene.getObjectByName("hero-a:water-column-gradient-dome")).toBeInstanceOf(Mesh);
+    for (const side of ["left", "right"] as const) {
+      const shelf = scene.getObjectByName(`hero-a:organic-reef-shelf:${side}`);
+      expect(shelf).toBeInstanceOf(Mesh);
+      if (shelf instanceof Mesh) {
+        expect(shelf.geometry.getAttribute("position").count).toBe(403);
+        expect(shelf.geometry.getAttribute("color")).toBeDefined();
+        expect(shelf.geometry.index?.count).toBe(2_160);
+      }
+    }
+    const seaFan = scene.getObjectByName("hero-a:coral-sea-fan:1");
+    expect(seaFan).toBeInstanceOf(Mesh);
+    const seaFanMaterial = (seaFan as Mesh).material;
+    expect(seaFanMaterial).toBeInstanceOf(MeshStandardNodeMaterial);
+    expect((seaFanMaterial as MeshStandardNodeMaterial).map?.name).toBe(
+      "hero-a:organic-surface-detail-texture",
+    );
+    if (seaFan instanceof Mesh) {
+      const fanPositions = seaFan.geometry.getAttribute("position");
+      expect(fanPositions.count).toBeGreaterThan(600);
+      let minimumZ = Number.POSITIVE_INFINITY;
+      let maximumZ = Number.NEGATIVE_INFINITY;
+      let maximumY = Number.NEGATIVE_INFINITY;
+      for (let index = 0; index < fanPositions.count; index += 1) {
+        minimumZ = Math.min(minimumZ, fanPositions.getZ(index));
+        maximumZ = Math.max(maximumZ, fanPositions.getZ(index));
+        maximumY = Math.max(maximumY, fanPositions.getY(index));
+      }
+      expect(maximumZ - minimumZ).toBeGreaterThan(0.15);
+      expect(maximumY).toBeLessThan(1.3);
+    }
+    const seaFanTissue = scene.getObjectByName("hero-a:coral-sea-fan-tissue:1:front");
+    expect(seaFanTissue).toBeInstanceOf(Mesh);
+    if (seaFanTissue instanceof Mesh) {
+      const tissueMaterial = seaFanTissue.material;
+      expect(tissueMaterial).toBeInstanceOf(MeshStandardNodeMaterial);
+      if (tissueMaterial instanceof MeshStandardNodeMaterial) {
+        expect(tissueMaterial.map).toBeNull();
+        expect(tissueMaterial.bumpMap?.name).toBe("hero-a:photoreal-coral-cluster-texture:bump");
+        expect(tissueMaterial.vertexColors).toBe(true);
+        expect(tissueMaterial.alphaTest).toBe(0);
+      }
+      expect(seaFanTissue.geometry.getAttribute("color")).toBeDefined();
+      expect(seaFanTissue.geometry.index?.count).toBeGreaterThan(500);
+      const tissuePositions = seaFanTissue.geometry.getAttribute("position");
+      expect(tissuePositions.count).toBe(400);
+      let minimumZ = Number.POSITIVE_INFINITY;
+      let maximumZ = Number.NEGATIVE_INFINITY;
+      let maximumY = Number.NEGATIVE_INFINITY;
+      let maximumOuterEdgeStep = 0;
+      const outerFrontStart = tissuePositions.count - 50;
+      for (let index = 0; index < tissuePositions.count; index += 1) {
+        minimumZ = Math.min(minimumZ, tissuePositions.getZ(index));
+        maximumZ = Math.max(maximumZ, tissuePositions.getZ(index));
+        maximumY = Math.max(maximumY, tissuePositions.getY(index));
+      }
+      for (let spoke = 1; spoke < 25; spoke += 1) {
+        const previous = outerFrontStart + (spoke - 1) * 2;
+        const current = outerFrontStart + spoke * 2;
+        maximumOuterEdgeStep = Math.max(
+          maximumOuterEdgeStep,
+          Math.abs(tissuePositions.getY(current) - tissuePositions.getY(previous)),
+        );
+      }
+      expect(maximumZ - minimumZ).toBeGreaterThan(0.16);
+      expect(maximumY).toBeGreaterThan(1.3);
+      expect(maximumOuterEdgeStep).toBeLessThan(0.11);
+    }
+    const seaFanTissueGeometryIds = new Set<string>();
+    scene.traverse((object) => {
+      if (object.name.startsWith("hero-a:coral-sea-fan-tissue:") && object instanceof Mesh) {
+        seaFanTissueGeometryIds.add(object.geometry.uuid);
+      }
+    });
+    expect(seaFanTissueGeometryIds.size).toBe(7);
+    const fanPolyps = scene.getObjectByName("hero-a:sea-fan-edge-polyps:1");
+    expect(fanPolyps).toBeInstanceOf(InstancedMesh);
+    if (fanPolyps instanceof InstancedMesh) expect(fanPolyps.count).toBe(12);
+    const branchCoral = scene.getObjectByName("hero-a:continuous-branch-coral:0");
+    expect(branchCoral).toBeInstanceOf(Mesh);
+    if (branchCoral instanceof Mesh) {
+      expect(branchCoral.geometry.getAttribute("position").count).toBeGreaterThan(250);
+      expect(branchCoral.geometry.index?.count).toBeGreaterThan(800);
+    }
+    const bushCoral = scene.getObjectByName("hero-a:dense-bush-coral:0");
+    expect(bushCoral).toBeInstanceOf(Mesh);
+    if (bushCoral instanceof Mesh) {
+      expect(bushCoral.geometry.getAttribute("position").count).toBeGreaterThan(700);
+      expect(bushCoral.geometry.index?.count).toBeGreaterThan(1_500);
+    }
+    const coralPolyps = scene.getObjectByName("hero-a:volumetric-coral-polyps:0");
+    expect(coralPolyps).toBeInstanceOf(InstancedMesh);
+    if (coralPolyps instanceof InstancedMesh) {
+      expect(coralPolyps.count).toBe(28);
+      expect(coralPolyps.geometry.name).toBe("hero-a:branch-attached-coral-polyp-geometry");
+      expect(coralPolyps.instanceColor).not.toBeNull();
+      const polypPositions = coralPolyps.geometry.getAttribute("position");
+      let minimumY = Number.POSITIVE_INFINITY;
+      let maximumY = Number.NEGATIVE_INFINITY;
+      let maximumRadius = 0;
+      for (let index = 0; index < polypPositions.count; index += 1) {
+        minimumY = Math.min(minimumY, polypPositions.getY(index));
+        maximumY = Math.max(maximumY, polypPositions.getY(index));
+        maximumRadius = Math.max(
+          maximumRadius,
+          Math.hypot(polypPositions.getX(index), polypPositions.getZ(index)),
+        );
+      }
+      expect(maximumY - minimumY).toBeGreaterThan(maximumRadius * 1.8);
+    }
+    expect(scene.getObjectByName("hero-a:photoreal-coral-card:0:0")).toBeUndefined();
+    const fishBody = scene.getObjectByName("hero-a:fish-body:0:species-0");
+    expect(fishBody).toBeInstanceOf(Mesh);
+    expect(((fishBody as Mesh).material as MeshStandardNodeMaterial).map?.name).toBe(
+      "hero-a:photoreal-fish-scale-texture:albedo",
+    );
+    expect((fishBody as Mesh).geometry.getAttribute("position").count).toBeGreaterThan(500);
+    const fishTail = scene.getObjectByName("hero-a:fish-forked-tail:0");
+    expect(fishTail).toBeInstanceOf(Mesh);
+    if (fishTail instanceof Mesh) {
+      expect(fishTail.geometry.index?.count).toBeGreaterThan(30);
+    }
+    const reefWall = scene.getObjectByName("hero-a:foreground-reef-wall:0");
+    expect(reefWall).toBeInstanceOf(Mesh);
+    expect(((reefWall as Mesh).geometry.attributes.position?.count ?? 0)).toBeGreaterThan(1_400);
     expect(feature.snapshot()).toMatchObject({
       state: "ready",
-      ownedTextures: 3,
+      ownedTextures: 12,
       allocationsAfterInitialize: 0,
     });
   });
 
   it("crosses the waterline without changing story ownership or allocating runtime resources", async () => {
-    const { world, feature, camera } = harness();
+    const { world, scene, feature, camera } = harness();
     await feature.initialize({} as FeatureInitContext);
     feature.quality(HIGH);
     const initial = feature.snapshot();
@@ -199,7 +399,31 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
     expect(waterline.ownedGeometries).toBe(initial.ownedGeometries);
     expect(waterline.ownedMaterials).toBe(initial.ownedMaterials);
     expect(waterline.ownedTextures).toBe(initial.ownedTextures);
-    expect(camera.position.y).toBeGreaterThan(4.6);
+    expect(camera.position.y).toBeGreaterThan(5.2);
+    const surface = scene.getObjectByName("hero-a:ocean-surface");
+    const sheen = scene.getObjectByName("hero-a:ocean-surface-caustic-sheen");
+    expect(surface).toBeInstanceOf(Mesh);
+    expect(sheen).toBeInstanceOf(Mesh);
+    if (surface instanceof Mesh && sheen instanceof Mesh) {
+      expect(sheen.geometry).toBe(surface.geometry);
+      surface.geometry.computeBoundingBox();
+      const bounds = surface.geometry.boundingBox;
+      expect(bounds).not.toBeNull();
+      if (bounds) {
+        expect(bounds.max.z - bounds.min.z).toBeGreaterThan(0.14);
+        expect(bounds.max.z - bounds.min.z).toBeLessThan(0.38);
+      }
+      const normals = surface.geometry.getAttribute("normal");
+      let maximumLateralNormal = 0;
+      for (let index = 0; index < normals.count; index += 1) {
+        maximumLateralNormal = Math.max(
+          maximumLateralNormal,
+          Math.abs(normals.getX(index)),
+          Math.abs(normals.getY(index)),
+        );
+      }
+      expect(maximumLateralNormal).toBeGreaterThan(0.015);
+    }
   });
 
   it("reduces only visual density for fallback and restores the exact High inventory", async () => {

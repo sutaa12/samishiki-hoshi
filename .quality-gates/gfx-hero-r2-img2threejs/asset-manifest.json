@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "asset_id": "hero-slices-abc-r2",
+  "created_at": "2026-08-19T18:52:37.731049+00:00",
+  "source": {
+    "path": "/Users/snari/Documents/GitProject/LonelyStar-graphics-photoreal-megademo/targets/visual-reference/source-notion-20260818/cinematic-gallery-03.png",
+    "sha256": "04663d646c6bf419b01472adb6dcec926002ad426733152f894b2e7e016b018a"
+  },
+  "target": {
+    "engine": "threejs",
+    "intended_use": null,
+    "platforms": []
+  },
+  "quality": {
+    "schema_version": 1,
+    "status": "ready",
+    "requested_quality": "high",
+    "tier": "high",
+    "reasons": [
+      "user explicitly selected high"
+    ],
+    "image": {
+      "model": "gpt-image-2",
+      "quality": "high"
+    },
+    "agents": [
+      {
+        "role": "intake",
+        "agent": "img2game-intake-luna",
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "medium"
+      },
+      {
+        "role": "materials",
+        "agent": "img2game-material-luna",
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "medium"
+      },
+      {
+        "role": "geometry",
+        "agent": "img2game-geometry-terra",
+        "model": "gpt-5.6-terra",
+        "reasoning_effort": "high"
+      },
+      {
+        "role": "review-a",
+        "agent": "img2game-visual-reviewer-terra",
+        "model": "gpt-5.6-terra",
+        "reasoning_effort": "high"
+      },
+      {
+        "role": "review-b",
+        "agent": "img2game-visual-reviewer-terra",
+        "model": "gpt-5.6-terra",
+        "reasoning_effort": "high"
+      },
+      {
+        "role": "final",
+        "agent": "img2game-final-sol",
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "high"
+      }
+    ],
+    "luna_max": {
+      "enabled": false,
+      "triggers": [],
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max"
+    }
+  },
+  "upstream": {
+    "path": "/Users/snari/.local/share/img2threejs",
+    "commit": "d6673386f89673a58736f8d398dd16ece67874f5"
+  },
+  "agents": [
+    {
+      "role": "intake",
+      "agent": "img2game-intake-luna",
+      "requested_model": "gpt-5.6-luna",
+      "requested_reasoning_effort": "medium",
+      "effective_model": null,
+      "effective_reasoning_effort": null,
+      "status": "pending"
+    },
+    {
+      "role": "materials",
+      "agent": "img2game-material-luna",
+      "requested_model": "gpt-5.6-luna",
+      "requested_reasoning_effort": "medium",
+      "effective_model": null,
+      "effective_reasoning_effort": null,
+      "status": "pending"
+    },
+    {
+      "role": "geometry",
+      "agent": "img2game-geometry-terra",
+      "requested_model": "gpt-5.6-terra",
+      "requested_reasoning_effort": "high",
+      "effective_model": null,
+      "effective_reasoning_effort": null,
+      "status": "pending"
+    },
+    {
+      "role": "review-a",
+      "agent": "img2game-visual-reviewer-terra",
+      "requested_model": "gpt-5.6-terra",
+      "requested_reasoning_effort": "high",
+      "effective_model": null,
+      "effective_reasoning_effort": null,
+      "status": "pending"
+    },
+    {
+      "role": "review-b",
+      "agent": "img2game-visual-reviewer-terra",
+      "requested_model": "gpt-5.6-terra",
+      "requested_reasoning_effort": "high",
+      "effective_model": null,
+      "effective_reasoning_effort": null,
+      "status": "pending"
+    },
+    {
+      "role": "final",
+      "agent": "img2game-final-sol",
+      "requested_model": "gpt-5.6-sol",
+      "requested_reasoning_effort": "high",
+      "effective_model": null,
+      "effective_reasoning_effort": null,
+      "status": "pending"
+    }
+  ],
+  "image_jobs": [],
+  "gates": {
+    "reference_admission": {
+      "status": "pending",
+      "evidence": []
+    },
+    "strict_quality": {
+      "status": "pending",
+      "evidence": []
+    },
+    "silhouette_scale": {
+      "status": "pending",
+      "evidence": []
+    },
+    "part_coverage": {
+      "status": "pending",
+      "evidence": []
+    },
+    "attachment_anchor": {
+      "status": "pending",
+      "evidence": []
+    },
+    "self_intersection": {
+      "status": "pending",
+      "evidence": []
+    },
+    "multi_angle": {
+      "status": "pending",
+      "evidence": []
+    },
+    "material": {
+      "status": "pending",
+      "evidence": []
+    },
+    "turntable": {
+      "status": "pending",
+      "evidence": []
+    },
+    "independent_visual_review": {
+      "status": "pending",
+      "evidence": []
+    },
+    "engine_acceptance": {
+      "status": "pending",
+      "evidence": []
+    }
+  },
+  "artifacts": [],
+  "assumptions": [],
+  "licensing": {
+    "status": "unreviewed",
+    "notes": []
+  },
+  "costs": {
+    "gpt_image_output_usd": null,
+    "codex_credits": null
+  }
+}

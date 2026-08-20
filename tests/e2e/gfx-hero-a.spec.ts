@@ -157,7 +157,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     });
     expect(life.heroA?.ownedGeometries).toBeGreaterThan(0);
     expect(life.heroA?.ownedMaterials).toBeGreaterThan(0);
-    expect(life.heroA?.ownedTextures).toBe(3);
+    expect(life.heroA?.ownedTextures).toBe(12);
     expect(life.heroA?.ownedObjects).toBeGreaterThan(0);
     if (!life.heroA) throw new Error("Hero Slice A ownership evidence is unavailable.");
     expectRuntimeBounded(life);
@@ -189,7 +189,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
       emptySeats: 5,
       rectangularWindowCells: 7,
       railSegments: 7,
-      visibleCoralClusters: 6,
+      visibleCoralClusters: 18,
       allocationsAfterInitialize: 0,
     });
     expect(emptySeat.pipeline.programCountAtReady).toBe(baselinePrograms);
@@ -320,7 +320,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
         shotId: "S03",
         qualityTier: "high",
         humanArtifactsVisible: false,
-        ownedTextures: 3,
+        ownedTextures: 12,
         allocationsAfterInitialize: 0,
       });
       expectRuntimeBounded(life);

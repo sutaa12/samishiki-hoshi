@@ -28,6 +28,7 @@ import {
   Vector3,
   type Material,
 } from "three/webgpu";
+import { float } from "three/tsl";
 import type {
   FeatureInitContext,
   JourneyRenderSnapshot,
@@ -71,6 +72,12 @@ interface HeroOwnedGeometry {
 interface AlienRibbonGeometryResult {
   readonly geometry: BufferGeometry;
   readonly minimumVertexRadius: number;
+  readonly seamPositionError: number;
+  readonly seamNormalDot: number;
+  readonly holonomyCorrectionRadians: number;
+  readonly boundaryEdgeCount: number;
+  readonly nonManifoldEdgeCount: number;
+  readonly degenerateTriangleCount: number;
 }
 
 interface DeterministicRandom {
@@ -109,6 +116,13 @@ export interface SpaceTwinkleHeroFeatureSnapshot {
   readonly ribbonThickness: number;
   readonly centralVoidOpen: boolean;
   readonly minimumShipVertexRadius: number;
+  readonly ribbonTopologyManifold: boolean;
+  readonly ribbonBoundaryEdges: number;
+  readonly ribbonNonManifoldEdges: number;
+  readonly ribbonDegenerateTriangles: number;
+  readonly ribbonMaximumSeamPositionError: number;
+  readonly ribbonMinimumSeamNormalDot: number;
+  readonly ribbonMaximumHolonomyCorrection: number;
   readonly alienUsesHumanGrammar: boolean;
   readonly alienHasCockpitWindowThrusterOrFront: boolean;
   readonly responseWindowOpen: boolean;
@@ -180,7 +194,7 @@ function organicAsteroidGeometry(seed: number): IcosahedronGeometry {
 
 function nebulaLobeGeometry(seed: number): SphereGeometry {
   const radius = 1;
-  const geometry = new SphereGeometry(radius, 24, 16);
+  const geometry = new SphereGeometry(radius, 40, 28);
   const positions = geometry.attributes.position;
   for (let index = 0; index < positions.count; index += 1) {
     const x = positions.getX(index);
@@ -188,10 +202,10 @@ function nebulaLobeGeometry(seed: number): SphereGeometry {
     const z = positions.getZ(index);
     const longitude = Math.round((Math.atan2(z, x) + Math.PI) * 1_024);
     const latitude = Math.round((y + radius) * 2_048);
-    const lowFrequency = Math.sin(longitude * 0.008 + seed * 0.000_013) * 0.075;
-    const variation = 0.86
+    const lowFrequency = Math.sin(longitude * 0.006 + seed * 0.000_013) * 0.055;
+    const variation = 0.89
       + lowFrequency
-      + hashedUnit(longitude, latitude, seed) * 0.2;
+      + hashedUnit(longitude, latitude, seed) * 0.14;
     positions.setXYZ(index, x * variation, y * variation, z * variation);
   }
   positions.needsUpdate = true;
@@ -343,15 +357,18 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
   const controlPoints: Vector3[] = [];
   const controlCount = 12;
   const phase = (shellIndex / ALIEN_SHELL_COUNT) * TAU;
+  const radiusX = [4.05, 3.7, 3.9][shellIndex]!;
+  const radiusY = [2.48, 2.84, 2.62][shellIndex]!;
   for (let index = 0; index < controlCount; index += 1) {
-    const angle = (index / controlCount) * TAU + phase * 0.13;
-    const radius = 3.38
-      + Math.sin(angle * 3 + phase) * 0.18
-      + Math.cos(angle * 2 - phase) * 0.1;
+    const angle = (index / controlCount) * TAU + phase * 0.21;
+    const breathing = 1
+      + Math.sin(angle * (3 + shellIndex) + phase) * 0.055
+      + Math.cos(angle * 2 - phase) * 0.025;
     controlPoints.push(new Vector3(
-      Math.cos(angle) * radius,
-      Math.sin(angle) * (2.34 + shellIndex * 0.05),
-      Math.sin(angle * 2 + phase) * 0.72 + Math.cos(angle + phase) * 0.16,
+      Math.cos(angle) * radiusX * breathing,
+      Math.sin(angle) * radiusY * breathing,
+      Math.sin(angle * (2 + shellIndex) + phase) * (0.48 + shellIndex * 0.12)
+        + Math.cos(angle + phase) * 0.12,
     ));
   }
 
@@ -369,7 +386,7 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
   const up = new Vector3(0, 0, 1);
   const fallback = new Vector3(0, 1, 0);
 
-  for (let index = 0; index < segments; index += 1) {
+  for (let index = 0; index <= segments; index += 1) {
     const t = index / segments;
     centers.push(evaluateClosedUniformCubicBspline(controlPoints, t, new Vector3()));
     evaluateClosedUniformCubicBspline(controlPoints, t - 0.0005, before);
@@ -388,25 +405,42 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
     binormals.push(new Vector3().crossVectors(tangent, normals[index]!).normalize());
     normals[index]!.crossVectors(binormals[index]!, tangent).normalize();
   }
-  centers.push(centers[0]!.clone());
-  tangents.push(tangents[0]!.clone());
-  normals.push(normals[0]!.clone());
-  binormals.push(binormals[0]!.clone());
 
-  const longitudinalCount = segments + 1;
+  const seamPositionError = centers[segments]!.distanceTo(centers[0]!);
+  const closingNormal = normals[segments]!;
+  const initialNormal = normals[0]!;
+  const seamCross = new Vector3().crossVectors(closingNormal, initialNormal);
+  const seamDotBeforeCorrection = Math.max(-1, Math.min(1, closingNormal.dot(initialNormal)));
+  const holonomyCorrectionRadians = Math.atan2(
+    tangents[0]!.dot(seamCross),
+    seamDotBeforeCorrection,
+  );
+  const twist = new Quaternion();
+  for (let index = 1; index <= segments; index += 1) {
+    twist.setFromAxisAngle(
+      tangents[index]!,
+      holonomyCorrectionRadians * (index / segments),
+    );
+    normals[index]!.applyQuaternion(twist).normalize();
+    binormals[index]!.crossVectors(tangents[index]!, normals[index]!).normalize();
+    normals[index]!.crossVectors(binormals[index]!, tangents[index]!).normalize();
+  }
+  const seamNormalDot = Math.max(-1, Math.min(1, normals[segments]!.dot(normals[0]!)));
+
+  const longitudinalCount = segments;
   const acrossCount = acrossSegments + 1;
   const layerSize = longitudinalCount * acrossCount;
   const positions: number[] = [];
   const colors: number[] = [];
-  const shellHues = [0.48, 0.94, 0.075] as const;
+  const shellHues = [0.48, 0.84, 0.105] as const;
   const vertexColor = new Color();
   let minimumVertexRadius = Number.POSITIVE_INFINITY;
   const vertex = new Vector3();
   for (let layer = 0; layer < 2; layer += 1) {
     const thicknessOffset = (layer === 0 ? 0.5 : -0.5) * ALIEN_RIBBON_THICKNESS;
-    for (let along = 0; along <= segments; along += 1) {
+    for (let along = 0; along < segments; along += 1) {
       const theta = (along / segments) * TAU;
-      const width = (0.47 + shellIndex * 0.035) * superformulaRadius(theta + phase, shellIndex);
+      const width = (0.35 + shellIndex * 0.024) * superformulaRadius(theta + phase, shellIndex);
       for (let across = 0; across <= acrossSegments; across += 1) {
         const lateral = -1 + (across / acrossSegments) * 2;
         const surfaceRipple = Math.sin(
@@ -422,8 +456,8 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
         const edgeLight = 1 - Math.abs(lateral) * 0.42;
         vertexColor.setHSL(
           shellHues[shellIndex]! + Math.sin(theta * 2 + phase) * 0.012,
-          0.62,
-          0.17 + shimmer * 0.2 + edgeLight * 0.08,
+          0.2,
+          0.48 + shimmer * 0.1 + edgeLight * 0.05,
         );
         colors.push(vertexColor.r, vertexColor.g, vertexColor.b);
         minimumVertexRadius = Math.min(minimumVertexRadius, vertex.length());
@@ -435,23 +469,24 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
   const topIndex = (along: number, across: number) => along * acrossCount + across;
   const bottomIndex = (along: number, across: number) => layerSize + along * acrossCount + across;
   for (let along = 0; along < segments; along += 1) {
+    const nextAlong = (along + 1) % segments;
     for (let across = 0; across < acrossSegments; across += 1) {
       const a = topIndex(along, across);
-      const b = topIndex(along + 1, across);
-      const c = topIndex(along + 1, across + 1);
+      const b = topIndex(nextAlong, across);
+      const c = topIndex(nextAlong, across + 1);
       const d = topIndex(along, across + 1);
       indices.push(a, b, d, b, c, d);
       const ab = bottomIndex(along, across);
-      const bb = bottomIndex(along + 1, across);
-      const cb = bottomIndex(along + 1, across + 1);
+      const bb = bottomIndex(nextAlong, across);
+      const cb = bottomIndex(nextAlong, across + 1);
       const db = bottomIndex(along, across + 1);
       indices.push(ab, db, bb, bb, db, cb);
     }
     for (const across of [0, acrossSegments]) {
       const topA = topIndex(along, across);
-      const topB = topIndex(along + 1, across);
+      const topB = topIndex(nextAlong, across);
       const bottomA = bottomIndex(along, across);
-      const bottomB = bottomIndex(along + 1, across);
+      const bottomB = bottomIndex(nextAlong, across);
       if (across === 0) {
         indices.push(topA, bottomA, topB, topB, bottomA, bottomB);
       } else {
@@ -466,7 +501,48 @@ function buildAlienRibbonGeometry(shellIndex: number): AlienRibbonGeometryResult
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
-  return Object.freeze({ geometry, minimumVertexRadius });
+
+  const edgeIncidence = new Map<string, number>();
+  const edge = (a: number, b: number): void => {
+    const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+    edgeIncidence.set(key, (edgeIncidence.get(key) ?? 0) + 1);
+  };
+  const pa = new Vector3();
+  const pb = new Vector3();
+  const pc = new Vector3();
+  const ab = new Vector3();
+  const ac = new Vector3();
+  let degenerateTriangleCount = 0;
+  for (let offset = 0; offset < indices.length; offset += 3) {
+    const a = indices[offset]!;
+    const b = indices[offset + 1]!;
+    const c = indices[offset + 2]!;
+    edge(a, b);
+    edge(b, c);
+    edge(c, a);
+    pa.fromArray(positions, a * 3);
+    pb.fromArray(positions, b * 3);
+    pc.fromArray(positions, c * 3);
+    ab.subVectors(pb, pa);
+    ac.subVectors(pc, pa);
+    if (ab.cross(ac).lengthSq() <= 1e-12) degenerateTriangleCount += 1;
+  }
+  let boundaryEdgeCount = 0;
+  let nonManifoldEdgeCount = 0;
+  for (const incidence of edgeIncidence.values()) {
+    if (incidence === 1) boundaryEdgeCount += 1;
+    else if (incidence !== 2) nonManifoldEdgeCount += 1;
+  }
+  return Object.freeze({
+    geometry,
+    minimumVertexRadius,
+    seamPositionError,
+    seamNormalDot,
+    holonomyCorrectionRadians,
+    boundaryEdgeCount,
+    nonManifoldEdgeCount,
+    degenerateTriangleCount,
+  });
 }
 
 function freezeSnapshot(
@@ -521,6 +597,12 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
   readonly #beaconLight: PointLight;
   readonly #earthLight: PointLight;
   readonly #minimumShipVertexRadius: number;
+  readonly #ribbonBoundaryEdges: number;
+  readonly #ribbonNonManifoldEdges: number;
+  readonly #ribbonDegenerateTriangles: number;
+  readonly #ribbonMaximumSeamPositionError: number;
+  readonly #ribbonMinimumSeamNormalDot: number;
+  readonly #ribbonMaximumHolonomyCorrection: number;
   #state: HeroLifecycle = "new";
   #storyTime = DEFAULT_MARKER_SECONDS;
   #shotId = "S18";
@@ -660,29 +742,70 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     this.#buildPreviewArcs();
 
     let minimumShipVertexRadius = Number.POSITIVE_INFINITY;
-    const shellEmissive = [0x0e5c59, 0x6c2637, 0x7a441a] as const;
+    let ribbonBoundaryEdges = 0;
+    let ribbonNonManifoldEdges = 0;
+    let ribbonDegenerateTriangles = 0;
+    let ribbonMaximumSeamPositionError = 0;
+    let ribbonMinimumSeamNormalDot = 1;
+    let ribbonMaximumHolonomyCorrection = 0;
+    const shellBase = [0x35615d, 0x66364a, 0x6a512d] as const;
+    const shellEmissive = [0x0b514a, 0x591c30, 0x694017] as const;
+    const shellRotations = [
+      [-0.31, 0.18, -0.24],
+      [0.24, -0.28, 0.54],
+      [0.08, 0.34, -0.68],
+    ] as const;
     for (let shellIndex = 0; shellIndex < ALIEN_SHELL_COUNT; shellIndex += 1) {
       const built = buildAlienRibbonGeometry(shellIndex);
-      minimumShipVertexRadius = Math.min(minimumShipVertexRadius, built.minimumVertexRadius);
+      ribbonBoundaryEdges += built.boundaryEdgeCount;
+      ribbonNonManifoldEdges += built.nonManifoldEdgeCount;
+      ribbonDegenerateTriangles += built.degenerateTriangleCount;
+      ribbonMaximumSeamPositionError = Math.max(
+        ribbonMaximumSeamPositionError,
+        built.seamPositionError,
+      );
+      ribbonMinimumSeamNormalDot = Math.min(ribbonMinimumSeamNormalDot, built.seamNormalDot);
+      ribbonMaximumHolonomyCorrection = Math.max(
+        ribbonMaximumHolonomyCorrection,
+        Math.abs(built.holonomyCorrectionRadians),
+      );
       const geometry = this.#ownGeometry(built.geometry);
       geometry.name = `hero-c:closed-bspline-ribbon-${shellIndex + 1}`;
-      const material = this.#ownMaterial(physicalMaterial(0xffffff, 1, 0.18, 0.56));
+      const material = this.#ownMaterial(physicalMaterial(shellBase[shellIndex]!, 1, 0.3, 0.14));
       material.name = `hero-c:pearl-mineral-shell-${shellIndex + 1}`;
       material.vertexColors = true;
-      material.clearcoat = 1;
-      material.clearcoatRoughness = 0.12 + shellIndex * 0.025;
-      material.iridescence = 0.58 + shellIndex * 0.08;
+      material.opacityNode = float(0.6 + shellIndex * 0.045);
+      material.transparent = true;
+      material.depthWrite = false;
+      material.transmission = 0;
+      material.thickness = 0.08;
+      material.clearcoat = 0.94;
+      material.clearcoatRoughness = 0.17 + shellIndex * 0.025;
+      material.iridescence = 0.72 + shellIndex * 0.055;
       material.iridescenceIOR = 1.22 + shellIndex * 0.04;
       material.iridescenceThicknessRange = [115 + shellIndex * 35, 410 + shellIndex * 55];
       material.emissive.setHex(shellEmissive[shellIndex]!);
-      material.emissiveIntensity = 0.34;
+      material.emissiveIntensity = 0.14;
       this.#shellMaterials.push(material);
       const shell = new Mesh(geometry, material);
       shell.name = `hero-c:alien-ribbon-shell-${shellIndex + 1}`;
-      shell.rotation.z = (shellIndex / ALIEN_SHELL_COUNT) * 0.18 - 0.09;
+      const rotation = shellRotations[shellIndex]!;
+      shell.rotation.set(rotation[0], rotation[1], rotation[2]);
+      const positions = geometry.getAttribute("position");
+      const transformedVertex = new Vector3();
+      for (let vertexIndex = 0; vertexIndex < positions.count; vertexIndex += 1) {
+        transformedVertex.fromBufferAttribute(positions, vertexIndex).applyEuler(shell.rotation);
+        minimumShipVertexRadius = Math.min(minimumShipVertexRadius, transformedVertex.length());
+      }
       this.#alienRoot.add(shell);
     }
     this.#minimumShipVertexRadius = minimumShipVertexRadius;
+    this.#ribbonBoundaryEdges = ribbonBoundaryEdges;
+    this.#ribbonNonManifoldEdges = ribbonNonManifoldEdges;
+    this.#ribbonDegenerateTriangles = ribbonDegenerateTriangles;
+    this.#ribbonMaximumSeamPositionError = ribbonMaximumSeamPositionError;
+    this.#ribbonMinimumSeamNormalDot = ribbonMinimumSeamNormalDot;
+    this.#ribbonMaximumHolonomyCorrection = ribbonMaximumHolonomyCorrection;
     this.#alienRoot.position.set(1.7, 0.15, -1.8);
     this.#alienRoot.rotation.x = -0.08;
 
@@ -825,13 +948,13 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     const responseVisible = this.#storyTime >= ANSWER_WINDOW_SECONDS
       && this.#storyTime < TWINKLE_START_SECONDS;
     const responseEnergy = responseVisible
-      ? (this.#answerReceived ? 1.1 + Math.sin(time * 2.4) * 0.24 : 0.24)
-      : (this.#alienRoot.visible ? 0.34 : 0);
-    this.#alienLight.intensity = responseEnergy;
+      ? (this.#answerReceived ? 1.05 + Math.sin(time * 2.4) * 0.2 : 0.46)
+      : (this.#alienRoot.visible ? 0.52 : 0);
+    this.#alienLight.intensity = responseEnergy * 1.22;
     this.#earthLight.intensity = this.#earthRoot.visible ? 2.2 : 0;
     for (let index = 0; index < this.#shellMaterials.length; index += 1) {
-      this.#shellMaterials[index]!.emissiveIntensity = 0.38 + responseEnergy * 0.32
-        + Math.sin(time * 0.8 + index * 1.8) * 0.06;
+      this.#shellMaterials[index]!.emissiveIntensity = 0.14 + responseEnergy * 0.16
+        + Math.sin(time * 0.8 + index * 1.8) * 0.025;
     }
     const pulseCycle = (time * 0.38) % 1;
     this.#pulseRing.scale.setScalar(0.7 + pulseCycle * 3.1);
@@ -948,12 +1071,25 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
       unknownShipVisible: alienVisible,
       alienRibbonShellCount: alienVisible ? ALIEN_SHELL_COUNT : 0,
       alienRibbonInventory: ALIEN_SHELL_COUNT,
-      closedBsplineShells: true,
-      parallelTransportFrames: true,
+      closedBsplineShells: this.#ribbonBoundaryEdges === 0
+        && this.#ribbonNonManifoldEdges === 0
+        && this.#ribbonDegenerateTriangles === 0
+        && this.#ribbonMaximumSeamPositionError <= 1e-6,
+      parallelTransportFrames: this.#ribbonMinimumSeamNormalDot >= 0.999_99
+        && Number.isFinite(this.#ribbonMaximumHolonomyCorrection),
       constrainedSuperformulaSections: true,
       ribbonThickness: ALIEN_RIBBON_THICKNESS,
       centralVoidOpen: alienVisible && this.#minimumShipVertexRadius > 1.5,
       minimumShipVertexRadius: this.#minimumShipVertexRadius,
+      ribbonTopologyManifold: this.#ribbonBoundaryEdges === 0
+        && this.#ribbonNonManifoldEdges === 0
+        && this.#ribbonDegenerateTriangles === 0,
+      ribbonBoundaryEdges: this.#ribbonBoundaryEdges,
+      ribbonNonManifoldEdges: this.#ribbonNonManifoldEdges,
+      ribbonDegenerateTriangles: this.#ribbonDegenerateTriangles,
+      ribbonMaximumSeamPositionError: this.#ribbonMaximumSeamPositionError,
+      ribbonMinimumSeamNormalDot: this.#ribbonMinimumSeamNormalDot,
+      ribbonMaximumHolonomyCorrection: this.#ribbonMaximumHolonomyCorrection,
       alienUsesHumanGrammar: false,
       alienHasCockpitWindowThrusterOrFront: false,
       responseWindowOpen: this.#storyTime >= ANSWER_WINDOW_SECONDS
@@ -1111,8 +1247,8 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
       const position = positions[index]!;
       cluster.position.set(position[0], position[1], position[2]);
       cluster.rotation.set(index * 0.08, index * 0.11, index * 0.16);
-      const coreMaterial = this.#ownMaterial(additiveMaterial(colors[index]!, 0.048));
-      const haloMaterial = this.#ownMaterial(additiveMaterial(colors[index]!, 0.017));
+      const coreMaterial = this.#ownMaterial(additiveMaterial(colors[index]!, 0.03));
+      const haloMaterial = this.#ownMaterial(additiveMaterial(colors[index]!, 0.009));
       for (let lobeIndex = 0; lobeIndex < 4; lobeIndex += 1) {
         const angle = (lobeIndex / 4) * TAU
           + hashedUnit(index, lobeIndex, seed ^ 0xc72b_491d) * 0.64;
@@ -1255,7 +1391,8 @@ export class SpaceTwinkleHeroFeature implements RenderFeature {
     } else {
       this.#camera.position.set(0.15, 0.52, 16.2);
     }
-    this.#camera.lookAt(0.4, -0.08, -1.9);
+    const focusX = this.#storyTime < SHIP_REVEAL_SECONDS ? 0.4 : 1.15;
+    this.#camera.lookAt(focusX, 0.02, -1.9);
   }
 
   #ownedObjectCount(): number {

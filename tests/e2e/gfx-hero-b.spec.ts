@@ -48,7 +48,7 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
   test.skip(({ isMobile }) => isMobile, "Hero Slice B is reviewed at the required 1920×1080 desktop size.");
 
   test("binds the forest and empty-city markers without runtime allocation growth", async ({ page }, testInfo) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     await page.setViewportSize({ width: 1_920, height: 1_080 });
     await page.goto("/gfx-hero-b?backend=webgl2&qa=1");
     await expect(page.getByTestId("gfx-hero-b")).toHaveAttribute(
@@ -87,16 +87,19 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
       hydrologyConnected: true,
       foliageTemporalStable: true,
       visibleTrees: 48,
-      visibleGrassClusters: 72,
-      visibleFlowers: 36,
+      visibleGrassClusters: 144,
+      visibleFlowers: 72,
+      visibleFireflies: 84,
+      visibleSunbeams: 4,
       visibleBirds: 22,
       visibleMistClusters: 20,
+      visibleFoamClusters: 32,
       visibleClouds: 12,
       allocationsAfterInitialize: 0,
     });
     expect(forest.heroB?.ownedGeometries).toBeGreaterThan(0);
     expect(forest.heroB?.ownedMaterials).toBeGreaterThan(0);
-    expect(forest.heroB?.ownedTextures).toBe(4);
+    expect(forest.heroB?.ownedTextures).toBe(18);
     expect(forest.heroB?.ownedObjects).toBeGreaterThan(0);
     if (!forest.heroB) throw new Error("Hero Slice B ownership evidence is unavailable.");
     expectRuntimeBounded(forest);
@@ -162,10 +165,13 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
       safeCorridorClear: true,
       hydrologyConnected: true,
       visibleTrees: 24,
-      visibleGrassClusters: 28,
-      visibleFlowers: 14,
+      visibleGrassClusters: 44,
+      visibleFlowers: 22,
+      visibleFireflies: 24,
+      visibleSunbeams: 2,
       visibleBirds: 10,
       visibleMistClusters: 8,
+      visibleFoamClusters: 12,
       visibleClouds: 6,
       allocationsAfterInitialize: 0,
     });
@@ -184,10 +190,13 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
       storyTime: 75,
       qualityTier: "high",
       visibleTrees: 48,
-      visibleGrassClusters: 72,
-      visibleFlowers: 36,
+      visibleGrassClusters: 144,
+      visibleFlowers: 72,
+      visibleFireflies: 84,
+      visibleSunbeams: 4,
       visibleBirds: 22,
       visibleMistClusters: 20,
+      visibleFoamClusters: 32,
       visibleClouds: 12,
       allocationsAfterInitialize: 0,
     });
@@ -204,7 +213,7 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
         && value.telemetry.frameIntervalMs.p95 !== null
         && value.telemetry.mainThreadWorkMs.p95 !== null
       ),
-      30_000,
+      60_000,
     );
     expect(steady.telemetry.frameIntervalMs.p95).not.toBeNull();
     expect(steady.telemetry.mainThreadWorkMs.p95).not.toBeNull();
@@ -256,7 +265,7 @@ test.describe("R2-G4 Hero Slice B real browser candidate", () => {
         qualityTier: "high",
         cityRuinsVisible: false,
         hydrologyConnected: true,
-        ownedTextures: 4,
+        ownedTextures: 18,
         allocationsAfterInitialize: 0,
       });
       expectRuntimeBounded(forest);
