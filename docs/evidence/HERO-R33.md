@@ -16,6 +16,8 @@
   `7167c754d0c43fc89e91463969bc79a8ab8071d322ec298aee118abb655c971b`
 - Preserved tested build: `.quality-gates/hero-r33-e1b101b-dist.tar`, SHA-256
   `6f0d286923d3bd6a6cc87bf8dc16ba5cb17727a9233ebdd3c2e6dd4814b835e4`
+- Canonical extracted-build content-record digest:
+  `ceb4d66d3e955b01d349561d34d66fe5d7632312d17069b632274c7e8af9b947`
 - Focused Vitest JSON: `.quality-gates/hero-r33-e1b101b-vitest.json`, SHA-256
   `055262fd7489714cd82e0b10f35e2a4d8f1826b4bd348438aa41b79f0af349ed`
 - Playwright JSON: `.quality-gates/hero-r33-e1b101b-playwright.json`, SHA-256

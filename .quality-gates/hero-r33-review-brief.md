@@ -20,9 +20,10 @@ submission.
 2. Validate every implementation file hash and the ordered 23-file manifest
    SHA-256 `32e450a006ef177557cd019422af61561ee4ebf3f70290c48f45bd7f9032aafb`.
 3. Extract the preserved dist only into a fresh temporary directory. Confirm
-   archive SHA, 110 files, zero symlinks, content-record digest, BUILD_ID,
-   notices, three identical JavaScript Worker copies, and no raw TypeScript
-   Worker artifact.
+   archive SHA, 110 files, zero symlinks, canonical `scripts/hash-tree.mjs`
+   digest `ceb4d66d3e955b01d349561d34d66fe5d7632312d17069b632274c7e8af9b947`,
+   BUILD_ID, notices, three identical JavaScript Worker copies, and no raw
+   TypeScript Worker artifact.
 4. Parse the Vitest, Playwright, and production-audit JSON rather than trusting
    prose. Verify 18/18 focused assertions, 6/6 browser cases, retry/error fields,
    exactly 20 PNG attachments, and zero production vulnerabilities.
