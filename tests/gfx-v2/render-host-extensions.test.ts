@@ -14,6 +14,7 @@ import {
   type RenderMaterialLibrary,
   type RenderPass,
   type RenderPassRecorder,
+  type RenderPrecompileReceipt,
   type RenderQualityProfile,
   type RenderQualityProvider,
   type RenderResourceRegistry,
@@ -35,6 +36,17 @@ const HIGH: RenderQualityProfile = {
   uploadBudgetMs: 1,
   features: { temporal: true, bloom: "half" },
 };
+
+const EMPTY_PRECOMPILE_RECEIPT = Object.freeze({
+  plannedSteps: 0,
+  completedSteps: 0,
+  phaseCounts: Object.freeze({
+    "runtime-object": 0,
+    "material-isolated": 0,
+    "material-runtime-topology": 0,
+    "output-first-use": 0,
+  }),
+}) satisfies Readonly<RenderPrecompileReceipt>;
 
 const BALANCED: RenderQualityProfile = {
   tier: "balanced",
@@ -241,10 +253,11 @@ function createHarness(options: HarnessOptions = {}): Harness {
     resize(): void {
       counts.backendResize += 1;
     },
-    async precompile(passes): Promise<void> {
+    async precompile(passes): Promise<Readonly<RenderPrecompileReceipt>> {
       counts.backendPrecompile += 1;
       captures.precompiled = passes;
       await options.onBackendPrecompile?.(passes, host);
+      return EMPTY_PRECOMPILE_RECEIPT;
     },
     render(): void {},
     subscribeEvents(listener): Unsubscribe {
@@ -365,6 +378,7 @@ function createHarness(options: HarnessOptions = {}): Harness {
   const dependencies: RenderHostDependencies = {
     backend,
     frameLoop,
+    warmupScheduler: { yieldToMain: async () => undefined },
     features: [feature],
     materials,
     uploads,

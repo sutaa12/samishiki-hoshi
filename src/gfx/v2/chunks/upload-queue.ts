@@ -1,5 +1,6 @@
 import type {
   RenderLogicalResourceOwnership,
+  RenderOperationClock,
   RenderQualityProfile,
   RenderServiceInitializationContext,
   RenderUploadQueue,
@@ -154,18 +155,18 @@ function captureProfileBudget(profile: Readonly<RenderQualityProfile>): number {
   return Math.min(values.uploadBudgetMs, CHUNK_UPLOAD_HARD_CAP_MS);
 }
 
-function captureVisualClock(clock: VisualClock): Readonly<VisualClock> {
+function captureOperationClock(clock: RenderOperationClock): Readonly<RenderOperationClock> {
   const values = captureOwnDataValues(
     clock,
-    ["frame", "nowMs", "deltaSeconds", "elapsedSeconds"],
-    "Visual clock",
+    ["frame", "nowMs", "deltaSeconds", "elapsedSeconds", "storyTime"],
+    "Render operation clock",
   );
   if (typeof values.frame !== "number" || !Number.isSafeInteger(values.frame) || values.frame < 0) {
-    throw new TypeError("Visual clock frame is invalid.");
+    throw new TypeError("Render operation clock frame is invalid.");
   }
-  for (const key of ["nowMs", "deltaSeconds", "elapsedSeconds"] as const) {
+  for (const key of ["nowMs", "deltaSeconds", "elapsedSeconds", "storyTime"] as const) {
     if (typeof values[key] !== "number" || !Number.isFinite(values[key]) || values[key] < 0 || Object.is(values[key], -0)) {
-      throw new TypeError(`Visual clock ${key} is invalid.`);
+      throw new TypeError(`Render operation clock ${key} is invalid.`);
     }
   }
   return Object.freeze({
@@ -173,7 +174,8 @@ function captureVisualClock(clock: VisualClock): Readonly<VisualClock> {
     nowMs: values.nowMs,
     deltaSeconds: values.deltaSeconds,
     elapsedSeconds: values.elapsedSeconds,
-  }) as Readonly<VisualClock>;
+    storyTime: values.storyTime,
+  }) as Readonly<RenderOperationClock>;
 }
 
 function captureJob(job: Readonly<ChunkUploadJob>): CapturedUploadJob {
@@ -343,6 +345,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
   #flushDrain: Promise<void> = Promise.resolve();
   #resolveFlushDrain: (() => void) | null = null;
   #telemetryObserverActive = false;
+  #clockCaptureActive = false;
 
   constructor(
     now: ChunkMonotonicClock,
@@ -358,6 +361,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
 
   initialize(context: RenderServiceInitializationContext): void {
     this.#assertNoTelemetryObserverMutation("initialize");
+    this.#assertNoClockCaptureMutation("initialize");
     void context;
     if (this.#disposed) throw new Error("Cannot initialize a disposed chunk upload queue.");
     this.#initialized = true;
@@ -365,11 +369,13 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
 
   quality(profile: Readonly<RenderQualityProfile>): void {
     this.#assertNoTelemetryObserverMutation("change quality");
+    this.#assertNoClockCaptureMutation("change quality");
     this.#budgetMs = captureProfileBudget(profile);
   }
 
   enqueue(job: Readonly<ChunkUploadJob>): Readonly<ChunkUploadTicket> {
     this.#assertNoTelemetryObserverMutation("enqueue");
+    this.#assertNoClockCaptureMutation("enqueue");
     if (!this.#initialized || this.#disposed) throw new Error("Chunk upload queue is not active.");
     if (this.pendingCount() >= MAX_CHUNK_PENDING_UPLOADS) {
       throw Object.assign(new RangeError(`Chunk upload queue exceeds ${MAX_CHUNK_PENDING_UPLOADS} jobs.`), {
@@ -399,6 +405,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
 
   async cancelOwner(ownerId: string): Promise<void> {
     if (this.#telemetryObserverActive) return;
+    this.#assertNoClockCaptureMutation("cancel ownership");
     if (typeof ownerId !== "string" || ownerId.length === 0) throw new TypeError("Chunk upload owner id is required.");
     const matches: PendingUpload[] = [];
     for (let index = this.#queue.length - 1; index >= 0; index -= 1) {
@@ -423,8 +430,9 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
     }
   }
 
-  async flush(clock: VisualClock, profile?: Readonly<RenderQualityProfile>): Promise<void> {
+  async flush(clock: RenderOperationClock, profile?: Readonly<RenderQualityProfile>): Promise<void> {
     if (this.#telemetryObserverActive) return;
+    this.#assertNoClockCaptureMutation("flush");
     if (!this.#initialized || this.#disposed) return;
     if (this.#flushing) throw new Error("Chunk upload queue flush cannot reenter.");
     this.#flushing = true;
@@ -432,7 +440,13 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
       this.#resolveFlushDrain = resolve;
     });
     try {
-      const ownedClock = captureVisualClock(clock);
+      let ownedClock: Readonly<RenderOperationClock>;
+      this.#clockCaptureActive = true;
+      try {
+        ownedClock = captureOperationClock(clock);
+      } finally {
+        this.#clockCaptureActive = false;
+      }
       if (profile) this.#budgetMs = captureProfileBudget(profile);
       const hardCap = Math.min(this.#budgetMs, CHUNK_UPLOAD_HARD_CAP_MS);
       const target = Math.min(hardCap, CHUNK_UPLOAD_TARGET_MS);
@@ -595,6 +609,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
 
   dispose(): Promise<void> {
     if (this.#telemetryObserverActive) return Promise.resolve();
+    this.#assertNoClockCaptureMutation("dispose");
     if (this.#disposePromise) return this.#disposePromise;
     const deferred = deferredVoid();
     this.#disposePromise = deferred.promise;
@@ -750,7 +765,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
 
   #recordUploadTelemetry(
     job: CapturedUploadJob,
-    clock: Readonly<VisualClock>,
+    clock: Readonly<RenderOperationClock>,
     startedAtMs: number,
     durationMs: number,
     success: boolean,
@@ -766,7 +781,7 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
         startedAtMs,
         durationMs: Math.max(0, durationMs),
         frameId: clock.frame,
-        storyTime: clock.elapsedSeconds,
+        storyTime: clock.storyTime,
         success,
         affectsStoryTime: true,
       }));
@@ -780,6 +795,12 @@ export class IncrementalChunkUploadQueue implements RenderUploadQueue, ChunkUplo
   #assertNoTelemetryObserverMutation(operation: string): void {
     if (this.#telemetryObserverActive) {
       throw new Error(`Chunk upload queue cannot ${operation} from a telemetry callback.`);
+    }
+  }
+
+  #assertNoClockCaptureMutation(operation: string): void {
+    if (this.#clockCaptureActive) {
+      throw new Error(`Chunk upload queue cannot ${operation} from operation-clock capture.`);
     }
   }
 

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type {
   FeatureInitContext,
   JourneyRenderSnapshot,
+  RenderOperationClock,
   RenderQualityProfile,
-  VisualClock,
 } from "../../src/gfx/v2/contracts";
 import type { WorldChunkRenderFeature } from "../../src/gfx/v2/chunks";
 import {
@@ -25,11 +25,12 @@ const QUALITY: Readonly<RenderQualityProfile> = Object.freeze({
   features: Object.freeze({ temporal: true }),
 });
 
-const CLOCK: Readonly<VisualClock> = Object.freeze({
+const CLOCK: Readonly<RenderOperationClock> = Object.freeze({
   frame: 1,
   nowMs: 16,
   deltaSeconds: 0.016,
   elapsedSeconds: 0.016,
+  storyTime: 48,
 });
 
 const FRAME = Object.freeze({ shotId: "S08" }) as Readonly<JourneyRenderSnapshot>;

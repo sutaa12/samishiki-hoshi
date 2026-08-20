@@ -9,12 +9,35 @@ const INITIAL_CHUNK_DIGESTS = Object.freeze({
   S09: "chunk-payload-v1:954d37f91ff79283",
   S10: "chunk-payload-v1:9ba7999780ef5119",
 }) satisfies Readonly<Record<(typeof INITIAL_CHUNK_IDS)[number], string>>;
+const WEBGL2_COMPILE_PHASE_COUNTS = Object.freeze({
+  "runtime-object": 56,
+  "material-isolated": 14,
+  "material-runtime-topology": 14,
+  "output-first-use": 4,
+});
+const WEBGPU_COMPILE_PHASE_COUNTS = Object.freeze({
+  "runtime-object": 112,
+  "material-isolated": 28,
+  "material-runtime-topology": 28,
+  "output-first-use": 8,
+});
 
 interface FoundationSnapshot {
   readonly generation: number;
   readonly planDigest: string;
   readonly host: {
     readonly lifecycle: string;
+    readonly compileWarmup: {
+      readonly planned: number;
+      readonly started: number;
+      readonly completed: number;
+      readonly failed: number;
+      readonly timingComplete: boolean;
+      readonly maxDuration: number | null;
+      readonly overBudget: number;
+      readonly budgetStatus: "pending" | "pass" | "fail" | "unmeasured";
+      readonly phaseCounts: Readonly<Record<string, number>>;
+    };
     readonly counters: {
       readonly submittedFrames: number;
       readonly retainedRawFailureCauses: number;
@@ -35,6 +58,8 @@ interface FoundationSnapshot {
     readonly state: string;
     readonly graphCount: number;
     readonly warmedProfileIds: readonly string[];
+    readonly precompileSteps: number;
+    readonly precompileStepsAtReady: number | null;
     readonly programCountAtReady: number | null;
     readonly programGrowthAfterReady: number;
     readonly cleanupPendingGraphs: number;
@@ -139,11 +164,16 @@ interface FoundationSnapshot {
     } | null;
     readonly events: readonly {
       readonly kind: string;
+      readonly name: string;
       readonly durationMs: number;
       readonly success: boolean;
       readonly affectsStoryTime: boolean;
+      readonly exceedsRuntimeSpikeLimit: boolean;
     }[];
     readonly eventTotals: Readonly<Record<string, number>>;
+    readonly eventMaxDurationMs: Readonly<Record<string, number | null>>;
+    readonly eventsOver50Ms: Readonly<Record<string, number>>;
+    readonly operationalSpikesOver50Ms: number;
     readonly runtimeSpikesOver50Ms: number;
     readonly historyResetCounts: Readonly<Record<string, number>>;
   };
@@ -194,12 +224,47 @@ function generatedChunkDigests(
   return Object.freeze(result);
 }
 
-function expectNoSteadyOperationalSpike(value: FoundationSnapshot): void {
+function expectNoCompileUploadActivationSpike(value: FoundationSnapshot): void {
   for (const event of value.telemetry.events) {
-    if (event.kind !== "upload" && event.kind !== "activation") continue;
-    expect(event.durationMs, `${event.kind} event duration`).toBeLessThanOrEqual(50);
+    if (event.kind !== "compile" && event.kind !== "upload" && event.kind !== "activation") {
+      continue;
+    }
+    const label = `${event.kind}:${event.name}`;
+    expect(event.exceedsRuntimeSpikeLimit, `${label} spike flag`).toBe(
+      event.durationMs > 50,
+    );
+    expect(event.durationMs, `${label} duration`).toBeLessThanOrEqual(50);
   }
+  expect(value.telemetry.operationalSpikesOver50Ms).toBe(0);
   expect(value.telemetry.runtimeSpikesOver50Ms).toBe(0);
+}
+
+function expectCompileWarmup(
+  value: FoundationSnapshot,
+  phaseCounts: Readonly<Record<string, number>>,
+): void {
+  const planned = Object.values(phaseCounts).reduce((total, count) => total + count, 0);
+  expect(value.host.compileWarmup).toMatchObject({
+    planned,
+    started: planned,
+    completed: planned,
+    failed: 0,
+    timingComplete: true,
+    overBudget: 0,
+    budgetStatus: "pass",
+    phaseCounts,
+  });
+  expect(value.host.compileWarmup.maxDuration).not.toBeNull();
+  expect(value.host.compileWarmup.maxDuration ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(50);
+  expect(value.pipeline.precompileSteps).toBe(planned);
+  expect(value.pipeline.precompileStepsAtReady).toBe(planned);
+  expect(value.telemetry.eventTotals.compile).toBe(planned);
+  expect(value.telemetry.eventMaxDurationMs.compile).not.toBeNull();
+  expect(value.telemetry.eventMaxDurationMs.compile ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(50);
+  expect(value.telemetry.eventsOver50Ms.compile).toBe(0);
+  expect(value.telemetry.events.some(
+    (event) => event.kind === "compile" && event.name === "render-host-warmup",
+  )).toBe(false);
 }
 
 test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
@@ -262,7 +327,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
     expect(sorted(initial.materials.variants)).toEqual(sorted(["webgl2-full", "webgl2-lean"]));
     expect(initial.pipeline).toMatchObject({
       state: "ready",
-      graphCount: 3,
+      graphCount: 1,
       programGrowthAfterReady: 0,
       cleanupPendingGraphs: 0,
     });
@@ -278,7 +343,6 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
     expect(steady.telemetry).toMatchObject({
       state: "active",
       gpuTimingSupported: false,
-      runtimeSpikesOver50Ms: 0,
     });
     expect(steady.telemetry.frameIntervalMs.sampleCount).toBeGreaterThanOrEqual(120);
     expect(steady.telemetry.frameIntervalMs.p50).not.toBeNull();
@@ -294,10 +358,11 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
     });
     expect(steady.telemetry.eventTotals).toMatchObject({
       initialization: 1,
-      compile: 1,
+      compile: 88,
       upload: 32,
       activation: 4,
     });
+    expectCompileWarmup(steady, WEBGL2_COMPILE_PHASE_COUNTS);
     expect(steady.telemetry.latestFrame).toMatchObject({
       submitted: true,
       passCount: 1,
@@ -313,7 +378,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
     expect(steady.telemetry.latestFrame?.renderer.triangles).not.toBeNull();
     expect(steady.telemetry.latestFrame?.renderer.drawingBufferWidth).toBeGreaterThan(0);
     expect(steady.telemetry.latestFrame?.renderer.drawingBufferHeight).toBeGreaterThan(0);
-    expectNoSteadyOperationalSpike(steady);
+    expectNoCompileUploadActivationSpike(steady);
     await testInfo.attach("webgl2-steady-telemetry", {
       body: Buffer.from(JSON.stringify(steady.telemetry)),
       contentType: "application/json",
@@ -321,6 +386,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
 
     const baselinePrograms = initial.pipeline.programCountAtReady;
     const baselineGeometries = initial.backendLifecycle.resources.geometries;
+    const baselineCompileSteps = steady.telemetry.eventTotals.compile;
 
     await page.getByRole("button", { name: "Seek S21" }).click();
     const afterSeek = await waitForSnapshot(page, (value) => (
@@ -333,6 +399,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
     expect(afterSeek.uploader.activeLeases).toBe(4);
     expect(afterSeek.pipeline.programGrowthAfterReady).toBe(0);
     expect(afterSeek.pipeline.programCountAtReady).toBe(baselinePrograms);
+    expect(afterSeek.telemetry.eventTotals.compile).toBe(baselineCompileSteps);
     expect(afterSeek.backendLifecycle.resources.geometries).toBe(baselineGeometries);
     const generatedBeforeQuality = afterSeek.chunks.events.filter(
       (event) => event.kind === "worker" && event.name === "generated",
@@ -347,6 +414,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
       const changed = await waitForSnapshot(page, (value) => value.quality.id === quality);
       expect(changed.pipeline.programGrowthAfterReady).toBe(0);
       expect(changed.pipeline.programCountAtReady).toBe(baselinePrograms);
+      expect(changed.telemetry.eventTotals.compile).toBe(baselineCompileSteps);
       expect(changed.backendLifecycle.resources.geometries).toBe(baselineGeometries);
       expect(changed.chunks.gpuOwnedCount).toBeLessThanOrEqual(4);
     }
@@ -354,7 +422,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
     expect(afterQuality.chunks.events.filter(
       (event) => event.kind === "worker" && event.name === "generated",
     )).toHaveLength(generatedBeforeQuality);
-    expect(afterQuality.telemetry.eventTotals.compile).toBe(1);
+    expect(afterQuality.telemetry.eventTotals.compile).toBe(baselineCompileSteps);
 
     await page.getByRole("button", { name: "Seek S08" }).click();
     await page.getByRole("button", { name: "Seek S24" }).click();
@@ -370,6 +438,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
     expect(afterRapidSeek.chunks.uploadQueue.orphanJobCount).toBe(0);
     expect(afterRapidSeek.chunks.uploadQueue.orphanLeaseCount).toBe(0);
     expect(afterRapidSeek.pipeline.programGrowthAfterReady).toBe(0);
+    expect(afterRapidSeek.telemetry.eventTotals.compile).toBe(baselineCompileSteps);
     expect(afterRapidSeek.backendLifecycle.resources.geometries).toBe(baselineGeometries);
 
     const cdp = await page.context().newCDPSession(page);
@@ -397,6 +466,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
         };
         expect(restarted.pipeline.programCountAtReady).toBe(baselinePrograms);
         expect(restarted.pipeline.programGrowthAfterReady).toBe(0);
+        expect(restarted.telemetry.eventTotals.compile).toBe(baselineCompileSteps);
         expect(restarted.backendLifecycle.resources.geometries).toBe(baselineGeometries);
         expect(restarted.chunks.gpuOwnedCount).toBe(4);
         expect(restarted.logicalResources).toMatchObject({ owners: 4 });
@@ -425,8 +495,8 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
       16 * 1_024 * 1_024,
     );
     const afterRestarts = await snapshot(page);
-    expect(afterRestarts.telemetry.eventTotals.compile).toBe(1);
-    expectNoSteadyOperationalSpike(afterRestarts);
+    expect(afterRestarts.telemetry.eventTotals.compile).toBe(baselineCompileSteps);
+    expectNoCompileUploadActivationSpike(afterRestarts);
     await testInfo.attach("webgl2-ten-restart-plateau", {
       body: Buffer.from(JSON.stringify(restartEvidence)),
       contentType: "application/json",
@@ -525,6 +595,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
       expect(live.chunks.activeChunkIds).toHaveLength(4);
       expect(live.chunks.gpuOwnedCount).toBe(4);
       expect(live.pipeline.programGrowthAfterReady).toBe(0);
+      expectCompileWarmup(live, WEBGL2_COMPILE_PHASE_COUNTS);
 
       await page.getByRole("button", { name: "Dispose runtime" }).click();
       const terminal = await waitForSnapshot(page, (value) => (
@@ -632,7 +703,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
       expect(generatedChunkDigests(initial, INITIAL_CHUNK_IDS)).toEqual(INITIAL_CHUNK_DIGESTS);
       expect(initial.pipeline).toMatchObject({
         state: "ready",
-        graphCount: 5,
+        graphCount: 2,
         programGrowthAfterReady: 0,
         cleanupPendingGraphs: 0,
       });
@@ -650,7 +721,6 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
       expect(steady.telemetry.frameIntervalMs.p95).not.toBeNull();
       expect(steady.telemetry.mainThreadWorkMs.p95).not.toBeNull();
       expect(steady.telemetry.gpuTimeMs.p95).toBeNull();
-      expect(steady.telemetry.runtimeSpikesOver50Ms).toBe(0);
       expect(steady.telemetry.latestFrame).toMatchObject({
         submitted: true,
         passCount: 1,
@@ -658,7 +728,8 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
       });
       expect(steady.telemetry.latestFrame?.renderer.drawCalls).not.toBeNull();
       expect(steady.telemetry.latestFrame?.renderer.triangles).not.toBeNull();
-      expectNoSteadyOperationalSpike(steady);
+      expectCompileWarmup(steady, WEBGPU_COMPILE_PHASE_COUNTS);
+      expectNoCompileUploadActivationSpike(steady);
       await testInfo.attach("webgpu-steady-telemetry", {
         body: Buffer.from(JSON.stringify(steady.telemetry)),
         contentType: "application/json",
@@ -667,6 +738,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
       const generatedBeforeQuality = steady.chunks.events.filter(
         (event) => event.kind === "worker" && event.name === "generated",
       ).length;
+      const baselineCompileSteps = steady.telemetry.eventTotals.compile;
       for (const [button, quality] of [
         ["Low", "low-static"],
         ["Balanced", "balanced-static"],
@@ -676,6 +748,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
         const changed = await waitForSnapshot(page, (value) => value.quality.id === quality);
         expect(changed.pipeline.programGrowthAfterReady).toBe(0);
         expect(changed.pipeline.programCountAtReady).toBe(baselinePrograms);
+        expect(changed.telemetry.eventTotals.compile).toBe(baselineCompileSteps);
         expect(changed.backendLifecycle.resources.geometries).toBe(baselineGeometries);
         expect(changed.chunks.gpuOwnedCount).toBeLessThanOrEqual(4);
       }
@@ -683,7 +756,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
       expect(afterQuality.chunks.events.filter(
         (event) => event.kind === "worker" && event.name === "generated",
       )).toHaveLength(generatedBeforeQuality);
-      expect(afterQuality.telemetry.eventTotals.compile).toBe(1);
+      expect(afterQuality.telemetry.eventTotals.compile).toBe(baselineCompileSteps);
       await page.waitForTimeout(2_500);
       await expect(page.getByTestId("gfx-foundation")).toHaveAttribute("data-status", "ready");
       expect(runtimeErrors).toEqual([]);

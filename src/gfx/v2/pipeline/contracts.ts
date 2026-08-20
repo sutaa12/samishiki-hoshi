@@ -1,13 +1,15 @@
 import type {
   JourneyRenderSnapshot,
   MaybePromise,
+  RenderCompileStepRunner,
   RenderFeature,
   RenderHistoryInvalidationReason,
   RenderPass,
+  RenderPrecompileReceipt,
   RenderQualityProfile,
   RenderViewport,
   RendererApi,
-  VisualClock,
+  RenderOperationClock,
 } from "../contracts";
 
 export const LINEAR_HDR_PIPELINE_PROFILE_IDS = Object.freeze([
@@ -58,7 +60,7 @@ export interface LinearHdrGraph {
   readonly depthOwned: true;
   readonly velocityOwned: boolean;
   readonly historyOwned: boolean;
-  precompile(): Promise<number>;
+  precompile(runner: RenderCompileStepRunner): Promise<Readonly<RenderPrecompileReceipt>>;
   setHistoryWeight(weight: number): MaybePromise<void>;
   resize(viewport: Readonly<RenderViewport>): MaybePromise<void>;
   render(): MaybePromise<void>;
@@ -95,7 +97,10 @@ export interface ThreeRenderPipelinePort {
     viewport: Readonly<RenderViewport>,
   ): MaybePromise<void>;
   resize(viewport: Readonly<RenderViewport>): MaybePromise<void>;
-  precompile(passes: readonly Readonly<RenderPass>[]): Promise<void>;
+  precompile(
+    passes: readonly Readonly<RenderPass>[],
+    runner: RenderCompileStepRunner,
+  ): Promise<Readonly<RenderPrecompileReceipt>>;
   submit(passes: readonly Readonly<RenderPass>[]): MaybePromise<void>;
   dispose(): Promise<void>;
 }
@@ -106,9 +111,8 @@ export interface LinearHdrPipelineSnapshot {
   readonly activeProfileId: LinearHdrPipelineProfileId | null;
   readonly warmedProfileIds: readonly LinearHdrPipelineProfileId[];
   readonly graphCount: number;
-  readonly compileEvents: number;
-  readonly compileEventsAtReady: number | null;
-  readonly runtimeCompileEvents: number;
+  readonly precompileSteps: number;
+  readonly precompileStepsAtReady: number | null;
   readonly programCountAtReady: number | null;
   readonly programGrowthAfterReady: number;
   readonly outputTransformCount: 0 | 1;
@@ -128,7 +132,7 @@ export interface LinearHdrPipelineSnapshot {
 export type LinearHdrPipelineFeature = RenderFeature & ThreeRenderPipelinePort & {
   readonly id: "gfx005-linear-hdr-pipeline";
   snapshot(): Readonly<LinearHdrPipelineSnapshot>;
-  update(frame: JourneyRenderSnapshot, clock: VisualClock): void;
+  update(frame: JourneyRenderSnapshot, clock: RenderOperationClock): void;
 };
 
 export interface CreateLinearHdrPipelineOptions {

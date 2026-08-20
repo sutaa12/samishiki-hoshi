@@ -95,6 +95,12 @@ export interface GfxPerformanceTelemetrySnapshot {
   readonly latestFrame: Readonly<GfxLatestFrameSnapshot> | null;
   readonly events: readonly Readonly<GfxOperationalEventSnapshot>[];
   readonly eventTotals: Readonly<Record<GfxOperationalEventKind, number>>;
+  /** All-time maxima; unlike `events`, these values survive ring eviction. */
+  readonly eventMaxDurationMs: Readonly<Record<GfxOperationalEventKind, number | null>>;
+  /** All-time strict `> 50 ms` counts for every operational kind. */
+  readonly eventsOver50Ms: Readonly<Record<GfxOperationalEventKind, number>>;
+  readonly operationalSpikesOver50Ms: number;
+  /** @deprecated Use `operationalSpikesOver50Ms`; retained for evidence readers. */
   readonly runtimeSpikesOver50Ms: number;
   readonly historyResetCounts: Readonly<Record<RenderHistoryInvalidationReason, number>>;
 }

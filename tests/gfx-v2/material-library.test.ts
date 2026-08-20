@@ -45,6 +45,58 @@ function quality(tier: RenderQualityProfile["tier"], temporal: boolean = true): 
   });
 }
 
+async function rejectionBeforeNextTask(promise: Promise<void>): Promise<unknown> {
+  return new Promise<unknown>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Expected bounded rejection before the next task."));
+    }, 0);
+    promise.then(
+      () => {
+        clearTimeout(timeout);
+        reject(new Error("Expected rejection, received fulfillment."));
+      },
+      (error: unknown) => {
+        clearTimeout(timeout);
+        resolve(error);
+      },
+    );
+  });
+}
+
+function installEmptyPrototypeIterator(prototype: object) {
+  const defineProperty = Object.defineProperty;
+  const original = Object.getOwnPropertyDescriptor(prototype, Symbol.iterator);
+  let calls = 0;
+  const emptyIterator = (): Iterator<unknown> => {
+    calls += 1;
+    return {
+      next: () => ({ done: true, value: undefined }),
+    };
+  };
+  Reflect.apply(defineProperty, Object, [
+    prototype,
+    Symbol.iterator,
+    {
+      configurable: true,
+      enumerable: original?.enumerable ?? false,
+      value: emptyIterator,
+      writable: true,
+    },
+  ]);
+  return {
+    callCount(): number {
+      return calls;
+    },
+    restore(): void {
+      if (original) {
+        Reflect.apply(defineProperty, Object, [prototype, Symbol.iterator, original]);
+      } else {
+        Reflect.deleteProperty(prototype, Symbol.iterator);
+      }
+    },
+  };
+}
+
 describe("GFX-005 TSL material library", () => {
   it("captures the exact seven canonical descriptor families without aliases", () => {
     const captured = captureWorldMaterialLibrary(WORLD_MATERIAL_LIBRARY);
@@ -167,6 +219,70 @@ describe("GFX-005 TSL material library", () => {
       ownedMaterials: 14,
       warmupPasses: 14,
     });
+    await library.dispose();
+  });
+
+  it("initializes the exact closed topology after a descriptor ownKeys trap poisons Array iteration", async () => {
+    const originalIterator = Object.getOwnPropertyDescriptor(
+      Array.prototype,
+      Symbol.iterator,
+    );
+    const descriptors = WORLD_MATERIAL_LIBRARY.map((descriptor) => ({
+      ...descriptor,
+      baseColorLinearPermille: [...descriptor.baseColorLinearPermille],
+      roughnessPermille: [...descriptor.roughnessPermille],
+      metalnessPermille: [...descriptor.metalnessPermille],
+      transmissionPermille: [...descriptor.transmissionPermille],
+      emissionLinearPermille: [...descriptor.emissionLinearPermille],
+    }));
+    let poison: ReturnType<typeof installEmptyPrototypeIterator> | undefined;
+    descriptors[0] = new Proxy(descriptors[0]!, {
+      ownKeys(target) {
+        if (!poison) poison = installEmptyPrototypeIterator(Array.prototype);
+        return Reflect.ownKeys(target);
+      },
+    });
+    let library!: ProductionTslMaterialLibrary;
+    let ready!: ReturnType<ProductionTslMaterialLibrary["snapshot"]>;
+    let manifest!: ReturnType<ProductionTslMaterialLibrary["variantManifest"]>;
+    let passes!: ReturnType<ProductionTslMaterialLibrary["warmupPasses"]>;
+    let initialization!: Promise<void>;
+    try {
+      library = new ProductionTslMaterialLibrary({ descriptors });
+      initialization = library.initialize(context("WebGPU"));
+      ready = library.snapshot();
+      manifest = library.variantManifest();
+      passes = library.warmupPasses([
+        quality("low"),
+        quality("balanced"),
+        quality("high"),
+      ]);
+    } finally {
+      poison?.restore();
+    }
+    await initialization;
+
+    expect(poison).toBeDefined();
+    expect(poison!.callCount()).toBe(0);
+    expect(Object.getOwnPropertyDescriptor(Array.prototype, Symbol.iterator))
+      .toEqual(originalIterator);
+    expect(ready).toMatchObject({
+      state: "ready",
+      actualApi: "WebGPU",
+      activeVariantId: "webgpu-full",
+      createdMaterials: 14,
+      disposedMaterials: 0,
+      ownedMaterials: 14,
+      ownedGeometry: 1,
+      warmupPasses: 14,
+      variants: ["webgpu-full", "webgpu-lean"],
+    });
+    expect(manifest).toHaveLength(14);
+    expect(new Set(manifest.map((entry) => entry.family))).toEqual(
+      new Set(WORLD_MATERIAL_FAMILIES),
+    );
+    expect(passes).toHaveLength(14);
+    expect(new Set(passes.map((pass) => `${pass.name}:${pass.variant}`)).size).toBe(14);
     await library.dispose();
   });
 
@@ -450,6 +566,94 @@ describe("GFX-005 TSL material library", () => {
     });
   });
 
+  it("keeps snapshots, warm-up copies, resolution, and disposal exact after quality poisons iterators", async () => {
+    const library = new ProductionTslMaterialLibrary();
+    await library.initialize(context("WebGPU"));
+    let arrayPoison: ReturnType<typeof installEmptyPrototypeIterator> | undefined;
+    let mapPoison: ReturnType<typeof installEmptyPrototypeIterator> | undefined;
+    let descriptorCalls = 0;
+    const profile = new Proxy(quality("low"), {
+      getOwnPropertyDescriptor(target, key) {
+        descriptorCalls += 1;
+        if (key === "tier") {
+          arrayPoison = installEmptyPrototypeIterator(Array.prototype);
+          mapPoison = installEmptyPrototypeIterator(Map.prototype);
+        }
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      },
+    });
+    let selectedVariant: string | undefined;
+    let ready!: ReturnType<ProductionTslMaterialLibrary["snapshot"]>;
+    let passCount = -1;
+    let manifestCount = -1;
+    let disposal!: Promise<void>;
+    let disposing!: ReturnType<ProductionTslMaterialLibrary["snapshot"]>;
+    let disposed!: ReturnType<ProductionTslMaterialLibrary["snapshot"]>;
+    let iteratorsRestored = false;
+    const restoreIterators = (): void => {
+      if (iteratorsRestored) return;
+      mapPoison?.restore();
+      arrayPoison?.restore();
+      iteratorsRestored = true;
+    };
+    try {
+      library.quality(profile);
+      selectedVariant = library.resolve("water").variantId;
+      ready = library.snapshot();
+      passCount = library.warmupPasses([
+        quality("low"),
+        quality("balanced"),
+        quality("high"),
+      ]).length;
+      manifestCount = library.variantManifest().length;
+      disposal = library.dispose();
+      disposing = library.snapshot();
+      queueMicrotask(() => {
+        queueMicrotask(restoreIterators);
+      });
+      await disposal;
+      disposed = library.snapshot();
+    } finally {
+      restoreIterators();
+    }
+
+    expect(descriptorCalls).toBe(1);
+    expect(arrayPoison).toBeDefined();
+    expect(mapPoison).toBeDefined();
+    expect(arrayPoison!.callCount()).toBe(0);
+    expect(mapPoison!.callCount()).toBe(0);
+    expect(selectedVariant).toBe("webgpu-lean");
+    expect(passCount).toBe(14);
+    expect(manifestCount).toBe(14);
+    expect(ready).toMatchObject({
+      state: "ready",
+      createdMaterials: 14,
+      disposedMaterials: 0,
+      ownedMaterials: 14,
+      ownedGeometry: 1,
+      warmupPasses: 14,
+      variants: ["webgpu-full", "webgpu-lean"],
+    });
+    expect(disposing).toMatchObject({
+      state: "disposing",
+      createdMaterials: 14,
+      disposedMaterials: 0,
+      ownedMaterials: 14,
+      ownedGeometry: 1,
+      warmupPasses: 14,
+      variants: ["webgpu-full", "webgpu-lean"],
+    });
+    expect(disposed).toMatchObject({
+      state: "disposed",
+      createdMaterials: 14,
+      disposedMaterials: 14,
+      ownedMaterials: 0,
+      ownedGeometry: 0,
+      warmupPasses: 0,
+      variants: [],
+    });
+  });
+
   it("keeps disposal library-owned and idempotent", async () => {
     const library = new ProductionTslMaterialLibrary();
     await library.initialize(context("WebGPU"));
@@ -678,7 +882,7 @@ describe("GFX-005 TSL material library", () => {
     }
   });
 
-  it("rejects unproven custom factory outputs and retains their cleanup obligation", async () => {
+  it("rejects unproven custom factory outputs without invoking their cleanup", async () => {
     const ownDispose = vi.fn();
     const ownCall = vi.fn(() => vi.fn());
     Object.defineProperty(ownDispose, "call", {
@@ -701,7 +905,7 @@ describe("GFX-005 TSL material library", () => {
 
     await expect(library.initialize(context("WebGPU"))).rejects.toThrow(/initialization failed/);
     expect(factory).toHaveBeenCalledOnce();
-    expect(ownDispose).toHaveBeenCalledOnce();
+    expect(ownDispose).not.toHaveBeenCalled();
     expect(ownCall).not.toHaveBeenCalled();
     expect(nativeDispose).not.toHaveBeenCalled();
     expect(library.snapshot()).toMatchObject({
@@ -715,7 +919,7 @@ describe("GFX-005 TSL material library", () => {
     const second = library.dispose();
     expect(second).toBe(first);
     await expect(first).rejects.toThrow(/material disposal failed/);
-    expect(ownDispose).toHaveBeenCalledOnce();
+    expect(ownDispose).not.toHaveBeenCalled();
     expect(ownCall).not.toHaveBeenCalled();
     expect(nativeDispose).not.toHaveBeenCalled();
     expect(library.snapshot()).toMatchObject({
@@ -727,7 +931,7 @@ describe("GFX-005 TSL material library", () => {
     expect(retry).not.toBe(first);
     expect(library.dispose()).toBe(retry);
     await expect(retry).rejects.toThrow(/material disposal failed/);
-    expect(ownDispose).toHaveBeenCalledOnce();
+    expect(ownDispose).not.toHaveBeenCalled();
     expect(ownCall).not.toHaveBeenCalled();
     expect(nativeDispose).not.toHaveBeenCalled();
     expect(library.snapshot()).toMatchObject({
@@ -735,6 +939,282 @@ describe("GFX-005 TSL material library", () => {
       disposedMaterials: 0,
       ownedMaterials: 1,
     });
+  });
+
+  it("retains custom ownership when the factory poisons Array and Map iteration", async () => {
+    let disposeCalls = 0;
+    const dispose = (): void => {
+      disposeCalls += 1;
+    };
+    const material = new MeshStandardNodeMaterial();
+    Object.defineProperty(material, "dispose", { configurable: true, value: dispose });
+    let factoryCalls = 0;
+    let initializationArrayPoison: ReturnType<typeof installEmptyPrototypeIterator> | undefined;
+    let initializationMapPoison: ReturnType<typeof installEmptyPrototypeIterator> | undefined;
+    const factory = (): MeshStandardNodeMaterial => {
+      factoryCalls += 1;
+      initializationArrayPoison = installEmptyPrototypeIterator(Array.prototype);
+      initializationMapPoison = installEmptyPrototypeIterator(Map.prototype);
+      return material;
+    };
+    const library = new ProductionTslMaterialLibrary({ createMaterial: factory });
+    let initialization!: Promise<void>;
+    let disposal!: Promise<void>;
+    let disposalFailure: unknown;
+    let afterInitialization!: ReturnType<ProductionTslMaterialLibrary["snapshot"]>;
+    let duringDisposal!: ReturnType<ProductionTslMaterialLibrary["snapshot"]>;
+    let afterDisposal!: ReturnType<ProductionTslMaterialLibrary["snapshot"]>;
+    try {
+      initialization = library.initialize(context("WebGPU"));
+      afterInitialization = library.snapshot();
+    } finally {
+      initializationMapPoison?.restore();
+      initializationArrayPoison?.restore();
+    }
+    const initializationFailure = await rejectionBeforeNextTask(initialization);
+
+    const disposalArrayPoison = installEmptyPrototypeIterator(Array.prototype);
+    const disposalMapPoison = installEmptyPrototypeIterator(Map.prototype);
+    let disposalIteratorsRestored = false;
+    const restoreDisposalIterators = (): void => {
+      if (disposalIteratorsRestored) return;
+      disposalMapPoison.restore();
+      disposalArrayPoison.restore();
+      disposalIteratorsRestored = true;
+    };
+    try {
+      disposal = library.dispose();
+      duringDisposal = library.snapshot();
+      queueMicrotask(() => {
+        queueMicrotask(restoreDisposalIterators);
+      });
+      disposalFailure = await rejectionBeforeNextTask(disposal);
+      afterDisposal = library.snapshot();
+    } finally {
+      restoreDisposalIterators();
+    }
+
+    expect(initializationFailure).toMatchObject({
+      message: "TSL material initialization failed.",
+    });
+    expect(disposalFailure).toMatchObject({ message: "TSL material disposal failed." });
+    expect(initializationArrayPoison).toBeDefined();
+    expect(initializationMapPoison).toBeDefined();
+    expect(initializationArrayPoison!.callCount()).toBe(0);
+    expect(initializationMapPoison!.callCount()).toBe(0);
+    expect(disposalArrayPoison.callCount()).toBe(0);
+    expect(disposalMapPoison.callCount()).toBe(0);
+    expect(factoryCalls).toBe(1);
+    expect(disposeCalls).toBe(0);
+    expect(afterInitialization).toMatchObject({
+      state: "failed",
+      createdMaterials: 1,
+      disposedMaterials: 0,
+      ownedMaterials: 1,
+      ownedGeometry: 0,
+      warmupPasses: 0,
+      variants: [],
+    });
+    expect(duringDisposal).toMatchObject({
+      state: "disposing",
+      createdMaterials: 1,
+      disposedMaterials: 0,
+      ownedMaterials: 1,
+      ownedGeometry: 0,
+      warmupPasses: 0,
+      variants: [],
+    });
+    expect(afterDisposal).toMatchObject({
+      state: "failed",
+      createdMaterials: 1,
+      disposedMaterials: 0,
+      ownedMaterials: 1,
+      ownedGeometry: 0,
+      warmupPasses: 0,
+      variants: [],
+    });
+  });
+
+  it("never invokes an async-rejecting unsupported cleanup or creates an unhandled rejection", async () => {
+    const asyncFailure = new Error("diagnostic cleanup rejection must never be created");
+    const dispose = vi.fn(async () => {
+      throw asyncFailure;
+    });
+    const material = new MeshStandardNodeMaterial();
+    Object.defineProperty(material, "dispose", { configurable: true, value: dispose });
+    const library = new ProductionTslMaterialLibrary({ createMaterial: () => material });
+    const unhandled: unknown[] = [];
+    const observeUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", observeUnhandled);
+    try {
+      const failure = await rejectionBeforeNextTask(library.initialize(context("WebGPU")));
+      expect(failure).toMatchObject({ message: "TSL material initialization failed." });
+      expect(dispose).not.toHaveBeenCalled();
+      expect(library.snapshot()).toMatchObject({
+        state: "failed",
+        createdMaterials: 1,
+        disposedMaterials: 0,
+        ownedMaterials: 1,
+      });
+
+      const disposalFailure = await rejectionBeforeNextTask(library.dispose());
+      expect(disposalFailure).toMatchObject({ message: "TSL material disposal failed." });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(dispose).not.toHaveBeenCalled();
+      expect(unhandled).toEqual([]);
+      expect(library.snapshot()).toMatchObject({
+        state: "failed",
+        disposedMaterials: 0,
+        ownedMaterials: 1,
+      });
+    } finally {
+      process.off("unhandledRejection", observeUnhandled);
+    }
+  });
+
+  it("never invokes an async-fulfilling unsupported cleanup", async () => {
+    const dispose = vi.fn(async () => undefined);
+    const material = new MeshStandardNodeMaterial();
+    Object.defineProperty(material, "dispose", { configurable: true, value: dispose });
+    const library = new ProductionTslMaterialLibrary({ createMaterial: () => material });
+
+    const failure = await rejectionBeforeNextTask(library.initialize(context("WebGPU")));
+    expect(failure).toMatchObject({ message: "TSL material initialization failed." });
+    expect(dispose).not.toHaveBeenCalled();
+    expect(library.snapshot()).toMatchObject({
+      state: "failed",
+      createdMaterials: 1,
+      disposedMaterials: 0,
+      ownedMaterials: 1,
+    });
+    const disposalFailure = await rejectionBeforeNextTask(library.dispose());
+    expect(disposalFailure).toMatchObject({ message: "TSL material disposal failed." });
+    expect(dispose).not.toHaveBeenCalled();
+  });
+
+  it("never invokes a never-settling unsupported cleanup", async () => {
+    const dispose = vi.fn(() => new Promise<void>(() => undefined));
+    const material = new MeshStandardNodeMaterial();
+    Object.defineProperty(material, "dispose", { configurable: true, value: dispose });
+    const library = new ProductionTslMaterialLibrary({ createMaterial: () => material });
+
+    const failure = await rejectionBeforeNextTask(library.initialize(context("WebGPU")));
+    expect(failure).toMatchObject({ message: "TSL material initialization failed." });
+    expect(dispose).not.toHaveBeenCalled();
+    expect(library.snapshot()).toMatchObject({
+      state: "failed",
+      createdMaterials: 1,
+      disposedMaterials: 0,
+      ownedMaterials: 1,
+    });
+    const disposalFailure = await rejectionBeforeNextTask(library.dispose());
+    expect(disposalFailure).toMatchObject({ message: "TSL material disposal failed." });
+    expect(dispose).not.toHaveBeenCalled();
+  });
+
+  it("never invokes unsupported cleanup or reads a genuine Promise shadow then", async () => {
+    const thenGetter = vi.fn(() => {
+      throw new Error("shadow then getter must not run");
+    });
+    const cleanupResult = Promise.resolve();
+    Object.defineProperty(cleanupResult, "then", {
+      configurable: true,
+      get: thenGetter,
+    });
+    const dispose = vi.fn(() => cleanupResult);
+    const material = new MeshStandardNodeMaterial();
+    Object.defineProperty(material, "dispose", { configurable: true, value: dispose });
+    const library = new ProductionTslMaterialLibrary({ createMaterial: () => material });
+
+    const failure = await rejectionBeforeNextTask(library.initialize(context("WebGPU")));
+    expect(failure).toMatchObject({ message: "TSL material initialization failed." });
+    expect(thenGetter).not.toHaveBeenCalled();
+    expect(dispose).not.toHaveBeenCalled();
+    expect(library.snapshot()).toMatchObject({
+      state: "failed",
+      createdMaterials: 1,
+      disposedMaterials: 0,
+      ownedMaterials: 1,
+    });
+    const disposalFailure = await rejectionBeforeNextTask(library.dispose());
+    expect(disposalFailure).toMatchObject({ message: "TSL material disposal failed." });
+    expect(thenGetter).not.toHaveBeenCalled();
+    expect(dispose).not.toHaveBeenCalled();
+  });
+
+  it("never invokes an unsupported cleanup returning a hostile thenable", async () => {
+    const thenGetter = vi.fn(() => {
+      throw new Error("hostile then getter must not run");
+    });
+    const hostileThenable = Object.create(null) as object;
+    Object.defineProperty(hostileThenable, "then", {
+      configurable: true,
+      get: thenGetter,
+    });
+    const dispose = vi.fn(() => hostileThenable);
+    const material = new MeshStandardNodeMaterial();
+    Object.defineProperty(material, "dispose", { configurable: true, value: dispose });
+    const library = new ProductionTslMaterialLibrary({ createMaterial: () => material });
+
+    const failure = await rejectionBeforeNextTask(library.initialize(context("WebGPU")));
+    expect(failure).toMatchObject({ message: "TSL material initialization failed." });
+    expect(thenGetter).not.toHaveBeenCalled();
+    expect(dispose).not.toHaveBeenCalled();
+    expect(library.snapshot()).toMatchObject({
+      state: "failed",
+      createdMaterials: 1,
+      disposedMaterials: 0,
+      ownedMaterials: 1,
+    });
+    const disposalFailure = await rejectionBeforeNextTask(library.dispose());
+    expect(disposalFailure).toMatchObject({ message: "TSL material disposal failed." });
+    expect(thenGetter).not.toHaveBeenCalled();
+    expect(dispose).not.toHaveBeenCalled();
+  });
+
+  it("never invokes cleanup that would create a rejected Promise with a hostile constructor", async () => {
+    const constructorGetter = vi.fn(() => {
+      throw new Error("hostile Promise constructor getter must not run");
+    });
+    let constructedPromises = 0;
+    const dispose = vi.fn(() => {
+      constructedPromises += 1;
+      const result = Promise.reject(new Error("must never become unhandled"));
+      Object.defineProperty(result, "constructor", {
+        configurable: true,
+        get: constructorGetter,
+      });
+      return result;
+    });
+    const material = new MeshStandardNodeMaterial();
+    Object.defineProperty(material, "dispose", { configurable: true, value: dispose });
+    const library = new ProductionTslMaterialLibrary({ createMaterial: () => material });
+    const unhandled: unknown[] = [];
+    const observeUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", observeUnhandled);
+    try {
+      const failure = await rejectionBeforeNextTask(library.initialize(context("WebGPU")));
+      expect(failure).toMatchObject({ message: "TSL material initialization failed." });
+      const disposalFailure = await rejectionBeforeNextTask(library.dispose());
+      expect(disposalFailure).toMatchObject({ message: "TSL material disposal failed." });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(dispose).not.toHaveBeenCalled();
+      expect(constructedPromises).toBe(0);
+      expect(constructorGetter).not.toHaveBeenCalled();
+      expect(unhandled).toEqual([]);
+      expect(library.snapshot()).toMatchObject({
+        state: "failed",
+        createdMaterials: 1,
+        disposedMaterials: 0,
+        ownedMaterials: 1,
+      });
+    } finally {
+      process.off("unhandledRejection", observeUnhandled);
+    }
   });
 
   it("never accepts spoofed listener push plus dispatch bypass as disposal proof", async () => {
@@ -774,7 +1254,7 @@ describe("GFX-005 TSL material library", () => {
 
     await expect(library.initialize(context("WebGPU"))).rejects.toThrow(/initialization failed/);
     expect(factory).toHaveBeenCalledOnce();
-    expect(ownDispose).toHaveBeenCalledOnce();
+    expect(ownDispose).not.toHaveBeenCalled();
     expect(spoofedIndexOf).not.toHaveBeenCalled();
     expect(spoofedPush).not.toHaveBeenCalled();
     expect(spoofedSplice).not.toHaveBeenCalled();
@@ -879,6 +1359,9 @@ describe("GFX-005 TSL material library", () => {
     const capturedDispose = vi.fn();
     const nativeDisposeEvent = vi.fn();
     const ordinaryGets = vi.fn();
+    const descriptorReads = vi.fn(() => {
+      throw new Error("property descriptor inspection rejected");
+    });
     const prototypeReads = vi.fn(() => {
       throw new Error("prototype inspection rejected");
     });
@@ -892,6 +1375,7 @@ describe("GFX-005 TSL material library", () => {
       opaqueTarget,
       {
         get: ordinaryGets,
+        getOwnPropertyDescriptor: descriptorReads,
         getPrototypeOf: prototypeReads,
       },
     );
@@ -903,8 +1387,9 @@ describe("GFX-005 TSL material library", () => {
       /initialization failed/,
     );
     expect(ordinaryGets).not.toHaveBeenCalled();
+    expect(descriptorReads).not.toHaveBeenCalled();
     expect(prototypeReads).not.toHaveBeenCalled();
-    expect(capturedDispose).toHaveBeenCalledOnce();
+    expect(capturedDispose).not.toHaveBeenCalled();
     expect(nativeDisposeEvent).not.toHaveBeenCalled();
     expect(proxyLibrary.snapshot()).toMatchObject({
       state: "failed",
@@ -916,7 +1401,10 @@ describe("GFX-005 TSL material library", () => {
     const second = proxyLibrary.dispose();
     expect(second).toBe(first);
     await expect(first).rejects.toThrow(/material disposal failed/);
-    expect(capturedDispose).toHaveBeenCalledOnce();
+    expect(ordinaryGets).not.toHaveBeenCalled();
+    expect(descriptorReads).not.toHaveBeenCalled();
+    expect(prototypeReads).not.toHaveBeenCalled();
+    expect(capturedDispose).not.toHaveBeenCalled();
     expect(nativeDisposeEvent).not.toHaveBeenCalled();
     expect(proxyLibrary.snapshot()).toMatchObject({
       state: "failed",
@@ -977,6 +1465,132 @@ describe("GFX-005 TSL material library", () => {
     expect(JSON.stringify(failure.errors)).not.toContain("replacement");
     const captured = failure.errors[0] as { errors?: readonly unknown[] };
     expect(Object.isFrozen(captured.errors)).toBe(true);
+  });
+
+  it("removes the live V8 stack from the final frozen failure wrapper", () => {
+    const previousPrepareStackTrace = Object.getOwnPropertyDescriptor(
+      Error,
+      "prepareStackTrace",
+    );
+    const prepareStackTrace = vi.fn(() => "S".repeat(2_000_000));
+    try {
+      Object.defineProperty(Error, "prepareStackTrace", {
+        configurable: true,
+        writable: true,
+        value: prepareStackTrace,
+      });
+      const failure = ownedAggregateError([], "stackless failure wrapper");
+
+      expect(failure).toBeInstanceOf(AggregateError);
+      expect(Object.getOwnPropertyDescriptor(failure, "stack")).toBeUndefined();
+      expect(failure.stack).toBeUndefined();
+      expect(prepareStackTrace).not.toHaveBeenCalled();
+      expect(Object.isFrozen(failure)).toBe(true);
+      expect(Object.isFrozen(failure.errors)).toBe(true);
+    } finally {
+      if (previousPrepareStackTrace) {
+        Object.defineProperty(Error, "prepareStackTrace", previousPrepareStackTrace);
+      } else {
+        Reflect.deleteProperty(Error, "prepareStackTrace");
+      }
+    }
+    expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace"))
+      .toEqual(previousPrepareStackTrace);
+  });
+
+  it("drops forced huge nested stacks while preserving bounded detached evidence", () => {
+    const previousPrepareStackTrace = Object.getOwnPropertyDescriptor(
+      Error,
+      "prepareStackTrace",
+    );
+    const huge = "N".repeat(2_000_000);
+    const prepareStackTrace = vi.fn(() => huge);
+    try {
+      Object.defineProperty(Error, "prepareStackTrace", {
+        configurable: true,
+        writable: true,
+        value: prepareStackTrace,
+      });
+      const rawLeaf = new Error(huge);
+      const getterZero = vi.fn(() => rawLeaf);
+      const rawEntries = new Array<unknown>(4);
+      Object.defineProperty(rawEntries, "0", {
+        configurable: true,
+        get: getterZero,
+      });
+      rawEntries[1] = rawLeaf;
+      rawEntries[2] = rawLeaf;
+      const rawNested = new AggregateError([], "raw nested", { cause: rawLeaf });
+      Object.defineProperty(rawNested, "errors", {
+        configurable: true,
+        value: rawEntries,
+        writable: true,
+      });
+      rawEntries[3] = rawNested;
+      expect(rawLeaf.stack).toHaveLength(2_000_000);
+      expect(rawNested.stack).toHaveLength(2_000_000);
+
+      const failure = ownedAggregateError([rawNested, -0], huge);
+      const root = failure.errors[0] as {
+        readonly cause: object;
+        readonly errors: readonly unknown[];
+      };
+      expect(failure).toBeInstanceOf(AggregateError);
+      expect(Object.getOwnPropertyDescriptor(failure, "stack")).toBeUndefined();
+      expect(failure.stack).toBeUndefined();
+      expect(prepareStackTrace).toHaveBeenCalledTimes(2);
+      expect(getterZero).not.toHaveBeenCalled();
+      expect(root.errors[0]).toMatchObject({
+        kind: "uninspectable",
+        type: "accessor-failure-slot",
+      });
+      expect(root.errors[1]).toEqual(root.errors[2]);
+      expect(root.errors[1]).not.toBe(root.errors[2]);
+      expect(root.errors[3]).toMatchObject({ kind: "cycle", type: "object" });
+      expect(Object.is((failure.errors[1] as { value: number }).value, -0)).toBe(true);
+
+      const fields = [failure.message];
+      const nodes: object[] = [failure, failure.errors];
+      const pending: unknown[] = [...failure.errors];
+      while (pending.length > 0) {
+        const current = pending.pop();
+        if (typeof current !== "object" || current === null) continue;
+        nodes.push(current);
+        for (const key of ["value", "name", "message", "code"] as const) {
+          const descriptor = Object.getOwnPropertyDescriptor(current, key);
+          if (descriptor && "value" in descriptor && typeof descriptor.value === "string") {
+            fields.push(descriptor.value);
+          }
+        }
+        const cause = Object.getOwnPropertyDescriptor(current, "cause");
+        if (cause && "value" in cause) pending.push(cause.value);
+        const errors = Object.getOwnPropertyDescriptor(current, "errors");
+        if (errors && "value" in errors && Array.isArray(errors.value)) {
+          nodes.push(errors.value);
+          pending.push(...errors.value);
+        }
+      }
+      expect(fields.reduce((sum, value) => sum + value.length, 0))
+        .toBeLessThanOrEqual(4_096);
+      for (const node of nodes) {
+        expect(Object.getOwnPropertyDescriptor(node, "stack")).toBeUndefined();
+        expect(Object.isFrozen(node)).toBe(true);
+      }
+
+      const captured = JSON.stringify({ message: failure.message, errors: failure.errors });
+      rawLeaf.message = "mutated leaf";
+      rawNested.message = "mutated aggregate";
+      rawEntries[1] = new Error("replacement");
+      expect(JSON.stringify({ message: failure.message, errors: failure.errors })).toBe(captured);
+    } finally {
+      if (previousPrepareStackTrace) {
+        Object.defineProperty(Error, "prepareStackTrace", previousPrepareStackTrace);
+      } else {
+        Reflect.deleteProperty(Error, "prepareStackTrace");
+      }
+    }
+    expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace"))
+      .toEqual(previousPrepareStackTrace);
   });
 
   it("hard-bounds and truthfully snapshots every material failure evidence path", () => {

@@ -50,7 +50,7 @@ import type {
   RenderViewport,
   Unsubscribe,
 } from "../contracts";
-import { RenderHost } from "../render-host";
+import { RenderHost, createBrowserRenderWarmupScheduler } from "../render-host";
 import {
   RollingGfxPerformanceTelemetry,
   type GfxPerformanceTelemetrySnapshot,
@@ -599,6 +599,7 @@ async function performGfxFoundationConstruction(options: {
     const hero = oceanHero ?? forestCityHero ?? spaceTwinkleHero;
     heroOwner = hero;
     const frameLoop = frameLoopOwner = new BrowserFrameLoop();
+    const warmupScheduler = createBrowserRenderWarmupScheduler();
     const observedEvents: string[] = [];
     const observer: RenderEventObserver = {
       observe(event: RenderHostEvent) {
@@ -610,6 +611,7 @@ async function performGfxFoundationConstruction(options: {
       {
         backend,
         frameLoop,
+        warmupScheduler,
         features: hero ? [pipeline, hero, pooledWorld] : [pipeline, pooledWorld],
         materials,
         uploads,

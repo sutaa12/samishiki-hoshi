@@ -4,7 +4,12 @@ import {
   ThreeRenderBackendAdapter,
   type ThreeRendererPort,
 } from "../../src/gfx/v2/backend/backend-adapter";
-import type { BackendRuntimeEvent, RenderPass } from "../../src/gfx/v2/contracts";
+import type {
+  BackendRuntimeEvent,
+  RenderCompileStepRunner,
+  RenderPass,
+  RenderPrecompileReceipt,
+} from "../../src/gfx/v2/contracts";
 import type { ThreeRenderPipelinePort } from "../../src/gfx/v2/pipeline/contracts";
 import {
   captureCreateThreeBackendOptions,
@@ -13,6 +18,45 @@ import {
 } from "../../src/gfx/v2/backend/create-backend";
 
 const viewport = { width: 800, height: 450, pixelRatio: 1 } as const;
+const EMPTY_PRECOMPILE_RECEIPT = Object.freeze({
+  plannedSteps: 0,
+  completedSteps: 0,
+  phaseCounts: Object.freeze({
+    "runtime-object": 0,
+    "material-isolated": 0,
+    "material-runtime-topology": 0,
+    "output-first-use": 0,
+  }),
+}) satisfies Readonly<RenderPrecompileReceipt>;
+const IMMEDIATE_COMPILE_RUNNER = Object.freeze({
+  async run(
+    _descriptor: Parameters<RenderCompileStepRunner["run"]>[0],
+    operation: Parameters<RenderCompileStepRunner["run"]>[1],
+  ): Promise<void> {
+    await operation();
+  },
+}) satisfies Readonly<RenderCompileStepRunner>;
+
+function directDrawable(overrides: Record<string, unknown> = {}) {
+  return {
+    isMesh: true,
+    visible: false,
+    frustumCulled: true,
+    layers: { mask: 2 },
+    material: { visible: false },
+    geometry: { groups: [] },
+    children: [],
+    ...overrides,
+  };
+}
+
+function directScene(...children: object[]) {
+  return { isScene: true, children };
+}
+
+function directCamera(overrides: Record<string, unknown> = {}) {
+  return { layers: { mask: 1 }, ...overrides };
+}
 const probe = {
   source: "navigator.gpu.requestAdapter (diagnostic only; not renderer identity)",
   attempted: true,
@@ -100,6 +144,29 @@ function adapter(
   });
 }
 
+function deferredVoid() {
+  let resolve!: () => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+async function expectPipelineDisposalRetryWindow(
+  backend: ThreeRenderBackendAdapter,
+  terminalOwner: Promise<void>,
+): Promise<void> {
+  void terminalOwner.catch(() => undefined);
+  const blocked = backend.dispose();
+  const concurrentBlocked = backend.dispose();
+  expect(blocked).not.toBe(terminalOwner);
+  expect(concurrentBlocked).toBe(blocked);
+  await expect(blocked).rejects.toThrow(/pipeline callback is unsettled; retry/);
+  await expect(concurrentBlocked).rejects.toThrow(/pipeline callback is unsettled; retry/);
+}
+
 function fakePipeline(
   log: string[],
   options: { failAttach?: boolean; resizeGate?: Promise<void> } = {},
@@ -119,6 +186,7 @@ function fakePipeline(
     }),
     precompile: vi.fn(async (passes: readonly Readonly<RenderPass>[]) => {
       log.push(`pipeline.precompile:${passes.map((pass) => `${pass.name}/${pass.variant ?? "absent"}`).join(",")}`);
+      return EMPTY_PRECOMPILE_RECEIPT;
     }),
     submit: vi.fn(async (passes: readonly Readonly<RenderPass>[]) => {
       log.push(`pipeline.submit:${passes.map((pass) => `${pass.name}/${pass.variant ?? "absent"}`).join(",")}`);
@@ -398,13 +466,13 @@ describe("GFX-002 Three backend adapter", () => {
     };
 
     await backend.initialize({ viewport });
-    await backend.precompile([pass]);
+    await backend.precompile([pass], IMMEDIATE_COMPILE_RUNNER);
     await backend.render([pass]);
     await backend.resize({ width: 1024, height: 576, pixelRatio: 1.25 });
     const first = backend.dispose();
-    const second = backend.dispose();
-    expect(second).toBe(first);
+    await expectPipelineDisposalRetryWindow(backend, first);
     await first;
+    expect(backend.dispose()).toBe(first);
 
     expect(log).toEqual([
       "pipeline.attach:webgpu:800x450",
@@ -417,6 +485,92 @@ describe("GFX-002 Three backend adapter", () => {
     expect(renderer.calls).not.toContain("render");
     expect(pipeline.dispose).toHaveBeenCalledOnce();
   });
+
+  it.each(["attachBackend", "resize", "precompile", "submit"] as const)(
+    "blocks ambiguous disposal without claiming ownership while pipeline.%s is unsettled",
+    async (seam) => {
+      const renderer = fakeRenderer("webgpu");
+      const log: string[] = [];
+      const pipeline = fakePipeline(log);
+      const entered = deferredVoid();
+      const gate = deferredVoid();
+      const unsettledCallback = async () => {
+        entered.resolve();
+        await gate.promise;
+      };
+      switch (seam) {
+        case "attachBackend":
+          vi.mocked(pipeline.attachBackend).mockImplementationOnce(unsettledCallback);
+          break;
+        case "resize":
+          vi.mocked(pipeline.resize).mockImplementationOnce(unsettledCallback);
+          break;
+        case "precompile":
+          vi.mocked(pipeline.precompile).mockImplementationOnce(async () => {
+            await unsettledCallback();
+            return EMPTY_PRECOMPILE_RECEIPT;
+          });
+          break;
+        case "submit":
+          vi.mocked(pipeline.submit).mockImplementationOnce(unsettledCallback);
+          break;
+      }
+      const backend = adapter(renderer, "webgpu-preferred", pipeline);
+      const pass: RenderPass = {
+        name: "world",
+        kind: "scene",
+        variant: "webgpu-high-temporal",
+        scene: {},
+        camera: {},
+      };
+      let operation: Promise<unknown>;
+      if (seam === "attachBackend") {
+        operation = backend.initialize({ viewport });
+      } else {
+        await backend.initialize({ viewport });
+        operation = seam === "resize"
+          ? backend.resize({ width: 1024, height: 576, pixelRatio: 1.25 })
+          : seam === "precompile"
+            ? backend.precompile([pass], IMMEDIATE_COMPILE_RUNNER)
+            : backend.render([pass]);
+      }
+
+      await entered.promise;
+      const blockedDisposal = backend.dispose();
+      const ambiguousExternalDisposal = backend.dispose();
+      expect(ambiguousExternalDisposal).toBe(blockedDisposal);
+      await expect(blockedDisposal).rejects.toThrow(/pipeline callback is unsettled; retry/);
+      await expect(ambiguousExternalDisposal).rejects.toThrow(
+        /pipeline callback is unsettled; retry/,
+      );
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: seam === "attachBackend" ? "initializing" : "ready",
+        disposeCalls: 0,
+        rendererDisposeInvoked: false,
+        rendererDisposeCompleted: false,
+        backendDisposeInvoked: false,
+        backendDisposeCompleted: false,
+      });
+      expect(pipeline.dispose).not.toHaveBeenCalled();
+      expect(renderer.disposed).toBe(false);
+
+      gate.resolve();
+      await operation;
+      const terminalDisposal = backend.dispose();
+      expect(terminalDisposal).not.toBe(blockedDisposal);
+      await expectPipelineDisposalRetryWindow(backend, terminalDisposal);
+      await expect(terminalDisposal).resolves.toBeUndefined();
+      expect(backend.dispose()).toBe(terminalDisposal);
+      expect(pipeline.dispose).toHaveBeenCalledOnce();
+      expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+      expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: "disposed",
+        rendererDisposeCompleted: true,
+        backendDisposeCompleted: true,
+      });
+    },
+  );
 
   it.each(["own", "inherited"] as const)(
     "invokes a captured native backend disposer without consulting its %s call getter",
@@ -462,8 +616,7 @@ describe("GFX-002 Three backend adapter", () => {
     await backend.initialize({ viewport });
 
     const failedAttempt = backend.dispose();
-    const concurrentFailedAttempt = backend.dispose();
-    expect(concurrentFailedAttempt).toBe(failedAttempt);
+    await expectPipelineDisposalRetryWindow(backend, failedAttempt);
     const failure = await failedAttempt.catch((error: unknown) => error);
     expect(failure).toMatchObject({ message: "pipeline cleanup attempt 1 failed" });
     expect(Object.isFrozen(failure)).toBe(true);
@@ -477,9 +630,8 @@ describe("GFX-002 Three backend adapter", () => {
     });
 
     const successfulRetry = backend.dispose();
-    const concurrentSuccessfulRetry = backend.dispose();
     expect(successfulRetry).not.toBe(failedAttempt);
-    expect(concurrentSuccessfulRetry).toBe(successfulRetry);
+    await expectPipelineDisposalRetryWindow(backend, successfulRetry);
     await expect(successfulRetry).resolves.toBeUndefined();
     expect(pipeline.dispose).toHaveBeenCalledTimes(2);
     expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
@@ -501,7 +653,7 @@ describe("GFX-002 Three backend adapter", () => {
     await backend.initialize({ viewport });
 
     const firstAttempt = backend.dispose();
-    expect(backend.dispose()).toBe(firstAttempt);
+    await expectPipelineDisposalRetryWindow(backend, firstAttempt);
     const firstFailure = await firstAttempt.catch((error: unknown) => error);
     expect(firstFailure).toBeInstanceOf(AggregateError);
     expect(Object.isFrozen(firstFailure)).toBe(true);
@@ -522,7 +674,7 @@ describe("GFX-002 Three backend adapter", () => {
 
     const terminalAttempt = backend.dispose();
     expect(terminalAttempt).not.toBe(firstAttempt);
-    expect(backend.dispose()).toBe(terminalAttempt);
+    await expectPipelineDisposalRetryWindow(backend, terminalAttempt);
     const terminalFailure = await terminalAttempt.catch((error: unknown) => error);
     expect(terminalFailure).toMatchObject({
       message: "native renderer cleanup failed terminally",
@@ -632,7 +784,7 @@ describe("GFX-002 Three backend adapter", () => {
 
     const terminalAttempt = backend.dispose();
     expect(terminalAttempt).not.toBe(firstAttempt);
-    expect(backend.dispose()).toBe(terminalAttempt);
+    await expectPipelineDisposalRetryWindow(backend, terminalAttempt);
     await expect(terminalAttempt).rejects.toMatchObject({ message: nativeFailure.message });
     expect(pipeline.dispose).toHaveBeenCalledTimes(2);
     expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
@@ -673,7 +825,7 @@ describe("GFX-002 Three backend adapter", () => {
     await backend.initialize({ viewport });
 
     const firstAttempt = backend.dispose();
-    expect(backend.dispose()).toBe(firstAttempt);
+    await expectPipelineDisposalRetryWindow(backend, firstAttempt);
     let directlyThrown: unknown;
     try {
       renderer.backend!.dispose!();
@@ -691,7 +843,7 @@ describe("GFX-002 Three backend adapter", () => {
 
     const terminalAttempt = backend.dispose();
     expect(terminalAttempt).not.toBe(firstAttempt);
-    expect(backend.dispose()).toBe(terminalAttempt);
+    await expectPipelineDisposalRetryWindow(backend, terminalAttempt);
     const terminalFailure = await terminalAttempt.catch((error: unknown) => error);
     expectBoundedFailureText(terminalFailure);
     expect(backend.dispose()).toBe(terminalAttempt);
@@ -725,7 +877,7 @@ describe("GFX-002 Three backend adapter", () => {
     await backend.initialize({ viewport });
 
     const firstAttempt = backend.dispose();
-    expect(backend.dispose()).toBe(firstAttempt);
+    await expectPipelineDisposalRetryWindow(backend, firstAttempt);
     const firstFailure = await firstAttempt.catch((error: unknown) => error) as AggregateError;
     expect(firstFailure).toBeInstanceOf(AggregateError);
     const firstMarker = firstFailure.errors.at(-1) as Error;
@@ -737,7 +889,7 @@ describe("GFX-002 Three backend adapter", () => {
 
     const terminalAttempt = backend.dispose();
     expect(terminalAttempt).not.toBe(firstAttempt);
-    expect(backend.dispose()).toBe(terminalAttempt);
+    await expectPipelineDisposalRetryWindow(backend, terminalAttempt);
     const terminalFailure = await terminalAttempt.catch((error: unknown) => error) as Error;
     expect(terminalFailure).toBeInstanceOf(Error);
     expect(terminalFailure.message).toBe("");
@@ -773,7 +925,7 @@ describe("GFX-002 Three backend adapter", () => {
     await backend.initialize({ viewport });
 
     const firstAttempt = backend.dispose();
-    expect(backend.dispose()).toBe(firstAttempt);
+    await expectPipelineDisposalRetryWindow(backend, firstAttempt);
     const firstFailure = await firstAttempt.catch((error: unknown) => error) as AggregateError;
     const firstRendererFailure = firstFailure.errors.at(-1) as AggregateError;
     expect(firstRendererFailure).toBeInstanceOf(AggregateError);
@@ -784,7 +936,7 @@ describe("GFX-002 Three backend adapter", () => {
 
     const terminalAttempt = backend.dispose();
     expect(terminalAttempt).not.toBe(firstAttempt);
-    expect(backend.dispose()).toBe(terminalAttempt);
+    await expectPipelineDisposalRetryWindow(backend, terminalAttempt);
     const terminalFailure = await terminalAttempt.catch((error: unknown) => error) as AggregateError;
     expect(terminalFailure).toBeInstanceOf(AggregateError);
     expect((terminalFailure.cause as Error).message).toBe(
@@ -833,7 +985,7 @@ describe("GFX-002 Three backend adapter", () => {
     };
 
     const firstAttempt = backend.dispose();
-    expect(backend.dispose()).toBe(firstAttempt);
+    await expectPipelineDisposalRetryWindow(backend, firstAttempt);
     const firstFailure = await firstAttempt.catch((error: unknown) => error) as AggregateError;
     const firstRendererFailure = firstFailure.errors.at(-1) as AggregateError;
     expect((deepestSnapshot(firstRendererFailure).cause as Error).message).toBe(
@@ -843,7 +995,7 @@ describe("GFX-002 Three backend adapter", () => {
 
     const terminalAttempt = backend.dispose();
     expect(terminalAttempt).not.toBe(firstAttempt);
-    expect(backend.dispose()).toBe(terminalAttempt);
+    await expectPipelineDisposalRetryWindow(backend, terminalAttempt);
     const terminalFailure = await terminalAttempt.catch((error: unknown) => error) as AggregateError;
     expect((deepestSnapshot(terminalFailure).cause as Error).message).toBe(
       "Aggregate failure cause accessor was detached.",
@@ -861,7 +1013,7 @@ describe("GFX-002 Three backend adapter", () => {
     await backend.initialize({ viewport });
 
     const firstAttempt = backend.dispose();
-    expect(backend.dispose()).toBe(firstAttempt);
+    await expectPipelineDisposalRetryWindow(backend, firstAttempt);
     await expect(firstAttempt).rejects.toMatchObject({
       message: "pipeline cleanup attempt 1 failed",
     });
@@ -869,7 +1021,7 @@ describe("GFX-002 Three backend adapter", () => {
 
     const secondAttempt = backend.dispose();
     expect(secondAttempt).not.toBe(firstAttempt);
-    expect(backend.dispose()).toBe(secondAttempt);
+    await expectPipelineDisposalRetryWindow(backend, secondAttempt);
     await expect(secondAttempt).rejects.toMatchObject({
       message: "pipeline cleanup attempt 2 failed",
     });
@@ -878,7 +1030,7 @@ describe("GFX-002 Three backend adapter", () => {
 
     const thirdAttempt = backend.dispose();
     expect(thirdAttempt).not.toBe(secondAttempt);
-    expect(backend.dispose()).toBe(thirdAttempt);
+    await expectPipelineDisposalRetryWindow(backend, thirdAttempt);
     await expect(thirdAttempt).resolves.toBeUndefined();
     expect(pipeline.dispose).toHaveBeenCalledTimes(3);
     expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
@@ -964,17 +1116,46 @@ describe("GFX-002 Three backend adapter", () => {
     expect(backend.facts.compatibilityMode).toBe(false);
   });
 
-  it("precompiles and renders only drawable passes before idempotent zero-resource disposal", async () => {
+  it("atomically precompiles each reachable drawable against its real target scene and restores visibility", async () => {
     const renderer = fakeRenderer();
     const backend = adapter(renderer);
     const traverse = vi.fn(() => { throw new Error("scene.traverse must not be invoked"); });
-    const scene = { children: [{}], traverse };
+    const drawable = directDrawable();
+    const scene = { ...directScene(drawable), traverse };
+    const camera = directCamera();
+    const compileAsync = vi.fn(async (
+      object: unknown,
+      observedCamera: unknown,
+      targetScene: unknown,
+    ) => {
+      expect(object).toBe(drawable);
+      expect(observedCamera).toBe(camera);
+      expect(targetScene).toBe(scene);
+      expect(drawable).toMatchObject({
+        visible: true,
+        frustumCulled: false,
+        layers: { mask: 1 },
+        material: { visible: true },
+      });
+      renderer.calls.push("compile");
+    });
+    renderer.compileAsync = compileAsync;
     const passes: RenderPass[] = [
-      { name: "warmup", kind: "warmup" },
-      { name: "scene", kind: "scene", scene, camera: {} },
+      { name: "caller-authored-name-is-not-a-descriptor", kind: "scene", scene, camera },
     ];
     await backend.initialize({ viewport });
-    await backend.precompile(passes);
+    await expect(backend.precompile(passes, IMMEDIATE_COMPILE_RUNNER)).resolves.toMatchObject({
+      plannedSteps: 1,
+      completedSteps: 1,
+      phaseCounts: { "runtime-object": 1 },
+    });
+    expect(drawable).toMatchObject({
+      visible: false,
+      frustumCulled: true,
+      layers: { mask: 2 },
+      material: { visible: false },
+    });
+    expect(compileAsync).toHaveBeenCalledOnce();
     await backend.render(passes);
     expect(backend.snapshotResources()).toMatchObject({
       geometries: 2,
@@ -987,7 +1168,7 @@ describe("GFX-002 Three backend adapter", () => {
       resourceCounterProvenance: "live-renderer-info",
       rendererMemoryComplete: true,
       rendererMemory: { geometries: 2, programs: 2, totalBytes: 4096 },
-      appOwnership: { renderPasses: 2, sceneObjects: 2, eventSubscribers: 0 },
+      appOwnership: { renderPasses: 1, sceneObjects: 2, eventSubscribers: 0 },
     });
     expect(traverse).not.toHaveBeenCalled();
     expect(renderer.calls).toEqual([
@@ -1029,6 +1210,266 @@ describe("GFX-002 Three backend adapter", () => {
         subscribers: 0,
       },
     });
+  });
+
+  it.each(["success", "compile failure"] as const)(
+    "isolates nested direct compile roots and restores every visibility descriptor on %s",
+    async (outcome) => {
+      const renderer = fakeRenderer();
+      const grandchild = directDrawable();
+      const child = directDrawable({ children: [grandchild] });
+      const parent = directDrawable({ children: [child] });
+      const scene = directScene(parent);
+      const camera = directCamera();
+      const nodes = [parent, child, grandchild] as const;
+      const originalVisible = nodes.map((node) => (
+        Object.getOwnPropertyDescriptor(node, "visible")
+      ));
+      const originalChildren = nodes.map((node) => node.children);
+      const observedRoots: object[][] = [];
+      const compileFailure = new Error("nested grandchild compile failed");
+      const compileAsync = vi.fn(async (
+        selected: unknown,
+        observedCamera: unknown,
+        targetScene: unknown,
+      ) => {
+        expect(observedCamera).toBe(camera);
+        expect(targetScene).toBe(scene);
+        const selectedRoot = selected as typeof parent;
+        expect(selectedRoot).toMatchObject({
+          visible: true,
+          frustumCulled: false,
+          layers: { mask: 1 },
+          material: { visible: true },
+        });
+        const visibleRoots: object[] = [];
+        const visitVisible = (current: typeof parent) => {
+          if (current.visible !== true) return;
+          visibleRoots.push(current);
+          for (const nested of current.children as typeof nodes[number][]) {
+            visitVisible(nested);
+          }
+        };
+        visitVisible(selectedRoot);
+        observedRoots.push(visibleRoots);
+        if (outcome === "compile failure" && selectedRoot === grandchild) {
+          throw compileFailure;
+        }
+      });
+      renderer.compileAsync = compileAsync;
+      const backend = adapter(renderer);
+      await backend.initialize({ viewport });
+
+      const precompile = backend.precompile([{
+        name: "nested-atomicity",
+        kind: "scene",
+        scene,
+        camera,
+      }], IMMEDIATE_COMPILE_RUNNER);
+      if (outcome === "compile failure") {
+        await expect(precompile).rejects.toBe(compileFailure);
+      } else {
+        await expect(precompile).resolves.toMatchObject({
+          plannedSteps: 3,
+          completedSteps: 3,
+        });
+      }
+
+      expect(compileAsync).toHaveBeenCalledTimes(3);
+      expect(compileAsync.mock.calls.map((call) => call[0])).toEqual(nodes);
+      expect(observedRoots).toEqual([[parent], [child], [grandchild]]);
+      for (let index = 0; index < nodes.length; index += 1) {
+        expect(Object.getOwnPropertyDescriptor(nodes[index], "visible"))
+          .toEqual(originalVisible[index]);
+        expect(nodes[index].children).toBe(originalChildren[index]);
+      }
+      await backend.dispose();
+    },
+  );
+
+  it("rejects sparse, accessor, hostile, and over-budget direct child inventories before runner work", async () => {
+    const renderer = fakeRenderer();
+    const backend = adapter(renderer);
+    const runner = vi.fn<RenderCompileStepRunner["run"]>();
+    const compileRunner: RenderCompileStepRunner = {
+      async run(descriptor, operation): Promise<void> {
+        runner(descriptor, operation);
+        await operation();
+      },
+    };
+    await backend.initialize({ viewport });
+
+    const sparseChildren = new Array<unknown>(1);
+    await expect(backend.precompile([{
+      name: "sparse-children",
+      kind: "scene",
+      scene: directScene(directDrawable({ children: sparseChildren })),
+      camera: directCamera(),
+    }], compileRunner)).rejects.toThrow(/dense data entries/);
+
+    const childGetter = vi.fn(() => directDrawable());
+    const accessorChildren: unknown[] = [];
+    Object.defineProperty(accessorChildren, "0", {
+      configurable: true,
+      get: childGetter,
+    });
+    accessorChildren.length = 1;
+    await expect(backend.precompile([{
+      name: "accessor-children",
+      kind: "scene",
+      scene: directScene(directDrawable({ children: accessorChildren })),
+      camera: directCamera(),
+    }], compileRunner)).rejects.toThrow(/dense data entries/);
+    expect(childGetter).not.toHaveBeenCalled();
+
+    const visibilityGetter = vi.fn(() => true);
+    const hostileChild = directDrawable();
+    Object.defineProperty(hostileChild, "visible", {
+      configurable: true,
+      get: visibilityGetter,
+    });
+    await expect(backend.precompile([{
+      name: "hostile-child-visibility",
+      kind: "scene",
+      scene: directScene(directDrawable({ children: [hostileChild] })),
+      camera: directCamera(),
+    }], compileRunner)).rejects.toThrow(/visible must be an own writable data property/);
+    expect(visibilityGetter).not.toHaveBeenCalled();
+
+    const repeatedChild = directDrawable();
+    await expect(backend.precompile([{
+      name: "over-budget-children",
+      kind: "scene",
+      scene: directScene(directDrawable({
+        children: Array.from({ length: 8_193 }, () => repeatedChild),
+      })),
+      camera: directCamera(),
+    }], compileRunner)).rejects.toThrow(/bounded child-root inventory/);
+    expect(runner).not.toHaveBeenCalled();
+    expect(renderer.calls).not.toContain("compile");
+    await backend.dispose();
+  });
+
+  it.each([null, undefined, -0, Number.NaN])(
+    "restores direct compile state and propagates a %s throw exactly",
+    async (failure) => {
+      const renderer = fakeRenderer();
+      const drawable = directDrawable();
+      renderer.compileAsync = async () => { throw failure; };
+      const backend = adapter(renderer);
+      await backend.initialize({ viewport });
+
+      await expect(backend.precompile([{
+        name: "ignored-caller-name",
+        kind: "scene",
+        scene: directScene(drawable),
+        camera: directCamera(),
+      }], IMMEDIATE_COMPILE_RUNNER)).rejects.toBe(failure);
+      expect(drawable).toMatchObject({
+        visible: false,
+        frustumCulled: true,
+        layers: { mask: 2 },
+        material: { visible: false },
+      });
+      await backend.dispose();
+    },
+  );
+
+  it.each([
+    ["multi-material", { material: [{ visible: true }, { visible: true }] }],
+    ["sparse geometry groups", { geometry: { groups: new Array(1) } }],
+    ["LineLoop", { isLineLoop: true }],
+  ])("fails closed on unsupported direct %s topology before runner work", async (_label, override) => {
+    const renderer = fakeRenderer();
+    const backend = adapter(renderer);
+    let runnerCalls = 0;
+    const runner: RenderCompileStepRunner = {
+      async run(_descriptor, operation): Promise<void> {
+        runnerCalls += 1;
+        await operation();
+      },
+    };
+    await backend.initialize({ viewport });
+
+    await expect(backend.precompile([{
+      name: "unsupported",
+      kind: "scene",
+      scene: directScene(directDrawable(override)),
+      camera: directCamera(),
+    }], runner)).rejects.toThrow(/does not support|dense data entries/);
+    expect(runnerCalls).toBe(0);
+    expect(renderer.calls).not.toContain("compile");
+    await backend.dispose();
+  });
+
+  it("accepts bounded dense scalar-material geometry groups as one compile step", async () => {
+    const renderer = fakeRenderer();
+    const backend = adapter(renderer);
+    const drawable = directDrawable({ geometry: { groups: [{}, {}, {}] } });
+    await backend.initialize({ viewport });
+
+    await expect(backend.precompile([{
+      name: "scalar-grouped-geometry",
+      kind: "scene",
+      scene: directScene(drawable),
+      camera: directCamera(),
+    }], IMMEDIATE_COMPILE_RUNNER)).resolves.toMatchObject({
+      plannedSteps: 1,
+      completedSteps: 1,
+    });
+    expect(renderer.calls.filter((call) => call === "compile")).toHaveLength(1);
+    await backend.dispose();
+  });
+
+  it("captures compileAsync once before runner work and ignores later method/prototype poisoning", async () => {
+    const renderer = fakeRenderer();
+    const calls: unknown[] = [];
+    const originalPop = Array.prototype.pop;
+    renderer.compileAsync = async (object) => {
+      calls.push(object);
+      renderer.compileAsync = async () => { throw new Error("mutated compileAsync invoked"); };
+      Array.prototype.pop = () => { throw new Error("poisoned pop invoked"); };
+    };
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+    try {
+      await expect(backend.precompile([{
+        name: "two-drawables",
+        kind: "scene",
+        scene: directScene(directDrawable(), directDrawable()),
+        camera: directCamera(),
+      }], IMMEDIATE_COMPILE_RUNNER)).resolves.toMatchObject({
+        plannedSteps: 2,
+        completedSteps: 2,
+      });
+      expect(calls).toHaveLength(2);
+    } finally {
+      Array.prototype.pop = originalPop;
+      await backend.dispose();
+    }
+  });
+
+  it("rejects accessor-backed compileAsync without invoking the getter", async () => {
+    const renderer = fakeRenderer();
+    let getterCalls = 0;
+    Object.defineProperty(renderer, "compileAsync", {
+      configurable: true,
+      get() {
+        getterCalls += 1;
+        return async () => undefined;
+      },
+    });
+    const backend = adapter(renderer);
+    await backend.initialize({ viewport });
+
+    await expect(backend.precompile([{
+      name: "accessor-renderer",
+      kind: "scene",
+      scene: directScene(directDrawable()),
+      camera: directCamera(),
+    }], IMMEDIATE_COMPILE_RUNNER)).rejects.toThrow(/compileAsync must be a data property/);
+    expect(getterCalls).toBe(0);
+    await backend.dispose();
   });
 
   it("returns unavailable nested telemetry without recursion during live and disposal sampling", async () => {
@@ -1272,7 +1713,10 @@ describe("GFX-002 Three backend adapter", () => {
     const rejectedRender = backend.render([replacementPass]).catch(
       (error: unknown) => error,
     );
-    const rejectedPrecompile = backend.precompile([replacementPass]).catch(
+    const rejectedPrecompile = backend.precompile(
+      [replacementPass],
+      IMMEDIATE_COMPILE_RUNNER,
+    ).catch(
       (error: unknown) => error,
     );
     const rejectedResize = backend.resize({ width: 900, height: 600, pixelRatio: 2 }).catch(
@@ -1458,7 +1902,10 @@ describe("GFX-002 Three backend adapter", () => {
             (error: unknown) => error,
           );
           renderFailure = backend.render([]).catch((error: unknown) => error);
-          precompileFailure = backend.precompile([]).catch((error: unknown) => error);
+          precompileFailure = backend.precompile(
+            [],
+            IMMEDIATE_COMPILE_RUNNER,
+          ).catch((error: unknown) => error);
           backend.subscribeEvents(lateListener);
           backend.diagnostics.emitRendererError(diagnosticFailure);
         }
@@ -1539,10 +1986,15 @@ describe("GFX-002 Three backend adapter", () => {
       renderer.calls.push("render.end");
     };
     const backend = adapter(renderer);
-    const pass = { name: "scene", kind: "scene", scene: {}, camera: {} };
+    const pass = {
+      name: "scene",
+      kind: "scene",
+      scene: directScene(directDrawable()),
+      camera: directCamera(),
+    };
     await backend.initialize({ viewport });
 
-    const compiling = backend.precompile([pass]);
+    const compiling = backend.precompile([pass], IMMEDIATE_COMPILE_RUNNER);
     const rendering = backend.render([pass]);
     await vi.waitFor(() => {
       expect(renderer.calls).toContain("compile.start");
@@ -1589,7 +2041,7 @@ describe("GFX-002 Three backend adapter", () => {
     );
   });
 
-  it("drains an asynchronous pipeline resize before pipeline and renderer disposal", async () => {
+  it("fails closed with one retryable disposal rejection during an unsettled pipeline resize", async () => {
     const renderer = fakeRenderer();
     let releaseResize!: () => void;
     const resizeGate = new Promise<void>((resolve) => { releaseResize = resolve; });
@@ -1600,7 +2052,9 @@ describe("GFX-002 Three backend adapter", () => {
 
     const resizing = backend.resize({ width: 900, height: 600, pixelRatio: 2 });
     await vi.waitFor(() => expect(log).toContain("pipeline.resize:900x600"));
-    await expect(backend.precompile([])).rejects.toThrow(/resize is pending/);
+    await expect(backend.precompile([], IMMEDIATE_COMPILE_RUNNER)).rejects.toThrow(
+      /resize is pending/,
+    );
     await expect(backend.render([])).rejects.toThrow(/resize is pending/);
     await expect(
       backend.resize({ width: 1024, height: 576, pixelRatio: 1.25 }),
@@ -1615,13 +2069,27 @@ describe("GFX-002 Three backend adapter", () => {
       renderCalls: 0,
       resizeCalls: 1,
     });
-    const disposal = backend.dispose();
+    const blockedDisposal = backend.dispose();
+    const concurrentBlockedDisposal = backend.dispose();
+    expect(concurrentBlockedDisposal).toBe(blockedDisposal);
+    await expect(blockedDisposal).rejects.toThrow(/pipeline callback is unsettled; retry/);
+    await expect(concurrentBlockedDisposal).rejects.toThrow(/pipeline callback is unsettled; retry/);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "ready",
+      disposeCalls: 0,
+      rendererDisposeInvoked: false,
+      backendDisposeInvoked: false,
+    });
     expect(pipeline.dispose).not.toHaveBeenCalled();
     expect(renderer.disposed).toBe(false);
 
     releaseResize();
     await Promise.all([resizing, joinedResize]);
-    await disposal;
+    const terminalDisposal = backend.dispose();
+    expect(terminalDisposal).not.toBe(blockedDisposal);
+    await expectPipelineDisposalRetryWindow(backend, terminalDisposal);
+    await terminalDisposal;
+    expect(backend.dispose()).toBe(terminalDisposal);
     expect(log.indexOf("pipeline.resize.done")).toBeLessThan(log.indexOf("pipeline.dispose"));
     expect(pipeline.dispose).toHaveBeenCalledOnce();
     expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
@@ -1632,7 +2100,7 @@ describe("GFX-002 Three backend adapter", () => {
     });
   });
 
-  it("drains a rejected pipeline resize before terminal renderer cleanup", async () => {
+  it("requires a disposal retry after a rejected asynchronous pipeline resize settles", async () => {
     const renderer = fakeRenderer();
     let rejectResize!: (reason?: unknown) => void;
     const resizeGate = new Promise<void>((_resolve, reject) => { rejectResize = reject; });
@@ -1643,11 +2111,25 @@ describe("GFX-002 Three backend adapter", () => {
 
     const resizing = backend.resize({ width: 900, height: 600, pixelRatio: 2 });
     await vi.waitFor(() => expect(log).toContain("pipeline.resize:900x600"));
-    const disposal = backend.dispose();
+    const blockedDisposal = backend.dispose();
+    const concurrentBlockedDisposal = backend.dispose();
+    expect(concurrentBlockedDisposal).toBe(blockedDisposal);
     rejectResize(new Error("pipeline resize rejected"));
 
     await expect(resizing).rejects.toThrow("pipeline resize rejected");
-    await expect(disposal).resolves.toBeUndefined();
+    await expect(blockedDisposal).rejects.toThrow(/pipeline callback is unsettled; retry/);
+    await expect(concurrentBlockedDisposal).rejects.toThrow(/pipeline callback is unsettled; retry/);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "ready",
+      disposeCalls: 0,
+      rendererDisposeInvoked: false,
+      backendDisposeInvoked: false,
+    });
+    const terminalDisposal = backend.dispose();
+    expect(terminalDisposal).not.toBe(blockedDisposal);
+    await expectPipelineDisposalRetryWindow(backend, terminalDisposal);
+    await expect(terminalDisposal).resolves.toBeUndefined();
+    expect(backend.dispose()).toBe(terminalDisposal);
     expect(pipeline.dispose).toHaveBeenCalledOnce();
     expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
     expect(renderer.calls).not.toContain("pixelRatio:2");
@@ -1683,6 +2165,58 @@ describe("GFX-002 Three backend adapter", () => {
     expect(vi.mocked(pipeline.resize)).toHaveBeenCalledTimes(2);
     expect(renderer.calls).toContain("pixelRatio:2");
     await expect(backend.dispose()).resolves.toBeUndefined();
+  });
+
+  it("breaks post-yield pipeline resize disposal reentry without claiming cleanup", async () => {
+    const renderer = fakeRenderer();
+    const log: string[] = [];
+    const pipeline = fakePipeline(log);
+    const ownerAttemptReady = deferredVoid();
+    const holder: { backend?: ThreeRenderBackendAdapter } = {};
+    let ownerDisposal: Promise<void> | null = null;
+    vi.mocked(pipeline.resize).mockImplementationOnce(async () => {
+      await 0;
+      ownerDisposal = holder.backend!.dispose();
+      ownerAttemptReady.resolve();
+      await ownerDisposal;
+    });
+    const backend = adapter(renderer, "forced-webgl2", pipeline);
+    holder.backend = backend;
+    await backend.initialize({ viewport });
+    const resized = { width: 900, height: 600, pixelRatio: 2 } as const;
+
+    const resizing = backend.resize(resized);
+    await ownerAttemptReady.promise;
+    const ambiguousExternalDisposal = backend.dispose();
+    expect(ambiguousExternalDisposal).toBe(ownerDisposal);
+    await expect(ownerDisposal).rejects.toThrow(/pipeline callback is unsettled; retry/);
+    await expect(ambiguousExternalDisposal).rejects.toThrow(
+      /pipeline callback is unsettled; retry/,
+    );
+    await expect(resizing).rejects.toThrow(/pipeline callback is unsettled; retry/);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "ready",
+      resizeCalls: 1,
+      disposeCalls: 0,
+      rendererDisposeInvoked: false,
+      backendDisposeInvoked: false,
+    });
+    expect(pipeline.dispose).not.toHaveBeenCalled();
+    expect(renderer.disposed).toBe(false);
+    expect(renderer.calls).not.toContain("pixelRatio:2");
+
+    await expect(backend.resize({ ...resized })).resolves.toBeUndefined();
+    expect(pipeline.resize).toHaveBeenCalledTimes(2);
+    expect(renderer.calls).toContain("pixelRatio:2");
+    const terminalDisposal = backend.dispose();
+    expect(terminalDisposal).not.toBe(ownerDisposal);
+    await expectPipelineDisposalRetryWindow(backend, terminalDisposal);
+    await expect(terminalDisposal).resolves.toBeUndefined();
+    expect(backend.dispose()).toBe(terminalDisposal);
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle().state).toBe("disposed");
   });
 
   it("rejects a pipeline callback that reenters the same backend resize transaction", async () => {
@@ -1750,7 +2284,10 @@ describe("GFX-002 Three backend adapter", () => {
       get: nestedWidthGetter,
     });
     const widthGetter = vi.fn(() => {
-      reentrantFailures.push(backend.precompile([pass]).catch((error: unknown) => error));
+      reentrantFailures.push(backend.precompile(
+        [pass],
+        IMMEDIATE_COMPILE_RUNNER,
+      ).catch((error: unknown) => error));
       reentrantFailures.push(backend.render([pass]).catch((error: unknown) => error));
       reentrantFailures.push(
         backend.resize(nestedViewport as unknown as typeof viewport)
@@ -1806,7 +2343,9 @@ describe("GFX-002 Three backend adapter", () => {
       precompileCalls: 0,
       renderCalls: 0,
     });
-    await expect(backend.precompile([])).resolves.toBeUndefined();
+    await expect(backend.precompile([], IMMEDIATE_COMPILE_RUNNER)).resolves.toEqual(
+      EMPTY_PRECOMPILE_RECEIPT,
+    );
     await expect(backend.resize({ width: 900, height: 600, pixelRatio: 2 })).resolves.toBeUndefined();
     expect(backend.snapshotLifecycle()).toMatchObject({
       state: "ready",
@@ -1816,24 +2355,156 @@ describe("GFX-002 Three backend adapter", () => {
     await backend.dispose();
   });
 
+  it.each([
+    ["render", "scene"],
+    ["precompile", "camera"],
+  ] as const)(
+    "fails closed when a %s pass/%s getter requests disposal during capture",
+    async (kind, hostileField) => {
+      const renderer = fakeRenderer();
+      const log: string[] = [];
+      const pipeline = fakePipeline(log);
+      const backend = adapter(renderer, "forced-webgl2", pipeline);
+      await backend.initialize({ viewport });
+      const disposalAttempts: Promise<void>[] = [];
+      const requestDispose = vi.fn(() => {
+        const attempt = backend.dispose();
+        disposalAttempts.push(attempt);
+        return attempt;
+      });
+      const pass = {
+        name: "world",
+        kind: "scene",
+        scene: {},
+        camera: {},
+      } as Record<string, unknown>;
+      Object.defineProperty(pass, hostileField, {
+        configurable: true,
+        enumerable: true,
+        get() {
+          requestDispose();
+          return {};
+        },
+      });
+      const passes: RenderPass[] = [];
+      const passGetter = vi.fn(() => {
+        requestDispose();
+        return pass as unknown as RenderPass;
+      });
+      Object.defineProperty(passes, "0", {
+        configurable: true,
+        enumerable: true,
+        get: passGetter,
+      });
+      passes.length = 1;
+
+      const operation = kind === "render"
+        ? backend.render(passes)
+        : backend.precompile(passes, IMMEDIATE_COMPILE_RUNNER);
+      expect(passGetter).toHaveBeenCalledOnce();
+      expect(requestDispose).toHaveBeenCalledTimes(2);
+      expect(disposalAttempts[1]).toBe(disposalAttempts[0]);
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: "disposing",
+        precompileCalls: 0,
+        renderCalls: 0,
+        appOwnership: { renderPasses: 0 },
+      });
+      expect(pipeline.precompile).not.toHaveBeenCalled();
+      expect(pipeline.submit).not.toHaveBeenCalled();
+      expect(renderer.calls).not.toContain("compile");
+      expect(renderer.calls).not.toContain("render");
+
+      await expect(operation).rejects.toThrow(/after disposal was requested|while disposing/);
+      const sameDisposal = backend.dispose();
+      expect(sameDisposal).toBe(disposalAttempts[0]);
+      await expect(sameDisposal).resolves.toBeUndefined();
+      expect(pipeline.precompile).not.toHaveBeenCalled();
+      expect(pipeline.submit).not.toHaveBeenCalled();
+      expect(pipeline.dispose).toHaveBeenCalledOnce();
+      expect(renderer.calls).not.toContain("compile");
+      expect(renderer.calls).not.toContain("render");
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: "disposed",
+        disposeCalls: 3,
+        precompileCalls: 0,
+        renderCalls: 0,
+        rendererDisposeCompleted: true,
+        appOwnership: { renderPasses: 0 },
+      });
+    },
+  );
+
+  it.each(["render", "precompile"] as const)(
+    "releases the %s reservation after pass capture throws so resize remains available",
+    async (kind) => {
+      const renderer = fakeRenderer();
+      const log: string[] = [];
+      const pipeline = fakePipeline(log);
+      const backend = adapter(renderer, "forced-webgl2", pipeline);
+      await backend.initialize({ viewport });
+      const captureFailure = new Error(`${kind} pass capture failed`);
+      const passes: RenderPass[] = [];
+      Object.defineProperty(passes, "0", {
+        configurable: true,
+        enumerable: true,
+        get() {
+          throw captureFailure;
+        },
+      });
+      passes.length = 1;
+
+      const operation = kind === "render"
+        ? backend.render(passes)
+        : backend.precompile(passes, IMMEDIATE_COMPILE_RUNNER);
+      await expect(operation).rejects.toBe(captureFailure);
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: "ready",
+        resizeCalls: 0,
+        precompileCalls: 0,
+        renderCalls: 0,
+        appOwnership: { renderPasses: 0 },
+      });
+      expect(pipeline.precompile).not.toHaveBeenCalled();
+      expect(pipeline.submit).not.toHaveBeenCalled();
+
+      await expect(
+        backend.resize({ width: 900, height: 600, pixelRatio: 2 }),
+      ).resolves.toBeUndefined();
+      expect(pipeline.resize).toHaveBeenCalledOnce();
+      expect(renderer.calls).toContain("pixelRatio:2");
+      expect(renderer.calls).toContain("size:900x600");
+      expect(backend.snapshotLifecycle()).toMatchObject({
+        state: "ready",
+        resizeCalls: 1,
+        precompileCalls: 0,
+        renderCalls: 0,
+      });
+      await backend.dispose();
+    },
+  );
+
   it("rejects a pipeline callback that reenters backend precompile", async () => {
     const renderer = fakeRenderer();
     const log: string[] = [];
     const pipeline = fakePipeline(log);
     const holder: { backend?: ThreeRenderBackendAdapter } = {};
     vi.mocked(pipeline.precompile).mockImplementationOnce(async () => {
-      await holder.backend!.precompile([]);
+      await holder.backend!.precompile([], IMMEDIATE_COMPILE_RUNNER);
+      return EMPTY_PRECOMPILE_RECEIPT;
     });
     const backend = adapter(renderer, "forced-webgl2", pipeline);
     holder.backend = backend;
     await backend.initialize({ viewport });
     const pass: RenderPass = { name: "world", kind: "scene", scene: {}, camera: {} };
 
-    await expect(backend.precompile([pass])).rejects.toThrow(
+    await expect(backend.precompile([pass], IMMEDIATE_COMPILE_RUNNER)).rejects.toThrow(
       /precompile Three backend reentrantly from a pipeline callback/,
     );
     expect(backend.snapshotLifecycle()).toMatchObject({ state: "ready", precompileCalls: 1 });
-    await expect(backend.precompile([pass])).resolves.toBeUndefined();
+    await expect(backend.precompile([pass], IMMEDIATE_COMPILE_RUNNER)).resolves.toEqual(
+      EMPTY_PRECOMPILE_RECEIPT,
+    );
     expect(vi.mocked(pipeline.precompile)).toHaveBeenCalledTimes(2);
     await backend.dispose();
   });
@@ -1892,6 +2563,76 @@ describe("GFX-002 Three backend adapter", () => {
     expect(vi.mocked(pipeline.dispose)).toHaveBeenCalledTimes(2);
     expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
     expect(backend.snapshotLifecycle().state).toBe("disposed");
+  });
+
+  it("breaks a post-yield pipeline disposer cycle and retries only retained cleanup", async () => {
+    const renderer = fakeRenderer("webgpu");
+    const log: string[] = [];
+    const pipeline = fakePipeline(log);
+    const ownerAttemptReady = deferredVoid();
+    const holder: { backend?: ThreeRenderBackendAdapter } = {};
+    let ownerDisposal: Promise<void> | null = null;
+    vi.mocked(pipeline.dispose).mockImplementationOnce(async () => {
+      await 0;
+      ownerDisposal = holder.backend!.dispose();
+      ownerAttemptReady.resolve();
+      await ownerDisposal;
+    });
+    const backend = adapter(renderer, "webgpu-preferred", pipeline);
+    holder.backend = backend;
+    await backend.initialize({ viewport });
+
+    const terminalOwner = backend.dispose();
+    const terminalFailure = terminalOwner.catch((error: unknown) => error);
+    const blockedDuringCleanup = backend.dispose();
+    const blockedDuringCleanupFailure = blockedDuringCleanup.catch(
+      (error: unknown) => error,
+    );
+    expect(blockedDuringCleanup).not.toBe(terminalOwner);
+    await ownerAttemptReady.promise;
+    const ambiguousExternalDisposal = backend.dispose();
+    expect(ambiguousExternalDisposal).toBe(ownerDisposal);
+    expect(ambiguousExternalDisposal).toBe(blockedDuringCleanup);
+    expect(ambiguousExternalDisposal).not.toBe(terminalOwner);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "disposing",
+      disposeCalls: 1,
+      rendererDisposeInvoked: false,
+      backendDisposeInvoked: false,
+    });
+    await expect(blockedDuringCleanupFailure).resolves.toMatchObject({
+      message: expect.stringMatching(/pipeline callback is unsettled; retry/),
+    });
+    await expect(ownerDisposal).rejects.toThrow(/pipeline callback is unsettled; retry/);
+    await expect(ambiguousExternalDisposal).rejects.toThrow(
+      /pipeline callback is unsettled; retry/,
+    );
+    await expect(terminalFailure).resolves.toMatchObject({
+      message: expect.stringMatching(/pipeline callback is unsettled; retry/),
+    });
+    expect(pipeline.dispose).toHaveBeenCalledOnce();
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "failed",
+      rendererDisposeCompleted: true,
+      backendDisposeCompleted: true,
+    });
+
+    const retryOwner = backend.dispose();
+    expect(retryOwner).not.toBe(terminalOwner);
+    expect(retryOwner).not.toBe(ownerDisposal);
+    await expectPipelineDisposalRetryWindow(backend, retryOwner);
+    await expect(retryOwner).resolves.toBeUndefined();
+    expect(backend.dispose()).toBe(retryOwner);
+    expect(pipeline.dispose).toHaveBeenCalledTimes(2);
+    expect(renderer.calls.filter((call) => call === "dispose")).toHaveLength(1);
+    expect(renderer.calls.filter((call) => call === "backend.dispose")).toHaveLength(1);
+    expect(backend.snapshotLifecycle()).toMatchObject({
+      state: "disposed",
+      rendererDisposeCompleted: true,
+      backendDisposeCompleted: true,
+    });
   });
 
   it("drains a resize that requests disposal before touching the renderer again", async () => {
@@ -2339,8 +3080,18 @@ describe("GFX-002 Three backend adapter", () => {
       if (renderCalls === 1) renderer.onError(renderError);
     };
     const passes: RenderPass[] = [
-      { name: "first", kind: "scene", scene: {}, camera: {} },
-      { name: "second", kind: "scene", scene: {}, camera: {} },
+      {
+        name: "first",
+        kind: "scene",
+        scene: directScene(directDrawable()),
+        camera: directCamera(),
+      },
+      {
+        name: "second",
+        kind: "scene",
+        scene: directScene(directDrawable()),
+        camera: directCamera(),
+      },
     ];
     await backend.initialize({ viewport });
 
@@ -2359,12 +3110,22 @@ describe("GFX-002 Three backend adapter", () => {
       if (compileCalls === 1) renderer.onDeviceLost(deviceLoss);
     };
     const passes: RenderPass[] = [
-      { name: "first", kind: "scene", scene: {}, camera: {} },
-      { name: "second", kind: "scene", scene: {}, camera: {} },
+      {
+        name: "first",
+        kind: "scene",
+        scene: directScene(directDrawable()),
+        camera: directCamera(),
+      },
+      {
+        name: "second",
+        kind: "scene",
+        scene: directScene(directDrawable()),
+        camera: directCamera(),
+      },
     ];
     await backend.initialize({ viewport });
 
-    await expect(backend.precompile(passes)).rejects.toBe(deviceLoss);
+    await expect(backend.precompile(passes, IMMEDIATE_COMPILE_RUNNER)).rejects.toBe(deviceLoss);
     expect(compileCalls).toBe(1);
     await backend.dispose();
   });
@@ -2377,7 +3138,7 @@ describe("GFX-002 Three backend adapter", () => {
     renderer.onError(failure);
 
     await expect(backend.render([])).rejects.toBe(failure);
-    await expect(backend.precompile([])).rejects.toBe(failure);
+    await expect(backend.precompile([], IMMEDIATE_COMPILE_RUNNER)).rejects.toBe(failure);
     expect(backend.snapshotLifecycle()).toMatchObject({
       renderCalls: 0,
       precompileCalls: 0,
@@ -2796,14 +3557,14 @@ describe("GFX-002 Three backend adapter", () => {
       await backend.initialize({ viewport });
 
       const firstAttempt = backend.dispose();
-      expect(backend.dispose(), `${label} concurrent first attempt`).toBe(firstAttempt);
+      await expectPipelineDisposalRetryWindow(backend, firstAttempt);
       const firstFailure = await firstAttempt.catch((error: unknown) => error);
       expect(firstFailure, `${label} first aggregate`).not.toBeInstanceOf(AggregateError);
       expectBoundedFailureText(firstFailure);
 
       const terminalAttempt = backend.dispose();
       expect(terminalAttempt, `${label} retry identity`).not.toBe(firstAttempt);
-      expect(backend.dispose(), `${label} concurrent retry`).toBe(terminalAttempt);
+      await expectPipelineDisposalRetryWindow(backend, terminalAttempt);
       const terminalFailure = await terminalAttempt.catch((error: unknown) => error);
       expect(terminalFailure, `${label} terminal aggregate`).not.toBeInstanceOf(AggregateError);
       expectBoundedFailureText(terminalFailure);
@@ -4225,7 +4986,10 @@ describe("GFX-002 Three backend adapter", () => {
     const backend = adapter(renderer);
     await backend.initialize({ viewport });
 
-    await expect(backend.precompile([{ name: "valid", kind: " " }])).rejects.toThrow(
+    await expect(backend.precompile(
+      [{ name: "valid", kind: " " }],
+      IMMEDIATE_COMPILE_RUNNER,
+    )).rejects.toThrow(
       "A render pass requires non-empty name and kind fields.",
     );
 
@@ -4262,7 +5026,7 @@ describe("GFX-002 Three backend adapter", () => {
       get camera() { kindReads.push("camera"); return {}; },
       get payload() { kindReads.push("payload"); return {}; },
     } as RenderPass;
-    await expect(backend.precompile([invalidKind])).rejects.toThrow(
+    await expect(backend.precompile([invalidKind], IMMEDIATE_COMPILE_RUNNER)).rejects.toThrow(
       "A render pass requires non-empty name and kind fields.",
     );
     expect(kindReads).toEqual(["name", "kind"]);
@@ -4313,7 +5077,7 @@ describe("GFX-002 Three backend adapter", () => {
     await expect(backend.precompile([
       { name: "first", kind: "scene", scene: {}, camera: firstCamera },
       { name: "second", kind: "scene", scene: {}, camera: secondCamera },
-    ])).rejects.toBe(loss);
+    ], IMMEDIATE_COMPILE_RUNNER)).rejects.toBe(loss);
     expect(firstCamera.aspect).toBe(1);
     expect(secondProjection).not.toHaveBeenCalled();
     expect(renderer.calls).not.toContain("compile");
@@ -4344,7 +5108,10 @@ describe("GFX-002 Three backend adapter", () => {
     backend.diagnostics.emitDeviceLost(null);
 
     const first = await backend.render([]).catch((error: unknown) => error);
-    const second = await backend.precompile([]).catch((error: unknown) => error);
+    const second = await backend.precompile(
+      [],
+      IMMEDIATE_COMPILE_RUNNER,
+    ).catch((error: unknown) => error);
     expect(first).toBeInstanceOf(Error);
     expect(second).toBe(first);
     expect(backend.snapshotLifecycle()).toMatchObject({
@@ -4468,7 +5235,10 @@ describe("GFX-002 Three backend adapter", () => {
     };
     renderer.render = () => { renderer.calls.push("render"); };
     await backend.initialize({ viewport });
-    await backend.precompile([{ name: "a", kind: "scene", scene: {}, camera: cameraA }]);
+    await backend.precompile(
+      [{ name: "a", kind: "scene", scene: directScene(directDrawable()), camera: directCamera(cameraA) }],
+      IMMEDIATE_COMPILE_RUNNER,
+    );
 
     await backend.render([{ name: "b", kind: "scene", scene: {}, camera: cameraB }]);
 
@@ -4484,12 +5254,18 @@ describe("GFX-002 Three backend adapter", () => {
     const camera = {
       isPerspectiveCamera: true,
       aspect: 1,
+      layers: { mask: 1 },
       updateProjectionMatrix: vi.fn(() => renderer.calls.push("camera.update")),
     };
-    const pass = { name: "camera", kind: "scene", scene: {}, camera };
+    const pass = {
+      name: "camera",
+      kind: "scene",
+      scene: directScene(directDrawable()),
+      camera,
+    };
     renderer.render = () => { renderer.calls.push("render"); };
     await backend.initialize({ viewport });
-    await backend.precompile([pass]);
+    await backend.precompile([pass], IMMEDIATE_COMPILE_RUNNER);
     expect(camera.aspect).toBeCloseTo(800 / 450);
     camera.updateProjectionMatrix.mockClear();
     renderer.calls.length = 0;

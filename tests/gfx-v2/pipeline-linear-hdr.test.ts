@@ -1,9 +1,14 @@
 import {
   ACESFilmicToneMapping,
   BoxGeometry,
+  ColorManagement,
+  Group,
   HalfFloatType,
   Mesh,
   MeshStandardNodeMaterial,
+  NoToneMapping,
+  NodeUpdateType,
+  PassNode,
   PerspectiveCamera,
   RenderPipeline,
   Scene,
@@ -14,8 +19,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   RENDER_HISTORY_INVALIDATION_REASONS,
   type FeatureInitContext,
+  type RenderCompileStepDescriptor,
+  type RenderCompileStepPhase,
+  type RenderCompileStepRunner,
   type RenderHistoryInvalidation,
   type RenderPass,
+  type RenderPrecompileReceipt,
   type RenderQualityProfile,
   type RenderViewport,
 } from "../../src/gfx/v2/contracts";
@@ -48,12 +57,113 @@ function quality(
 }
 
 type FakeGraph = LinearHdrGraph & {
-  precompile: ReturnType<typeof vi.fn<() => Promise<number>>>;
+  precompile: ReturnType<typeof vi.fn<(
+    runner: RenderCompileStepRunner,
+  ) => Promise<Readonly<RenderPrecompileReceipt>>>>;
   setHistoryWeight: ReturnType<typeof vi.fn<(weight: number) => void | Promise<void>>>;
   resize: ReturnType<typeof vi.fn<(next: typeof viewport) => Promise<void>>>;
   render: ReturnType<typeof vi.fn<() => Promise<void>>>;
   dispose: ReturnType<typeof vi.fn<() => Promise<void>>>;
 };
+
+const immediateCompileRunner: RenderCompileStepRunner = Object.freeze({
+  async run(
+    descriptor: Readonly<RenderCompileStepDescriptor>,
+    operation: () => void | Promise<void>,
+  ): Promise<void> {
+    void descriptor;
+    await operation();
+  },
+});
+
+function precompile(
+  pipeline: ProductionLinearHdrPipeline,
+  passes: readonly Readonly<RenderPass>[],
+  runner: RenderCompileStepRunner = immediateCompileRunner,
+): Promise<Readonly<RenderPrecompileReceipt>> {
+  return pipeline.precompile(passes, runner);
+}
+
+function phaseCounts(
+  plan: readonly Readonly<RenderCompileStepDescriptor>[],
+): Readonly<Record<RenderCompileStepPhase, number>> {
+  const counts: Record<RenderCompileStepPhase, number> = {
+    "runtime-object": 0,
+    "material-isolated": 0,
+    "material-runtime-topology": 0,
+    "output-first-use": 0,
+  };
+  for (let index = 0; index < plan.length; index += 1) {
+    counts[plan[index]!.phase] += 1;
+  }
+  return Object.freeze(counts);
+}
+
+function harnessCompilePlan(
+  context: Readonly<LinearHdrGraphFactoryContext>,
+): readonly Readonly<RenderCompileStepDescriptor>[] {
+  const profileId = context.profile.id;
+  const plan: Readonly<RenderCompileStepDescriptor>[] = [];
+  for (let passIndex = 0; passIndex < context.passes.length; passIndex += 1) {
+    plan.push(Object.freeze({
+      id: `linear-hdr:${profileId}:runtime:p${passIndex}:o0`,
+      phase: "runtime-object",
+      profileId,
+    }));
+  }
+  for (let materialIndex = 0; materialIndex < context.materialWarmupPasses.length; materialIndex += 1) {
+    plan.push(Object.freeze({
+      id: `linear-hdr:${profileId}:material-isolated:m${materialIndex}`,
+      phase: "material-isolated",
+      profileId,
+    }));
+  }
+  for (let materialIndex = 0; materialIndex < context.materialWarmupPasses.length; materialIndex += 1) {
+    for (let topologyIndex = 0; topologyIndex < context.passes.length; topologyIndex += 1) {
+      plan.push(Object.freeze({
+        id: `linear-hdr:${profileId}:material-runtime:m${materialIndex}:t${topologyIndex}`,
+        phase: "material-runtime-topology",
+        profileId,
+      }));
+    }
+  }
+  plan.push(Object.freeze({
+    id: `linear-hdr:${profileId}:output:update`,
+    phase: "output-first-use",
+    profileId,
+  }));
+  plan.push(Object.freeze({
+    id: `linear-hdr:${profileId}:output:compile`,
+    phase: "output-first-use",
+    profileId,
+  }));
+  plan.push(Object.freeze({
+    id: `linear-hdr:${profileId}:output:draw`,
+    phase: "output-first-use",
+    profileId,
+  }));
+  return Object.freeze(plan);
+}
+
+async function completeHarnessCompilePlan(
+  context: Readonly<LinearHdrGraphFactoryContext>,
+  runner: RenderCompileStepRunner,
+  operation: (
+    descriptor: Readonly<RenderCompileStepDescriptor>,
+    index: number,
+  ) => void | Promise<void> = () => undefined,
+): Promise<Readonly<RenderPrecompileReceipt>> {
+  const plan = harnessCompilePlan(context);
+  for (let index = 0; index < plan.length; index += 1) {
+    const descriptor = plan[index]!;
+    await runner.run(descriptor, () => operation(descriptor, index));
+  }
+  return Object.freeze({
+    plannedSteps: plan.length,
+    completedSteps: plan.length,
+    phaseCounts: phaseCounts(plan),
+  });
+}
 
 function graphHarness(options: {
   failPrecompileAt?: number;
@@ -78,10 +188,10 @@ function graphHarness(options: {
       depthOwned: true,
       velocityOwned: context.profile.temporal,
       historyOwned: context.profile.temporal,
-      precompile: vi.fn(async () => {
+      precompile: vi.fn(async (runner: RenderCompileStepRunner) => {
         if (options.precompileGate?.index === index) await options.precompileGate.promise;
         if (options.failPrecompileAt === index) throw new Error(`precompile ${index} failed`);
-        return context.passes.length + context.materialWarmupPasses.length + 1;
+        return completeHarnessCompilePlan(context, runner);
       }),
       setHistoryWeight: vi.fn(),
       resize: vi.fn(async () => {
@@ -125,21 +235,44 @@ function topologyRenderer(programs = 0, failCompileAt?: number) {
   const targetDisposals = new WeakMap<object, ReturnType<typeof vi.fn>>();
   const compiled: Array<Readonly<{
     scene: unknown;
+    targetScene: unknown;
     target: unknown;
     mrt: unknown;
     meshCount: number;
+    fragmentNode: unknown;
+  }>> = [];
+  const rendered: Array<Readonly<{
+    scene: unknown;
+    camera: unknown;
+    target: unknown;
+    mrt: unknown;
+    autoClear: unknown;
+    transparent: unknown;
+    opaque: unknown;
+    toneMapping: unknown;
+    outputColorSpace: unknown;
+    xrEnabled: unknown;
+    visibleMeshCount: number;
   }>> = [];
   let compileCalls = 0;
   const raw = {
     toneMapping: ACESFilmicToneMapping,
     outputColorSpace: SRGBColorSpace,
     xr: { enabled: false },
+    autoClear: true,
+    transparent: true,
+    opaque: true,
+    contextNode: null as unknown,
     info: { memory: { programs } },
+    getOutputRenderTarget: vi.fn(() => null),
+    getDrawingBufferSize: vi.fn((target: { set(width: number, height: number): unknown }) => (
+      target.set(viewport.width, viewport.height)
+    )),
     getRenderTarget: vi.fn(() => renderTarget),
     getMRT: vi.fn(() => mrt),
     setRenderTarget: vi.fn((next: unknown) => { renderTarget = next; }),
     setMRT: vi.fn((next: unknown) => { mrt = next; }),
-    compileAsync: vi.fn(async (scene: unknown) => {
+    compileAsync: vi.fn(async (scene: unknown, _camera: unknown, targetScene: unknown) => {
       compileCalls += 1;
       let meshCount = 0;
       const traverse = (scene as { traverse?: (visit: (object: unknown) => void) => void })?.traverse;
@@ -153,16 +286,52 @@ function topologyRenderer(programs = 0, failCompileAt?: number) {
           .addEventListener("dispose", listener);
         targetDisposals.set(target, listener);
       }
-      compiled.push(Object.freeze({ scene, target: renderTarget, mrt, meshCount }));
+      const fragmentNode = (scene as { material?: { fragmentNode?: unknown } }).material?.fragmentNode;
+      compiled.push(Object.freeze({
+        scene,
+        targetScene,
+        target: renderTarget,
+        mrt,
+        meshCount,
+        fragmentNode,
+      }));
       raw.info.memory.programs += 1;
       if (compileCalls === failCompileAt) throw new Error("runtime topology compile failed");
     }),
-    render: vi.fn(),
+    render: vi.fn((scene: unknown, camera: unknown) => {
+      let visibleMeshCount = 0;
+      const traverse = (scene as { traverse?: (visit: (object: unknown) => void) => void })?.traverse;
+      traverse?.call(scene, (object: unknown) => {
+        const candidate = object as {
+          isMesh?: boolean;
+          visible?: boolean;
+          material?: { visible?: boolean };
+        };
+        if (
+          candidate.isMesh === true
+          && candidate.visible !== false
+          && candidate.material?.visible !== false
+        ) visibleMeshCount += 1;
+      });
+      rendered.push(Object.freeze({
+        scene,
+        camera,
+        target: renderTarget,
+        mrt,
+        autoClear: raw.autoClear,
+        transparent: raw.transparent,
+        opaque: raw.opaque,
+        toneMapping: raw.toneMapping,
+        outputColorSpace: raw.outputColorSpace,
+        xrEnabled: raw.xr.enabled,
+        visibleMeshCount,
+      }));
+    }),
   };
-  return { raw, compiled, targetDisposals } as const;
+  return { raw, compiled, rendered, targetDisposals } as const;
 }
 
-function containsNodeType(root: unknown, expected: string): boolean {
+function findNodeType(root: unknown, expected: string): object | undefined {
   const queue: unknown[] = [root];
   const seen = new Set<object>();
   for (let inspected = 0; queue.length > 0 && inspected < 512; inspected += 1) {
@@ -171,13 +340,17 @@ function containsNodeType(root: unknown, expected: string): boolean {
     const object = value as object;
     if (seen.has(object)) continue;
     seen.add(object);
-    if ((object as { constructor?: { name?: string } }).constructor?.name === expected) return true;
+    if ((object as { constructor?: { name?: string } }).constructor?.name === expected) return object;
     for (const key of Reflect.ownKeys(object).slice(0, 64)) {
       const descriptor = Object.getOwnPropertyDescriptor(object, key);
       if (descriptor && "value" in descriptor) queue.push(descriptor.value);
     }
   }
-  return false;
+  return undefined;
+}
+
+function containsNodeType(root: unknown, expected: string): boolean {
+  return findNodeType(root, expected) !== undefined;
 }
 
 function runtimePass(variant?: string): RenderPass {
@@ -217,11 +390,9 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const scene = new Scene();
     const camera = new PerspectiveCamera(50, 1, 0.1, 100);
     const profile = selectLinearHdrPipelineProfile("WebGPU", quality("high"));
+    const renderer = topologyRenderer().raw;
     const graph = createThreeLinearHdrGraph(Object.freeze({
-      renderer: {
-        toneMapping: ACESFilmicToneMapping,
-        outputColorSpace: SRGBColorSpace,
-      },
+      renderer,
       profile,
       materialWarmupPasses: Object.freeze([]),
       passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
@@ -293,9 +464,19 @@ describe("GFX-005 Linear HDR pipeline", () => {
       viewport,
     }));
 
-    await expect(graph.precompile()).resolves.toBe(4);
-    const materialCompile = probe.compiled.find((entry) => entry.scene === materialScene)!;
-    const runtimeCompiles = probe.compiled.filter((entry) => entry.scene === runtimeScene);
+    await expect(graph.precompile(immediateCompileRunner)).resolves.toEqual({
+      plannedSteps: 6,
+      completedSteps: 6,
+      phaseCounts: {
+        "runtime-object": 0,
+        "material-isolated": 1,
+        "material-runtime-topology": 1,
+        "output-first-use": 4,
+      },
+    });
+    const materialCompile = probe.compiled.find((entry) => entry.targetScene === materialScene)!;
+    const runtimeCompile = probe.compiled.find((entry) => entry.targetScene === runtimeScene)!;
+    const outputCompile = probe.compiled.find((entry) => entry.targetScene === undefined)!;
     const target = materialCompile.target as {
       texture: { type: number };
       textures: Array<{ name: string }>;
@@ -309,12 +490,16 @@ describe("GFX-005 Linear HDR pipeline", () => {
     expect(materialMrt.isMRTNode).toBe(true);
     expect(materialMrt.has("output")).toBe(true);
     expect(materialMrt.has("velocity")).toBe(true);
-    expect(runtimeCompiles.map((entry) => entry.meshCount)).toEqual([0, 1]);
-    expect(runtimeCompiles[1]?.target).toBe(runtimeCompiles[0]?.target);
-    expect(runtimeCompiles[1]?.mrt).toBe(runtimeCompiles[0]?.mrt);
+    expect([materialCompile.meshCount, runtimeCompile.meshCount, outputCompile.meshCount])
+      .toEqual([1, 1, 1]);
+    expect(materialCompile.scene).toBe(materialScene.children[0]);
+    expect(runtimeCompile.target).not.toBeNull();
+    expect(runtimeCompile.mrt).not.toBeNull();
+    expect(outputCompile).toMatchObject({ target: null, mrt: null });
+    expect(outputCompile.fragmentNode).toBeDefined();
     expect(runtimeScene.children).toEqual([]);
     expect(probe.targetDisposals.get(target as unknown as object)).toHaveBeenCalledOnce();
-    expect(probe.raw.render).toHaveBeenCalledOnce();
+    expect(probe.raw.render).toHaveBeenCalledTimes(2);
 
     await graph.dispose();
     geometry.dispose();
@@ -337,8 +522,8 @@ describe("GFX-005 Linear HDR pipeline", () => {
       viewport,
     }));
 
-    await graph.precompile();
-    const quad = probe.raw.render.mock.calls[0]?.[0] as {
+    await graph.precompile(immediateCompileRunner);
+    const quad = probe.raw.render.mock.calls.at(-1)?.[0] as {
       material?: { fragmentNode?: unknown };
     };
     expect(containsNodeType(quad.material?.fragmentNode, "FXAANode")).toBe(true);
@@ -352,7 +537,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const geometry = new BoxGeometry(1, 1, 1);
     const material = new MeshStandardNodeMaterial();
     materialScene.add(new Mesh(geometry, material));
-    const probe = topologyRenderer(0, 3);
+    const probe = topologyRenderer(0, 2);
     const graph = createThreeLinearHdrGraph(Object.freeze({
       renderer: probe.raw,
       profile: selectLinearHdrPipelineProfile("WebGL2", quality("low", false)),
@@ -368,10 +553,769 @@ describe("GFX-005 Linear HDR pipeline", () => {
       viewport,
     }));
 
-    await expect(graph.precompile()).rejects.toThrow(/Material topology warm-up failed/);
-    expect(probe.compiled.map((entry) => entry.meshCount)).toEqual([0, 1, 1]);
+    await expect(graph.precompile(immediateCompileRunner))
+      .rejects.toThrow(/Runtime material topology warm-up failed/);
+    expect(probe.compiled.map((entry) => entry.meshCount)).toEqual([1, 1]);
     expect(runtimeScene.children).toEqual([]);
     await graph.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("compiles one temporarily hidden drawable against its real scene and restores every gate", async () => {
+    const scene = new Scene();
+    const camera = new PerspectiveCamera(50, 1, 0.1, 100);
+    camera.layers.set(3);
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    material.visible = false;
+    const mesh = new Mesh(geometry, material);
+    mesh.visible = false;
+    mesh.frustumCulled = true;
+    mesh.layers.set(6);
+    scene.add(mesh);
+    const probe = topologyRenderer();
+    const priorTarget = Object.freeze({ id: "prior-target" });
+    const priorMrt = Object.freeze({ id: "prior-mrt" });
+    probe.raw.setRenderTarget(priorTarget);
+    probe.raw.setMRT(priorMrt);
+    probe.raw.autoClear = false;
+    probe.raw.transparent = false;
+    probe.raw.opaque = false;
+    probe.raw.xr.enabled = true;
+    const attempted: Readonly<RenderCompileStepDescriptor>[] = [];
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGPU", quality("high")),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
+      passSignature: "atomic-one-object",
+      viewport,
+    }));
+
+    const receipt = await graph.precompile(Object.freeze({
+      async run(
+        descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ) {
+        attempted.push(descriptor);
+        await operation();
+      },
+    }));
+
+    expect(receipt).toEqual({
+      plannedSteps: 6,
+      completedSteps: 6,
+      phaseCounts: {
+        "runtime-object": 2,
+        "material-isolated": 0,
+        "material-runtime-topology": 0,
+        "output-first-use": 4,
+      },
+    });
+    expect(attempted.map((descriptor) => descriptor.id)).toEqual([
+      "linear-hdr:webgpu-high-temporal:runtime:p0:o0",
+      "linear-hdr:webgpu-high-temporal:output:update",
+      "linear-hdr:webgpu-high-temporal:output:compile",
+      "linear-hdr:webgpu-high-temporal:runtime-draw:p0:o0",
+      "linear-hdr:webgpu-high-temporal:output:pass-draw:p0",
+      "linear-hdr:webgpu-high-temporal:output:draw",
+    ]);
+    expect(probe.raw.compileAsync).toHaveBeenCalledTimes(2);
+    expect(probe.raw.compileAsync).toHaveBeenNthCalledWith(1, mesh, camera, scene);
+    expect(probe.compiled[0]).toMatchObject({ scene: mesh, targetScene: scene, meshCount: 1 });
+    expect(probe.compiled[0]!.target).not.toBe(priorTarget);
+    expect(probe.compiled[0]!.mrt).not.toBe(priorMrt);
+    const outputCompile = probe.compiled[1]!;
+    const runtimeDraw = probe.rendered.find((entry) => entry.scene === scene)!;
+    const outputDraw = probe.rendered.find((entry) => entry.scene === outputCompile.scene)!;
+    expect(probe.raw.compileAsync).toHaveBeenNthCalledWith(
+      2,
+      outputCompile.scene,
+      outputDraw.camera,
+    );
+    expect(outputCompile).toMatchObject({ targetScene: undefined, target: null, mrt: null, meshCount: 1 });
+    expect(outputCompile.fragmentNode).toBeDefined();
+    expect(runtimeDraw).toEqual(expect.objectContaining({
+      scene,
+      camera,
+      target: probe.compiled[0]!.target,
+      mrt: probe.compiled[0]!.mrt,
+      autoClear: true,
+      transparent: true,
+      opaque: true,
+      toneMapping: NoToneMapping,
+      outputColorSpace: ColorManagement.workingColorSpace,
+      xrEnabled: false,
+      visibleMeshCount: 1,
+    }));
+    expect(outputDraw).toEqual(expect.objectContaining({
+      scene: outputCompile.scene,
+      target: null,
+      mrt: null,
+    }));
+    expect(probe.raw.getRenderTarget()).toBe(priorTarget);
+    expect(probe.raw.getMRT()).toBe(priorMrt);
+    expect(mesh.visible).toBe(false);
+    expect(mesh.frustumCulled).toBe(true);
+    expect(mesh.layers.mask).toBe(1 << 6);
+    expect(material.visible).toBe(false);
+    expect(probe.raw.autoClear).toBe(false);
+    expect(probe.raw.transparent).toBe(false);
+    expect(probe.raw.opaque).toBe(false);
+    expect(probe.raw.xr.enabled).toBe(true);
+
+    await graph.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("uses renderer operations captured before runner yields without later method lookup", async () => {
+    const scene = new Scene();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, material));
+    const probe = topologyRenderer();
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{
+        name: "world",
+        kind: "opaque-pbr",
+        scene,
+        camera: new PerspectiveCamera(),
+      }]),
+      passSignature: "captured-renderer-operations",
+      viewport,
+    }));
+    const lateLookup = vi.fn(() => {
+      throw new Error("captured renderer methods must not be looked up again");
+    });
+    for (const key of [
+      "getRenderTarget",
+      "getMRT",
+      "setRenderTarget",
+      "setMRT",
+      "getOutputRenderTarget",
+      "getDrawingBufferSize",
+      "compileAsync",
+    ] as const) {
+      Object.defineProperty(probe.raw, key, {
+        configurable: true,
+        get: lateLookup,
+      });
+    }
+
+    await expect(graph.precompile(immediateCompileRunner)).resolves.toMatchObject({
+      plannedSteps: 6,
+      completedSteps: 6,
+    });
+    expect(lateLookup).not.toHaveBeenCalled();
+    expect(probe.compiled).toHaveLength(2);
+    expect(probe.compiled[1]).toMatchObject({ targetScene: undefined, target: null, mrt: null });
+    await graph.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("captures renderer callbacks with import-time Object reflection intrinsics", async () => {
+    const scene = new Scene();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, material));
+    const probe = topologyRenderer();
+    const ownDescriptor = Object.getOwnPropertyDescriptor(Object, "getOwnPropertyDescriptor")!;
+    const prototypeDescriptor = Object.getOwnPropertyDescriptor(Object, "getPrototypeOf")!;
+    const reflectionPoison = vi.fn(() => {
+      throw new Error("live Object reflection methods must not run");
+    });
+    let graph: LinearHdrGraph | undefined;
+
+    Reflect.defineProperty(Object, "getOwnPropertyDescriptor", {
+      ...ownDescriptor,
+      value: reflectionPoison,
+    });
+    Reflect.defineProperty(Object, "getPrototypeOf", {
+      ...prototypeDescriptor,
+      value: reflectionPoison,
+    });
+    try {
+      graph = createThreeLinearHdrGraph(Object.freeze({
+        renderer: probe.raw,
+        profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+        materialWarmupPasses: Object.freeze([]),
+        passes: Object.freeze([{
+          name: "world",
+          kind: "opaque-pbr",
+          scene,
+          camera: new PerspectiveCamera(),
+        }]),
+        passSignature: "captured-object-reflection-intrinsics",
+        viewport,
+      }));
+    } finally {
+      Reflect.defineProperty(Object, "getOwnPropertyDescriptor", ownDescriptor);
+      Reflect.defineProperty(Object, "getPrototypeOf", prototypeDescriptor);
+    }
+
+    expect(reflectionPoison).not.toHaveBeenCalled();
+    await expect(graph!.precompile(immediateCompileRunner)).resolves.toMatchObject({
+      plannedSteps: 6,
+      completedSteps: 6,
+    });
+    await graph!.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("pins the audited RenderPipeline update and render methods before runner yields", async () => {
+    const scene = new Scene();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, material));
+    const probe = topologyRenderer();
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{
+        name: "world",
+        kind: "opaque-pbr",
+        scene,
+        camera: new PerspectiveCamera(),
+      }]),
+      passSignature: "captured-output-methods",
+      viewport,
+    }));
+    const updateDescriptor = Object.getOwnPropertyDescriptor(RenderPipeline.prototype, "_update")!;
+    const renderDescriptor = Object.getOwnPropertyDescriptor(RenderPipeline.prototype, "render")!;
+    const passUpdateDescriptor = Object.getOwnPropertyDescriptor(PassNode.prototype, "updateBefore")!;
+    const lateOutputLookup = vi.fn(() => {
+      throw new Error("captured RenderPipeline methods must not be looked up again");
+    });
+    Object.defineProperty(RenderPipeline.prototype, "_update", {
+      ...updateDescriptor,
+      value: lateOutputLookup,
+    });
+    Object.defineProperty(RenderPipeline.prototype, "render", {
+      ...renderDescriptor,
+      value: lateOutputLookup,
+    });
+    Object.defineProperty(PassNode.prototype, "updateBefore", {
+      ...passUpdateDescriptor,
+      value: lateOutputLookup,
+    });
+    try {
+      await expect(graph.precompile(immediateCompileRunner)).resolves.toMatchObject({
+        plannedSteps: 6,
+        completedSteps: 6,
+      });
+    } finally {
+      Object.defineProperty(RenderPipeline.prototype, "_update", updateDescriptor);
+      Object.defineProperty(RenderPipeline.prototype, "render", renderDescriptor);
+      Object.defineProperty(PassNode.prototype, "updateBefore", passUpdateDescriptor);
+    }
+
+    expect(lateOutputLookup).not.toHaveBeenCalled();
+    expect(probe.compiled[1]).toMatchObject({ targetScene: undefined, target: null, mrt: null });
+    expect(probe.raw.render).toHaveBeenCalledTimes(3);
+    await graph.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("suppresses the captured scene pass only during the split output-quad draw", async () => {
+    const scene = new Scene();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, material));
+    const probe = topologyRenderer();
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{
+        name: "world",
+        kind: "opaque-pbr",
+        scene,
+        camera: new PerspectiveCamera(),
+      }]),
+      passSignature: "split-output-pass-gate",
+      viewport,
+    }));
+    let scenePass: object | undefined;
+    let originalType: PropertyDescriptor | undefined;
+    let outputDrawType: PropertyDescriptor | undefined;
+    const baseRender = probe.raw.render.getMockImplementation();
+    probe.raw.render.mockImplementation((renderScene: unknown, camera: unknown) => {
+      if ((renderScene as { isQuadMesh?: boolean }).isQuadMesh === true && scenePass) {
+        outputDrawType = Object.getOwnPropertyDescriptor(scenePass, "updateBeforeType");
+      }
+      baseRender?.(renderScene, camera);
+    });
+
+    await graph.precompile(Object.freeze({
+      async run(
+        descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ) {
+        await operation();
+        if (descriptor.id.endsWith(":output:compile")) {
+          scenePass = findNodeType(probe.compiled.at(-1)!.fragmentNode, "PassNode");
+          originalType = Object.getOwnPropertyDescriptor(scenePass!, "updateBeforeType");
+        }
+      },
+    }));
+
+    expect(originalType).toMatchObject({ value: NodeUpdateType.FRAME });
+    expect(outputDrawType).toEqual({ ...originalType, value: NodeUpdateType.NONE });
+    expect(Object.getOwnPropertyDescriptor(scenePass!, "updateBeforeType")).toEqual(originalType);
+    expect(probe.rendered.filter((entry) => entry.scene === scene)).toHaveLength(2);
+    expect(probe.rendered.at(-1)!.scene).not.toBe(scene);
+
+    await graph.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("stops after the first failed atomic action and restores renderer and drawable state", async () => {
+    const scene = new Scene();
+    const camera = new PerspectiveCamera(50, 1, 0.1, 100);
+    const geometry = new BoxGeometry(1, 1, 1);
+    const firstMaterial = new MeshStandardNodeMaterial();
+    const secondMaterial = new MeshStandardNodeMaterial();
+    const first = new Mesh(geometry, firstMaterial);
+    const second = new Mesh(geometry, secondMaterial);
+    second.visible = false;
+    secondMaterial.visible = false;
+    scene.add(first, second);
+    const probe = topologyRenderer(0, 2);
+    const priorTarget = Object.freeze({ id: "failure-prior-target" });
+    const priorMrt = Object.freeze({ id: "failure-prior-mrt" });
+    probe.raw.setRenderTarget(priorTarget);
+    probe.raw.setMRT(priorMrt);
+    const attempted: string[] = [];
+    const completed: string[] = [];
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
+      passSignature: "atomic-failure-stop",
+      viewport,
+    }));
+
+    await expect(graph.precompile(Object.freeze({
+      async run(
+        descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ) {
+        attempted.push(descriptor.id);
+        await operation();
+        completed.push(descriptor.id);
+      },
+    }))).rejects.toThrow(/atomic drawable compilation failed/);
+    expect(attempted).toEqual([
+      "linear-hdr:webgl2-high-static:runtime:p0:o0",
+      "linear-hdr:webgl2-high-static:runtime:p0:o1",
+    ]);
+    expect(completed).toEqual(["linear-hdr:webgl2-high-static:runtime:p0:o0"]);
+    expect(probe.raw.render).not.toHaveBeenCalled();
+    expect(probe.raw.getRenderTarget()).toBe(priorTarget);
+    expect(probe.raw.getMRT()).toBe(priorMrt);
+    expect(second.visible).toBe(false);
+    expect(secondMaterial.visible).toBe(false);
+
+    await graph.dispose();
+    geometry.dispose();
+    firstMaterial.dispose();
+    secondMaterial.dispose();
+  });
+
+  it("stops at a failed output-quad compile and restores canvas state before cleanup", async () => {
+    const scene = new Scene();
+    const camera = new PerspectiveCamera();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, material));
+    const probe = topologyRenderer(0, 2);
+    const priorTarget = Object.freeze({ id: "output-compile-prior-target" });
+    const priorMrt = Object.freeze({ id: "output-compile-prior-mrt" });
+    probe.raw.setRenderTarget(priorTarget);
+    probe.raw.setMRT(priorMrt);
+    const attempted: string[] = [];
+    const completed: string[] = [];
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
+      passSignature: "failed-output-compile",
+      viewport,
+    }));
+
+    await expect(graph.precompile(Object.freeze({
+      async run(
+        descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ) {
+        attempted.push(descriptor.id);
+        await operation();
+        completed.push(descriptor.id);
+      },
+    }))).rejects.toThrow(/atomic drawable compilation failed/);
+    expect(attempted).toEqual([
+      "linear-hdr:webgl2-high-static:runtime:p0:o0",
+      "linear-hdr:webgl2-high-static:output:update",
+      "linear-hdr:webgl2-high-static:output:compile",
+    ]);
+    expect(completed).toEqual(attempted.slice(0, 2));
+    expect(probe.compiled[1]).toMatchObject({ targetScene: undefined, target: null, mrt: null });
+    expect(probe.raw.render).not.toHaveBeenCalled();
+    expect(probe.raw.getRenderTarget()).toBe(priorTarget);
+    expect(probe.raw.getMRT()).toBe(priorMrt);
+    const runtimeTarget = probe.compiled[0]!.target as object;
+
+    await graph.dispose();
+    expect(probe.targetDisposals.get(runtimeTarget)).toHaveBeenCalledOnce();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("stops at a failed atomic runtime draw and restores every temporary scene and renderer gate", async () => {
+    const scene = new Scene();
+    scene.visible = false;
+    const ancestor = new Group();
+    ancestor.visible = false;
+    const camera = new PerspectiveCamera();
+    camera.layers.set(3);
+    const geometry = new BoxGeometry(1, 1, 1);
+    const firstMaterial = new MeshStandardNodeMaterial();
+    firstMaterial.visible = false;
+    const secondMaterial = new MeshStandardNodeMaterial();
+    secondMaterial.visible = false;
+    const first = new Mesh(geometry, firstMaterial);
+    first.visible = false;
+    first.layers.set(6);
+    const second = new Mesh(geometry, secondMaterial);
+    second.visible = false;
+    ancestor.add(first, second);
+    scene.add(ancestor);
+    const probe = topologyRenderer();
+    const priorTarget = Object.freeze({ id: "runtime-draw-prior-target" });
+    const priorMrt = Object.freeze({ id: "runtime-draw-prior-mrt" });
+    probe.raw.setRenderTarget(priorTarget);
+    probe.raw.setMRT(priorMrt);
+    probe.raw.autoClear = false;
+    probe.raw.transparent = false;
+    probe.raw.opaque = false;
+    probe.raw.xr.enabled = true;
+    probe.raw.render.mockImplementation(() => {
+      throw new Error("runtime object draw failed");
+    });
+    const attempted: string[] = [];
+    const completed: string[] = [];
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
+      passSignature: "failed-runtime-draw",
+      viewport,
+    }));
+
+    await expect(graph.precompile(Object.freeze({
+      async run(
+        descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ) {
+        attempted.push(descriptor.id);
+        await operation();
+        completed.push(descriptor.id);
+      },
+    }))).rejects.toThrow(/atomic runtime draw failed/);
+    expect(attempted).toEqual([
+      "linear-hdr:webgl2-high-static:runtime:p0:o0",
+      "linear-hdr:webgl2-high-static:runtime:p0:o1",
+      "linear-hdr:webgl2-high-static:output:update",
+      "linear-hdr:webgl2-high-static:output:compile",
+      "linear-hdr:webgl2-high-static:runtime-draw:p0:o0",
+    ]);
+    expect(completed).toEqual(attempted.slice(0, 4));
+    expect(probe.raw.getRenderTarget()).toBe(priorTarget);
+    expect(probe.raw.getMRT()).toBe(priorMrt);
+    expect(probe.raw.autoClear).toBe(false);
+    expect(probe.raw.transparent).toBe(false);
+    expect(probe.raw.opaque).toBe(false);
+    expect(probe.raw.xr.enabled).toBe(true);
+    expect(scene.visible).toBe(false);
+    expect(ancestor.visible).toBe(false);
+    expect(first.visible).toBe(false);
+    expect(first.layers.mask).toBe(1 << 6);
+    expect(firstMaterial.visible).toBe(false);
+    expect(second.visible).toBe(false);
+    expect(secondMaterial.visible).toBe(false);
+
+    await graph.dispose();
+    geometry.dispose();
+    firstMaterial.dispose();
+    secondMaterial.dispose();
+  });
+
+  it("restores pass, scene, renderer, target, and MRT state when the split scene-pass draw fails", async () => {
+    const scene = new Scene();
+    scene.name = "caller-scene-name";
+    const camera = new PerspectiveCamera();
+    camera.layers.set(4);
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, material));
+    const probe = topologyRenderer();
+    const priorTarget = Object.freeze({ id: "pass-draw-prior-target" });
+    const priorMrt = Object.freeze({ id: "pass-draw-prior-mrt" });
+    const priorContext = Object.freeze({ id: "pass-draw-prior-context" });
+    probe.raw.setRenderTarget(priorTarget);
+    probe.raw.setMRT(priorMrt);
+    probe.raw.autoClear = false;
+    probe.raw.transparent = false;
+    probe.raw.opaque = false;
+    probe.raw.contextNode = priorContext;
+    probe.raw.xr.enabled = true;
+    const baseRender = probe.raw.render.getMockImplementation();
+    let sceneDraws = 0;
+    probe.raw.render.mockImplementation((renderScene: unknown, renderCamera: unknown) => {
+      baseRender?.(renderScene, renderCamera);
+      if (renderScene === scene) {
+        sceneDraws += 1;
+        if (sceneDraws === 2) throw new Error("split scene-pass draw failed");
+      }
+    });
+    const attempted: string[] = [];
+    const completed: string[] = [];
+    let scenePass: object | undefined;
+    let originalType: PropertyDescriptor | undefined;
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
+      passSignature: "failed-split-pass-draw",
+      viewport,
+    }));
+
+    await expect(graph.precompile(Object.freeze({
+      async run(
+        descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ) {
+        attempted.push(descriptor.id);
+        await operation();
+        completed.push(descriptor.id);
+        if (descriptor.id.endsWith(":output:compile")) {
+          scenePass = findNodeType(probe.compiled.at(-1)!.fragmentNode, "PassNode");
+          originalType = Object.getOwnPropertyDescriptor(scenePass!, "updateBeforeType");
+        }
+      },
+    }))).rejects.toThrow(/atomic scene-pass draw failed/);
+    expect(attempted.at(-1)).toBe("linear-hdr:webgl2-high-static:output:pass-draw:p0");
+    expect(completed.at(-1)).toBe("linear-hdr:webgl2-high-static:runtime-draw:p0:o0");
+    expect(Object.getOwnPropertyDescriptor(scenePass!, "updateBeforeType")).toEqual(originalType);
+    expect(probe.raw.getRenderTarget()).toBe(priorTarget);
+    expect(probe.raw.getMRT()).toBe(priorMrt);
+    expect(probe.raw.autoClear).toBe(false);
+    expect(probe.raw.transparent).toBe(false);
+    expect(probe.raw.opaque).toBe(false);
+    expect(probe.raw.contextNode).toBe(priorContext);
+    expect(probe.raw.xr.enabled).toBe(true);
+    expect(scene.name).toBe("caller-scene-name");
+    expect(scene.overrideMaterial).toBeNull();
+    expect(camera.layers.mask).toBe(1 << 4);
+
+    await graph.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("restores the caller target and MRT when the first output draw fails", async () => {
+    const scene = new Scene();
+    const camera = new PerspectiveCamera();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, material));
+    const probe = topologyRenderer();
+    const priorTarget = Object.freeze({ id: "output-draw-prior-target" });
+    const priorMrt = Object.freeze({ id: "output-draw-prior-mrt" });
+    const priorToneMapping = probe.raw.toneMapping;
+    const priorOutputColorSpace = probe.raw.outputColorSpace;
+    probe.raw.xr.enabled = true;
+    probe.raw.setRenderTarget(priorTarget);
+    probe.raw.setMRT(priorMrt);
+    let drawTarget: unknown;
+    let drawMrt: unknown;
+    probe.raw.render.mockImplementation(() => {
+      if (probe.raw.getRenderTarget() !== null) return;
+      drawTarget = probe.raw.getRenderTarget();
+      drawMrt = probe.raw.getMRT();
+      throw new Error("output draw failed");
+    });
+    const attempted: string[] = [];
+    const completed: string[] = [];
+    let scenePass: object | undefined;
+    let originalType: PropertyDescriptor | undefined;
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
+      passSignature: "failed-output-draw",
+      viewport,
+    }));
+
+    await expect(graph.precompile(Object.freeze({
+      async run(
+        descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ) {
+        attempted.push(descriptor.id);
+        await operation();
+        completed.push(descriptor.id);
+        if (descriptor.id.endsWith(":output:compile")) {
+          scenePass = findNodeType(probe.compiled.at(-1)!.fragmentNode, "PassNode");
+          originalType = Object.getOwnPropertyDescriptor(scenePass!, "updateBeforeType");
+        }
+      },
+    }))).rejects.toThrow(/output first-use draw failed/);
+    expect(attempted.at(-1)).toBe("linear-hdr:webgl2-high-static:output:draw");
+    expect(completed.at(-1)).toBe("linear-hdr:webgl2-high-static:output:pass-draw:p0");
+    expect(drawTarget).toBeNull();
+    expect(drawMrt).toBeNull();
+    expect(probe.raw.getRenderTarget()).toBe(priorTarget);
+    expect(probe.raw.getMRT()).toBe(priorMrt);
+    expect(probe.raw.toneMapping).toBe(priorToneMapping);
+    expect(probe.raw.outputColorSpace).toBe(priorOutputColorSpace);
+    expect(probe.raw.xr.enabled).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(scenePass!, "updateBeforeType")).toEqual(originalType);
+
+    await graph.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("fails closed rather than drawing an unplanned equal-count scene replacement", async () => {
+    const scene = new Scene();
+    const camera = new PerspectiveCamera();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    const first = new Mesh(geometry, material);
+    const plannedSecond = new Mesh(geometry, material);
+    const unplannedReplacement = new Mesh(geometry, material);
+    scene.add(first, plannedSecond);
+    const probe = topologyRenderer();
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
+      passSignature: "owned-identity-plan",
+      viewport,
+    }));
+    let steps = 0;
+    const failure = await graph.precompile(Object.freeze({
+      async run(
+        _descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ) {
+        await operation();
+        steps += 1;
+        if (steps === 1) {
+          scene.remove(plannedSecond);
+          scene.add(unplannedReplacement);
+        }
+      },
+    })).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect(JSON.stringify((failure as AggregateError).errors)).toContain("bounded path");
+    expect(probe.compiled.filter((entry) => entry.targetScene === scene).map((entry) => entry.scene))
+      .toEqual([first, plannedSecond]);
+    expect(probe.compiled.some((entry) => entry.scene === unplannedReplacement)).toBe(false);
+    expect(probe.rendered.some((entry) => entry.scene === unplannedReplacement)).toBe(false);
+    await graph.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
+
+  it("rejects multi-material group topology before any runner or renderer action", async () => {
+    const scene = new Scene();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const firstMaterial = new MeshStandardNodeMaterial();
+    const secondMaterial = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, [firstMaterial, secondMaterial]));
+    const probe = topologyRenderer();
+    const failure = (() => {
+      try {
+        createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGPU", quality("high")),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{
+        name: "world",
+        kind: "opaque-pbr",
+        scene,
+        camera: new PerspectiveCamera(),
+      }]),
+      passSignature: "unsupported-multi-material",
+      viewport,
+        }));
+        return null;
+      } catch (error: unknown) {
+        return error;
+      }
+    })();
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect(JSON.stringify((failure as AggregateError).errors))
+      .toContain("Multi-material drawable topology is unsupported");
+    expect(probe.raw.compileAsync).not.toHaveBeenCalled();
+    expect(probe.raw.render).not.toHaveBeenCalled();
+    geometry.dispose();
+    firstMaterial.dispose();
+    secondMaterial.dispose();
+  });
+
+  it("rejects a sparse geometry group inventory before any renderer action", () => {
+    const scene = new Scene();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    geometry.clearGroups();
+    geometry.groups.length = 1;
+    scene.add(new Mesh(geometry, material));
+    const probe = topologyRenderer();
+
+    const failure = (() => {
+      try {
+        createThreeLinearHdrGraph(Object.freeze({
+          renderer: probe.raw,
+          profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+          materialWarmupPasses: Object.freeze([]),
+          passes: Object.freeze([{
+            name: "world",
+            kind: "opaque-pbr",
+            scene,
+            camera: new PerspectiveCamera(),
+          }]),
+          passSignature: "unsupported-sparse-groups",
+          viewport,
+        }));
+        return null;
+      } catch (error: unknown) {
+        return error;
+      }
+    })();
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect(JSON.stringify((failure as AggregateError).errors)).toContain("dense own data slots");
+    expect(probe.raw.compileAsync).not.toHaveBeenCalled();
+    expect(probe.raw.render).not.toHaveBeenCalled();
     geometry.dispose();
     material.dispose();
   });
@@ -423,7 +1367,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     });
 
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     expect(harness.contexts.every((context) => context.renderer === outerRenderer)).toBe(true);
     expect(harness.contexts.every((context) => context.viewport.width === 800)).toBe(true);
     await expect(pipeline.resize({ width: 320, height: 180, pixelRatio: 1 }))
@@ -473,7 +1417,8 @@ describe("GFX-005 Linear HDR pipeline", () => {
         pending.push(pipeline.resize(nestedViewport as unknown as RenderViewport).catch(
           (error: unknown) => error,
         ));
-        pending.push(pipeline.precompile(
+        pending.push(precompile(
+          pipeline,
           hostilePasses as unknown as readonly RenderPass[],
         ).catch((error: unknown) => error));
         pending.push(pipeline.submit(
@@ -612,7 +1557,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     expect(rendererOwnKeys).not.toHaveBeenCalled();
 
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     expect(harness.contexts.every((context) => context.renderer === opaqueRenderer)).toBe(true);
     expect(harness.contexts.every((context) => context.viewport === harness.contexts[0]!.viewport))
       .toBe(true);
@@ -713,7 +1658,8 @@ describe("GFX-005 Linear HDR pipeline", () => {
           pending.push(pipeline.resize(
             nestedViewport as unknown as RenderViewport,
           ).catch((error: unknown) => error));
-          pending.push(pipeline.precompile(
+          pending.push(precompile(
+            pipeline,
             nestedPasses as unknown as readonly RenderPass[],
           ).catch((error: unknown) => error));
           pending.push(pipeline.submit(
@@ -724,7 +1670,10 @@ describe("GFX-005 Linear HDR pipeline", () => {
       },
     });
 
-    await expect(pipeline.precompile(outerPasses)).resolves.toBeUndefined();
+    await expect(precompile(pipeline, outerPasses)).resolves.toMatchObject({
+      plannedSteps: 20,
+      completedSteps: 20,
+    });
     failures.push(...await Promise.all(pending));
     expect(failures).toHaveLength(6);
     expect(failures.every((failure) => (
@@ -753,7 +1702,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const warmed = runtimePass();
-    await pipeline.precompile([warmed]);
+    await precompile(pipeline, [warmed]);
     let nestedSubmit: Promise<void> | null = null;
     let triggerNested = true;
     const sceneDescriptorGet = vi.fn((target: RenderPass, property: PropertyKey) => {
@@ -786,7 +1735,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const warmed = runtimePass();
-    await pipeline.precompile([warmed]);
+    await precompile(pipeline, [warmed]);
     let disposal: Promise<void> | null = null;
     const sceneDescriptorGet = vi.fn((target: RenderPass, property: PropertyKey) => {
       if (property === "scene") disposal = pipeline.dispose();
@@ -820,7 +1769,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       camera: base.camera,
     } as Record<string, unknown>;
     Object.defineProperty(accessorPass, "scene", { enumerable: true, get: sceneGetter });
-    const accessorFailure = await pipeline.precompile([
+    const accessorFailure = await precompile(pipeline, [
       accessorPass as unknown as RenderPass,
     ]).catch((error: unknown) => error);
     expect(accessorFailure).toBeInstanceOf(AggregateError);
@@ -830,16 +1779,17 @@ describe("GFX-005 Linear HDR pipeline", () => {
 
     const sparse = [base] as RenderPass[];
     sparse.length = 2;
-    const sparseFailure = await pipeline.precompile(sparse).catch((error: unknown) => error);
+    const sparseFailure = await precompile(pipeline, sparse).catch((error: unknown) => error);
     expect(JSON.stringify((sparseFailure as AggregateError).errors)).toContain("dense own data slots");
-    const oversizedFailure = await pipeline.precompile(
+    const oversizedFailure = await precompile(
+      pipeline,
       new Array<RenderPass>(257).fill(base),
     ).catch((error: unknown) => error);
     expect(JSON.stringify((oversizedFailure as AggregateError).errors)).toContain("at most 256 passes");
     const slotGetter = vi.fn(() => base);
     const accessorSlots: RenderPass[] = [];
     Object.defineProperty(accessorSlots, "0", { enumerable: true, get: slotGetter });
-    const slotFailure = await pipeline.precompile(accessorSlots).catch(
+    const slotFailure = await precompile(pipeline, accessorSlots).catch(
       (error: unknown) => error,
     );
     expect(JSON.stringify((slotFailure as AggregateError).errors)).toContain("dense own data slots");
@@ -868,7 +1818,10 @@ describe("GFX-005 Linear HDR pipeline", () => {
       map: { configurable: true, get: prototypeMethod },
       [Symbol.iterator]: { configurable: true, get: prototypeMethod },
     }));
-    await expect(pipeline.precompile(inventory)).resolves.toBeUndefined();
+    await expect(precompile(pipeline, inventory)).resolves.toMatchObject({
+      plannedSteps: 20,
+      completedSteps: 20,
+    });
     expect(prototypeMethod).not.toHaveBeenCalled();
     expect(Object.fromEntries(descriptorCounts)).toEqual({
       name: 1,
@@ -879,6 +1832,32 @@ describe("GFX-005 Linear HDR pipeline", () => {
     });
     expect(harness.graphs.every((graph) => graph.precompile.mock.calls.length === 1)).toBe(true);
     expect(harness.contexts.every((context) => context.passes.length === 1)).toBe(true);
+    await pipeline.dispose();
+  });
+
+  it("rejects an omitted compile runner before inspecting passes or constructing graphs", async () => {
+    const harness = graphHarness();
+    const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
+    pipeline.attachBackend(renderer(), "webgpu", viewport);
+    await pipeline.initialize({} as FeatureInitContext);
+    const passInspection = vi.fn(() => {
+      throw new Error("passes must remain uninspected without a runner");
+    });
+    const hostilePasses = new Proxy([runtimePass()], {
+      getOwnPropertyDescriptor: passInspection,
+    });
+
+    const failure = await pipeline.precompile(
+      hostilePasses,
+      undefined as unknown as RenderCompileStepRunner,
+    ).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect(JSON.stringify((failure as AggregateError).errors)).toContain("runner must be an object");
+    expect(passInspection).not.toHaveBeenCalled();
+    expect(harness.contexts).toEqual([]);
+    expect(pipeline.snapshot()).toMatchObject({ state: "attached", graphCount: 0 });
+
+    await precompile(pipeline, [runtimePass()]);
     await pipeline.dispose();
   });
 
@@ -895,7 +1874,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       materialPass(family, "webgpu-full"),
       materialPass(family, "webgpu-lean"),
     ]);
-    await pipeline.precompile([...materialInventory, pass]);
+    await precompile(pipeline, [...materialInventory, pass]);
 
     expect(raw.compileAsync).not.toHaveBeenCalled();
     expect(harness.contexts.map((context) => context.profile.id)).toEqual([
@@ -917,9 +1896,8 @@ describe("GFX-005 Linear HDR pipeline", () => {
       actualApi: "WebGPU",
       activeProfileId: "webgpu-balanced-temporal",
       graphCount: 5,
-      compileEvents: 80,
-      compileEventsAtReady: 80,
-      runtimeCompileEvents: 0,
+      precompileSteps: 160,
+      precompileStepsAtReady: 160,
       programCountAtReady: 8,
       outputTransformCount: 1,
       intermediateType: "half-float",
@@ -929,6 +1907,251 @@ describe("GFX-005 Linear HDR pipeline", () => {
     });
     await pipeline.dispose();
   });
+
+  it.each([
+    ["webgl2", [
+      "webgl2-high-static",
+      "webgl2-balanced-static",
+      "webgl2-low-static",
+    ], ["webgl2-high-static"], 88],
+    ["webgpu", [
+      "webgpu-high-temporal",
+      "webgpu-high-static",
+      "webgpu-balanced-temporal",
+      "webgpu-balanced-static",
+      "webgpu-low-static",
+    ], ["webgpu-high-temporal", "webgpu-high-static"], 176],
+  ] as const)(
+    "returns the exact atomic %s production receipt and keeps it stable after ready",
+    async (api, profileIds, representativeIds, expectedTotal) => {
+      const runtimeScene = new Scene();
+      const camera = new PerspectiveCamera(50, 1, 0.1, 100);
+      const geometry = new BoxGeometry(1, 1, 1);
+      const material = new MeshStandardNodeMaterial();
+      for (let index = 0; index < 28; index += 1) {
+        const mesh = new Mesh(geometry, material);
+        mesh.name = `caller-authored-runtime-${index}`;
+        runtimeScene.add(mesh);
+      }
+      const runtime: RenderPass = Object.freeze({
+        name: "caller-authored-world-name",
+        kind: "opaque-pbr",
+        scene: runtimeScene,
+        camera,
+      });
+      const materialInventory: RenderPass[] = [];
+      for (let familyIndex = 0; familyIndex < WORLD_MATERIAL_FAMILIES.length; familyIndex += 1) {
+        const family = WORLD_MATERIAL_FAMILIES[familyIndex]!;
+        for (const variant of ["webgpu-full", "webgpu-lean"] as const) {
+          const scene = new Scene();
+          scene.add(new Mesh(geometry, material));
+          materialInventory.push(Object.freeze({
+            name: `caller-authored-material-${family}`,
+            kind: GFX005_MATERIAL_WARMUP_KIND,
+            variant,
+            scene,
+            camera,
+          }));
+        }
+      }
+      const passes = Object.freeze([...materialInventory, runtime]);
+      const probe = topologyRenderer(7);
+      const pipeline = new ProductionLinearHdrPipeline();
+      pipeline.attachBackend(probe.raw, api, viewport);
+      await pipeline.initialize({} as FeatureInitContext);
+      const attempted: Readonly<RenderCompileStepDescriptor>[] = [];
+      const completed: string[] = [];
+      const runner: RenderCompileStepRunner = Object.freeze({
+        async run(
+          descriptor: Readonly<RenderCompileStepDescriptor>,
+          operation: () => void | Promise<void>,
+        ) {
+          attempted.push(descriptor);
+          await operation();
+          completed.push(descriptor.id);
+        },
+      });
+
+      const receipt = await precompile(pipeline, passes, runner);
+      expect(receipt).toEqual({
+        plannedSteps: expectedTotal,
+        completedSteps: expectedTotal,
+        phaseCounts: {
+          "runtime-object": representativeIds.length * 56,
+          "material-isolated": representativeIds.length * 14,
+          "material-runtime-topology": representativeIds.length * 14,
+          "output-first-use": representativeIds.length * 4,
+        },
+      });
+      expect(Object.isFrozen(receipt)).toBe(true);
+      expect(Object.isFrozen(receipt.phaseCounts)).toBe(true);
+      expect(attempted).toHaveLength(expectedTotal);
+      expect(completed).toEqual(attempted.map((descriptor) => descriptor.id));
+      expect(new Set(completed).size).toBe(expectedTotal);
+      expect(attempted.every((descriptor) => Object.isFrozen(descriptor))).toBe(true);
+
+      const expectedIds: string[] = [];
+      for (let profileIndex = 0; profileIndex < representativeIds.length; profileIndex += 1) {
+        const profileId = representativeIds[profileIndex]!;
+        for (let objectIndex = 0; objectIndex < 28; objectIndex += 1) {
+          expectedIds.push(`linear-hdr:${profileId}:runtime:p0:o${objectIndex}`);
+        }
+        for (let materialIndex = 0; materialIndex < 14; materialIndex += 1) {
+          expectedIds.push(`linear-hdr:${profileId}:material-isolated:m${materialIndex}`);
+        }
+        for (let materialIndex = 0; materialIndex < 14; materialIndex += 1) {
+          expectedIds.push(`linear-hdr:${profileId}:material-runtime:m${materialIndex}:t0`);
+        }
+        expectedIds.push(`linear-hdr:${profileId}:output:update`);
+        expectedIds.push(`linear-hdr:${profileId}:output:compile`);
+        for (let objectIndex = 0; objectIndex < 28; objectIndex += 1) {
+          expectedIds.push(`linear-hdr:${profileId}:runtime-draw:p0:o${objectIndex}`);
+        }
+        expectedIds.push(`linear-hdr:${profileId}:output:pass-draw:p0`);
+        expectedIds.push(`linear-hdr:${profileId}:output:draw`);
+      }
+      expect(completed).toEqual(expectedIds);
+      expect(completed.every((id) => !id.includes("caller-authored"))).toBe(true);
+      expect(probe.raw.compileAsync)
+        .toHaveBeenCalledTimes(representativeIds.length * 57);
+      expect(probe.compiled.every((entry) => (
+        entry.targetScene === runtimeScene
+        || materialInventory.some((candidate) => candidate.scene === entry.targetScene)
+        || entry.targetScene === undefined
+      ))).toBe(true);
+
+      const postReadyRun = vi.fn(async () => {
+        throw new Error("post-ready runner must not execute");
+      });
+      await expect(precompile(pipeline, passes, { run: postReadyRun })).resolves.toBe(receipt);
+      expect(postReadyRun).not.toHaveBeenCalled();
+      const readySnapshot = pipeline.snapshot();
+      expect(readySnapshot).toMatchObject({
+        warmedProfileIds: profileIds,
+        graphCount: representativeIds.length,
+      });
+      await pipeline.resize({ width: 1024, height: 576, pixelRatio: 1 });
+      pipeline.invalidateHistory(historyEvent("restart-or-qa-seek"));
+      for (let profileIndex = 0; profileIndex < profileIds.length; profileIndex += 1) {
+        const profileId = profileIds[profileIndex]!;
+        const tier = profileId.includes("high")
+          ? "high"
+          : profileId.includes("balanced") ? "balanced" : "low";
+        pipeline.quality(quality(tier, profileId.endsWith("temporal")));
+        expect(pipeline.snapshot().activeProfileId).toBe(profileId);
+        await pipeline.submit([runtime]);
+      }
+      expect(pipeline.snapshot()).toMatchObject({
+        precompileSteps: expectedTotal,
+        precompileStepsAtReady: expectedTotal,
+        programCountAtReady: readySnapshot.programCountAtReady,
+        programGrowthAfterReady: 0,
+      });
+      expect(probe.raw.compileAsync)
+        .toHaveBeenCalledTimes(representativeIds.length * 57);
+
+      await pipeline.dispose();
+      expect(pipeline.snapshot()).toMatchObject({
+        state: "disposed",
+        graphCount: 0,
+        warmedProfileIds: [],
+        disposedGraphs: representativeIds.length,
+      });
+      geometry.dispose();
+      material.dispose();
+    },
+  );
+
+  it.each([
+    ["webgl2", 1],
+    ["webgpu", 2],
+  ] as const)(
+    "resizes and disposes each unique default %s topology exactly once",
+    async (api, expectedGraphs) => {
+      const prototypeProbe = tslPass(new Scene(), new PerspectiveCamera());
+      const passPrototype = Object.getPrototypeOf(prototypeProbe) as {
+        setSize(width: number, height: number): void;
+      };
+      prototypeProbe.dispose();
+      const setSize = vi.spyOn(passPrototype, "setSize");
+      const renderPipelineDispose = vi.spyOn(RenderPipeline.prototype, "dispose");
+      const geometry = new BoxGeometry(1, 1, 1);
+      const material = new MeshStandardNodeMaterial();
+      const scene = new Scene();
+      scene.add(new Mesh(geometry, material));
+      const pass: RenderPass = Object.freeze({
+        name: "world",
+        kind: "opaque-pbr",
+        scene,
+        camera: new PerspectiveCamera(),
+      });
+      const pipeline = new ProductionLinearHdrPipeline();
+      pipeline.attachBackend(topologyRenderer().raw, api, viewport);
+      await pipeline.initialize({} as FeatureInitContext);
+      try {
+        await precompile(pipeline, [pass]);
+        expect(pipeline.snapshot().graphCount).toBe(expectedGraphs);
+        setSize.mockClear();
+
+        await pipeline.resize({ width: 960, height: 540, pixelRatio: 1 });
+        expect(setSize).toHaveBeenCalledTimes(expectedGraphs);
+        await pipeline.dispose();
+        expect(renderPipelineDispose).toHaveBeenCalledTimes(expectedGraphs);
+        expect(pipeline.snapshot()).toMatchObject({
+          graphCount: 0,
+          disposedGraphs: expectedGraphs,
+        });
+      } finally {
+        await pipeline.dispose().catch(() => undefined);
+        setSize.mockRestore();
+        renderPipelineDispose.mockRestore();
+        geometry.dispose();
+        material.dispose();
+      }
+    },
+  );
+
+  it.each([
+    ["webgl2", [
+      "webgl2-high-static",
+      "webgl2-balanced-static",
+      "webgl2-low-static",
+    ]],
+    ["webgpu", [
+      "webgpu-high-temporal",
+      "webgpu-high-static",
+      "webgpu-balanced-temporal",
+      "webgpu-balanced-static",
+      "webgpu-low-static",
+    ]],
+  ] as const)(
+    "preserves distinct per-profile ownership for a custom %s graph factory",
+    async (api, profileIds) => {
+      const harness = graphHarness();
+      const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
+      pipeline.attachBackend(renderer(), api, viewport);
+      await pipeline.initialize({} as FeatureInitContext);
+      const receipt = await precompile(pipeline, [runtimePass()]);
+
+      expect(harness.contexts.map((context) => context.profile.id)).toEqual(profileIds);
+      expect(harness.graphs).toHaveLength(profileIds.length);
+      expect(new Set(harness.graphs).size).toBe(profileIds.length);
+      expect(receipt).toMatchObject({
+        plannedSteps: profileIds.length * 4,
+        completedSteps: profileIds.length * 4,
+      });
+      expect(pipeline.snapshot()).toMatchObject({
+        warmedProfileIds: profileIds,
+        graphCount: profileIds.length,
+      });
+
+      await pipeline.resize({ width: 960, height: 540, pixelRatio: 1 });
+      expect(harness.graphs.every((graph) => graph.resize.mock.calls.length === 1)).toBe(true);
+      await pipeline.dispose();
+      expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 1)).toBe(true);
+      expect(pipeline.snapshot().disposedGraphs).toBe(profileIds.length);
+    },
+  );
 
   it("warms every material/profile combination before a dynamic material can enter the scene", async () => {
     const raw = renderer(0);
@@ -940,17 +2163,18 @@ describe("GFX-005 Linear HDR pipeline", () => {
       depthOwned: true,
       velocityOwned: context.profile.temporal,
       historyOwned: context.profile.temporal,
-      async precompile() {
-        let events = 1;
-        for (const candidate of context.materialWarmupPasses) {
+      async precompile(runner) {
+        let materialIndex = 0;
+        return completeHarnessCompilePlan(context, runner, (descriptor) => {
+          if (descriptor.phase !== "material-isolated") return;
+          const candidate = context.materialWarmupPasses[materialIndex]!;
+          materialIndex += 1;
           const key = `${context.profile.id}/${candidate.name}/${candidate.variant ?? "absent"}`;
           if (!compiled.has(key)) {
             compiled.add(key);
             raw.info.memory.programs += 1;
-            events += 1;
           }
-        }
-        return events;
+        });
       },
       setHistoryWeight() {},
       resize() {},
@@ -965,7 +2189,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await pipeline.initialize({} as FeatureInitContext);
     pipeline.quality(quality("high"));
     const pass = runtimePass();
-    await pipeline.precompile([activated, pass]);
+    await precompile(pipeline, [activated, pass]);
 
     expect(compiled.size).toBe(5);
     expect([...compiled].every((key) => key.includes("gfx005-material:water/webgpu-full")))
@@ -974,7 +2198,6 @@ describe("GFX-005 Linear HDR pipeline", () => {
     expect(pipeline.snapshot()).toMatchObject({
       programCountAtReady: 5,
       programGrowthAfterReady: 0,
-      runtimeCompileEvents: 0,
     });
     await pipeline.dispose();
   });
@@ -986,7 +2209,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await pipeline.initialize({} as FeatureInitContext);
     pipeline.quality(quality("high", true));
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
 
     expect(harness.contexts.map((context) => context.profile.id)).toEqual([
       "webgl2-high-static",
@@ -1012,7 +2235,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await pipeline.initialize({} as FeatureInitContext);
     pipeline.quality(quality("high"));
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     const active = harness.graphs.find((graph) => graph.profile.id === "webgpu-high-temporal")!;
 
     await pipeline.submit([pass]);
@@ -1021,8 +2244,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     expect(active.render).toHaveBeenCalledTimes(2);
     expect(pipeline.snapshot()).toMatchObject({
       historyValid: true,
-      runtimeCompileEvents: 0,
-      compileEvents: pipeline.snapshot().compileEventsAtReady,
+      precompileSteps: pipeline.snapshot().precompileStepsAtReady,
     });
     await pipeline.dispose();
   });
@@ -1033,7 +2255,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
 
     for (const reason of RENDER_HISTORY_INVALIDATION_REASONS) {
       pipeline.invalidateHistory(historyEvent(reason));
@@ -1055,7 +2277,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     const tierGet = vi.fn(() => "high" as const);
     const nestedQuality = { features: Object.freeze({ temporal: true }) } as Record<string, unknown>;
     Object.defineProperty(nestedQuality, "tier", { enumerable: true, get: tierGet });
@@ -1083,7 +2305,8 @@ describe("GFX-005 Linear HDR pipeline", () => {
       pending.push(pipeline.resize(nestedViewport as unknown as RenderViewport).catch(
         (error: unknown) => error,
       ));
-      pending.push(pipeline.precompile(
+      pending.push(precompile(
+        pipeline,
         hostilePasses as unknown as readonly RenderPass[],
       ).catch((error: unknown) => error));
       pending.push(pipeline.submit(
@@ -1119,7 +2342,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     let disposal: Promise<void> | null = null;
     const reasonGet = vi.fn(() => {
       disposal = pipeline.dispose();
@@ -1167,7 +2390,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgl2", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const absent = runtimePass();
-    await pipeline.precompile([absent]);
+    await precompile(pipeline, [absent]);
     await pipeline.submit([absent]);
     await expect(pipeline.submit([runtimePass("default")])).rejects.toThrow(/did not match/);
     await pipeline.dispose();
@@ -1180,13 +2403,16 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
     const material = materialPass();
-    await pipeline.precompile([material, pass]);
-    await expect(pipeline.precompile([material, pass])).resolves.toBeUndefined();
-    await expect(pipeline.precompile([{
+    await precompile(pipeline, [material, pass]);
+    await expect(precompile(pipeline, [material, pass])).resolves.toMatchObject({
+      plannedSteps: 30,
+      completedSteps: 30,
+    });
+    await expect(precompile(pipeline, [{
       ...material,
       variant: "webgpu-lean",
     }, pass])).rejects.toThrow(/unwarmed pass graph/);
-    await expect(pipeline.precompile([pass])).rejects.toThrow(/unwarmed pass graph/);
+    await expect(precompile(pipeline, [pass])).rejects.toThrow(/unwarmed pass graph/);
     expect(harness.graphs.every((graph) => graph.precompile.mock.calls.length === 1)).toBe(true);
     await pipeline.dispose();
   });
@@ -1210,7 +2436,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       scene,
       camera,
     });
-    await pipeline.precompile([warmed]);
+    await precompile(pipeline, [warmed]);
     await pipeline.submit([warmed]);
     await expect(pipeline.submit([formerAlias])).rejects.toThrow(/did not match/);
     await pipeline.dispose();
@@ -1237,7 +2463,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       get: prototypeVariantGetter,
     });
     try {
-      await pipeline.precompile([warmed]);
+    await precompile(pipeline, [warmed]);
       await pipeline.submit([warmed]);
       await expect(pipeline.submit([formerAlias])).rejects.toThrow(/did not match/);
       expect(poisonedToJson).not.toHaveBeenCalled();
@@ -1269,7 +2495,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
         depthOwned: true,
         velocityOwned: context.profile.temporal,
         historyOwned: context.profile.temporal,
-        async precompile() { return 1; },
+        precompile(runner) { return completeHarnessCompilePlan(context, runner); },
         setHistoryWeight() {},
         resize() {},
         render() { renderCount += 1; },
@@ -1324,7 +2550,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       },
     });
     try {
-      await pipeline.precompile([hostile]);
+      await precompile(pipeline, [hostile]);
     } finally {
       Object.defineProperty(Array.prototype, "map", mapDescriptor);
       Object.defineProperty(Array.prototype, "slice", sliceDescriptor);
@@ -1349,12 +2575,11 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(raw, "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     await expect(pipeline.submit([{ ...pass, scene: {} }])).rejects.toThrow(/did not match/);
     raw.info.memory.programs = 9;
     await expect(pipeline.submit([pass])).rejects.toThrow(/program count grew/);
     expect(pipeline.snapshot()).toMatchObject({
-      runtimeCompileEvents: 0,
       programGrowthAfterReady: 1,
     });
     await pipeline.dispose();
@@ -1365,7 +2590,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     const resized = Object.freeze({ width: 1024, height: 576, pixelRatio: 1.25 });
 
     await pipeline.resize(resized);
@@ -1388,7 +2613,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     const resized = Object.freeze({ width: 1024, height: 576, pixelRatio: 1.25 });
 
     await expect(pipeline.resize(resized)).rejects.toThrow(/resize 2 failed once/);
@@ -1405,7 +2630,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       historyResetCounts: { resize: 0 },
     });
     expect(() => pipeline.quality(quality("high"))).toThrow(/resize is incomplete/);
-    await expect(pipeline.precompile([pass])).rejects.toThrow(/resize is incomplete/);
+    await expect(precompile(pipeline, [pass])).rejects.toThrow(/resize is incomplete/);
     await expect(pipeline.submit([pass])).rejects.toThrow(/resize is incomplete/);
     await expect(pipeline.resize({ ...resized, width: 1280 })).rejects.toThrow(
       /target.*incomplete/,
@@ -1425,7 +2650,10 @@ describe("GFX-005 Linear HDR pipeline", () => {
     }
     expect(pipeline.snapshot().historyResetCounts.resize).toBe(1);
     pipeline.quality(quality("high"));
-    await expect(pipeline.precompile([pass])).resolves.toBeUndefined();
+    await expect(precompile(pipeline, [pass])).resolves.toMatchObject({
+      plannedSteps: 20,
+      completedSteps: 20,
+    });
     await expect(pipeline.submit([pass])).resolves.toBeUndefined();
     const active = harness.graphs.find((graph) => graph.profile.id === "webgpu-high-temporal")!;
     expect(active.render).toHaveBeenCalledOnce();
@@ -1445,7 +2673,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       depthOwned: true,
       velocityOwned: context.profile.temporal,
       historyOwned: context.profile.temporal,
-      async precompile() { return 1; },
+      precompile(runner) { return completeHarnessCompilePlan(context, runner); },
       setHistoryWeight() {},
       resize() {
         resizeCounts.set(
@@ -1459,7 +2687,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     const mapIteratorDescriptor = Object.getOwnPropertyDescriptor(Map.prototype, Symbol.iterator)!;
     const arrayIteratorDescriptor = Object.getOwnPropertyDescriptor(
       Array.prototype,
@@ -1511,32 +2739,52 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await pipeline.dispose();
   });
 
-  it("fences operations and drains disposal across an asynchronous graph resize", async () => {
+  it("fails closed with one retryable disposal rejection during an unsettled graph resize", async () => {
     const gate = deferredVoid();
-    const harness = graphHarness({ resizeGate: { index: 2, promise: gate.promise } });
+    const entered = deferredVoid();
+    const harness = graphHarness();
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
+    harness.graphs[2]!.resize.mockImplementationOnce(async () => {
+      entered.resolve();
+      await gate.promise;
+    });
     const resized = Object.freeze({ width: 1024, height: 576, pixelRatio: 1.25 });
 
     const resizing = pipeline.resize(resized);
-    await vi.waitFor(() => expect(harness.graphs[2]?.resize).toHaveBeenCalledOnce());
+    await entered.promise;
     expect(() => pipeline.quality(quality("high"))).toThrow(/resize is incomplete/);
-    await expect(pipeline.precompile([pass])).rejects.toThrow(/resize is incomplete/);
+    await expect(precompile(pipeline, [pass])).rejects.toThrow(/resize is incomplete/);
     await expect(pipeline.submit([pass])).rejects.toThrow(/resize is incomplete/);
     await expect(pipeline.resize({ ...resized, width: 1280 })).rejects.toThrow(
       /operation is active/,
     );
     expect(pipeline.snapshot().historyResetCounts.resize).toBe(0);
 
-    const disposal = pipeline.dispose();
+    const blockedDisposal = pipeline.dispose();
+    const concurrentBlockedDisposal = pipeline.dispose();
+    expect(concurrentBlockedDisposal).toBe(blockedDisposal);
+    await expect(blockedDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    await expect(concurrentBlockedDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    expect(pipeline.snapshot()).toMatchObject({
+      state: "ready",
+      graphCount: 5,
+      disposedGraphs: 0,
+      historyResetCounts: { resize: 0 },
+    });
     expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 0)).toBe(true);
     gate.resolve();
     await resizing;
-    await disposal;
     expect(harness.graphs.every((graph) => graph.resize.mock.calls.length === 1)).toBe(true);
+
+    const terminalDisposal = pipeline.dispose();
+    const concurrentTerminalDisposal = pipeline.dispose();
+    expect(terminalDisposal).not.toBe(blockedDisposal);
+    expect(concurrentTerminalDisposal).toBe(terminalDisposal);
+    await terminalDisposal;
     expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 1)).toBe(true);
     expect(pipeline.snapshot()).toMatchObject({
       state: "disposed",
@@ -1544,28 +2792,44 @@ describe("GFX-005 Linear HDR pipeline", () => {
     });
   });
 
-  it("drains a rejected asynchronous resize before disposing every graph", async () => {
-    const gate = deferredVoid();
-    const harness = graphHarness({ resizeGate: { index: 2, promise: gate.promise } });
+  it("rejects post-yield owner disposal from graph resize without claiming ownership", async () => {
+    const ownerAttemptReady = deferredVoid();
+    const harness = graphHarness();
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     const resized = Object.freeze({ width: 1024, height: 576, pixelRatio: 1.25 });
+    let ownerDisposal: Promise<void> | null = null;
+    harness.graphs[0]!.resize.mockImplementationOnce(async () => {
+      await 0;
+      ownerDisposal = pipeline.dispose();
+      ownerAttemptReady.resolve();
+      await ownerDisposal;
+    });
 
     const resizing = pipeline.resize(resized);
-    await vi.waitFor(() => expect(harness.graphs[2]?.resize).toHaveBeenCalledOnce());
-    const disposal = pipeline.dispose();
-    gate.reject(new Error("async resize rejected"));
-
-    await expect(resizing).rejects.toThrow("async resize rejected");
-    await expect(disposal).resolves.toBeUndefined();
-    expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 1)).toBe(true);
+    await ownerAttemptReady.promise;
+    const concurrentExternalDisposal = pipeline.dispose();
+    expect(concurrentExternalDisposal).toBe(ownerDisposal);
+    await expect(ownerDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    await expect(concurrentExternalDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    await expect(resizing).rejects.toThrow(/graph callback is unsettled; retry/);
     expect(pipeline.snapshot()).toMatchObject({
-      state: "disposed",
+      state: "ready",
+      graphCount: 5,
+      disposedGraphs: 0,
       historyResetCounts: { resize: 0 },
       cleanupPendingGraphs: 0,
     });
+    expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 0)).toBe(true);
+
+    await expect(pipeline.resize(resized)).resolves.toBeUndefined();
+    const terminalDisposal = pipeline.dispose();
+    expect(terminalDisposal).not.toBe(ownerDisposal);
+    await expect(terminalDisposal).resolves.toBeUndefined();
+    expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 1)).toBe(true);
+    expect(pipeline.snapshot()).toMatchObject({ state: "disposed", disposedGraphs: 5 });
   });
 
   it("rejects owner disposal reentry from graph resize without claiming disposal", async () => {
@@ -1573,20 +2837,25 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     const resized = Object.freeze({ width: 1024, height: 576, pixelRatio: 1.25 });
+    let synchronousOwnerDisposal: Promise<void> | null = null;
     harness.graphs[0]!.resize.mockImplementationOnce(async () => {
-      await pipeline.dispose();
+      synchronousOwnerDisposal = pipeline.dispose();
+      await synchronousOwnerDisposal;
     });
 
     await expect(pipeline.resize(resized)).rejects.toThrow(/reentrantly from a graph callback/);
+    await expect(synchronousOwnerDisposal).rejects.toThrow(/reentrantly from a graph callback/);
     expect(pipeline.snapshot()).toMatchObject({
       state: "ready",
       historyResetCounts: { resize: 0 },
       disposedGraphs: 0,
     });
     await expect(pipeline.resize({ ...resized })).resolves.toBeUndefined();
-    await expect(pipeline.dispose()).resolves.toBeUndefined();
+    const terminalDisposal = pipeline.dispose();
+    expect(terminalDisposal).not.toBe(synchronousOwnerDisposal);
+    await expect(terminalDisposal).resolves.toBeUndefined();
     expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 1)).toBe(true);
   });
 
@@ -1597,7 +2866,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await pipeline.initialize({} as FeatureInitContext);
     pipeline.quality(quality("high"));
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     const active = harness.graphs.find((graph) => graph.profile.id === "webgpu-high-temporal")!;
     active.render.mockImplementationOnce(async () => {
       await pipeline.submit([pass]);
@@ -1615,7 +2884,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     harness.graphs[0]!.dispose.mockImplementationOnce(async () => {
       await pipeline.dispose();
     });
@@ -1632,6 +2901,55 @@ describe("GFX-005 Linear HDR pipeline", () => {
     expect(pipeline.snapshot()).toMatchObject({ state: "disposed", cleanupPendingGraphs: 0 });
   });
 
+  it("breaks a post-yield graph disposer cycle without replacing the terminal owner", async () => {
+    const ownerAttemptReady = deferredVoid();
+    const harness = graphHarness();
+    const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
+    pipeline.attachBackend(renderer(), "webgpu", viewport);
+    await pipeline.initialize({} as FeatureInitContext);
+    await precompile(pipeline, [runtimePass()]);
+    let ownerDisposal: Promise<void> | null = null;
+    harness.graphs[0]!.dispose.mockImplementationOnce(async () => {
+      await 0;
+      ownerDisposal = pipeline.dispose();
+      ownerAttemptReady.resolve();
+      await ownerDisposal;
+    });
+
+    const terminalOwner = pipeline.dispose();
+    const concurrentTerminalOwner = pipeline.dispose();
+    expect(concurrentTerminalOwner).toBe(terminalOwner);
+    await ownerAttemptReady.promise;
+    const ambiguousExternalDisposal = pipeline.dispose();
+    expect(ambiguousExternalDisposal).toBe(ownerDisposal);
+    expect(ambiguousExternalDisposal).not.toBe(terminalOwner);
+    await expect(ownerDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    await expect(ambiguousExternalDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    await expect(terminalOwner).rejects.toThrow(/pipeline disposal failed/);
+    expect(pipeline.snapshot()).toMatchObject({
+      state: "failed",
+      graphCount: 1,
+      disposedGraphs: 4,
+      cleanupPendingGraphs: 1,
+    });
+
+    const retryOwner = pipeline.dispose();
+    const concurrentRetryOwner = pipeline.dispose();
+    expect(retryOwner).not.toBe(terminalOwner);
+    expect(retryOwner).not.toBe(ownerDisposal);
+    expect(concurrentRetryOwner).toBe(retryOwner);
+    await expect(retryOwner).resolves.toBeUndefined();
+    expect(harness.graphs[0]!.dispose).toHaveBeenCalledTimes(2);
+    expect(harness.graphs.slice(1).every((graph) => graph.dispose.mock.calls.length === 1)).toBe(true);
+    expect(pipeline.snapshot()).toMatchObject({
+      state: "disposed",
+      graphCount: 0,
+      disposedGraphs: 5,
+      cleanupPendingGraphs: 0,
+    });
+    expect(pipeline.dispose()).toBe(retryOwner);
+  });
+
   it("rejects resize before mutation while precompile or submit is active", async () => {
     const precompileGate = deferredVoid();
     const harness = graphHarness({
@@ -1643,7 +2961,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pass = runtimePass();
     const resized = Object.freeze({ width: 1024, height: 576, pixelRatio: 1.25 });
 
-    const warming = pipeline.precompile([pass]);
+    const warming = precompile(pipeline, [pass]);
     await vi.waitFor(() => expect(harness.graphs[0]?.precompile).toHaveBeenCalledOnce());
     await expect(pipeline.resize(resized)).rejects.toThrow(/operation is active/);
     expect(harness.graphs.every((graph) => graph.resize.mock.calls.length === 0)).toBe(true);
@@ -1672,7 +2990,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     let reentrantSubmit: Promise<void> | null = null;
     const widthGetter = vi.fn(() => {
       reentrantSubmit = pipeline.submit([pass]);
@@ -1695,7 +3013,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     let disposal: Promise<void> | null = null;
     const widthGetter = vi.fn(() => {
       disposal = pipeline.dispose();
@@ -1720,7 +3038,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     const resized = Object.freeze({ width: 1024, height: 576, pixelRatio: 1.25 });
     const tierGetter = vi.fn(() => "high" as const);
     const accessorProfile = { ...quality("balanced") } as Record<string, unknown>;
@@ -1756,7 +3074,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
         if (!attacked && key === "tier") {
           attacked = true;
           asyncFailures.push(pipeline.resize(resized).catch((error: unknown) => error));
-          asyncFailures.push(pipeline.precompile([pass]).catch((error: unknown) => error));
+          asyncFailures.push(precompile(pipeline, [pass]).catch((error: unknown) => error));
           asyncFailures.push(pipeline.submit([pass]).catch((error: unknown) => error));
           try {
             pipeline.quality(quality("low"));
@@ -1789,7 +3107,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    await pipeline.precompile([runtimePass()]);
+    await precompile(pipeline, [runtimePass()]);
     const source = quality("high");
     let disposal: Promise<void> | null = null;
     let attacked = false;
@@ -1811,14 +3129,14 @@ describe("GFX-005 Linear HDR pipeline", () => {
     });
   });
 
-  it("awaits an asynchronous history-weight callback before render and disposal", async () => {
+  it("awaits asynchronous history weight and requires disposal retry after it settles", async () => {
     const harness = graphHarness();
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     pipeline.quality(quality("high"));
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     const active = harness.graphs.find((graph) => graph.profile.id === "webgpu-high-temporal")!;
     const gate = deferredVoid();
     active.setHistoryWeight.mockImplementationOnce(() => gate.promise);
@@ -1826,13 +3144,20 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const submitting = pipeline.submit([pass]);
     await vi.waitFor(() => expect(active.setHistoryWeight).toHaveBeenCalledOnce());
     expect(active.render).not.toHaveBeenCalled();
-    const disposal = pipeline.dispose();
+    const blockedDisposal = pipeline.dispose();
+    const concurrentBlockedDisposal = pipeline.dispose();
+    expect(concurrentBlockedDisposal).toBe(blockedDisposal);
+    await expect(blockedDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    await expect(concurrentBlockedDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
     expect(active.dispose).not.toHaveBeenCalled();
+    expect(pipeline.snapshot().state).toBe("ready");
 
     gate.resolve();
     await submitting;
-    await disposal;
     expect(active.render).toHaveBeenCalledOnce();
+    const terminalDisposal = pipeline.dispose();
+    expect(terminalDisposal).not.toBe(blockedDisposal);
+    await terminalDisposal;
     expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 1)).toBe(true);
   });
 
@@ -1844,7 +3169,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
 
-    const failure = await pipeline.precompile([runtimePass()]).catch((error: unknown) => error);
+    const failure = await precompile(pipeline, [runtimePass()]).catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(AggregateError);
     expect(Object.isFrozen(failure)).toBe(true);
     expect(Object.isFrozen((failure as AggregateError).errors)).toBe(true);
@@ -1855,16 +3180,16 @@ describe("GFX-005 Linear HDR pipeline", () => {
     expect(evidence).not.toContain("mutated later");
     expect(pipeline.snapshot()).toMatchObject({
       state: "failed",
-      graphCount: 2,
-      cleanupPendingGraphs: 2,
+      graphCount: 5,
+      cleanupPendingGraphs: 5,
     });
     const disposal = pipeline.dispose();
     await expect(disposal).rejects.toThrow(/pipeline disposal failed/);
     expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 2)).toBe(true);
     expect(pipeline.snapshot()).toMatchObject({
       state: "failed",
-      graphCount: 2,
-      cleanupPendingGraphs: 2,
+      graphCount: 5,
+      cleanupPendingGraphs: 5,
     });
   });
 
@@ -1894,7 +3219,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
 
-    await expect(pipeline.precompile([runtimePass()])).rejects.toThrow(/warm-up failed/);
+    await expect(precompile(pipeline, [runtimePass()])).rejects.toThrow(/warm-up failed/);
     expect(renderGetter).not.toHaveBeenCalled();
     expect(profileGetter).not.toHaveBeenCalled();
     expect(invalidDispose).toHaveBeenCalledOnce();
@@ -1928,7 +3253,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     });
     profilePipeline.attachBackend(renderer(), "webgpu", viewport);
     await profilePipeline.initialize({} as FeatureInitContext);
-    await expect(profilePipeline.precompile([runtimePass()])).rejects.toThrow(/warm-up failed/);
+    await expect(precompile(profilePipeline, [runtimePass()])).rejects.toThrow(/warm-up failed/);
     expect(profileOnlyGetter).not.toHaveBeenCalled();
     expect(profileDispose).toHaveBeenCalledOnce();
     expect(profilePipeline.snapshot()).toMatchObject({
@@ -1952,7 +3277,10 @@ describe("GFX-005 Linear HDR pipeline", () => {
       const index = graphIndex;
       graphIndex += 1;
       const id = context.profile.id;
-      const precompile = async () => { increment(precompileCalls, id); return 1; };
+      const precompile = async (runner: RenderCompileStepRunner) => {
+        increment(precompileCalls, id);
+        return completeHarnessCompilePlan(context, runner);
+      };
       const setHistoryWeight = () => { increment(weightCalls, id); };
       const resize = () => { increment(resizeCalls, id); };
       const render = () => { increment(renderCalls, id); };
@@ -1985,7 +3313,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     await pipeline.submit([pass]);
     await pipeline.resize({ width: 1024, height: 576, pixelRatio: 1 });
     await pipeline.dispose();
@@ -2011,7 +3339,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await pipeline.initialize({} as FeatureInitContext);
     pipeline.quality(quality("high"));
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     const active = harness.graphs.find((graph) => graph.profile.id === "webgpu-high-temporal")!;
     const capturedRender = active.render;
     const replacement = vi.fn(async () => {
@@ -2035,7 +3363,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
         depthOwned: true,
         velocityOwned: context.profile.temporal,
         historyOwned: context.profile.temporal,
-        async precompile() { return 1; },
+        precompile(runner) { return completeHarnessCompilePlan(context, runner); },
         setHistoryWeight() {},
         resize() {},
         async render() {},
@@ -2047,29 +3375,36 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
 
-    await expect(pipeline.precompile([runtimePass()])).rejects.toThrow(/warm-up failed/);
+    await expect(precompile(pipeline, [runtimePass()])).rejects.toThrow(/warm-up failed/);
     expect(dispose).toHaveBeenCalledOnce();
     expect(pipeline.snapshot()).toMatchObject({ state: "failed", graphCount: 0 });
   });
 
-  it("drains an active precompile before graph disposal and keeps dispose identity stable", async () => {
+  it("keeps blocked and terminal disposal identities distinct across active precompile", async () => {
     const gate = deferredVoid();
     const harness = graphHarness({ precompileGate: { index: 0, promise: gate.promise } });
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
 
-    const warming = pipeline.precompile([runtimePass()]);
-    expect(harness.graphs).toHaveLength(1);
-    const first = pipeline.dispose();
-    const second = pipeline.dispose();
-    expect(second).toBe(first);
-    expect(pipeline.snapshot().state).toBe("disposing");
+    const warming = precompile(pipeline, [runtimePass()]);
+    expect(harness.graphs).toHaveLength(5);
+    const blockedDisposal = pipeline.dispose();
+    const concurrentBlockedDisposal = pipeline.dispose();
+    expect(concurrentBlockedDisposal).toBe(blockedDisposal);
+    await expect(blockedDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    await expect(concurrentBlockedDisposal).rejects.toThrow(/graph callback is unsettled; retry/);
+    expect(pipeline.snapshot().state).toBe("warming");
     expect(harness.graphs[0]!.dispose).not.toHaveBeenCalled();
     gate.resolve();
     await warming;
-    await first;
     expect(harness.graphs).toHaveLength(5);
+    const terminalDisposal = pipeline.dispose();
+    const concurrentTerminalDisposal = pipeline.dispose();
+    expect(terminalDisposal).not.toBe(blockedDisposal);
+    expect(concurrentTerminalDisposal).toBe(terminalDisposal);
+    expect(pipeline.snapshot().state).toBe("disposing");
+    await terminalDisposal;
     expect(harness.graphs.every((graph) => graph.dispose.mock.calls.length === 1)).toBe(true);
     expect(pipeline.snapshot()).toMatchObject({ state: "disposed", disposedGraphs: 5 });
   });
@@ -2098,29 +3433,34 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(renderer(), "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
 
-    await expect(pipeline.precompile([runtimePass()])).rejects.toThrow(/warm-up failed/);
-    expect(graphDispose).toHaveBeenCalledOnce();
+    await expect(precompile(pipeline, [runtimePass()])).rejects.toThrow(/warm-up failed/);
+    expect(graphDispose).toHaveBeenCalledTimes(5);
     expect(pipeline.snapshot()).toMatchObject({
       state: "failed",
       graphCount: 1,
       cleanupPendingGraphs: 1,
-      disposedGraphs: 0,
+      disposedGraphs: 4,
     });
 
     const first = pipeline.dispose();
     const second = pipeline.dispose();
     expect(second).toBe(first);
     await expect(first).resolves.toBeUndefined();
-    expect(graphDispose).toHaveBeenCalledTimes(2);
+    expect(graphDispose).toHaveBeenCalledTimes(6);
     expect(pipeline.snapshot()).toMatchObject({
       state: "disposed",
       graphCount: 0,
       cleanupPendingGraphs: 0,
-      disposedGraphs: 1,
+      disposedGraphs: 5,
     });
   });
 
   it("conveys direct constructor cleanup ownership in a frozen retryable failure", () => {
+    const previousPrepareStackTrace = Object.getOwnPropertyDescriptor(
+      Error,
+      "prepareStackTrace",
+    );
+    const prepareStackTrace = vi.fn(() => "S".repeat(2_000_000));
     const prototypeProbe = tslPass(new Scene(), new PerspectiveCamera());
     const passPrototype = Object.getPrototypeOf(prototypeProbe) as {
       dispose(): void;
@@ -2141,6 +3481,11 @@ describe("GFX-005 Linear HDR pipeline", () => {
     });
     const renderPipelineDispose = vi.spyOn(RenderPipeline.prototype, "dispose");
     try {
+      Object.defineProperty(Error, "prepareStackTrace", {
+        configurable: true,
+        writable: true,
+        value: prepareStackTrace,
+      });
       const failure = (() => {
         try {
           createThreeLinearHdrGraph(Object.freeze({
@@ -2163,6 +3508,14 @@ describe("GFX-005 Linear HDR pipeline", () => {
       })();
       expect(failure).toBeInstanceOf(AggregateError);
       expect(failure.name).toBe("LinearHdrGraphConstructionFailure");
+      expect(Object.getOwnPropertyDescriptor(failure, "stack")).toMatchObject({
+        configurable: false,
+        enumerable: false,
+        value: undefined,
+        writable: false,
+      });
+      expect(failure.stack).toBeUndefined();
+      expect(prepareStackTrace).not.toHaveBeenCalled();
       expect(JSON.stringify(failure.errors)).toContain("direct setSize construction failed");
       expect(Object.isFrozen(failure)).toBe(true);
       expect(failure.cleanup).toBeDefined();
@@ -2179,6 +3532,129 @@ describe("GFX-005 Linear HDR pipeline", () => {
       expect(() => failure.cleanup?.dispose()).not.toThrow();
       expect(passDispose).toHaveBeenCalledTimes(2);
     } finally {
+      if (previousPrepareStackTrace) {
+        Object.defineProperty(Error, "prepareStackTrace", previousPrepareStackTrace);
+      } else {
+        Reflect.deleteProperty(Error, "prepareStackTrace");
+      }
+      setSize.mockRestore();
+      passDispose.mockRestore();
+      renderPipelineDispose.mockRestore();
+    }
+    expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace"))
+      .toEqual(previousPrepareStackTrace);
+  });
+
+  it("publishes and cleans a second construction failure after its exposed prototype is poisoned", async () => {
+    const prototypeProbe = tslPass(new Scene(), new PerspectiveCamera());
+    const passPrototype = Object.getPrototypeOf(prototypeProbe) as {
+      dispose(): void;
+      setSize(width: number, height: number): void;
+    };
+    prototypeProbe.dispose();
+    const originalPassDispose = passPrototype.dispose;
+    const originalPipelineDispose = RenderPipeline.prototype.dispose;
+    let setSizeAttempts = 0;
+    const setSize = vi.spyOn(passPrototype, "setSize").mockImplementation(() => {
+      setSizeAttempts += 1;
+      throw new Error(`prototype poisoning setSize ${setSizeAttempts}`);
+    });
+    const disposedPasses: object[] = [];
+    const passDispose = vi.spyOn(passPrototype, "dispose").mockImplementation(function (
+      this: typeof passPrototype,
+    ) {
+      disposedPasses.push(this);
+      originalPassDispose.call(this);
+    });
+    const disposedPipelines: object[] = [];
+    const renderPipelineDispose = vi.spyOn(RenderPipeline.prototype, "dispose")
+      .mockImplementation(function (this: RenderPipeline) {
+        disposedPipelines.push(this);
+        originalPipelineDispose.call(this);
+      });
+    const prototypeTrap = vi.fn(() => {
+      throw new Error("construction failure prototype trap invoked");
+    });
+    let exposedPrototype: object | null = null;
+    const priorDescriptors: Array<readonly [PropertyKey, PropertyDescriptor | undefined]> = [];
+    try {
+      const createDirectFailure = () => {
+        try {
+          createThreeLinearHdrGraph(Object.freeze({
+            renderer: topologyRenderer().raw,
+            profile: selectLinearHdrPipelineProfile("WebGPU", quality("high")),
+            materialWarmupPasses: Object.freeze([]),
+            passes: Object.freeze([{
+              name: "world",
+              kind: "opaque-pbr",
+              scene: new Scene(),
+              camera: new PerspectiveCamera(),
+            }]),
+            passSignature: "prototype-poison-first",
+            viewport,
+          }));
+          throw new Error("construction unexpectedly succeeded");
+        } catch (error: unknown) {
+          return error as AggregateError & { readonly cleanup: { dispose(): void } };
+        }
+      };
+      const firstFailure = createDirectFailure();
+      expect(firstFailure.name).toBe("LinearHdrGraphConstructionFailure");
+      expect(Object.isFrozen(firstFailure)).toBe(true);
+      expect(firstFailure.stack).toBeUndefined();
+      exposedPrototype = Object.getPrototypeOf(firstFailure) as object;
+      for (const key of ["name", "cleanup", "stack", "message", "errors"] as const) {
+        priorDescriptors.push([key, Object.getOwnPropertyDescriptor(exposedPrototype, key)]);
+        Object.defineProperty(exposedPrototype, key, {
+          configurable: true,
+          get: prototypeTrap,
+          set: prototypeTrap,
+        });
+      }
+
+      const pipeline = new ProductionLinearHdrPipeline({ graphFactory: createThreeLinearHdrGraph });
+      pipeline.attachBackend(topologyRenderer().raw, "webgpu", viewport);
+      await pipeline.initialize({} as FeatureInitContext);
+      let secondFailure: AggregateError | null = null;
+      try {
+        await precompile(pipeline, [Object.freeze({
+          name: "world",
+          kind: "opaque-pbr",
+          scene: new Scene(),
+          camera: new PerspectiveCamera(),
+        })]);
+      } catch (error: unknown) {
+        secondFailure = error as AggregateError;
+      }
+      if (!secondFailure) throw new Error("second construction unexpectedly succeeded");
+
+      expect(secondFailure).toBeInstanceOf(AggregateError);
+      expect(Object.isFrozen(secondFailure)).toBe(true);
+      expect(Object.isFrozen(secondFailure.errors)).toBe(true);
+      expect(Object.getOwnPropertyDescriptor(secondFailure, "stack")).toBeUndefined();
+      expect(secondFailure.stack).toBeUndefined();
+      expect(JSON.stringify(secondFailure.errors)).toContain("prototype poisoning setSize 2");
+      expect(JSON.stringify(secondFailure.errors)).toContain("LinearHdrGraphConstructionFailure");
+      expect(prototypeTrap).not.toHaveBeenCalled();
+      expect(disposedPasses).toHaveLength(1);
+      expect(disposedPipelines).toHaveLength(1);
+
+      firstFailure.cleanup.dispose();
+      firstFailure.cleanup.dispose();
+      await pipeline.dispose();
+      expect(disposedPasses).toHaveLength(2);
+      expect(disposedPipelines).toHaveLength(2);
+      expect(new Set(disposedPasses).size).toBe(2);
+      expect(new Set(disposedPipelines).size).toBe(2);
+      expect(prototypeTrap).not.toHaveBeenCalled();
+    } finally {
+      if (exposedPrototype) {
+        for (let index = priorDescriptors.length - 1; index >= 0; index -= 1) {
+          const [key, descriptor] = priorDescriptors[index]!;
+          if (descriptor) Object.defineProperty(exposedPrototype, key, descriptor);
+          else Reflect.deleteProperty(exposedPrototype, key);
+        }
+      }
       setSize.mockRestore();
       passDispose.mockRestore();
       renderPipelineDispose.mockRestore();
@@ -2217,7 +3693,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       camera: new PerspectiveCamera(),
     });
     try {
-      const failure = await pipeline.precompile([pass]).catch((error: unknown) => error);
+      const failure = await precompile(pipeline, [pass]).catch((error: unknown) => error);
       expect(failure).toBeInstanceOf(AggregateError);
       const evidence = JSON.stringify((failure as AggregateError).errors);
       expect(evidence).toContain("scene-pass setSize failed");
@@ -2289,7 +3765,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(probe.raw, "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     try {
-      const failure = await pipeline.precompile([Object.freeze({
+      const failure = await precompile(pipeline, [Object.freeze({
         name: "world",
         kind: "opaque-pbr",
         scene: new Scene(),
@@ -2348,7 +3824,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     pipeline.attachBackend(topologyRenderer().raw, "webgpu", viewport);
     await pipeline.initialize({} as FeatureInitContext);
     try {
-      const failure = await pipeline.precompile([Object.freeze({
+      const failure = await precompile(pipeline, [Object.freeze({
         name: "world",
         kind: "opaque-pbr",
         scene: new Scene(),
@@ -2418,7 +3894,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
       const pipeline = new freshPipeline.ProductionLinearHdrPipeline();
       pipeline.attachBackend(topologyRenderer().raw, "webgpu", viewport);
       await pipeline.initialize({} as FeatureInitContext);
-      const failure = await pipeline.precompile([Object.freeze({
+      const failure = await precompile(pipeline, [Object.freeze({
         name: "world",
         kind: "opaque-pbr",
         scene: new freshThree.Scene(),
@@ -2455,14 +3931,14 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await pipeline.initialize({} as FeatureInitContext);
     pipeline.quality(quality("high"));
     const pass = runtimePass();
-    await pipeline.precompile([pass]);
+    await precompile(pipeline, [pass]);
     const active = harness.graphs.find((graph) => graph.profile.id === "webgpu-high-temporal")!;
     const gate = deferredVoid();
     active.render.mockImplementation(async () => gate.promise);
 
     const submitting = pipeline.submit([pass]);
     const disposal = pipeline.dispose();
-    await expect(pipeline.precompile([pass])).rejects.toThrow(/disposal was requested/);
+    await expect(precompile(pipeline, [pass])).rejects.toThrow(/disposal was requested/);
     await expect(pipeline.submit([pass])).rejects.toThrow(/disposal was requested/);
     await expect(pipeline.resize(viewport)).rejects.toThrow(/disposal was requested/);
     expect(active.dispose).not.toHaveBeenCalled();
@@ -2501,6 +3977,12 @@ describe("GFX-005 Linear HDR pipeline", () => {
       constructorDispose.mockRestore();
     }
 
+    const firstScene = new Scene();
+    const secondScene = new Scene();
+    const disposalGeometry = new BoxGeometry(1, 1, 1);
+    const disposalMaterial = new MeshStandardNodeMaterial();
+    firstScene.add(new Mesh(disposalGeometry, disposalMaterial));
+    secondScene.add(new Mesh(disposalGeometry, disposalMaterial));
     const graph = createThreeLinearHdrGraph(Object.freeze({
       renderer: rendererProbe.raw,
       profile: selectLinearHdrPipelineProfile("WebGPU", quality("high")),
@@ -2509,20 +3991,20 @@ describe("GFX-005 Linear HDR pipeline", () => {
         {
           name: "first",
           kind: "opaque-pbr",
-          scene: new Scene(),
+          scene: firstScene,
           camera: new PerspectiveCamera(),
         },
         {
           name: "second",
           kind: "opaque-pbr",
-          scene: new Scene(),
+          scene: secondScene,
           camera: new PerspectiveCamera(),
         },
       ]),
       passSignature: "partial-disposal",
       viewport,
     }));
-    await graph.precompile();
+    await graph.precompile(immediateCompileRunner);
     const firstTarget = rendererProbe.compiled[0]!.target as object;
     const secondTarget = rendererProbe.compiled[1]!.target as object;
     const firstTargetDispose = rendererProbe.targetDisposals.get(firstTarget)!;
@@ -2554,11 +4036,17 @@ describe("GFX-005 Linear HDR pipeline", () => {
     } finally {
       passDispose.mockRestore();
       pipelineDispose.mockRestore();
+      disposalGeometry.dispose();
+      disposalMaterial.dispose();
     }
   });
 
   it("retains a failed Three RenderPipeline cleanup without redisposing scene targets", async () => {
     const probe = topologyRenderer();
+    const scene = new Scene();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardNodeMaterial();
+    scene.add(new Mesh(geometry, material));
     const graph = createThreeLinearHdrGraph(Object.freeze({
       renderer: probe.raw,
       profile: selectLinearHdrPipelineProfile("WebGPU", quality("high")),
@@ -2566,13 +4054,13 @@ describe("GFX-005 Linear HDR pipeline", () => {
       passes: Object.freeze([{
         name: "world",
         kind: "opaque-pbr",
-        scene: new Scene(),
+        scene,
         camera: new PerspectiveCamera(),
       }]),
       passSignature: "pipeline-disposal-retry",
       viewport,
     }));
-    await graph.precompile();
+    await graph.precompile(immediateCompileRunner);
     const sceneTarget = probe.compiled[0]!.target as object;
     const targetDispose = probe.targetDisposals.get(sceneTarget)!;
     const prototypeProbe = tslPass(new Scene(), new PerspectiveCamera());
@@ -2603,6 +4091,8 @@ describe("GFX-005 Linear HDR pipeline", () => {
     } finally {
       passDispose.mockRestore();
       pipelineDispose.mockRestore();
+      geometry.dispose();
+      material.dispose();
     }
   });
 
@@ -2624,7 +4114,7 @@ describe("GFX-005 Linear HDR pipeline", () => {
     const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
     pipeline.attachBackend(renderer(), "webgl2", viewport);
     await pipeline.initialize({} as FeatureInitContext);
-    const failure = await pipeline.precompile([{
+    const failure = await precompile(pipeline, [{
       ...runtimePass(),
       name: "x".repeat(257),
     }]).catch((error: unknown) => error);
@@ -2660,6 +4150,132 @@ describe("GFX-005 Linear HDR pipeline", () => {
     expect(evidence).not.toContain("pipeline replacement");
     const snapshot = failure.errors[0] as { errors?: readonly unknown[] };
     expect(Object.isFrozen(snapshot.errors)).toBe(true);
+  });
+
+  it("removes the live V8 stack from the final frozen failure wrapper", () => {
+    const previousPrepareStackTrace = Object.getOwnPropertyDescriptor(
+      Error,
+      "prepareStackTrace",
+    );
+    const prepareStackTrace = vi.fn(() => "S".repeat(2_000_000));
+    try {
+      Object.defineProperty(Error, "prepareStackTrace", {
+        configurable: true,
+        writable: true,
+        value: prepareStackTrace,
+      });
+      const failure = ownedAggregateError([], "stackless failure wrapper");
+
+      expect(failure).toBeInstanceOf(AggregateError);
+      expect(Object.getOwnPropertyDescriptor(failure, "stack")).toBeUndefined();
+      expect(failure.stack).toBeUndefined();
+      expect(prepareStackTrace).not.toHaveBeenCalled();
+      expect(Object.isFrozen(failure)).toBe(true);
+      expect(Object.isFrozen(failure.errors)).toBe(true);
+    } finally {
+      if (previousPrepareStackTrace) {
+        Object.defineProperty(Error, "prepareStackTrace", previousPrepareStackTrace);
+      } else {
+        Reflect.deleteProperty(Error, "prepareStackTrace");
+      }
+    }
+    expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace"))
+      .toEqual(previousPrepareStackTrace);
+  });
+
+  it("drops forced huge nested stacks while preserving bounded detached evidence", () => {
+    const previousPrepareStackTrace = Object.getOwnPropertyDescriptor(
+      Error,
+      "prepareStackTrace",
+    );
+    const huge = "N".repeat(2_000_000);
+    const prepareStackTrace = vi.fn(() => huge);
+    try {
+      Object.defineProperty(Error, "prepareStackTrace", {
+        configurable: true,
+        writable: true,
+        value: prepareStackTrace,
+      });
+      const rawLeaf = new Error(huge);
+      const getterZero = vi.fn(() => rawLeaf);
+      const rawEntries = new Array<unknown>(4);
+      Object.defineProperty(rawEntries, "0", {
+        configurable: true,
+        get: getterZero,
+      });
+      rawEntries[1] = rawLeaf;
+      rawEntries[2] = rawLeaf;
+      const rawNested = new AggregateError([], "raw nested", { cause: rawLeaf });
+      Object.defineProperty(rawNested, "errors", {
+        configurable: true,
+        value: rawEntries,
+        writable: true,
+      });
+      rawEntries[3] = rawNested;
+      expect(rawLeaf.stack).toHaveLength(2_000_000);
+      expect(rawNested.stack).toHaveLength(2_000_000);
+
+      const failure = ownedAggregateError([rawNested, -0], huge);
+      const root = failure.errors[0] as {
+        readonly cause: object;
+        readonly errors: readonly unknown[];
+      };
+      expect(failure).toBeInstanceOf(AggregateError);
+      expect(Object.getOwnPropertyDescriptor(failure, "stack")).toBeUndefined();
+      expect(failure.stack).toBeUndefined();
+      expect(prepareStackTrace).toHaveBeenCalledTimes(2);
+      expect(getterZero).not.toHaveBeenCalled();
+      expect(root.errors[0]).toMatchObject({
+        kind: "uninspectable",
+        type: "accessor-failure-slot",
+      });
+      expect(root.errors[1]).toEqual(root.errors[2]);
+      expect(root.errors[1]).not.toBe(root.errors[2]);
+      expect(root.errors[3]).toMatchObject({ kind: "cycle", type: "object" });
+      expect(Object.is((failure.errors[1] as { value: number }).value, -0)).toBe(true);
+
+      const fields = [failure.message];
+      const nodes: object[] = [failure, failure.errors];
+      const pending: unknown[] = [...failure.errors];
+      while (pending.length > 0) {
+        const current = pending.pop();
+        if (typeof current !== "object" || current === null) continue;
+        nodes.push(current);
+        for (const key of ["value", "name", "message", "code"] as const) {
+          const descriptor = Object.getOwnPropertyDescriptor(current, key);
+          if (descriptor && "value" in descriptor && typeof descriptor.value === "string") {
+            fields.push(descriptor.value);
+          }
+        }
+        const cause = Object.getOwnPropertyDescriptor(current, "cause");
+        if (cause && "value" in cause) pending.push(cause.value);
+        const errors = Object.getOwnPropertyDescriptor(current, "errors");
+        if (errors && "value" in errors && Array.isArray(errors.value)) {
+          nodes.push(errors.value);
+          pending.push(...errors.value);
+        }
+      }
+      expect(fields.reduce((sum, value) => sum + value.length, 0))
+        .toBeLessThanOrEqual(4_096);
+      for (const node of nodes) {
+        expect(Object.getOwnPropertyDescriptor(node, "stack")).toBeUndefined();
+        expect(Object.isFrozen(node)).toBe(true);
+      }
+
+      const captured = JSON.stringify({ message: failure.message, errors: failure.errors });
+      rawLeaf.message = "mutated leaf";
+      rawNested.message = "mutated aggregate";
+      rawEntries[1] = new Error("replacement");
+      expect(JSON.stringify({ message: failure.message, errors: failure.errors })).toBe(captured);
+    } finally {
+      if (previousPrepareStackTrace) {
+        Object.defineProperty(Error, "prepareStackTrace", previousPrepareStackTrace);
+      } else {
+        Reflect.deleteProperty(Error, "prepareStackTrace");
+      }
+    }
+    expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace"))
+      .toEqual(previousPrepareStackTrace);
   });
 
   it("hard-bounds and truthfully snapshots every pipeline failure evidence path", () => {

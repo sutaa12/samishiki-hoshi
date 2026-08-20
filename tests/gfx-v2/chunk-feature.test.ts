@@ -3,11 +3,11 @@ import type {
   FeatureInitContext,
   JourneyRenderSnapshot,
   RenderHistoryInvalidation,
+  RenderOperationClock,
   RenderPass,
   RenderPassRecorder,
   RenderQualityProfile,
   RenderViewport,
-  VisualClock,
 } from "../../src/gfx/v2/contracts";
 import type {
   ChunkManagerLike,
@@ -22,11 +22,12 @@ const PROFILE: Readonly<RenderQualityProfile> = Object.freeze({
   features: Object.freeze({ volumetrics: true }),
 });
 
-const CLOCK: Readonly<VisualClock> = Object.freeze({
+const CLOCK: Readonly<RenderOperationClock> = Object.freeze({
   frame: 1,
   nowMs: 16,
   deltaSeconds: 1 / 60,
   elapsedSeconds: 1 / 60,
+  storyTime: 48,
 });
 
 function frame(shotId: string, storyTime = 48): JourneyRenderSnapshot {
@@ -125,9 +126,9 @@ describe("GFX-004 persistent world-chunk render feature", () => {
     const warmup = feature.warmupPasses([PROFILE]);
     feature.update(frame("S08"), CLOCK);
     feature.render(target);
-    feature.update(frame("S09", 54), { ...CLOCK, frame: 2, nowMs: 32 });
+    feature.update(frame("S09", 54), { ...CLOCK, frame: 2, nowMs: 32, storyTime: 54 });
     feature.render(target);
-    feature.update(frame("S24", 178), { ...CLOCK, frame: 3, nowMs: 48 });
+    feature.update(frame("S24", 178), { ...CLOCK, frame: 3, nowMs: 48, storyTime: 178 });
     feature.render(target);
 
     expect(manager.setFocus.mock.calls.map(([chunkId]) => chunkId)).toEqual(["S08", "S09", "S24"]);
@@ -202,6 +203,9 @@ describe("GFX-004 persistent world-chunk render feature", () => {
     });
     await feature.initialize({} as FeatureInitContext);
     expect(() => feature.update(frame("S25"), CLOCK)).toThrow(/unknown chunk id/);
+    expect(manager.setFocus).not.toHaveBeenCalled();
+
+    expect(() => feature.update(frame("S08", 90), CLOCK)).toThrow(/must match the journey snapshot/);
     expect(manager.setFocus).not.toHaveBeenCalled();
   });
 

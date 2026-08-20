@@ -40,6 +40,12 @@ import { ownedAggregateError } from "./failures";
 
 const trustedArrayIsArray = Array.isArray;
 const trustedArrayPrototype = Array.prototype;
+const trustedMapPrototypeClear = Map.prototype.clear;
+const trustedMapPrototypeDelete = Map.prototype.delete;
+const trustedMapPrototypeForEach = Map.prototype.forEach;
+const trustedMapPrototypeGet = Map.prototype.get;
+const trustedMapPrototypeHas = Map.prototype.has;
+const trustedMapPrototypeSet = Map.prototype.set;
 const trustedNumberIsInteger = Number.isInteger;
 const trustedObjectDefineProperty = Object.defineProperty;
 const trustedObjectFreeze = Object.freeze;
@@ -49,12 +55,93 @@ const trustedObjectGetOwnPropertySymbols = Object.getOwnPropertySymbols;
 const trustedObjectGetPrototypeOf = Object.getPrototypeOf;
 const trustedObjectPrototype = Object.prototype;
 const trustedReflectApply = Reflect.apply;
+const trustedReflectDeleteProperty = Reflect.deleteProperty;
 const trustedSetHas = Set.prototype.has;
 const trustedString = String;
+const trustedArrayIteratorDescriptor = trustedObjectFreeze(
+  trustedObjectGetOwnPropertyDescriptor(Array.prototype, Symbol.iterator)!,
+);
+const trustedMapPrototypeSize = trustedObjectGetOwnPropertyDescriptor(
+  Map.prototype,
+  "size",
+)!.get!;
+
+function appendDense<T>(target: T[], value: T): void {
+  trustedObjectDefineProperty(target, trustedString(target.length), {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
+}
+
+function frozenDenseCopy<T>(source: readonly T[]): readonly T[] {
+  const copy: T[] = [];
+  for (let index = 0; index < source.length; index += 1) {
+    appendDense(copy, source[index]!);
+  }
+  return trustedObjectFreeze(copy);
+}
+
+function withTrustedArrayIterator<T>(operation: () => T): T {
+  const current = trustedObjectGetOwnPropertyDescriptor(Array.prototype, Symbol.iterator);
+  if (
+    current
+    && "value" in current
+    && current.value === trustedArrayIteratorDescriptor.value
+  ) {
+    return operation();
+  }
+  trustedObjectDefineProperty(
+    Array.prototype,
+    Symbol.iterator,
+    trustedArrayIteratorDescriptor,
+  );
+  try {
+    return operation();
+  } finally {
+    if (current) {
+      trustedObjectDefineProperty(Array.prototype, Symbol.iterator, current);
+    } else {
+      trustedReflectDeleteProperty(Array.prototype, Symbol.iterator);
+    }
+  }
+}
+
+function mapClear<K, V>(target: Map<K, V>): void {
+  trustedReflectApply(trustedMapPrototypeClear, target, []);
+}
+
+function mapDelete<K, V>(target: Map<K, V>, key: K): boolean {
+  return trustedReflectApply(trustedMapPrototypeDelete, target, [key]) as boolean;
+}
+
+function mapForEach<K, V>(
+  target: Map<K, V>,
+  callback: (value: V, key: K) => void,
+): void {
+  trustedReflectApply(trustedMapPrototypeForEach, target, [callback]);
+}
+
+function mapGet<K, V>(target: Map<K, V>, key: K): V | undefined {
+  return trustedReflectApply(trustedMapPrototypeGet, target, [key]) as V | undefined;
+}
+
+function mapHas<K, V>(target: Map<K, V>, key: K): boolean {
+  return trustedReflectApply(trustedMapPrototypeHas, target, [key]) as boolean;
+}
+
+function mapSet<K, V>(target: Map<K, V>, key: K, value: V): void {
+  trustedReflectApply(trustedMapPrototypeSet, target, [key, value]);
+}
+
+function mapSize<K, V>(target: Map<K, V>): number {
+  return trustedReflectApply(trustedMapPrototypeSize, target, []) as number;
+}
 
 export const GFX005_MATERIAL_WARMUP_KIND = "gfx005-material-warmup";
 
-const descriptorKeys = Object.freeze([
+const descriptorKeys = trustedObjectFreeze([
   "id",
   "family",
   "shadingModel",
@@ -255,7 +342,9 @@ function defaultMaterialFactory(
   const material = needsPhysical
     ? new MeshPhysicalNodeMaterial()
     : new MeshStandardNodeMaterial();
-  const [red, green, blue] = descriptor.baseColorLinearPermille.map((entry) => entry / 1000);
+  const red = descriptor.baseColorLinearPermille[0] / 1000;
+  const green = descriptor.baseColorLinearPermille[1] / 1000;
+  const blue = descriptor.baseColorLinearPermille[2] / 1000;
   const lean = variantId.endsWith("-lean");
   const roughness = midpoint(descriptor.roughnessPermille);
   const metalness = midpoint(descriptor.metalnessPermille);
@@ -266,11 +355,11 @@ function defaultMaterialFactory(
   material.metalnessNode = float(metalness);
   material.emissiveNode = vec3(red!, green!, blue!).mul(emission);
   material.toneMapped = false;
-  material.userData.gfx005 = Object.freeze({
+  material.userData.gfx005 = trustedObjectFreeze({
     family: descriptor.family,
     variantId,
     colorSpace: "linear",
-    baseColorLinear: Object.freeze([red!, green!, blue!]),
+    baseColorLinear: trustedObjectFreeze([red, green, blue]),
     roughness,
     metalness,
     transmission,
@@ -301,7 +390,6 @@ type CapturedMaterialDisposal = Readonly<{
   readonly target: object;
   readonly dispose: (() => void) | null;
   readonly ownershipVerified: boolean;
-  readonly attempted: boolean;
 }>;
 
 const trustedThreeMaterialDispose = Material.prototype.dispose;
@@ -310,27 +398,18 @@ function captureUnverifiedFactoryOwnership(value: unknown): CapturedMaterialDisp
   if ((typeof value !== "object" || value === null) && typeof value !== "function") {
     return null;
   }
-  const target = value as object;
-  const descriptor = Object.getOwnPropertyDescriptor(target, "dispose");
-  const dispose = descriptor && "value" in descriptor && typeof descriptor.value === "function"
-    ? descriptor.value
-    : null;
-  return Object.freeze({
-    target,
-    dispose: dispose
-      ? () => trustedReflectApply(dispose, target, [])
-      : null,
+  return trustedObjectFreeze({
+    target: value as object,
+    dispose: null,
     ownershipVerified: false,
-    attempted: false,
   });
 }
 
 function libraryOwnedThreeDisposal(target: OwnedTslMaterial): CapturedMaterialDisposal {
-  return Object.freeze({
+  return trustedObjectFreeze({
     target,
     dispose: () => trustedReflectApply(trustedThreeMaterialDispose, target, []),
     ownershipVerified: true,
-    attempted: false,
   });
 }
 
@@ -348,7 +427,7 @@ function captureQualityTier(
   if (typeof profile !== "object" || profile === null) {
     throw new TypeError("A render quality profile must be an object.");
   }
-  const descriptor = Object.getOwnPropertyDescriptor(profile, "tier");
+  const descriptor = trustedObjectGetOwnPropertyDescriptor(profile, "tier");
   if (!descriptor || !("value" in descriptor)) {
     throw new TypeError("Render quality tier must be an own data property.");
   }
@@ -411,86 +490,103 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
       this.#actualApi = actualApi;
       const variants = reachableTslMaterialVariants(actualApi);
       this.#activeVariantId = variants[0]!;
-      this.#warmupGeometry = new BoxGeometry(0.01, 0.01, 0.01);
-      const camera = new PerspectiveCamera(50, 1, 0.01, 2);
-      camera.position.z = 0.2;
-      for (const variantId of variants) {
-        const familyMaterials = new Map<WorldMaterialFamily, Readonly<TslMaterialHandle>>();
-        for (const descriptor of this.#descriptors) {
-          const factoryContext = Object.freeze({ descriptor, variantId });
-          if (this.#customFactory) {
-            const candidate: unknown = this.#customFactory(factoryContext);
-            let ownership: CapturedMaterialDisposal | null;
-            try {
-              ownership = captureUnverifiedFactoryOwnership(candidate);
-            } catch (error: unknown) {
-              if (
-                candidate !== null
-                && (typeof candidate === "object" || typeof candidate === "function")
-              ) {
-                this.#claimMaterial(Object.freeze({
-                  target: candidate,
-                  dispose: null,
-                  ownershipVerified: false,
-                  attempted: false,
-                }));
-              }
-              throw error;
-            }
-            if (ownership) this.#claimMaterial(ownership);
-            this.#assertInitializationNotDisposed();
-            throw new TypeError(
-              "Custom material factory outputs are unsupported because native ownership provenance cannot be verified.",
-            );
-          }
-          const material = defaultMaterialFactory(descriptor, variantId);
-          this.#claimMaterial(libraryOwnedThreeDisposal(material));
-          const handle = Object.freeze({
-            id: `${descriptor.id}:${variantId}`,
-            family: descriptor.family,
-            variantId,
-            material,
-          });
-          familyMaterials.set(descriptor.family, handle);
-          const scene = new Scene();
-          scene.name = `gfx005-material-warmup:${descriptor.family}:${variantId}`;
-          scene.add(new Mesh(this.#warmupGeometry, material), new AmbientLight(0xffffff, 1));
-          this.#assertInitializationNotDisposed();
-          const warmupPassName = `gfx005-material:${descriptor.family}`;
-          this.#warmupPasses.push(Object.freeze({
-            name: warmupPassName,
-            kind: GFX005_MATERIAL_WARMUP_KIND,
-            variant: variantId,
-            scene,
-            camera,
-          }));
-          this.#manifest.push(Object.freeze({
-            family: descriptor.family,
-            descriptorId: descriptor.id,
-            variantId,
-            warmupPassName,
-          }));
-        }
-        this.#materials.set(variantId, familyMaterials);
+      const warmupSetup = withTrustedArrayIterator(() => {
+        const geometry = new BoxGeometry(0.01, 0.01, 0.01);
+        const camera = new PerspectiveCamera(50, 1, 0.01, 2);
+        camera.position.z = 0.2;
+        return { geometry, camera };
+      });
+      this.#warmupGeometry = warmupSetup.geometry;
+      const customFactory = this.#customFactory;
+      if (customFactory) {
+        const factoryContext = trustedObjectFreeze({
+          descriptor: this.#descriptors[0]!,
+          variantId: variants[0]!,
+        });
+        const candidate: unknown = customFactory(factoryContext);
+        const ownership = captureUnverifiedFactoryOwnership(candidate);
+        if (ownership) this.#claimMaterial(ownership);
+        this.#assertInitializationNotDisposed();
+        throw new TypeError(
+          "Custom material factory outputs are unsupported because native ownership provenance cannot be verified.",
+        );
       }
+      withTrustedArrayIterator(() => {
+        const camera = warmupSetup.camera;
+        for (let variantIndex = 0; variantIndex < variants.length; variantIndex += 1) {
+          const variantId = variants[variantIndex]!;
+          const familyMaterials = new Map<WorldMaterialFamily, Readonly<TslMaterialHandle>>();
+          for (
+            let descriptorIndex = 0;
+            descriptorIndex < this.#descriptors.length;
+            descriptorIndex += 1
+          ) {
+            const descriptor = this.#descriptors[descriptorIndex]!;
+            const material = defaultMaterialFactory(descriptor, variantId);
+            this.#claimMaterial(libraryOwnedThreeDisposal(material));
+            const handle = trustedObjectFreeze({
+              id: `${descriptor.id}:${variantId}`,
+              family: descriptor.family,
+              variantId,
+              material,
+            });
+            mapSet(familyMaterials, descriptor.family, handle);
+            const scene = new Scene();
+            scene.name = `gfx005-material-warmup:${descriptor.family}:${variantId}`;
+            scene.add(new Mesh(this.#warmupGeometry!, material), new AmbientLight(0xffffff, 1));
+            this.#assertInitializationNotDisposed();
+            const warmupPassName = `gfx005-material:${descriptor.family}`;
+            appendDense(this.#warmupPasses, trustedObjectFreeze({
+              name: warmupPassName,
+              kind: GFX005_MATERIAL_WARMUP_KIND,
+              variant: variantId,
+              scene,
+              camera,
+            }));
+            appendDense(this.#manifest, trustedObjectFreeze({
+              family: descriptor.family,
+              descriptorId: descriptor.id,
+              variantId,
+              warmupPassName,
+            }));
+          }
+          if (mapSize(familyMaterials) !== this.#descriptors.length) {
+            throw new Error(`Material topology ${variantId} was not populated completely.`);
+          }
+          mapSet(this.#materials, variantId, familyMaterials);
+        }
+        const expectedMaterials = variants.length * this.#descriptors.length;
+        if (
+          mapSize(this.#materials) !== variants.length
+          || this.#createdMaterials !== expectedMaterials
+          || mapSize(this.#ownedMaterials) !== expectedMaterials
+          || this.#warmupPasses.length !== expectedMaterials
+          || this.#manifest.length !== expectedMaterials
+        ) {
+          throw new Error("TSL material initialization did not produce the complete closed topology.");
+        }
+      });
       this.#assertInitializationNotDisposed();
       this.#state = "ready";
     } catch (error: unknown) {
       this.#state = "failed";
-      const failures: unknown[] = [error];
+      const failures: unknown[] = [];
+      appendDense(failures, error);
       try {
         await this.#disposeOwnedResources();
       } catch (cleanupError: unknown) {
-        failures.push(cleanupError);
+        appendDense(failures, cleanupError);
       }
-      throw ownedAggregateError(failures, "TSL material initialization failed.");
+      throw withTrustedArrayIterator(() => (
+        ownedAggregateError(failures, "TSL material initialization failed.")
+      ));
     }
   }
 
   warmupPasses(profiles?: readonly Readonly<RenderQualityProfile>[]): readonly RenderPass[];
   warmupPasses(): readonly RenderPass[] {
     this.#assertReady("read material warm-up passes");
-    return Object.freeze(this.#warmupPasses.slice());
+    return frozenDenseCopy(this.#warmupPasses);
   }
 
   quality(profile: Readonly<RenderQualityProfile>): void {
@@ -507,11 +603,11 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
       ) {
         throw new Error("Material quality selection lost exclusive admission.");
       }
-      const capturedProfile: Readonly<RenderQualityProfile> = Object.freeze({
+      const capturedProfile: Readonly<RenderQualityProfile> = trustedObjectFreeze({
         tier,
         pixelRatio: 1,
         uploadBudgetMs: 0,
-        features: Object.freeze({}),
+        features: trustedObjectFreeze({}),
       });
       this.#activeVariantId = selectTslMaterialVariant(this.#actualApi!, capturedProfile);
     } finally {
@@ -521,30 +617,42 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
 
   resolve(family: WorldMaterialFamily): Readonly<TslMaterialHandle> {
     this.#assertReady("resolve a material");
-    if (!WORLD_MATERIAL_FAMILIES.includes(family)) {
-      throw new TypeError(`Unknown world material family: ${String(family)}.`);
+    let recognized = false;
+    for (let index = 0; index < WORLD_MATERIAL_FAMILIES.length; index += 1) {
+      if (WORLD_MATERIAL_FAMILIES[index] === family) {
+        recognized = true;
+        break;
+      }
     }
-    const handle = this.#materials.get(this.#activeVariantId!)?.get(family);
+    if (!recognized) {
+      throw new TypeError(`Unknown world material family: ${trustedString(family)}.`);
+    }
+    const familyMaterials = mapGet(this.#materials, this.#activeVariantId!);
+    const handle = familyMaterials ? mapGet(familyMaterials, family) : undefined;
     if (!handle) throw new Error(`Material ${family}/${this.#activeVariantId} was not warmed.`);
     return handle;
   }
 
   variantManifest(): readonly Readonly<TslMaterialVariantManifestEntry>[] {
     this.#assertReady("read the material variant manifest");
-    return Object.freeze(this.#manifest.slice());
+    return frozenDenseCopy(this.#manifest);
   }
 
   snapshot(): Readonly<TslMaterialLibrarySnapshot> {
-    return Object.freeze({
+    const variants: TslMaterialVariantId[] = [];
+    mapForEach(this.#materials, (_familyMaterials, variantId) => {
+      appendDense(variants, variantId);
+    });
+    return trustedObjectFreeze({
       state: this.#state,
       actualApi: this.#actualApi,
       activeVariantId: this.#activeVariantId,
       createdMaterials: this.#createdMaterials,
       disposedMaterials: this.#disposedMaterials,
-      ownedMaterials: this.#ownedMaterials.size,
+      ownedMaterials: mapSize(this.#ownedMaterials),
       ownedGeometry: this.#warmupGeometry === null ? 0 : 1,
       warmupPasses: this.#warmupPasses.length,
-      variants: Object.freeze([...this.#materials.keys()]),
+      variants: trustedObjectFreeze(variants),
     });
   }
 
@@ -572,7 +680,7 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
       this.#state = "disposed";
     } catch (error: unknown) {
       this.#state = "failed";
-      if (this.#ownedMaterials.size > 0 || this.#warmupGeometry !== null) {
+      if (mapSize(this.#ownedMaterials) > 0 || this.#warmupGeometry !== null) {
         this.#disposePromise = null;
       }
       throw error;
@@ -581,53 +689,46 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
 
   async #disposeOwnedResources(): Promise<void> {
     const failures: unknown[] = [];
-    for (const [target, material] of [...this.#ownedMaterials]) {
+    mapForEach(this.#ownedMaterials, (material, target) => {
       if (!material.ownershipVerified) {
-        if (!material.attempted && material.dispose) {
-          this.#ownedMaterials.set(target, Object.freeze({
-            ...material,
-            attempted: true,
-          }));
-          try {
-            material.dispose();
-          } catch (error: unknown) {
-            failures.push(error);
-          }
-        }
-        failures.push(new Error(
-          "Material ownership remains unresolved because Three.js brand inspection did not complete.",
+        appendDense(failures, new Error(
+          "Material ownership remains unresolved because custom factory provenance is unverified; untrusted cleanup was not invoked.",
         ));
-        continue;
+        return;
       }
       if (!material.dispose) {
-        failures.push(new Error("Verified material ownership is missing its disposal callback."));
-        continue;
+        appendDense(failures, new Error("Verified material ownership is missing its disposal callback."));
+        return;
       }
       try {
         material.dispose();
         this.#disposedMaterials += 1;
-        this.#ownedMaterials.delete(target);
+        mapDelete(this.#ownedMaterials, target);
       } catch (error: unknown) {
-        failures.push(error);
+        appendDense(failures, error);
       }
-    }
+    });
     try {
       this.#warmupGeometry?.dispose();
       this.#warmupGeometry = null;
     } catch (error: unknown) {
-      failures.push(error);
+      appendDense(failures, error);
     }
     this.#warmupPasses.length = 0;
     this.#manifest.length = 0;
-    this.#materials.clear();
-    if (failures.length > 0) throw ownedAggregateError(failures, "TSL material disposal failed.");
+    mapClear(this.#materials);
+    if (failures.length > 0) {
+      throw withTrustedArrayIterator(() => (
+        ownedAggregateError(failures, "TSL material disposal failed.")
+      ));
+    }
   }
 
   #claimMaterial(disposal: CapturedMaterialDisposal): void {
-    if (this.#ownedMaterials.has(disposal.target)) {
+    if (mapHas(this.#ownedMaterials, disposal.target)) {
       throw new Error("The material factory returned the same owned material twice.");
     }
-    this.#ownedMaterials.set(disposal.target, disposal);
+    mapSet(this.#ownedMaterials, disposal.target, disposal);
     this.#createdMaterials += 1;
   }
 

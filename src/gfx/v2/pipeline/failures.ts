@@ -353,6 +353,7 @@ export function ownedAggregateError(
   }
   const snapshots = Object.freeze(mutableSnapshots);
   const aggregate = new AggregateError(snapshots, boundedMessage);
+  Reflect.deleteProperty(aggregate, "stack");
   Object.freeze(aggregate.errors);
   return Object.freeze(aggregate);
 }

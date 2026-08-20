@@ -1,6 +1,7 @@
 import type {
   MaybePromise,
   RenderLogicalResourceOwnership,
+  RenderOperationClock,
   RenderQualityProfile,
   VisualClock,
 } from "../contracts";
@@ -340,7 +341,7 @@ export interface ChunkRuntimeSnapshot {
 export interface ChunkManagerLike {
   initialize(): Promise<void>;
   setFocus(chunkId: StoryChunkId): void;
-  update(clock: VisualClock): void;
+  update(clock: RenderOperationClock): void;
   quality(profile: Readonly<RenderQualityProfile>): void;
   snapshot(): Readonly<ChunkRuntimeSnapshot>;
   dispose(): Promise<void>;

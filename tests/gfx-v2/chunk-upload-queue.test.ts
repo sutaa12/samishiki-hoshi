@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
   RenderQualityProfile,
+  RenderOperationClock,
   RenderServiceInitializationContext,
-  VisualClock,
 } from "../../src/gfx/v2/contracts";
 import {
   CHUNK_UPLOAD_HARD_CAP_MS,
@@ -13,6 +13,7 @@ import {
 import { chunkOwnerId } from "../../src/gfx/v2/chunks/chunk-manager";
 import { IncrementalChunkUploadQueue } from "../../src/gfx/v2/chunks/upload-queue";
 import { makeChunkGenerationToken } from "../../src/gfx/v2/chunks/worker-client";
+import type { GfxOperationalEventInput } from "../../src/gfx/v2/telemetry";
 
 const PLAN_DIGEST = "world-plan-v1:75d93cbb8e0580cd";
 const PROFILE: Readonly<RenderQualityProfile> = Object.freeze({
@@ -21,11 +22,12 @@ const PROFILE: Readonly<RenderQualityProfile> = Object.freeze({
   uploadBudgetMs: 4,
   features: Object.freeze({}),
 });
-const CLOCK: Readonly<VisualClock> = Object.freeze({
+const CLOCK: Readonly<RenderOperationClock> = Object.freeze({
   frame: 1,
   nowMs: 16,
   deltaSeconds: 1 / 60,
   elapsedSeconds: 1 / 60,
+  storyTime: 73.25,
 });
 const CONTEXT = Object.freeze({
   backend: {},
@@ -114,7 +116,7 @@ describe("GFX-004 incremental upload queue", () => {
       startedAtMs: 0,
       durationMs: 0.4,
       frameId: 1,
-      storyTime: 1 / 60,
+      storyTime: 73.25,
       success: true,
       affectsStoryTime: true,
     })]);
@@ -143,6 +145,51 @@ describe("GFX-004 incremental upload queue", () => {
     await nestedDispose;
     expect(hostile.snapshot().disposed).toBe(false);
     await hostile.dispose();
+  });
+
+  it("keeps upload correlation on canonical story time across seek, restart, and pause", async () => {
+    const time = { value: 0 };
+    const events: Readonly<GfxOperationalEventInput>[] = [];
+    const queue = new IncrementalChunkUploadQueue(
+      () => time.value,
+      (event) => events.push(event),
+    );
+    queue.initialize(CONTEXT);
+    const low = Object.freeze({
+      tier: "low" as const,
+      pixelRatio: 0.75,
+      uploadBudgetMs: 2,
+      features: Object.freeze({}),
+    });
+    const frames = Object.freeze([
+      Object.freeze({ ...CLOCK, frame: 10, nowMs: 4_000, elapsedSeconds: 4, storyTime: 73.25 }),
+      Object.freeze({ ...CLOCK, frame: 11, nowMs: 4_016, elapsedSeconds: 4.016, storyTime: 142.5 }),
+      Object.freeze({ ...CLOCK, frame: 12, nowMs: 4_032, elapsedSeconds: 4.032, storyTime: 0 }),
+      Object.freeze({ ...CLOCK, frame: 13, nowMs: 5_032, elapsedSeconds: 5.032, storyTime: 0 }),
+    ]) satisfies readonly Readonly<RenderOperationClock>[];
+
+    for (let index = 0; index < frames.length; index += 1) {
+      const ticket = queue.enqueue(job({
+        requestId: 60 + index,
+        now: time,
+        durations: [0.1],
+        bytes: 4,
+      }));
+      await queue.flush(frames[index]!, index % 2 === 0 ? PROFILE : low);
+      expect(await ticket.result).toMatchObject({ kind: "complete" });
+    }
+
+    expect(events.map((event) => ({
+      frameId: event.frameId,
+      storyTime: event.storyTime,
+    }))).toEqual([
+      { frameId: 10, storyTime: 73.25 },
+      { frameId: 11, storyTime: 142.5 },
+      { frameId: 12, storyTime: 0 },
+      { frameId: 13, storyTime: 0 },
+    ]);
+    expect(queue.snapshot()).toMatchObject({ completed: 4, pending: 0, failed: 0 });
+    await queue.dispose();
   });
 
   it("uses bounded incremental FIFO slices and completes without ownership retention", async () => {
@@ -276,8 +323,59 @@ describe("GFX-004 incremental upload queue", () => {
     await expect(queue.flush(ownedClock, ownedProfile)).resolves.toBeUndefined();
     expect((await ticket.result).kind).toBe("complete");
     expect(ordinaryReads).toBe(0);
-    expect(clockDescriptors).toBe(4);
+    expect(clockDescriptors).toBe(5);
     expect(profileDescriptors).toBe(4);
+  });
+
+  it("rejects accessor story time and blocks ownership mutation during clock capture", async () => {
+    const time = { value: 0 };
+    const queue = new IncrementalChunkUploadQueue(() => time.value);
+    queue.initialize(CONTEXT);
+    const first = queue.enqueue(job({ requestId: 70, now: time, bytes: 4 }));
+    const nestedFailures: unknown[] = [];
+    let attemptedReentry = false;
+    const reentrantClock = new Proxy({ ...CLOCK }, {
+      getOwnPropertyDescriptor(target, key) {
+        if (key === "storyTime" && !attemptedReentry) {
+          attemptedReentry = true;
+          try {
+            queue.enqueue(job({ requestId: 71, now: time, bytes: 4 }));
+          } catch (error: unknown) {
+            nestedFailures.push(error);
+          }
+        }
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      },
+    });
+
+    await expect(queue.flush(reentrantClock, PROFILE)).resolves.toBeUndefined();
+    expect(await first.result).toMatchObject({ kind: "complete" });
+    expect(nestedFailures).toHaveLength(1);
+    expect(nestedFailures[0]).toMatchObject({
+      message: expect.stringMatching(/operation-clock capture/),
+    });
+    expect(queue.snapshot()).toMatchObject({ completed: 1, pending: 0 });
+
+    const second = queue.enqueue(job({ requestId: 72, now: time, bytes: 4 }));
+    let getterCalls = 0;
+    const accessorClock = { ...CLOCK } as Record<string, unknown>;
+    Object.defineProperty(accessorClock, "storyTime", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 99;
+      },
+    });
+    await expect(queue.flush(
+      accessorClock as unknown as RenderOperationClock,
+      PROFILE,
+    )).rejects.toThrow(/data property/);
+    expect(getterCalls).toBe(0);
+    expect(queue.snapshot()).toMatchObject({ completed: 1, pending: 1 });
+    await expect(queue.flush({ ...CLOCK, frame: 2 }, PROFILE)).resolves.toBeUndefined();
+    expect(await second.result).toMatchObject({ kind: "complete" });
+    expect(queue.snapshot()).toMatchObject({ completed: 2, pending: 0, orphanJobCount: 0 });
+    await queue.dispose();
   });
 
   it("disposes a completed lease and settles the ticket when the post-run clock sample fails", async () => {

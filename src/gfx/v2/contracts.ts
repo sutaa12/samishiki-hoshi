@@ -58,6 +58,15 @@ export interface VisualClock {
   readonly elapsedSeconds: number;
 }
 
+/**
+ * Frame-latched clock for operations that must correlate with journey state.
+ * `elapsedSeconds` is monotonic visual/runtime time; `storyTime` is copied from
+ * the canonical render snapshot and may pause, seek, or restart independently.
+ */
+export interface RenderOperationClock extends VisualClock {
+  readonly storyTime: number;
+}
+
 export interface RenderQualityProfile {
   readonly tier: RenderQualityTier;
   readonly pixelRatio: number;
@@ -129,11 +138,47 @@ export interface BackendInitializationContext {
   readonly viewport: RenderViewport;
 }
 
+export const RENDER_COMPILE_PHASES = Object.freeze([
+  "runtime-object",
+  "material-isolated",
+  "material-runtime-topology",
+  "output-first-use",
+] as const);
+
+export type RenderCompileStepPhase = (typeof RENDER_COMPILE_PHASES)[number];
+
+/** Bounded internal tokens only; caller-authored labels never enter telemetry. */
+export interface RenderCompileStepDescriptor {
+  readonly id: string;
+  readonly phase: RenderCompileStepPhase;
+  readonly profileId: string | null;
+}
+
+export interface RenderCompileStepRunner {
+  run(
+    descriptor: Readonly<RenderCompileStepDescriptor>,
+    operation: () => MaybePromise<void>,
+  ): Promise<void>;
+}
+
+export interface RenderPrecompileReceipt {
+  readonly plannedSteps: number;
+  readonly completedSteps: number;
+  readonly phaseCounts: Readonly<Record<RenderCompileStepPhase, number>>;
+}
+
+export interface RenderWarmupScheduler {
+  yieldToMain(): Promise<void>;
+}
+
 export interface RenderBackendAdapter {
   readonly facts: Readonly<RenderBackendFacts>;
   initialize(context: BackendInitializationContext): Promise<void>;
   resize(viewport: RenderViewport): MaybePromise<void>;
-  precompile(passes: readonly RenderPass[]): MaybePromise<void>;
+  precompile(
+    passes: readonly RenderPass[],
+    runner: RenderCompileStepRunner,
+  ): Promise<Readonly<RenderPrecompileReceipt>>;
   render(passes: readonly RenderPass[]): MaybePromise<void>;
   subscribeEvents(listener: (event: BackendRuntimeEvent) => void): Unsubscribe;
   snapshotResources(): Readonly<RenderResourceSnapshot>;
@@ -205,7 +250,7 @@ export interface RenderUploadQueue {
   initialize(context: RenderServiceInitializationContext): MaybePromise<void>;
   quality?(profile: Readonly<RenderQualityProfile>): MaybePromise<void>;
   flush(
-    clock: VisualClock,
+    clock: RenderOperationClock,
     profile?: Readonly<RenderQualityProfile>,
   ): MaybePromise<void>;
   pendingCount(): number;
@@ -249,7 +294,7 @@ export interface RenderFeature {
   readonly id: string;
   initialize(context: FeatureInitContext): Promise<void>;
   warmupPasses?(profiles: readonly Readonly<RenderQualityProfile>[]): readonly RenderPass[];
-  update(frame: JourneyRenderSnapshot, clock: VisualClock): void;
+  update(frame: JourneyRenderSnapshot, clock: RenderOperationClock): void;
   render(recorder: RenderPassRecorder): void;
   quality(profile: Readonly<RenderQualityProfile>): void;
   resize?(viewport: Readonly<RenderViewport>): MaybePromise<void>;
@@ -266,6 +311,7 @@ export interface RenderHostDependencies {
    */
   readonly backend: RenderBackendAdapter;
   readonly frameLoop: RenderFrameLoop;
+  readonly warmupScheduler: RenderWarmupScheduler;
   readonly features: readonly RenderFeature[];
   readonly materials: RenderMaterialLibrary;
   readonly uploads: RenderUploadQueue;
@@ -306,6 +352,17 @@ export interface RenderHostProbeSnapshot {
   }> | null;
   readonly backend: Readonly<RenderBackendFacts>;
   readonly resources: Readonly<RenderResourceSnapshot>;
+  readonly compileWarmup: Readonly<{
+    planned: number;
+    started: number;
+    completed: number;
+    failed: number;
+    timingComplete: boolean;
+    maxDuration: number | null;
+    overBudget: number;
+    budgetStatus: "pending" | "pass" | "fail" | "unmeasured";
+    phaseCounts: Readonly<Record<RenderCompileStepPhase, number>>;
+  }>;
   readonly counters: Readonly<RenderHostCounters>;
   readonly events: readonly RenderHostProbeEvent[];
   readonly error: Readonly<{

@@ -5,6 +5,7 @@ import type {
   JourneyRenderSnapshot,
   RenderBackendAdapter,
   RenderBackendFacts,
+  RenderCompileStepRunner,
   RenderEventObserver,
   RenderFeature,
   RenderFrameLoop,
@@ -12,6 +13,7 @@ import type {
   RenderMaterialLibrary,
   RenderPass,
   RenderPassRecorder,
+  RenderPrecompileReceipt,
   RenderQualityProfile,
   RenderQualityProvider,
   RenderResourceRegistry,
@@ -39,6 +41,16 @@ const HIGH: RenderQualityProfile = {
   uploadBudgetMs: 2,
   features: { temporal: true },
 };
+const EMPTY_PRECOMPILE_RECEIPT = Object.freeze({
+  plannedSteps: 0,
+  completedSteps: 0,
+  phaseCounts: Object.freeze({
+    "runtime-object": 0,
+    "material-isolated": 0,
+    "material-runtime-topology": 0,
+    "output-first-use": 0,
+  }),
+}) satisfies Readonly<RenderPrecompileReceipt>;
 
 function journeySnapshot(): JourneyRenderSnapshot {
   return {
@@ -136,8 +148,13 @@ class FakeBackend implements RenderBackendAdapter {
     await this.resizeGate;
   }
 
-  precompile(passes: readonly RenderPass[]): void {
+  async precompile(
+    passes: readonly RenderPass[],
+    runner: RenderCompileStepRunner,
+  ): Promise<Readonly<RenderPrecompileReceipt>> {
+    void runner;
     this.log.push(`backend.precompile:${passes.map((pass) => pass.name).join(",")}`);
+    return EMPTY_PRECOMPILE_RECEIPT;
   }
 
   render(passes: readonly RenderPass[]): void | Promise<void> {
@@ -312,6 +329,7 @@ function dependencies(
   return {
     backend,
     frameLoop,
+    warmupScheduler: { yieldToMain: async () => undefined },
     features,
     materials,
     uploads,
@@ -403,8 +421,9 @@ describe("GFX-002 RenderHost", () => {
     });
     const deps = dependencies(log, [feature]);
     let capturedPass: RenderPass | null = null;
-    deps.backend.precompile = (passes) => {
+    deps.backend.precompile = async (passes) => {
       capturedPass = passes.find((pass) => pass.name === "stable-pass") ?? null;
+      return EMPTY_PRECOMPILE_RECEIPT;
     };
     const host = new RenderHost(deps);
 
@@ -436,8 +455,9 @@ describe("GFX-002 RenderHost", () => {
       payload: materialPayload,
     }];
     let captured: readonly RenderPass[] = [];
-    deps.backend.precompile = (passes) => {
+    deps.backend.precompile = async (passes) => {
       captured = passes;
+      return EMPTY_PRECOMPILE_RECEIPT;
     };
     const host = new RenderHost(deps);
 
@@ -3074,7 +3094,24 @@ describe("GFX-002 RenderHost", () => {
 
   it("publishes an out-of-band adapter clock failure into Host terminal evidence", async () => {
     const log: string[] = [];
-    const base = dependencies(log, [fakeFeature("feature", log)]);
+    const feature = fakeFeature("feature", log);
+    const drawable = {
+      isMesh: true,
+      visible: true,
+      frustumCulled: true,
+      layers: { mask: 1 },
+      material: { visible: true },
+      geometry: { groups: [] },
+      children: [],
+    };
+    const targetScene = { isScene: true, children: [drawable] };
+    const camera = { layers: { mask: 1 } };
+    feature.render = (recorder: RenderPassRecorder) => {
+      log.push("feature.render");
+      recorder.draw("feature-pass", targetScene, camera);
+    };
+    const base = dependencies(log, [feature]);
+    base.materials.warmupPasses = () => [];
     const backendDispose = vi.fn();
     const renderer: ThreeRendererPort = {
       backend: { isWebGLBackend: true, compatibilityMode: false, dispose: backendDispose },

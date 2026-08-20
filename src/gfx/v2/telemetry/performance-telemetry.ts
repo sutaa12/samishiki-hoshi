@@ -246,6 +246,10 @@ function operationKind(value: unknown): GfxOperationalEventKind {
   throw new TypeError("Telemetry operation kind is invalid.");
 }
 
+function usesRuntimeSpikeLimit(kind: GfxOperationalEventKind): boolean {
+  return kind === "compile" || kind === "upload" || kind === "activation";
+}
+
 function boundedName(value: unknown): string {
   if (typeof value !== "string" || value.length === 0 || value.length > 128) {
     throw new TypeError("Telemetry operation name must contain 1 through 128 characters.");
@@ -311,6 +315,17 @@ function emptyOperationTotals(): Record<GfxOperationalEventKind, number> {
   };
 }
 
+function emptyOperationMaxima(): Record<GfxOperationalEventKind, number | null> {
+  return {
+    initialization: null,
+    compile: null,
+    upload: null,
+    activation: null,
+    "quality-change": null,
+    "history-reset": null,
+  };
+}
+
 function emptyHistoryCounts(): Record<RenderHistoryInvalidationReason, number> {
   const counts = {} as Record<RenderHistoryInvalidationReason, number>;
   for (let index = 0; index < RENDER_HISTORY_INVALIDATION_REASONS.length; index += 1) {
@@ -359,6 +374,8 @@ export class RollingGfxPerformanceTelemetry implements GfxPerformanceTelemetry {
   readonly #events: Readonly<GfxOperationalEventSnapshot>[] = [];
   readonly #pendingOperationalFrames: number[] = [];
   readonly #eventTotals = emptyOperationTotals();
+  readonly #eventMaxDurationMs = emptyOperationMaxima();
+  readonly #eventsOver50Ms = emptyOperationTotals();
   readonly #historyResetCounts = emptyHistoryCounts();
   #state: GfxPerformanceTelemetrySnapshot["state"] = "active";
   #cursor = 0;
@@ -368,7 +385,7 @@ export class RollingGfxPerformanceTelemetry implements GfxPerformanceTelemetry {
   #lastFrameId: number | null = null;
   #latestFrame: Readonly<GfxLatestFrameSnapshot> | null = null;
   #eventSequence = 0;
-  #runtimeSpikesOver50Ms = 0;
+  #operationalSpikesOver50Ms = 0;
   #ingressActive = false;
 
   recordFrame(input: Readonly<GfxFrameTelemetryInput>): void {
@@ -426,7 +443,7 @@ export class RollingGfxPerformanceTelemetry implements GfxPerformanceTelemetry {
     try {
       const operation = captureOperation(input);
       if (this.#isDisposed()) return;
-      const exceedsRuntimeSpikeLimit = operation.affectsStoryTime
+      const exceedsRuntimeSpikeLimit = usesRuntimeSpikeLimit(operation.kind)
         && operation.durationMs > GFX_TELEMETRY_RUNTIME_SPIKE_MS;
       this.#eventSequence += 1;
       const event = intrinsicFreeze({
@@ -442,7 +459,14 @@ export class RollingGfxPerformanceTelemetry implements GfxPerformanceTelemetry {
         this.#events.length = GFX_TELEMETRY_EVENT_CAPACITY;
       }
       this.#eventTotals[operation.kind] += 1;
-      if (exceedsRuntimeSpikeLimit) this.#runtimeSpikesOver50Ms += 1;
+      const previousMaximum = this.#eventMaxDurationMs[operation.kind];
+      this.#eventMaxDurationMs[operation.kind] = previousMaximum === null
+        ? operation.durationMs
+        : intrinsicMathMax(previousMaximum, operation.durationMs);
+      if (operation.durationMs > GFX_TELEMETRY_RUNTIME_SPIKE_MS) {
+        this.#eventsOver50Ms[operation.kind] += 1;
+      }
+      if (exceedsRuntimeSpikeLimit) this.#operationalSpikesOver50Ms += 1;
       if (operation.kind === "history-reset") {
         this.#historyResetCounts[operation.historyReason!] += 1;
       }
@@ -496,7 +520,10 @@ export class RollingGfxPerformanceTelemetry implements GfxPerformanceTelemetry {
       latestFrame: this.#latestFrame,
       events: this.#snapshotEvents(),
       eventTotals: intrinsicFreeze({ ...this.#eventTotals }),
-      runtimeSpikesOver50Ms: this.#runtimeSpikesOver50Ms,
+      eventMaxDurationMs: intrinsicFreeze({ ...this.#eventMaxDurationMs }),
+      eventsOver50Ms: intrinsicFreeze({ ...this.#eventsOver50Ms }),
+      operationalSpikesOver50Ms: this.#operationalSpikesOver50Ms,
+      runtimeSpikesOver50Ms: this.#operationalSpikesOver50Ms,
       historyResetCounts: intrinsicFreeze({ ...this.#historyResetCounts }),
     });
   }

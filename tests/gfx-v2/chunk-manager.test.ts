@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type {
   RenderLogicalResourceOwnership,
+  RenderOperationClock,
   RenderQualityProfile,
   RenderResourceRegistry,
   RenderResourceSnapshot,
   RenderServiceInitializationContext,
-  VisualClock,
 } from "../../src/gfx/v2/contracts";
 import type { GfxOperationalEventInput, GfxTelemetrySink } from "../../src/gfx/v2/telemetry";
 import { STORY_CHUNK_IDS, type StoryChunkId, type WorldPlan } from "../../src/world/v2/contracts";
@@ -57,12 +57,13 @@ function deferredVoid(): DeferredVoid {
   return { promise, resolve };
 }
 
-function clock(frame: number): Readonly<VisualClock> {
+function clock(frame: number, storyTime = 70 + frame / 60): Readonly<RenderOperationClock> {
   return Object.freeze({
     frame,
     nowMs: frame * 16,
     deltaSeconds: 1 / 60,
     elapsedSeconds: frame / 60,
+    storyTime,
   });
 }
 
@@ -474,12 +475,61 @@ describe("GFX-004 chunk manager", () => {
     expect(activations.every((event) => (
       /^chunk-s\d{2}-\d+-lease-activation$/.test(event.name)
       && event.frameId !== null
-      && event.storyTime !== null
+      && event.storyTime === clock(event.frameId).storyTime
+      && event.storyTime > 70
       && event.durationMs === 0
       && event.success
       && event.affectsStoryTime
       && Object.isFrozen(event)
     ))).toBe(true);
+    await disposeCleanHarness(harness);
+  });
+
+  it("captures operation story time without getters or reentrant focus mutation", async () => {
+    const harness = createHarness();
+    await harness.manager.initialize();
+    harness.manager.setFocus("S08");
+    const nestedFailures: unknown[] = [];
+    let attemptedReentry = false;
+    const reentrantClock = new Proxy({ ...clock(1, 88.5) }, {
+      getOwnPropertyDescriptor(target, key) {
+        if (key === "storyTime" && !attemptedReentry) {
+          attemptedReentry = true;
+          try {
+            harness.manager.setFocus("S24");
+          } catch (error: unknown) {
+            nestedFailures.push(error);
+          }
+        }
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      },
+    });
+
+    harness.manager.update(reentrantClock);
+    expect(nestedFailures).toHaveLength(1);
+    expect(nestedFailures[0]).toMatchObject({
+      message: expect.stringMatching(/operation-clock capture/),
+    });
+    expect(harness.manager.snapshot().focusChunkId).toBe("S08");
+    const before = harness.manager.snapshot();
+
+    let getterCalls = 0;
+    const accessorClock = { ...clock(2, 142) } as Record<string, unknown>;
+    Object.defineProperty(accessorClock, "storyTime", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 142;
+      },
+    });
+    expect(() => harness.manager.update(
+      accessorClock as unknown as RenderOperationClock,
+    )).toThrow(/data property/);
+    expect(getterCalls).toBe(0);
+    expect(harness.manager.snapshot()).toEqual(before);
+
+    harness.manager.update(clock(2, 0));
+    expect(harness.manager.snapshot().focusChunkId).toBe("S08");
     await disposeCleanHarness(harness);
   });
 

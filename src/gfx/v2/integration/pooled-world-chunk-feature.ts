@@ -5,9 +5,9 @@ import type {
   RenderHistoryInvalidation,
   RenderPass,
   RenderPassRecorder,
+  RenderOperationClock,
   RenderQualityProfile,
   RenderViewport,
-  VisualClock,
 } from "../contracts";
 import { WorldChunkRenderFeature } from "../chunks";
 import { ProductionThreeChunkUploader } from "./three-chunk-uploader";
@@ -56,7 +56,7 @@ export class PooledWorldChunkFeature implements RenderFeature {
     return this.#inner.warmupPasses(profiles);
   }
 
-  update(frame: Readonly<JourneyRenderSnapshot>, clock: VisualClock): void {
+  update(frame: Readonly<JourneyRenderSnapshot>, clock: RenderOperationClock): void {
     if (this.#disposed) return;
     this.#uploader.beginRuntime();
     this.#inner.update(frame, clock);

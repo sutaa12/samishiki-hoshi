@@ -7,9 +7,9 @@ import {
 } from "three/webgpu";
 import type {
   RenderPass,
+  RenderOperationClock,
   RenderQualityProfile,
   RenderServiceInitializationContext,
-  VisualClock,
 } from "../../src/gfx/v2/contracts";
 import {
   IncrementalChunkUploadQueue,
@@ -43,11 +43,12 @@ const TOKEN = makeChunkGenerationToken({
   requestId: 1,
 });
 const PAYLOAD = generateChunkPayload(PLAN, TOKEN);
-const CLOCK: Readonly<VisualClock> = Object.freeze({
+const CLOCK: Readonly<RenderOperationClock> = Object.freeze({
   frame: 1,
   nowMs: 16,
   deltaSeconds: 0.016,
   elapsedSeconds: 0.016,
+  storyTime: 48,
 });
 
 const HIGH: Readonly<RenderQualityProfile> = Object.freeze({

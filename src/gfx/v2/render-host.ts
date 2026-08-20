@@ -3,6 +3,9 @@ import {
   type BackendRuntimeEvent,
   type JourneyRenderSnapshot,
   type RenderBackendFrameTelemetry,
+  type RenderCompileStepDescriptor,
+  type RenderCompileStepPhase,
+  type RenderCompileStepRunner,
   type RenderHostDependencies,
   type RenderHostEvent,
   type RenderHostLifecycle,
@@ -12,12 +15,16 @@ import {
   type RenderHistoryInvalidationReason,
   type RenderPass,
   type RenderPassRecorder,
+  type RenderPrecompileReceipt,
+  type RenderOperationClock,
   type RenderQualityProfile,
   type RenderResourceSnapshot,
   type RenderViewport,
+  type RenderWarmupScheduler,
   type Unsubscribe,
-  type VisualClock,
 } from "./contracts";
+import { RENDER_COMPILE_PHASES } from "./contracts";
+import { GFX_TELEMETRY_RUNTIME_SPIKE_MS } from "./telemetry/contracts";
 import type {
   GfxFrameTelemetryInput,
   GfxOperationalEventInput,
@@ -32,6 +39,29 @@ import {
   replaceRenderHostErrorCause,
   renderHostErrorCause,
 } from "./errors";
+
+const hostIntrinsicAggregateError = AggregateError;
+const hostIntrinsicError = Error;
+const hostIntrinsicMathMax = Math.max;
+const hostIntrinsicNumberIsFinite = Number.isFinite;
+const hostIntrinsicNumberIsSafeInteger = Number.isSafeInteger;
+const hostIntrinsicObjectFreeze = Object.freeze;
+const hostIntrinsicObjectIs = Object.is;
+const hostIntrinsicPromise = Promise;
+const hostIntrinsicPromiseAllSettled = Promise.allSettled;
+const hostIntrinsicPromiseThen = Promise.prototype.then;
+const hostIntrinsicReflectApply = Reflect.apply;
+const hostIntrinsicReflectConstruct = Reflect.construct;
+const hostIntrinsicReflectGetOwnPropertyDescriptor = Reflect.getOwnPropertyDescriptor;
+const hostIntrinsicReflectGetPrototypeOf = Reflect.getPrototypeOf;
+const hostIntrinsicReflectOwnKeys = Reflect.ownKeys;
+const hostIntrinsicRegExpTest = RegExp.prototype.test;
+const hostIntrinsicSet = Set;
+const hostIntrinsicSetAdd = Set.prototype.add;
+const hostIntrinsicSetDelete = Set.prototype.delete;
+const hostIntrinsicSetForEach = Set.prototype.forEach;
+const hostIntrinsicSetHas = Set.prototype.has;
+const hostIntrinsicSetSize = Object.getOwnPropertyDescriptor(Set.prototype, "size")!.get!;
 
 function captureRenderPass(
   pass: RenderPass,
@@ -126,6 +156,389 @@ interface PendingDroppedTelemetryFrame {
   readonly qualityTier: RenderQualityProfile["tier"];
 }
 
+const MAXIMUM_RENDER_COMPILE_STEPS = 8_192;
+const MAXIMUM_RENDER_COMPILE_DESCRIPTOR_ID_LENGTH = 96;
+const MAXIMUM_RENDER_COMPILE_PROFILE_ID_LENGTH = 64;
+const INTERNAL_COMPILE_ID = /^[a-z0-9][a-z0-9:-]*$/;
+const INTERNAL_COMPILE_PROFILE_ID = /^[a-z0-9][a-z0-9-]*$/;
+
+type CompileWarmupState = {
+  planned: number;
+  started: number;
+  completed: number;
+  failed: number;
+  measured: number;
+  maxDuration: number | null;
+  overBudget: number;
+  unmeasured: boolean;
+  finalized: boolean;
+  terminated: boolean;
+  phaseCounts: Record<RenderCompileStepPhase, number>;
+};
+
+type CompileRunnerSession = {
+  open: boolean;
+  running: boolean;
+  readonly ids: Set<string>;
+  readonly inFlight: Set<Promise<void>>;
+  violation: Error | null;
+};
+
+function emptyCompilePhaseCounts(): Record<RenderCompileStepPhase, number> {
+  return {
+    "runtime-object": 0,
+    "material-isolated": 0,
+    "material-runtime-topology": 0,
+    "output-first-use": 0,
+  };
+}
+
+function safeIntegerCount(value: unknown, label: string): number {
+  if (
+    typeof value !== "number"
+    || !hostIntrinsicNumberIsSafeInteger(value)
+    || value < 0
+    || value > MAXIMUM_RENDER_COMPILE_STEPS
+    || hostIntrinsicObjectIs(value, -0)
+  ) {
+    throw new RangeError(`${label} must be a non-negative safe integer no greater than ${MAXIMUM_RENDER_COMPILE_STEPS}.`);
+  }
+  return value;
+}
+
+function captureCompileDescriptor(
+  descriptor: Readonly<RenderCompileStepDescriptor>,
+): Readonly<RenderCompileStepDescriptor> {
+  if ((typeof descriptor !== "object" || descriptor === null) && typeof descriptor !== "function") {
+    throw new TypeError("A compile step descriptor must be an object.");
+  }
+  const id = instrumentationOwnDataValue(descriptor, "id", "compile descriptor");
+  const phase = instrumentationOwnDataValue(descriptor, "phase", "compile descriptor");
+  const profileId = instrumentationOwnDataValue(
+    descriptor,
+    "profileId",
+    "compile descriptor",
+  );
+  if (
+    typeof id !== "string"
+    || id.length === 0
+    || id.length > MAXIMUM_RENDER_COMPILE_DESCRIPTOR_ID_LENGTH
+    || !hostIntrinsicReflectApply(hostIntrinsicRegExpTest, INTERNAL_COMPILE_ID, [id])
+  ) {
+    throw new TypeError("A compile descriptor id must be a bounded internal token.");
+  }
+  if (!isCompileStepPhase(phase)) {
+    throw new TypeError("A compile descriptor phase is invalid.");
+  }
+  if (
+    profileId !== null
+    && (
+      typeof profileId !== "string"
+      || profileId.length === 0
+      || profileId.length > MAXIMUM_RENDER_COMPILE_PROFILE_ID_LENGTH
+      || !hostIntrinsicReflectApply(
+        hostIntrinsicRegExpTest,
+        INTERNAL_COMPILE_PROFILE_ID,
+        [profileId],
+      )
+    )
+  ) {
+    throw new TypeError("A compile descriptor profile id must be null or a bounded internal token.");
+  }
+  return hostIntrinsicObjectFreeze({
+    id,
+    phase: phase as RenderCompileStepPhase,
+    profileId: profileId as string | null,
+  });
+}
+
+function isCompileStepPhase(value: unknown): value is RenderCompileStepPhase {
+  return value === "runtime-object"
+    || value === "material-isolated"
+    || value === "material-runtime-topology"
+    || value === "output-first-use";
+}
+
+function capturePrecompileReceipt(
+  receipt: Readonly<RenderPrecompileReceipt>,
+): Readonly<RenderPrecompileReceipt> {
+  if ((typeof receipt !== "object" || receipt === null) && typeof receipt !== "function") {
+    throw new TypeError("A precompile receipt must be an object.");
+  }
+  const plannedSteps = safeIntegerCount(
+    instrumentationOwnDataValue(receipt, "plannedSteps", "precompile receipt"),
+    "precompile receipt plannedSteps",
+  );
+  const completedSteps = safeIntegerCount(
+    instrumentationOwnDataValue(receipt, "completedSteps", "precompile receipt"),
+    "precompile receipt completedSteps",
+  );
+  const phaseCountsSource = instrumentationOwnDataValue(
+    receipt,
+    "phaseCounts",
+    "precompile receipt",
+  );
+  if (
+    (typeof phaseCountsSource !== "object" || phaseCountsSource === null)
+    && typeof phaseCountsSource !== "function"
+  ) {
+    throw new TypeError("A precompile receipt phaseCounts value must be an object.");
+  }
+  let keys: readonly PropertyKey[];
+  try {
+    keys = hostIntrinsicReflectOwnKeys(phaseCountsSource);
+  } catch {
+    throw new TypeError("A precompile receipt phaseCounts value could not be inspected.");
+  }
+  if (
+    keys.length !== 4
+  ) {
+    throw new TypeError("A precompile receipt must contain exactly the four compile phase counts.");
+  }
+  for (let index = 0; index < keys.length; index += 1) {
+    if (!isCompileStepPhase(keys[index])) {
+      throw new TypeError("A precompile receipt must contain exactly the four compile phase counts.");
+    }
+  }
+  const phaseCounts = emptyCompilePhaseCounts();
+  let phaseTotal = 0;
+  for (let index = 0; index < 4; index += 1) {
+    const phase = RENDER_COMPILE_PHASES[index]!;
+    const count = safeIntegerCount(
+      instrumentationOwnDataValue(phaseCountsSource, phase, "precompile receipt phaseCounts"),
+      `precompile receipt ${phase} count`,
+    );
+    phaseCounts[phase] = count;
+    phaseTotal += count;
+  }
+  if (phaseTotal !== plannedSteps || completedSteps > plannedSteps) {
+    throw new RangeError("A precompile receipt has inconsistent planned, completed, or phase counts.");
+  }
+  return hostIntrinsicObjectFreeze({
+    plannedSteps,
+    completedSteps,
+    phaseCounts: hostIntrinsicObjectFreeze(phaseCounts),
+  });
+}
+
+function safeDataMethod(
+  receiver: object,
+  key: PropertyKey,
+): ((...args: unknown[]) => unknown) | null {
+  let owner: object | null = receiver;
+  for (let depth = 0; depth < 8 && owner !== null; depth += 1) {
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = hostIntrinsicReflectGetOwnPropertyDescriptor(owner, key);
+    } catch {
+      return null;
+    }
+    if (descriptor) {
+      return "value" in descriptor && typeof descriptor.value === "function"
+        ? descriptor.value as (...args: unknown[]) => unknown
+        : null;
+    }
+    try {
+      owner = hostIntrinsicReflectGetPrototypeOf(owner);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function safeAccessorGetter(
+  receiver: object,
+  key: PropertyKey,
+): ((...args: unknown[]) => unknown) | null {
+  let owner: object | null = receiver;
+  for (let depth = 0; depth < 8 && owner !== null; depth += 1) {
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = hostIntrinsicReflectGetOwnPropertyDescriptor(owner, key);
+    } catch {
+      return null;
+    }
+    if (descriptor) {
+      return !("value" in descriptor) && typeof descriptor.get === "function"
+        ? descriptor.get as (...args: unknown[]) => unknown
+        : null;
+    }
+    try {
+      owner = hostIntrinsicReflectGetPrototypeOf(owner);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function optionalOwnDataValue(source: object, key: PropertyKey): unknown {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = hostIntrinsicReflectGetOwnPropertyDescriptor(source, key);
+  } catch {
+    return undefined;
+  }
+  return descriptor && "value" in descriptor ? descriptor.value : undefined;
+}
+
+function captureExactPromise(candidate: unknown): Promise<void> {
+  return new hostIntrinsicPromise<void>((resolve, reject) => {
+    try {
+      hostIntrinsicReflectApply(hostIntrinsicPromiseThen, candidate, [
+        () => resolve(),
+        reject,
+      ]);
+    } catch (error: unknown) {
+      reject(error);
+    }
+  });
+}
+
+/** Captures browser scheduling primitives once without consulting accessor-backed globals. */
+export function createBrowserRenderWarmupScheduler(
+  scope: object = globalThis,
+): Readonly<RenderWarmupScheduler> {
+  const scheduler = optionalOwnDataValue(scope, "scheduler");
+  const schedulerYield = (
+    (typeof scheduler === "object" && scheduler !== null) || typeof scheduler === "function"
+  ) ? safeDataMethod(scheduler as object, "yield") : null;
+  const messageChannel = optionalOwnDataValue(scope, "MessageChannel");
+  const messageChannelPrototype = typeof messageChannel === "function"
+    ? optionalOwnDataValue(messageChannel as object, "prototype")
+    : undefined;
+  const messageChannelPrototypeObject = (
+    (typeof messageChannelPrototype === "object" && messageChannelPrototype !== null)
+    || typeof messageChannelPrototype === "function"
+  ) ? messageChannelPrototype as object : null;
+  const port1Getter = messageChannelPrototypeObject === null
+    ? null
+    : safeAccessorGetter(messageChannelPrototypeObject, "port1");
+  const port2Getter = messageChannelPrototypeObject === null
+    ? null
+    : safeAccessorGetter(messageChannelPrototypeObject, "port2");
+  return hostIntrinsicObjectFreeze({
+    async yieldToMain(): Promise<void> {
+      if (schedulerYield !== null) {
+        await hostIntrinsicReflectApply(schedulerYield, scheduler, []);
+        return;
+      }
+      if (
+        typeof messageChannel !== "function"
+        || port1Getter === null
+        || port2Getter === null
+      ) {
+        throw new Error("A safe main-thread warm-up scheduler is unavailable.");
+      }
+      const channel = hostIntrinsicReflectConstruct(messageChannel, []) as object;
+      let port1: object | null = null;
+      let port2: object | null = null;
+      let close1: ((...args: unknown[]) => unknown) | null = null;
+      let close2: ((...args: unknown[]) => unknown) | null = null;
+      let cleanupAttempted = false;
+      const close = () => {
+        if (cleanupAttempted) return;
+        cleanupAttempted = true;
+        let firstFailed = false;
+        let firstFailure: unknown;
+        let secondFailed = false;
+        let secondFailure: unknown;
+        if (close1 !== null && port1 !== null) {
+          try {
+            hostIntrinsicReflectApply(close1, port1, []);
+          } catch (error: unknown) {
+            firstFailed = true;
+            firstFailure = error;
+          }
+        }
+        if (close2 !== null && port2 !== null) {
+          try {
+            hostIntrinsicReflectApply(close2, port2, []);
+          } catch (error: unknown) {
+            secondFailed = true;
+            secondFailure = error;
+          }
+        }
+        if (firstFailed && secondFailed) {
+          throw new hostIntrinsicAggregateError(
+            [firstFailure, secondFailure],
+            "Both MessageChannel warm-up ports failed to close.",
+          );
+        }
+        if (firstFailed) throw firstFailure;
+        if (secondFailed) throw secondFailure;
+      };
+      let addEventListener: ((...args: unknown[]) => unknown);
+      let start: ((...args: unknown[]) => unknown) | null;
+      let postMessage: ((...args: unknown[]) => unknown);
+      try {
+        const observedPort1 = hostIntrinsicReflectApply(port1Getter, channel, []);
+        if (
+          (typeof observedPort1 !== "object" || observedPort1 === null)
+          && typeof observedPort1 !== "function"
+        ) {
+          throw new hostIntrinsicError("A MessageChannel warm-up task could not acquire port1.");
+        }
+        port1 = observedPort1 as object;
+        close1 = safeDataMethod(port1, "close");
+        const observedPort2 = hostIntrinsicReflectApply(port2Getter, channel, []);
+        if (
+          (typeof observedPort2 !== "object" || observedPort2 === null)
+          && typeof observedPort2 !== "function"
+        ) {
+          throw new hostIntrinsicError("A MessageChannel warm-up task could not acquire port2.");
+        }
+        port2 = observedPort2 as object;
+        close2 = safeDataMethod(port2, "close");
+        const observedAddEventListener = safeDataMethod(port1, "addEventListener");
+        start = safeDataMethod(port1, "start");
+        const observedPostMessage = safeDataMethod(port2, "postMessage");
+        if (observedAddEventListener === null || observedPostMessage === null) {
+          throw new hostIntrinsicError("A MessageChannel warm-up task lacks safe data methods.");
+        }
+        addEventListener = observedAddEventListener;
+        postMessage = observedPostMessage;
+      } catch (error: unknown) {
+        try {
+          close();
+        } catch {
+          // Port acquisition/setup failure remains authoritative.
+        }
+        throw error;
+      }
+      await new hostIntrinsicPromise<void>((resolve, reject) => {
+        let settled = false;
+        const complete = () => {
+          if (settled) return;
+          settled = true;
+          try {
+            close();
+            resolve();
+          } catch (error: unknown) {
+            reject(error);
+          }
+        };
+        try {
+          hostIntrinsicReflectApply(addEventListener, port1, ["message", complete, { once: true }]);
+          if (settled) return;
+          if (start) hostIntrinsicReflectApply(start, port1, []);
+          if (settled) return;
+          hostIntrinsicReflectApply(postMessage, port2, [undefined]);
+        } catch (error: unknown) {
+          settled = true;
+          try {
+            close();
+          } catch {
+            // The scheduling failure remains authoritative.
+          }
+          reject(error);
+        }
+      });
+    },
+  });
+}
+
 function instrumentationOwnDataValue(
   input: object,
   key: PropertyKey,
@@ -133,7 +546,7 @@ function instrumentationOwnDataValue(
 ): unknown {
   let descriptor: PropertyDescriptor | undefined;
   try {
-    descriptor = Reflect.getOwnPropertyDescriptor(input, key);
+    descriptor = hostIntrinsicReflectGetOwnPropertyDescriptor(input, key);
   } catch {
     throw new TypeError(`${label}.${String(key)} could not be inspected.`);
   }
@@ -151,7 +564,7 @@ function instrumentationMethod(
   for (let depth = 0; depth < 8 && owner !== null; depth += 1) {
     let descriptor: PropertyDescriptor | undefined;
     try {
-      descriptor = Reflect.getOwnPropertyDescriptor(owner, key);
+      descriptor = hostIntrinsicReflectGetOwnPropertyDescriptor(owner, key);
     } catch {
       throw new TypeError(`RenderHost telemetry ${key} could not be inspected.`);
     }
@@ -162,7 +575,7 @@ function instrumentationMethod(
       return descriptor.value as (...args: unknown[]) => unknown;
     }
     try {
-      owner = Reflect.getPrototypeOf(owner);
+      owner = hostIntrinsicReflectGetPrototypeOf(owner);
     } catch {
       throw new TypeError(`RenderHost telemetry ${key} prototype could not be inspected.`);
     }
@@ -187,12 +600,12 @@ function captureRenderHostInstrumentation(
   const recordFrame = instrumentationMethod(telemetry as object, "recordFrame");
   const recordOperation = instrumentationMethod(telemetry as object, "recordOperation");
   return Object.freeze({
-    now: () => Reflect.apply(now, input, []),
+    now: () => hostIntrinsicReflectApply(now, input, []),
     recordFrame: (sample: Readonly<GfxFrameTelemetryInput>) => {
-      Reflect.apply(recordFrame, telemetry, [sample]);
+      hostIntrinsicReflectApply(recordFrame, telemetry, [sample]);
     },
     recordOperation: (event: Readonly<GfxOperationalEventInput>) => {
-      Reflect.apply(recordOperation, telemetry, [event]);
+      hostIntrinsicReflectApply(recordOperation, telemetry, [event]);
     },
   });
 }
@@ -656,6 +1069,7 @@ function immutableFailureOccurrence(
 export class RenderHost {
   readonly #dependencies: RenderHostDependencies;
   readonly #instrumentation: Readonly<CapturedRenderHostInstrumentation> | null;
+  readonly #yieldWarmupToMain: () => Promise<void>;
   readonly #errorOwner = Object.freeze({});
   #lifecycle: RenderHostLifecycle = "new";
   #snapshot: JourneyRenderSnapshot | null = null;
@@ -723,14 +1137,43 @@ export class RenderHost {
   #frameLoopStopped = false;
   #frameLoopStopFailure: Error | null = null;
   #ownedCallbackDepth = 0;
+  readonly #compileWarmup: CompileWarmupState = {
+    planned: 0,
+    started: 0,
+    completed: 0,
+    failed: 0,
+    measured: 0,
+    maxDuration: null,
+    overBudget: 0,
+    unmeasured: false,
+    finalized: false,
+    terminated: false,
+    phaseCounts: emptyCompilePhaseCounts(),
+  };
 
   constructor(
     dependencies: RenderHostDependencies,
     instrumentation?: Readonly<RenderHostInstrumentation>,
   ) {
+    const warmupScheduler = dependencies.warmupScheduler;
+    if (
+      (typeof warmupScheduler !== "object" || warmupScheduler === null)
+      && typeof warmupScheduler !== "function"
+    ) {
+      throw new TypeError("RenderHost requires a warm-up scheduler object.");
+    }
+    const yieldToMain = safeDataMethod(warmupScheduler as object, "yieldToMain");
+    if (yieldToMain === null) {
+      throw new TypeError("RenderHost warm-up scheduler yieldToMain must be a data method.");
+    }
+    this.#yieldWarmupToMain = () => {
+      const candidate = hostIntrinsicReflectApply(yieldToMain, warmupScheduler, []);
+      return captureExactPromise(candidate);
+    };
     this.#dependencies = Object.freeze({
       backend: dependencies.backend,
       frameLoop: dependencies.frameLoop,
+      warmupScheduler,
       features: Object.freeze(dependencies.features.slice()),
       materials: dependencies.materials,
       uploads: dependencies.uploads,
@@ -789,7 +1232,7 @@ export class RenderHost {
     const backendFacts = this.#invokeOwnedCallback(
       () => Object.freeze({ ...this.#dependencies.backend.facts }),
     );
-    return Object.freeze({
+    return hostIntrinsicObjectFreeze({
       lifecycle: this.#lifecycle,
       loopRunning,
       qualityTier: this.#quality?.tier ?? null,
@@ -802,6 +1245,7 @@ export class RenderHost {
         : null,
       backend: backendFacts,
       resources: Object.freeze({ ...resources }),
+      compileWarmup: this.#compileWarmupSnapshot(),
       counters: Object.freeze({
         frameCallbacks: this.#frameCallbacks,
         submittedFrames: this.#submittedFrames,
@@ -821,6 +1265,39 @@ export class RenderHost {
             lifecycle: this.#terminalError.lifecycle,
           })
         : null,
+    });
+  }
+
+  #compileWarmupSnapshot(): RenderHostProbeSnapshot["compileWarmup"] {
+    const warmup = this.#compileWarmup;
+    const timingComplete = warmup.finalized
+      && !warmup.unmeasured
+      && warmup.measured === warmup.started
+      && warmup.started === warmup.completed
+      && warmup.failed === 0;
+    const budgetStatus: RenderHostProbeSnapshot["compileWarmup"]["budgetStatus"] =
+      warmup.unmeasured
+        ? "unmeasured"
+        : warmup.finalized
+          ? warmup.overBudget === 0 && timingComplete ? "pass" : "fail"
+          : warmup.terminated
+            ? "fail"
+            : "pending";
+    return hostIntrinsicObjectFreeze({
+      planned: warmup.planned,
+      started: warmup.started,
+      completed: warmup.completed,
+      failed: warmup.failed,
+      timingComplete,
+      maxDuration: warmup.maxDuration,
+      overBudget: warmup.overBudget,
+      budgetStatus,
+      phaseCounts: hostIntrinsicObjectFreeze({
+        "runtime-object": warmup.phaseCounts["runtime-object"],
+        "material-isolated": warmup.phaseCounts["material-isolated"],
+        "material-runtime-topology": warmup.phaseCounts["material-runtime-topology"],
+        "output-first-use": warmup.phaseCounts["output-first-use"],
+      }),
     });
   }
 
@@ -1277,23 +1754,7 @@ export class RenderHost {
         }
       }
       this.#assertInitializing();
-      const compileStartedAt = this.#sampleTelemetryNow();
-      let compileSucceeded = false;
-      try {
-        await this.#invokeOwnedCallback(
-          () => this.#dependencies.backend.precompile(Object.freeze(uniqueWarmupPasses.slice())),
-        );
-        compileSucceeded = true;
-      } finally {
-        this.#completeTelemetryOperation({
-          kind: "compile",
-          name: "render-host-warmup",
-          frameId: null,
-          storyTime: null,
-          success: compileSucceeded,
-          affectsStoryTime: false,
-        }, compileStartedAt);
-      }
+      await this.#precompileWarmup(Object.freeze(uniqueWarmupPasses.slice()));
       this.#assertInitializing();
       while (this.#pendingQualityDuringInitialization !== null) {
         await this.#drainPendingInitializationQuality();
@@ -1372,6 +1833,199 @@ export class RenderHost {
       }
       throw wrapped;
     }
+  }
+
+  async #precompileWarmup(passes: readonly RenderPass[]): Promise<void> {
+    const session: CompileRunnerSession = {
+      open: true,
+      running: false,
+      ids: new hostIntrinsicSet<string>(),
+      inFlight: new hostIntrinsicSet<Promise<void>>(),
+      violation: null,
+    };
+    const runner: Readonly<RenderCompileStepRunner> = hostIntrinsicObjectFreeze({
+      run: (
+        descriptor: Readonly<RenderCompileStepDescriptor>,
+        operation: () => void | Promise<void>,
+      ): Promise<void> => {
+        const attempt = this.#runCompileStep(session, descriptor, operation);
+        hostIntrinsicReflectApply(hostIntrinsicSetAdd, session.inFlight, [attempt]);
+        void hostIntrinsicReflectApply(hostIntrinsicPromiseThen, attempt, [
+          () => hostIntrinsicReflectApply(hostIntrinsicSetDelete, session.inFlight, [attempt]),
+          () => {
+            hostIntrinsicReflectApply(hostIntrinsicSetDelete, session.inFlight, [attempt]);
+            session.violation ??= new hostIntrinsicError(
+              "A compile runner action failed or violated its atomic contract.",
+            );
+          },
+        ]);
+        return attempt;
+      },
+    });
+    let receipt: Readonly<RenderPrecompileReceipt>;
+    try {
+      receipt = await this.#invokeOwnedCallback(
+        () => this.#dependencies.backend.precompile(passes, runner),
+      );
+    } finally {
+      session.open = false;
+      this.#compileWarmup.terminated = true;
+    }
+    if (hostIntrinsicReflectApply(hostIntrinsicSetSize, session.inFlight, []) > 0 || session.running) {
+      const violation = new hostIntrinsicError(
+        "A precompile backend returned while a compile runner action was still active.",
+      );
+      session.violation ??= violation;
+      const pending: Promise<void>[] = [];
+      hostIntrinsicReflectApply(hostIntrinsicSetForEach, session.inFlight, [
+        (entry: Promise<void>) => { pending[pending.length] = entry; },
+      ]);
+      await hostIntrinsicReflectApply(hostIntrinsicPromiseAllSettled, hostIntrinsicPromise, [pending]);
+      throw violation;
+    }
+    if (session.violation !== null) throw session.violation;
+    const captured = capturePrecompileReceipt(receipt);
+    const warmup = this.#compileWarmup;
+    warmup.planned = captured.plannedSteps;
+    if (
+      captured.plannedSteps !== warmup.started
+      || captured.completedSteps !== warmup.completed
+      || warmup.started !== warmup.completed
+      || warmup.failed !== 0
+      || captured.phaseCounts["runtime-object"] !== warmup.phaseCounts["runtime-object"]
+      || captured.phaseCounts["material-isolated"] !== warmup.phaseCounts["material-isolated"]
+      || captured.phaseCounts["material-runtime-topology"]
+        !== warmup.phaseCounts["material-runtime-topology"]
+      || captured.phaseCounts["output-first-use"] !== warmup.phaseCounts["output-first-use"]
+    ) {
+      throw new hostIntrinsicError(
+        "A precompile receipt does not match the Host-owned compile runner counts.",
+      );
+    }
+    warmup.finalized = true;
+  }
+
+  async #runCompileStep(
+    session: CompileRunnerSession,
+    sourceDescriptor: Readonly<RenderCompileStepDescriptor>,
+    operation: () => void | Promise<void>,
+  ): Promise<void> {
+    if (!session.open || this.#lifecycle !== "initializing") {
+      throw new hostIntrinsicError("A compile runner cannot start a late action.");
+    }
+    if (
+      session.running
+      || hostIntrinsicReflectApply(hostIntrinsicSetSize, session.inFlight, []) !== 0
+    ) {
+      throw new hostIntrinsicError("A compile runner cannot run concurrent or recursive actions.");
+    }
+    if (typeof operation !== "function") {
+      throw new TypeError("A compile runner action must be a function.");
+    }
+    session.running = true;
+    let descriptor: Readonly<RenderCompileStepDescriptor>;
+    let warmup: CompileWarmupState;
+    let startedAt: number | null;
+    try {
+      descriptor = captureCompileDescriptor(sourceDescriptor);
+      if (hostIntrinsicReflectApply(hostIntrinsicSetHas, session.ids, [descriptor.id])) {
+        throw new hostIntrinsicError("A compile runner cannot reuse a descriptor id.");
+      }
+      if (
+        hostIntrinsicReflectApply(hostIntrinsicSetSize, session.ids, [])
+        >= MAXIMUM_RENDER_COMPILE_STEPS
+      ) {
+        throw new RangeError("A compile runner exceeded its bounded step inventory.");
+      }
+      hostIntrinsicReflectApply(hostIntrinsicSetAdd, session.ids, [descriptor.id]);
+      warmup = this.#compileWarmup;
+      warmup.planned += 1;
+      warmup.phaseCounts[descriptor.phase] += 1;
+      warmup.started += 1;
+      startedAt = this.#sampleCompileNow();
+      if (startedAt === null) warmup.unmeasured = true;
+    } catch (error: unknown) {
+      session.running = false;
+      throw error;
+    }
+
+    let actionFailed = false;
+    let actionFailure: unknown;
+    let schedulerFailed = false;
+    let schedulerFailure: unknown;
+    let succeeded = false;
+    try {
+      try {
+        await hostIntrinsicReflectApply(operation, undefined, []);
+        warmup.completed += 1;
+        succeeded = true;
+      } catch (error: unknown) {
+        warmup.failed += 1;
+        actionFailed = true;
+        actionFailure = error;
+      }
+
+      if (startedAt !== null) {
+        const endedAt = this.#sampleCompileNow();
+        if (endedAt !== null && endedAt >= startedAt) {
+        const durationMs = endedAt - startedAt;
+        warmup.measured += 1;
+        warmup.maxDuration = warmup.maxDuration === null
+          ? durationMs
+          : hostIntrinsicMathMax(warmup.maxDuration, durationMs);
+        if (durationMs > GFX_TELEMETRY_RUNTIME_SPIKE_MS) warmup.overBudget += 1;
+        const recorded = this.#recordTelemetryOperation({
+          kind: "compile",
+          name: descriptor.id,
+          startedAtMs: startedAt,
+          durationMs,
+          frameId: null,
+          storyTime: null,
+          success: succeeded,
+          affectsStoryTime: false,
+        });
+        if (!recorded) warmup.unmeasured = true;
+        } else {
+          warmup.unmeasured = true;
+        }
+      }
+
+      if (actionFailed) {
+        throw actionFailure;
+      }
+
+      try {
+        const schedulerAttempt = this.#invokeOwnedCallback(this.#yieldWarmupToMain);
+        await schedulerAttempt;
+      } catch (error: unknown) {
+        schedulerFailed = true;
+        schedulerFailure = error;
+      }
+    } finally {
+      session.running = false;
+    }
+
+    if (schedulerFailed) throw schedulerFailure;
+  }
+
+  #sampleCompileNow(): number | null {
+    const instrumentation = this.#instrumentation;
+    if (instrumentation === null) return null;
+    let observed: unknown;
+    try {
+      observed = this.#invokeOwnedCallback(instrumentation.now);
+    } catch {
+      return null;
+    }
+    if (
+      typeof observed !== "number"
+      || !hostIntrinsicNumberIsFinite(observed)
+      || observed < 0
+      || hostIntrinsicObjectIs(observed, -0)
+    ) {
+      return null;
+    }
+    return observed;
   }
 
   async #performDispose(): Promise<void> {
@@ -1500,11 +2154,12 @@ export class RenderHost {
 
     const firstFrameAtMs = this.#firstFrameAtMs ?? nowMs;
     const previousFrameAtMs = this.#lastFrameAtMs ?? nowMs;
-    const clock: VisualClock = Object.freeze({
+    const clock: RenderOperationClock = Object.freeze({
       frame: frameId,
       nowMs,
       deltaSeconds: Math.max(0, nowMs - previousFrameAtMs) / 1000,
       elapsedSeconds: Math.max(0, nowMs - firstFrameAtMs) / 1000,
+      storyTime: snapshot.storyTime,
     });
     this.#firstFrameAtMs = firstFrameAtMs;
     this.#lastFrameAtMs = nowMs;
@@ -3085,13 +3740,17 @@ export class RenderHost {
     }
   }
 
-  #recordTelemetryOperation(event: Readonly<GfxOperationalEventInput>): void {
+  #recordTelemetryOperation(event: Readonly<GfxOperationalEventInput>): boolean {
     const instrumentation = this.#instrumentation;
-    if (instrumentation === null) return;
+    if (instrumentation === null) return false;
     try {
-      this.#invokeOwnedCallback(() => instrumentation.recordOperation(Object.freeze(event)));
+      this.#invokeOwnedCallback(
+        () => instrumentation.recordOperation(hostIntrinsicObjectFreeze(event)),
+      );
+      return true;
     } catch {
       // Performance evidence is diagnostic and cannot affect renderer lifecycle.
+      return false;
     }
   }
 
@@ -3155,7 +3814,7 @@ export class RenderHost {
   }
 
   #recordTelemetryFrame(
-    clock: Readonly<VisualClock>,
+    clock: Readonly<RenderOperationClock>,
     snapshot: Readonly<JourneyRenderSnapshot>,
     startedAtMs: number | null,
     submitted: boolean,

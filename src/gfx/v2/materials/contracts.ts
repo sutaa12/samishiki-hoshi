@@ -70,7 +70,8 @@ export interface CreateTslMaterialLibraryOptions {
   readonly descriptors?: unknown;
   /**
    * Legacy diagnostic seam. Returned objects have no library ownership provenance,
-   * so initialization rejects them fail-closed after bounded best-effort cleanup.
+   * so initialization rejects them fail-closed without invoking untrusted cleanup
+   * and retains the unresolved ownership obligation.
    */
   readonly createMaterial?: TslMaterialFactory;
 }

@@ -5,8 +5,11 @@ import type {
   RenderFeature,
   RenderFrameLoop,
   RenderHostDependencies,
+  RenderOperationClock,
   RenderPassRecorder,
+  RenderPrecompileReceipt,
   RenderQualityProfile,
+  RendererApi,
 } from "../../src/gfx/v2/contracts";
 import { RenderHost } from "../../src/gfx/v2/render-host";
 import { RollingGfxPerformanceTelemetry } from "../../src/gfx/v2/telemetry";
@@ -36,6 +39,17 @@ const JOURNEY = Object.freeze({
   answerAt: null,
   finished: false,
 }) satisfies Readonly<JourneyRenderSnapshot>;
+
+const ONE_RUNTIME_PRECOMPILE_RECEIPT = Object.freeze({
+  plannedSteps: 1,
+  completedSteps: 1,
+  phaseCounts: Object.freeze({
+    "runtime-object": 1,
+    "material-isolated": 0,
+    "material-runtime-topology": 0,
+    "output-first-use": 0,
+  }),
+}) satisfies Readonly<RenderPrecompileReceipt>;
 
 class TestFrameLoop implements RenderFrameLoop {
   running = false;
@@ -80,7 +94,14 @@ function dependencies(
     }),
     async initialize(): Promise<void> {},
     resize(): void {},
-    precompile(): void {},
+    async precompile(_passes, runner): Promise<Readonly<RenderPrecompileReceipt>> {
+      await runner.run(Object.freeze({
+        id: "telemetry:p0:o0",
+        phase: "runtime-object",
+        profileId: null,
+      }), async () => undefined);
+      return ONE_RUNTIME_PRECOMPILE_RECEIPT;
+    },
     async render(): Promise<void> {
       await renderGate;
     },
@@ -114,6 +135,7 @@ function dependencies(
   return {
     backend,
     frameLoop,
+    warmupScheduler: { yieldToMain: async () => undefined },
     features: [feature],
     materials: {
       initialize(): void {},
@@ -138,6 +160,56 @@ function dependencies(
       subscribe: () => () => undefined,
     },
     observer: { observe(): void {} },
+  };
+}
+
+function operationClockDependencies(
+  frameLoop: TestFrameLoop,
+  actualApi: RendererApi,
+  initialQuality: Readonly<RenderQualityProfile>,
+  captures: {
+    readonly uploads: Readonly<RenderOperationClock>[];
+    readonly features: Array<Readonly<{
+      frameStoryTime: number;
+      clock: Readonly<RenderOperationClock>;
+    }>>;
+  },
+): RenderHostDependencies {
+  const base = dependencies(frameLoop);
+  const baseFeature = base.features[0]!;
+  return {
+    ...base,
+    backend: {
+      ...base.backend,
+      facts: Object.freeze({
+        requestedApi: actualApi,
+        actualApi,
+        adapter: `telemetry-${actualApi.toLowerCase()}`,
+        device: `telemetry-${actualApi.toLowerCase()}`,
+        fallback: false,
+      }),
+    },
+    features: [
+      {
+        ...baseFeature,
+        update(frame, clock): void {
+          captures.features.push(Object.freeze({
+            frameStoryTime: frame.storyTime,
+            clock,
+          }));
+        },
+      },
+    ],
+    uploads: {
+      ...base.uploads,
+      flush(clock): void {
+        captures.uploads.push(clock);
+      },
+    },
+    qualityProvider: {
+      ...base.qualityProvider,
+      getProfile: () => initialQuality,
+    },
   };
 }
 
@@ -205,6 +277,69 @@ describe("GFX-006 RenderHost telemetry integration", () => {
     await host.dispose();
     telemetry.dispose();
     expect(telemetry.snapshot().state).toBe("disposed");
+  });
+
+  it.each([
+    { actualApi: "WebGPU" as const, initialQuality: HIGH, nextQuality: LOW },
+    { actualApi: "WebGL2" as const, initialQuality: LOW, nextQuality: HIGH },
+  ])("latches canonical story time through nonzero start, seek, restart, and pause on $actualApi", async ({
+    actualApi,
+    initialQuality,
+    nextQuality,
+  }) => {
+    const frameLoop = new TestFrameLoop();
+    const telemetry = new RollingGfxPerformanceTelemetry();
+    const captures: {
+      uploads: Readonly<RenderOperationClock>[];
+      features: Array<Readonly<{
+        frameStoryTime: number;
+        clock: Readonly<RenderOperationClock>;
+      }>>;
+    } = { uploads: [], features: [] };
+    let nowMs = 1_000;
+    const host = new RenderHost(
+      operationClockDependencies(frameLoop, actualApi, initialQuality, captures),
+      Object.freeze({ telemetry, now: () => ++nowMs }),
+    );
+    const initial = Object.freeze({ ...JOURNEY, storyTime: 73.25 });
+    await host.initialize(initial, { width: 1280, height: 720, pixelRatio: 1 });
+
+    frameLoop.tick(100);
+    await host.whenIdle();
+    host.setSnapshot(
+      Object.freeze({ ...JOURNEY, storyTime: 142.5, shotId: "S20", phase: "SOLITUDE" }),
+      "restart-or-qa-seek",
+    );
+    await host.setQuality(nextQuality);
+    frameLoop.tick(200);
+    await host.whenIdle();
+    host.setSnapshot(
+      Object.freeze({ ...JOURNEY, storyTime: 0, shotId: "S01", phase: "LIFE" }),
+      "restart-or-qa-seek",
+    );
+    frameLoop.tick(300);
+    await host.whenIdle();
+    frameLoop.tick(400);
+    await host.whenIdle();
+
+    expect(captures.uploads).toHaveLength(4);
+    expect(captures.features).toHaveLength(4);
+    expect(captures.uploads.map((clock) => clock.storyTime)).toEqual([73.25, 142.5, 0, 0]);
+    expect(captures.uploads.map((clock) => clock.elapsedSeconds)).toEqual([0, 0.1, 0.2, 0.3]);
+    for (let index = 0; index < captures.uploads.length; index += 1) {
+      const uploadClock = captures.uploads[index]!;
+      const featureCapture = captures.features[index]!;
+      expect(featureCapture.clock).toBe(uploadClock);
+      expect(featureCapture.frameStoryTime).toBe(uploadClock.storyTime);
+      expect(Object.isFrozen(uploadClock)).toBe(true);
+    }
+    expect(telemetry.snapshot().latestFrame).toMatchObject({
+      frameId: 3,
+      storyTime: 0,
+      qualityTier: nextQuality.tier,
+      backendApi: actualApi,
+    });
+    await host.dispose();
   });
 
   it("contains telemetry failures without changing frame submission or lifecycle", async () => {

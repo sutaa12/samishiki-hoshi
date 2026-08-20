@@ -5,9 +5,9 @@ import type {
   RenderHistoryInvalidation,
   RenderPass,
   RenderPassRecorder,
+  RenderOperationClock,
   RenderQualityProfile,
   RenderViewport,
-  VisualClock,
 } from "../contracts";
 import { STORY_CHUNK_IDS, type StoryChunkId } from "../../../world/v2/contracts";
 import type { ChunkManagerLike } from "./contracts";
@@ -115,10 +115,13 @@ export class WorldChunkRenderFeature implements RenderFeature {
     return Object.freeze([this.#persistentPass]);
   }
 
-  update(frame: Readonly<JourneyRenderSnapshot>, clock: VisualClock): void {
+  update(frame: Readonly<JourneyRenderSnapshot>, clock: RenderOperationClock): void {
     if (!this.#initialized || this.#disposed) return;
     if (!(STORY_CHUNK_IDS as readonly string[]).includes(frame.shotId)) {
       throw new RangeError(`Journey snapshot has an unknown chunk id: ${frame.shotId}.`);
+    }
+    if (clock.storyTime !== frame.storyTime) {
+      throw new RangeError("Render operation clock story time must match the journey snapshot.");
     }
     this.#manager.setFocus(frame.shotId as StoryChunkId);
     this.#manager.update(clock);

@@ -1,5 +1,6 @@
 import type {
   RenderQualityProfile,
+  RenderOperationClock,
   RenderResourceRegistry,
   VisualClock,
 } from "../contracts";
@@ -132,6 +133,48 @@ function optionalOwnDataValue(input: object, key: string, label: string): unknow
     throw new TypeError(`${label}.${key} must be an own data property when present.`);
   }
   return descriptor.value;
+}
+
+function captureOperationClock(
+  input: Readonly<RenderOperationClock>,
+): Readonly<RenderOperationClock> {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    throw new TypeError("Render operation clock must be an object.");
+  }
+  let keys: readonly (string | symbol)[];
+  let prototype: object | null;
+  try {
+    keys = Reflect.ownKeys(input);
+    prototype = Reflect.getPrototypeOf(input);
+  } catch {
+    throw new TypeError("Render operation clock shape could not be inspected.");
+  }
+  const expected = new Set(["frame", "nowMs", "deltaSeconds", "elapsedSeconds", "storyTime"]);
+  if (
+    (prototype !== Object.prototype && prototype !== null)
+    || keys.length !== expected.size
+    || keys.some((key) => typeof key !== "string" || !expected.has(key))
+  ) {
+    throw new TypeError("Render operation clock has unexpected structure.");
+  }
+  const frame = ownDataValue(input, "frame", "Render operation clock");
+  if (typeof frame !== "number" || !Number.isSafeInteger(frame) || frame < 0 || Object.is(frame, -0)) {
+    throw new TypeError("Render operation clock frame is invalid.");
+  }
+  const captured: Record<"nowMs" | "deltaSeconds" | "elapsedSeconds" | "storyTime", number> = {
+    nowMs: 0,
+    deltaSeconds: 0,
+    elapsedSeconds: 0,
+    storyTime: 0,
+  };
+  for (const key of ["nowMs", "deltaSeconds", "elapsedSeconds", "storyTime"] as const) {
+    const value = ownDataValue(input, key, "Render operation clock");
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || Object.is(value, -0)) {
+      throw new TypeError(`Render operation clock ${key} is invalid.`);
+    }
+    captured[key] = value;
+  }
+  return Object.freeze({ frame, ...captured });
 }
 
 function captureTelemetryRecordOperation(
@@ -431,6 +474,7 @@ export class ChunkManager implements ChunkManagerLike {
   #disposePromise: Promise<void> | null = null;
   #qualityProfile: Readonly<RenderQualityProfile> | null = null;
   #telemetryCallbackActive = false;
+  #clockCaptureActive = false;
 
   constructor(options: Readonly<ChunkManagerOptions>) {
     this.#sourcePlan = options.plan;
@@ -479,6 +523,7 @@ export class ChunkManager implements ChunkManagerLike {
 
   initialize(): Promise<void> {
     this.#assertNoTelemetryCallbackReentry("initialize");
+    this.#assertNoClockCaptureMutation("initialize");
     if (this.#initializePromise) return this.#initializePromise;
     if (this.#disposed) {
       this.#initializePromise = Promise.reject(new Error("Cannot initialize a disposed chunk manager."));
@@ -492,6 +537,7 @@ export class ChunkManager implements ChunkManagerLike {
 
   setFocus(chunkId: StoryChunkId): void {
     this.#assertNoTelemetryCallbackReentry("set focus");
+    this.#assertNoClockCaptureMutation("set focus");
     assertStoryChunkId(chunkId);
     if (this.#disposed) return;
     if (this.#focusChunkId === chunkId) return;
@@ -501,6 +547,7 @@ export class ChunkManager implements ChunkManagerLike {
 
   quality(profile: Readonly<RenderQualityProfile>): void {
     this.#assertNoTelemetryCallbackReentry("change quality");
+    this.#assertNoClockCaptureMutation("change quality");
     if (this.#disposed) return;
     const owned = captureQualityProfile(profile);
     this.#qualityProfile = owned;
@@ -514,19 +561,27 @@ export class ChunkManager implements ChunkManagerLike {
     }
   }
 
-  update(clock: VisualClock): void {
+  update(clock: RenderOperationClock): void {
     this.#assertNoTelemetryCallbackReentry("update");
+    this.#assertNoClockCaptureMutation("update");
     if (!this.#initialized || this.#disposed || !this.#planDigest || !this.#plan || this.#updateActive) return;
+    let ownedClock: Readonly<RenderOperationClock>;
+    this.#clockCaptureActive = true;
+    try {
+      ownedClock = captureOperationClock(clock);
+    } finally {
+      this.#clockCaptureActive = false;
+    }
     this.#updateActive = true;
     try {
-      this.#drainWorker(clock);
-      this.#drainUploads(clock);
-      this.#drainResources(clock);
+      this.#drainWorker(ownedClock);
+      this.#drainUploads(ownedClock);
+      this.#drainResources(ownedClock);
       const roles = this.#desiredRoles();
-      this.#retireUndesired(roles, clock);
-      this.#ensureDesired(roles, clock);
-      this.#startUploads(roles, clock);
-      this.#startGeneration(roles, clock);
+      this.#retireUndesired(roles, ownedClock);
+      this.#ensureDesired(roles, ownedClock);
+      this.#startUploads(roles, ownedClock);
+      this.#startGeneration(roles, ownedClock);
       this.#assertGpuBound();
     } finally {
       this.#updateActive = false;
@@ -557,6 +612,7 @@ export class ChunkManager implements ChunkManagerLike {
 
   dispose(): Promise<void> {
     this.#assertNoTelemetryCallbackReentry("dispose");
+    this.#assertNoClockCaptureMutation("dispose");
     if (this.#disposePromise) return this.#disposePromise;
     const deferred = deferredVoid();
     this.#disposePromise = deferred.promise;
@@ -914,7 +970,7 @@ export class ChunkManager implements ChunkManagerLike {
     }
   }
 
-  #drainUploads(clock: VisualClock): void {
+  #drainUploads(clock: RenderOperationClock): void {
     for (const entry of this.#uploadInbox.splice(0, this.#uploadInbox.length)) {
       const record = this.#record(entry.token.chunkId);
       const current = tokensEqual(record.token, entry.token);
@@ -980,7 +1036,7 @@ export class ChunkManager implements ChunkManagerLike {
     }
   }
 
-  #drainResources(clock: VisualClock): void {
+  #drainResources(clock: RenderOperationClock): void {
     for (const entry of this.#resourceInbox.splice(0, this.#resourceInbox.length)) {
       const record = this.#record(entry.token.chunkId);
       const current = tokensEqual(record.token, entry.token);
@@ -1179,7 +1235,7 @@ export class ChunkManager implements ChunkManagerLike {
     active: boolean,
     chunkId: StoryChunkId | null,
     requestId: number | null,
-    clock: Readonly<VisualClock> | null = null,
+    clock: Readonly<RenderOperationClock> | null = null,
   ): boolean {
     this.#ownLease(lease);
     if (this.#leaseActive.get(lease) === active) return true;
@@ -1229,7 +1285,7 @@ export class ChunkManager implements ChunkManagerLike {
   }
 
   #recordActivationTelemetry(
-    clock: Readonly<VisualClock> | null,
+    clock: Readonly<RenderOperationClock> | null,
     startedAtMs: number | null,
     success: boolean,
     chunkId: StoryChunkId | null,
@@ -1253,7 +1309,7 @@ export class ChunkManager implements ChunkManagerLike {
         startedAtMs,
         durationMs: Math.max(0, endedAtMs - startedAtMs),
         frameId: clock.frame,
-        storyTime: clock.elapsedSeconds,
+        storyTime: clock.storyTime,
         success,
         affectsStoryTime: true,
       })]);
@@ -1267,6 +1323,12 @@ export class ChunkManager implements ChunkManagerLike {
   #assertNoTelemetryCallbackReentry(operation: string): void {
     if (this.#telemetryCallbackActive) {
       throw new Error(`Chunk manager cannot ${operation} from a telemetry callback.`);
+    }
+  }
+
+  #assertNoClockCaptureMutation(operation: string): void {
+    if (this.#clockCaptureActive) {
+      throw new Error(`Chunk manager cannot ${operation} from operation-clock capture.`);
     }
   }
 

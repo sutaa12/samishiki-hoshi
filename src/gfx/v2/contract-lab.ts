@@ -38,7 +38,7 @@ import type {
   ThreeBackendRequest,
   ThreeBackendFacts,
 } from "./backend/backend-adapter";
-import { RenderHost } from "./render-host";
+import { RenderHost, createBrowserRenderWarmupScheduler } from "./render-host";
 
 export const GFX_CONTRACT_REPLAY_HASH = "09780631";
 
@@ -484,6 +484,7 @@ export async function createGfxContractRuntime(options: {
     diagnosticsEnabled: options.qa,
   });
   const frameLoop = new BrowserFrameLoop();
+  const warmupScheduler = createBrowserRenderWarmupScheduler();
   const feature = new ContractSceneFeature();
   const observedEvents: string[] = [];
   const observer: RenderEventObserver = {
@@ -512,6 +513,7 @@ export async function createGfxContractRuntime(options: {
   const host = new RenderHost({
     backend,
     frameLoop,
+    warmupScheduler,
     features: [feature],
     materials,
     uploads,

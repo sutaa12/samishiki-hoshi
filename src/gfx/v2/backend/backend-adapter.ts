@@ -4,7 +4,10 @@ import type {
   RenderBackendAdapter,
   RenderBackendFrameTelemetry,
   RenderBackendFacts,
+  RenderCompileStepDescriptor,
+  RenderCompileStepRunner,
   RenderPass,
+  RenderPrecompileReceipt,
   RenderResourceSnapshot,
   RenderViewport,
   Unsubscribe,
@@ -12,7 +15,22 @@ import type {
 import type { ThreeRenderPipelinePort } from "../pipeline/contracts";
 
 const intrinsicHasOwnProperty = Object.prototype.hasOwnProperty;
+const intrinsicAggregateError = AggregateError;
+const intrinsicArrayIsArray = Array.isArray;
+const intrinsicArrayPop = Array.prototype.pop;
+const intrinsicArrayPush = Array.prototype.push;
+const intrinsicNumberIsSafeInteger = Number.isSafeInteger;
+const intrinsicObjectFreeze = Object.freeze;
+const intrinsicReflectDefineProperty = Reflect.defineProperty;
+const intrinsicReflectGetOwnPropertyDescriptor = Reflect.getOwnPropertyDescriptor;
+const intrinsicReflectGetPrototypeOf = Reflect.getPrototypeOf;
 const intrinsicReflectApply = Reflect.apply;
+const intrinsicSet = Set;
+const intrinsicSetAdd = Set.prototype.add;
+const intrinsicSetForEach = Set.prototype.forEach;
+const intrinsicSetHas = Set.prototype.has;
+const intrinsicRangeError = RangeError;
+const intrinsicTypeError = TypeError;
 
 export type ThreeBackendRequest = "forced-webgl2" | "webgpu-preferred";
 export type ThreeActualBackend = "webgl2" | "webgpu";
@@ -130,7 +148,7 @@ export interface ThreeRendererPort {
   init(): Promise<void>;
   setPixelRatio(value: number): void;
   setSize(width: number, height: number, updateStyle?: boolean): void;
-  compileAsync(scene: unknown, camera: unknown): Promise<void>;
+  compileAsync(scene: unknown, camera: unknown, targetScene: unknown): Promise<void>;
   render(scene: unknown, camera: unknown): void | Promise<void>;
   dispose(): void;
 }
@@ -178,45 +196,66 @@ function actualBackend(renderer: ThreeRendererPort): ThreeActualBackend {
 }
 
 function passObjects(passes: readonly RenderPass[]): number {
-  const roots = new Set<unknown>();
-  for (const pass of passes) if (pass.scene != null) roots.add(pass.scene);
+  const roots = new intrinsicSet<unknown>();
+  for (let index = 0; index < passes.length; index += 1) {
+    const scene = passes[index]!.scene;
+    if (scene != null) intrinsicReflectApply(intrinsicSetAdd, roots, [scene]);
+  }
   const maximumSceneObjects = 100_000;
   const maximumChildReferences = 200_000;
-  const pending = [...roots];
-  const visited = new Set<unknown>();
+  const pending: unknown[] = [];
+  intrinsicReflectApply(intrinsicSetForEach, roots, [
+    (root: unknown) => intrinsicReflectApply(intrinsicArrayPush, pending, [root]),
+  ]);
+  const visited = new intrinsicSet<unknown>();
   let count = 0;
   let childReferences = 0;
   while (pending.length > 0) {
-    const current = pending.pop();
+    const current = intrinsicReflectApply(intrinsicArrayPop, pending, []);
     const hasIdentity = (typeof current === "object" && current !== null)
       || typeof current === "function";
     if (hasIdentity) {
-      if (visited.has(current)) continue;
-      visited.add(current);
+      if (intrinsicReflectApply(intrinsicSetHas, visited, [current])) continue;
+      intrinsicReflectApply(intrinsicSetAdd, visited, [current]);
     }
     count += 1;
     if (count > maximumSceneObjects) {
-      throw new RangeError(`Scene telemetry exceeded ${maximumSceneObjects} unique objects.`);
+      throw new intrinsicRangeError(
+        `Scene telemetry exceeded ${maximumSceneObjects} unique objects.`,
+      );
     }
     if (!hasIdentity) continue;
     const children = (current as { readonly children?: unknown }).children;
     if (children === undefined || children === null) continue;
-    if (!Array.isArray(children)) {
-      throw new TypeError("Scene telemetry children must be an array when present.");
+    if (!intrinsicArrayIsArray(children)) {
+      throw new intrinsicTypeError("Scene telemetry children must be an array when present.");
     }
-    const length = children.length;
-    if (!Number.isSafeInteger(length) || length < 0) {
-      throw new RangeError("Scene telemetry child count must be a non-negative safe integer.");
+    const length = ownDataDescriptorValue(children, "length", "Scene telemetry children");
+    if (!intrinsicNumberIsSafeInteger(length) || (length as number) < 0) {
+      throw new intrinsicRangeError(
+        "Scene telemetry child count must be a non-negative safe integer.",
+      );
     }
-    childReferences += length;
+    childReferences += length as number;
     if (childReferences > maximumChildReferences) {
-      throw new RangeError(
+      throw new intrinsicRangeError(
         `Scene telemetry exceeded ${maximumChildReferences} child references.`,
       );
     }
-    for (let index = 0; index < length; index += 1) {
-      if (!intrinsicReflectApply(intrinsicHasOwnProperty, children, [index])) continue;
-      pending.push(children[index]);
+    for (let index = 0; index < (length as number); index += 1) {
+      let descriptor: PropertyDescriptor | undefined;
+      try {
+        descriptor = intrinsicReflectGetOwnPropertyDescriptor(children, index);
+      } catch {
+        throw new intrinsicTypeError(
+          `Scene telemetry child ${index} could not be inspected.`,
+        );
+      }
+      if (!descriptor) continue;
+      if (!("value" in descriptor)) {
+        throw new intrinsicTypeError("Scene telemetry children must use data entries.");
+      }
+      intrinsicReflectApply(intrinsicArrayPush, pending, [descriptor.value]);
     }
   }
   return count;
@@ -1096,6 +1135,425 @@ type RendererOperation = Readonly<{
   release(): void;
 }>;
 
+type DirectCompilePlanEntry = Readonly<{
+  childRoots: readonly object[];
+  compileAsync: ThreeRendererPort["compileAsync"];
+  descriptor: Readonly<RenderCompileStepDescriptor>;
+  object: object;
+  camera: object;
+  material: object;
+  targetScene: object;
+}>;
+
+const MAXIMUM_DIRECT_COMPILE_STEPS = 8_192;
+const MAXIMUM_DIRECT_GEOMETRY_GROUPS = 4_096;
+
+function topologyDataValue(
+  source: object,
+  key: PropertyKey,
+  label: string,
+): unknown {
+  let owner: object | null = source;
+  for (let depth = 0; depth < 8 && owner !== null; depth += 1) {
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = intrinsicReflectGetOwnPropertyDescriptor(owner, key);
+    } catch {
+      throw new TypeError(`${label}.${String(key)} could not be inspected.`);
+    }
+    if (descriptor) {
+      if (!("value" in descriptor)) {
+        throw new TypeError(`${label}.${String(key)} must be a data property.`);
+      }
+      return descriptor.value;
+    }
+    try {
+      owner = intrinsicReflectGetPrototypeOf(owner);
+    } catch {
+      throw new TypeError(`${label}.${String(key)} prototype could not be inspected.`);
+    }
+  }
+  return undefined;
+}
+
+function topologyObject(value: unknown, label: string): object {
+  if ((typeof value !== "object" || value === null) && typeof value !== "function") {
+    throw new TypeError(`${label} must be an object.`);
+  }
+  return value as object;
+}
+
+function ownMutableDataDescriptor(
+  source: object,
+  key: PropertyKey,
+  label: string,
+): PropertyDescriptor {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = intrinsicReflectGetOwnPropertyDescriptor(source, key);
+  } catch {
+    throw new TypeError(`${label}.${String(key)} could not be inspected.`);
+  }
+  if (!descriptor || !("value" in descriptor) || descriptor.writable !== true) {
+    throw new TypeError(`${label}.${String(key)} must be an own writable data property.`);
+  }
+  return descriptor;
+}
+
+function ownDataDescriptorValue(
+  source: object,
+  key: PropertyKey,
+  label: string,
+): unknown {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = intrinsicReflectGetOwnPropertyDescriptor(source, key);
+  } catch {
+    throw new TypeError(`${label}.${String(key)} could not be inspected.`);
+  }
+  if (!descriptor || !("value" in descriptor)) {
+    throw new TypeError(`${label}.${String(key)} must be an own data property.`);
+  }
+  return descriptor.value;
+}
+
+function replaceDataDescriptorValue(
+  source: object,
+  key: PropertyKey,
+  descriptor: PropertyDescriptor,
+  value: unknown,
+  label: string,
+): void {
+  if (!intrinsicReflectDefineProperty(source, key, { ...descriptor, value })) {
+    throw new TypeError(`${label}.${String(key)} could not be updated safely.`);
+  }
+}
+
+function assertDirectDrawableTopology(
+  object: object,
+  passIndex: number,
+): object | null {
+  const label = `precompile pass ${passIndex} object`;
+  if (topologyDataValue(object, "isLineLoop", label) === true) {
+    throw new TypeError(`Precompile pass ${passIndex} does not support LineLoop topology.`);
+  }
+  const drawable = topologyDataValue(object, "isMesh", label) === true
+    || topologyDataValue(object, "isLine", label) === true
+    || topologyDataValue(object, "isPoints", label) === true
+    || topologyDataValue(object, "isSprite", label) === true;
+  if (!drawable) return null;
+  const materialValue = topologyDataValue(object, "material", label);
+  if (intrinsicArrayIsArray(materialValue)) {
+    throw new TypeError(`Precompile pass ${passIndex} does not support multi-material drawables.`);
+  }
+  const material = topologyObject(materialValue, `${label} material`);
+  const geometry = topologyObject(
+    ownDataDescriptorValue(object, "geometry", label),
+    `${label} geometry`,
+  );
+  const groups = ownDataDescriptorValue(geometry, "groups", `${label} geometry`);
+  if (!intrinsicArrayIsArray(groups)) {
+    throw new intrinsicTypeError(
+      `Precompile pass ${passIndex} geometry groups must be an array.`,
+    );
+  }
+  const groupCount = ownDataDescriptorValue(groups, "length", `${label} geometry groups`);
+  if (
+    !intrinsicNumberIsSafeInteger(groupCount)
+    || (groupCount as number) < 0
+    || (groupCount as number) > MAXIMUM_DIRECT_GEOMETRY_GROUPS
+  ) {
+    throw new intrinsicRangeError(
+      `Precompile pass ${passIndex} has an invalid geometry group inventory.`,
+    );
+  }
+  for (let groupIndex = 0; groupIndex < (groupCount as number); groupIndex += 1) {
+    let groupDescriptor: PropertyDescriptor | undefined;
+    try {
+      groupDescriptor = intrinsicReflectGetOwnPropertyDescriptor(groups, groupIndex);
+    } catch {
+      throw new intrinsicTypeError(
+        `Precompile pass ${passIndex} geometry group ${groupIndex} could not be inspected.`,
+      );
+    }
+    if (!groupDescriptor || !("value" in groupDescriptor)) {
+      throw new intrinsicTypeError(
+        `Precompile pass ${passIndex} geometry groups must be dense data entries.`,
+      );
+    }
+  }
+  ownMutableDataDescriptor(object, "visible", label);
+  ownMutableDataDescriptor(object, "frustumCulled", label);
+  ownMutableDataDescriptor(material, "visible", `${label} material`);
+  const objectLayers = topologyObject(
+    topologyDataValue(object, "layers", label),
+    `${label} layers`,
+  );
+  ownMutableDataDescriptor(objectLayers, "mask", `${label} layers`);
+  return material;
+}
+
+function directCompilePlan(
+  renderer: ThreeRendererPort,
+  passes: readonly RenderPass[],
+): readonly DirectCompilePlanEntry[] {
+  const plan: DirectCompilePlanEntry[] = [];
+  let capturedChildRoots = 0;
+  const compileAsync = topologyDataValue(
+    renderer,
+    "compileAsync",
+    "direct precompile renderer",
+  );
+  if (typeof compileAsync !== "function") {
+    throw new TypeError("Direct precompile requires a captured compileAsync data method.");
+  }
+  for (let passIndex = 0; passIndex < passes.length; passIndex += 1) {
+    const pass = passes[passIndex]!;
+    const targetScene = topologyObject(pass.scene, `precompile pass ${passIndex} scene`);
+    const camera = topologyObject(pass.camera, `precompile pass ${passIndex} camera`);
+    if (topologyDataValue(targetScene, "isScene", `precompile pass ${passIndex} scene`) !== true) {
+      throw new TypeError(`Precompile pass ${passIndex} requires a real target scene.`);
+    }
+    const cameraLayers = topologyObject(
+      topologyDataValue(camera, "layers", `precompile pass ${passIndex} camera`),
+      `precompile pass ${passIndex} camera layers`,
+    );
+    const cameraMask = topologyDataValue(
+      cameraLayers,
+      "mask",
+      `precompile pass ${passIndex} camera layers`,
+    );
+    if (typeof cameraMask !== "number" || !intrinsicNumberIsSafeInteger(cameraMask)) {
+      throw new TypeError(`Precompile pass ${passIndex} camera has unsupported layers.`);
+    }
+    const pending: object[] = [targetScene];
+    const visited = new intrinsicSet<object>();
+    let drawableIndex = 0;
+    while (pending.length > 0) {
+      const current = intrinsicReflectApply(intrinsicArrayPop, pending, []) as object;
+      if (intrinsicReflectApply(intrinsicSetHas, visited, [current])) {
+        throw new TypeError(`Precompile pass ${passIndex} contains a repeated or cyclic object.`);
+      }
+      intrinsicReflectApply(intrinsicSetAdd, visited, [current]);
+      const material = current === targetScene
+        ? null
+        : assertDirectDrawableTopology(current, passIndex);
+      const children = topologyDataValue(
+        current,
+        "children",
+        `precompile pass ${passIndex} object`,
+      );
+      if (!intrinsicArrayIsArray(children)) {
+        throw new TypeError(`Precompile pass ${passIndex} contains unsupported object topology.`);
+      }
+      const length = ownDataDescriptorValue(
+        children,
+        "length",
+        `precompile pass ${passIndex} children`,
+      );
+      if (!intrinsicNumberIsSafeInteger(length) || (length as number) < 0 || (length as number) > 100_000) {
+        throw new RangeError(`Precompile pass ${passIndex} has an invalid child inventory.`);
+      }
+      const childRoots: object[] = [];
+      for (let childIndex = 0; childIndex < (length as number); childIndex += 1) {
+        let descriptor: PropertyDescriptor | undefined;
+        try {
+          descriptor = intrinsicReflectGetOwnPropertyDescriptor(children, childIndex);
+        } catch {
+          throw new TypeError(`Precompile pass ${passIndex} child ${childIndex} could not be inspected.`);
+        }
+        if (!descriptor || !("value" in descriptor)) {
+          throw new TypeError(`Precompile pass ${passIndex} children must be dense data entries.`);
+        }
+        const childRoot = topologyObject(
+          descriptor.value,
+          `precompile pass ${passIndex} child ${childIndex}`,
+        );
+        capturedChildRoots += 1;
+        if (capturedChildRoots > MAXIMUM_DIRECT_COMPILE_STEPS) {
+          throw new RangeError("Direct precompile exceeds its bounded child-root inventory.");
+        }
+        if (material !== null) {
+          ownMutableDataDescriptor(
+            childRoot,
+            "visible",
+            `precompile pass ${passIndex} child ${childIndex}`,
+          );
+        }
+        intrinsicReflectApply(intrinsicArrayPush, childRoots, [childRoot]);
+      }
+      if (material !== null) {
+        if (plan.length >= MAXIMUM_DIRECT_COMPILE_STEPS) {
+          throw new RangeError("Direct precompile exceeds its bounded drawable inventory.");
+        }
+        intrinsicReflectApply(intrinsicArrayPush, plan, [intrinsicObjectFreeze({
+          childRoots: intrinsicObjectFreeze(childRoots),
+          compileAsync: compileAsync as ThreeRendererPort["compileAsync"],
+          descriptor: intrinsicObjectFreeze({
+            id: `direct:p${passIndex}:o${drawableIndex}`,
+            phase: "runtime-object",
+            profileId: null,
+          }),
+          object: current,
+          camera,
+          material,
+          targetScene,
+        })]);
+        drawableIndex += 1;
+      }
+      for (let childIndex = childRoots.length - 1; childIndex >= 0; childIndex -= 1) {
+        intrinsicReflectApply(intrinsicArrayPush, pending, [childRoots[childIndex]]);
+      }
+    }
+    if (drawableIndex === 0) {
+      throw new TypeError(`Precompile pass ${passIndex} has no supported drawable object.`);
+    }
+  }
+  return intrinsicObjectFreeze(plan);
+}
+
+async function runDirectCompileStep(
+  renderer: ThreeRendererPort,
+  step: DirectCompilePlanEntry,
+): Promise<void> {
+  const objectVisible = ownMutableDataDescriptor(step.object, "visible", "compile object");
+  const frustumCulled = ownMutableDataDescriptor(
+    step.object,
+    "frustumCulled",
+    "compile object",
+  );
+  const materialVisible = ownMutableDataDescriptor(
+    step.material,
+    "visible",
+    "compile material",
+  );
+  const objectLayers = topologyObject(
+    topologyDataValue(step.object, "layers", "compile object"),
+    "compile object layers",
+  );
+  const layerMask = ownMutableDataDescriptor(objectLayers, "mask", "compile object layers");
+  const cameraLayers = topologyObject(
+    topologyDataValue(step.camera, "layers", "compile camera"),
+    "compile camera layers",
+  );
+  const cameraMask = topologyDataValue(cameraLayers, "mask", "compile camera layers");
+  if (typeof cameraMask !== "number" || !intrinsicNumberIsSafeInteger(cameraMask)) {
+    throw new TypeError("A direct compile camera has unsupported layers.");
+  }
+  const childVisibility: Array<Readonly<{
+    descriptor: PropertyDescriptor;
+    root: object;
+  }>> = [];
+  for (let index = 0; index < step.childRoots.length; index += 1) {
+    const root = step.childRoots[index]!;
+    intrinsicReflectApply(intrinsicArrayPush, childVisibility, [intrinsicObjectFreeze({
+      descriptor: ownMutableDataDescriptor(root, "visible", `compile child ${index}`),
+      root,
+    })]);
+  }
+  let compileFailed = false;
+  let compileFailure: unknown;
+  try {
+    replaceDataDescriptorValue(step.object, "visible", objectVisible, true, "compile object");
+    replaceDataDescriptorValue(
+      step.object,
+      "frustumCulled",
+      frustumCulled,
+      false,
+      "compile object",
+    );
+    replaceDataDescriptorValue(
+      step.material,
+      "visible",
+      materialVisible,
+      true,
+      "compile material",
+    );
+    replaceDataDescriptorValue(
+      objectLayers,
+      "mask",
+      layerMask,
+      cameraMask,
+      "compile object layers",
+    );
+    for (let index = 0; index < childVisibility.length; index += 1) {
+      const child = childVisibility[index]!;
+      replaceDataDescriptorValue(
+        child.root,
+        "visible",
+        child.descriptor,
+        false,
+        `compile child ${index}`,
+      );
+    }
+    await intrinsicReflectApply(step.compileAsync, renderer, [
+      step.object,
+      step.camera,
+      step.targetScene,
+    ]);
+  } catch (error: unknown) {
+    compileFailed = true;
+    compileFailure = error;
+  }
+  const restoreFailures: unknown[] = [];
+  const restore = (
+    source: object,
+    key: PropertyKey,
+    descriptor: PropertyDescriptor,
+    label: string,
+  ) => {
+    try {
+      if (!intrinsicReflectDefineProperty(source, key, descriptor)) {
+        throw new intrinsicTypeError(`${label}.${String(key)} could not be restored.`);
+      }
+    } catch (error: unknown) {
+      intrinsicReflectApply(intrinsicArrayPush, restoreFailures, [error]);
+    }
+  };
+  for (let index = childVisibility.length - 1; index >= 0; index -= 1) {
+    const child = childVisibility[index]!;
+    restore(child.root, "visible", child.descriptor, `compile child ${index}`);
+  }
+  restore(objectLayers, "mask", layerMask, "compile object layers");
+  restore(step.material, "visible", materialVisible, "compile material");
+  restore(step.object, "frustumCulled", frustumCulled, "compile object");
+  restore(step.object, "visible", objectVisible, "compile object");
+  if (compileFailed && restoreFailures.length > 0) {
+    const failures: unknown[] = [compileFailure];
+    for (let index = 0; index < restoreFailures.length; index += 1) {
+      intrinsicReflectApply(intrinsicArrayPush, failures, [restoreFailures[index]]);
+    }
+    throw new intrinsicAggregateError(
+      failures,
+      "A direct compile failed and its temporary visibility state could not be restored.",
+    );
+  }
+  if (compileFailed) throw compileFailure;
+  if (restoreFailures.length === 1) throw restoreFailures[0];
+  if (restoreFailures.length > 1) {
+    throw new intrinsicAggregateError(
+      restoreFailures,
+      "Direct compile state restoration failed.",
+    );
+  }
+}
+
+function runtimeObjectReceipt(
+  plannedSteps: number,
+  completedSteps: number,
+): Readonly<RenderPrecompileReceipt> {
+  return intrinsicObjectFreeze({
+    plannedSteps,
+    completedSteps,
+    phaseCounts: intrinsicObjectFreeze({
+      "runtime-object": plannedSteps,
+      "material-isolated": 0,
+      "material-runtime-topology": 0,
+      "output-first-use": 0,
+    }),
+  });
+}
+
 /**
  * Backend implementation with the raw Three renderer held in a private field.
  * RenderHost is the sole animation-loop owner; this adapter never starts one.
@@ -1159,6 +1617,8 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
   #pendingResize: PendingBackendResize | null = null;
   #resizeCaptureActive = false;
   #externalPipelineCallbackDepth = 0;
+  #unsettledPipelineCallbacks = 0;
+  #unsettledPipelineDisposeRejection: Promise<void> | null = null;
   #telemetrySamplingActive = false;
 
   constructor(options: ThreeBackendAdapterOptions) {
@@ -1463,7 +1923,10 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     }
   }
 
-  async precompile(passes: readonly RenderPass[]): Promise<void> {
+  async precompile(
+    passes: readonly RenderPass[],
+    runner: RenderCompileStepRunner,
+  ): Promise<Readonly<RenderPrecompileReceipt>> {
     if (this.#externalPipelineCallbackDepth !== 0) {
       throw new Error("Cannot precompile Three backend reentrantly from a pipeline callback.");
     }
@@ -1477,21 +1940,31 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     const operation = this.#beginRendererOperation("precompile");
     try {
       const capturedPasses = this.#capturePasses(passes, "capture precompile passes");
-      this.#assertNoRuntimeFailure("capture precompile passes");
+      this.#assertRendererOperationMayContinue("precompile", operation);
       this.#precompileCalls += 1;
       this.#passes = capturedPasses;
       if (this.#viewport) this.#applyViewport(this.#viewport);
+      let receipt: Readonly<RenderPrecompileReceipt>;
       if (this.#pipeline) {
-        await this.#invokePipelineCallback(() => this.#pipeline!.precompile(capturedPasses));
+        receipt = await this.#invokePipelineCallback(
+          () => this.#pipeline!.precompile(capturedPasses, runner),
+        );
         this.#assertNoRuntimeFailure("continue precompile");
       } else {
-        for (const pass of capturedPasses) {
+        const plan = directCompilePlan(operation.renderer, capturedPasses);
+        let completedSteps = 0;
+        for (let index = 0; index < plan.length; index += 1) {
+          const step = plan[index]!;
           this.#assertNoRuntimeFailure("continue precompile");
-          if (pass.scene != null && pass.camera != null) {
-            await operation.renderer.compileAsync(pass.scene, pass.camera);
-          }
+          await runner.run(step.descriptor, async () => {
+            this.#assertNoRuntimeFailure("continue direct precompile action");
+            await runDirectCompileStep(operation.renderer, step);
+            this.#assertNoRuntimeFailure("complete direct precompile action");
+          });
+          completedSteps += 1;
           this.#assertNoRuntimeFailure("continue precompile");
         }
+        receipt = runtimeObjectReceipt(plan.length, completedSteps);
       }
       const telemetry = this.#captureTelemetry(
         operation.renderer,
@@ -1501,6 +1974,7 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       if (!telemetry.available) throw telemetryReentrancyError();
       this.#assertNoRuntimeFailure("record precompile resources");
       this.#lastLiveResources = telemetry.resources;
+      return receipt;
     } finally {
       operation.release();
     }
@@ -1520,7 +1994,7 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     const operation = this.#beginRendererOperation("render");
     try {
       const capturedPasses = this.#capturePasses(passes, "capture render passes");
-      this.#assertNoRuntimeFailure("capture render passes");
+      this.#assertRendererOperationMayContinue("render", operation);
       this.#renderCalls += 1;
       this.#passes = capturedPasses;
       if (this.#viewport) this.#applyPassCameras(this.#viewport);
@@ -1694,6 +2168,18 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
       return Promise.reject(new Error(
         "Cannot dispose Three backend reentrantly from a pipeline callback.",
       ));
+    }
+    // JavaScript has no browser-portable async provenance. Once a pipeline
+    // callback yields, its owner reentry and an ordinary external caller are
+    // indistinguishable; allowing either call to own disposal can deadlock the
+    // callback against the renderer-operation drain. Fail closed only for that
+    // ambiguous window without claiming disposal or cleanup. Every caller in
+    // one window shares the same retryable rejection.
+    if (this.#unsettledPipelineCallbacks !== 0) {
+      this.#unsettledPipelineDisposeRejection ??= Promise.reject(new Error(
+        "Cannot dispose Three backend while a pipeline callback is unsettled; retry after it settles.",
+      ));
+      return this.#unsettledPipelineDisposeRejection;
     }
     this.#disposeCalls += 1;
     if (this.#disposePromise) return this.#disposePromise;
@@ -2527,12 +3013,42 @@ export class ThreeRenderBackendAdapter implements ThreeBackendAdapter {
     });
   }
 
-  #invokePipelineCallback<T>(callback: () => T): T {
+  #assertRendererOperationMayContinue(
+    kind: "precompile" | "render",
+    operation: RendererOperation,
+  ): void {
+    if (this.#disposePromise !== null) {
+      throw new Error(`Cannot ${kind} Three backend after disposal was requested.`);
+    }
+    this.#assertReady(kind);
+    if (this.#renderer !== operation.renderer) {
+      throw new Error(`Cannot ${kind} Three backend after its renderer changed.`);
+    }
+    this.#assertNoRuntimeFailure(`capture ${kind} passes`);
+    this.#assertNoPendingResize(kind);
+  }
+
+  async #invokePipelineCallback<T>(callback: () => T): Promise<Awaited<T>> {
     this.#externalPipelineCallbackDepth += 1;
+    let result: T;
     try {
-      return callback();
+      result = callback();
     } finally {
       this.#externalPipelineCallbackDepth -= 1;
+    }
+    const asynchronous = (
+      (typeof result === "object" && result !== null)
+      || typeof result === "function"
+    );
+    if (!asynchronous) return result as Awaited<T>;
+    this.#unsettledPipelineCallbacks += 1;
+    try {
+      return await result;
+    } finally {
+      this.#unsettledPipelineCallbacks -= 1;
+      if (this.#unsettledPipelineCallbacks === 0) {
+        this.#unsettledPipelineDisposeRejection = null;
+      }
     }
   }
 
