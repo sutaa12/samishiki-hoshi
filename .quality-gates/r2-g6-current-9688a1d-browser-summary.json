@@ -1,0 +1,518 @@
+{
+  "report": {
+    "path": ".quality-gates/r2-g6-current-9688a1d-playwright.json",
+    "bytes": 36612015,
+    "sha256": "01fa8d2c932240a107ea4ec7d895e8dd6bf524a87d242c028ca333acd947d413",
+    "stats": {
+      "startTime": "2026-08-20T07:10:51.654Z",
+      "duration": 199976.961,
+      "expected": 8,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "results": [
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 47837
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 6251
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 39665
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 21927
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 31775
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 15204
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 21297
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 10573
+      }
+    ]
+  },
+  "attachments": {
+    "total": 30,
+    "png": 20,
+    "json": 10,
+    "allPng1920x1080": true,
+    "items": [
+      {
+        "name": "webgl2-steady-telemetry",
+        "contentType": "application/json",
+        "bytes": 32609,
+        "sha256": "4ca4abe300849b44ad560617a71f176a7bd73f1d18df8dbf7a6298c4fe5443d7"
+      },
+      {
+        "name": "webgl2-ten-restart-plateau",
+        "contentType": "application/json",
+        "bytes": 1422,
+        "sha256": "41ce848cbe3b05c83db76caa9a3f1ca0a6c50b0a8573e70217de1b25f3e369f4"
+      },
+      {
+        "name": "webgl2-ten-cycle-lifecycle",
+        "contentType": "application/json",
+        "bytes": 1793,
+        "sha256": "fa951beb7651e3e1dbc0c2898b53fc2d50fcacd153390d24979e7e5dafa46568"
+      },
+      {
+        "name": "webgpu-steady-telemetry",
+        "contentType": "application/json",
+        "bytes": 55451,
+        "sha256": "f7f751e474e021d9b276406454ee6b3056662372429c19a0a5dfd341360e72a0"
+      },
+      {
+        "name": "hero-a-webgl2-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 278789,
+        "sha256": "ea7d9e9b672c89c10ab02e29cf1c729f68c873ba060befd29cbc3a9a8c92a38c"
+      },
+      {
+        "name": "hero-a-webgl2-12s-life",
+        "contentType": "image/png",
+        "bytes": 1724826,
+        "sha256": "2525486f0fe8b93543fda2bc572e9e1b813d84cf627cb9c8d763e4a3e1b112a8",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-27s-empty-seat",
+        "contentType": "image/png",
+        "bytes": 1727465,
+        "sha256": "072983897e4507ae714b95712efd62545bb9a00f885232cca986e344c67503b9",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-37s-waterline",
+        "contentType": "image/png",
+        "bytes": 1726567,
+        "sha256": "4e112d3bfa1293af57506542781018f4ac412374c10b8aef71bfc25c373c0961",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-fallback",
+        "contentType": "image/png",
+        "bytes": 336558,
+        "sha256": "85dfbfecfcaafa26512049415ebe13b0a68f0754b86ad7139054467d089a1db9",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgpu-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 280340,
+        "sha256": "d387cfa825d2f3795160a93a45350b35b4ccd0e2f3ceba0e0769a94f8a5efdce"
+      },
+      {
+        "name": "hero-a-webgpu-12s-life",
+        "contentType": "image/png",
+        "bytes": 1702673,
+        "sha256": "3e72348a842003a4b5e9ffcb8b948cef1c42aec1799ebb6509f108928180085a",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgpu-27s-empty-seat",
+        "contentType": "image/png",
+        "bytes": 1706082,
+        "sha256": "280a1fe47d4cd7b157e2bd6b5af6d43de19d44016c4fa367bb4b17e9f5c47cd7",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgl2-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 195932,
+        "sha256": "95fc8b28b7bc62839107df0e06b17fcbaab57dd1142d69ce3461edacbdbd9013"
+      },
+      {
+        "name": "hero-b-webgl2-58s-forest",
+        "contentType": "image/png",
+        "bytes": 1881143,
+        "sha256": "fca8d822317126560a509fe855537f9fa8e020e4ce7d93c0220cdcd9361570db",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgl2-75s-empty-city",
+        "contentType": "image/png",
+        "bytes": 1882624,
+        "sha256": "581b3035966113fd6b4d15b56b64bc12feff7a2cd20a634f1f36160b112215da",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgl2-75s-fallback",
+        "contentType": "image/png",
+        "bytes": 405794,
+        "sha256": "d90a6cb8dcf4a3586b69df2335658c89adb8eb1bf23ceaf8f148aa992409ef2f",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgpu-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 280362,
+        "sha256": "1c6fd8ad39968e1017514b0b0195853e0d4d90076b69e7ec1a5fbbcc903d9b43"
+      },
+      {
+        "name": "hero-b-webgpu-58s-forest",
+        "contentType": "image/png",
+        "bytes": 1835027,
+        "sha256": "4037c50304f5849f2f6b389ea7c5a2f725a816544f3b398b8c406ea1bd1725ee",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgpu-75s-empty-city",
+        "contentType": "image/png",
+        "bytes": 1835935,
+        "sha256": "6732ceb6ab6a3ca242a18f63825cdfa75e87ba40c07affbfc6215ecc82fecde2",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 93530,
+        "sha256": "693ed37e0bf212fb0790d60c80d6188225522fc0c06df3c9a8b2d771c83303ce"
+      },
+      {
+        "name": "hero-c-webgl2-142s-human-debris",
+        "contentType": "image/png",
+        "bytes": 1154299,
+        "sha256": "2139a4d3728f75cc9c50e562f767104df84303cd43498aa692329f2a8522dc92",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-158s-peripheral-arcs",
+        "contentType": "image/png",
+        "bytes": 1158198,
+        "sha256": "c93b605b7ef7ea52c9dd4dcf3b219b269b2c38021923bac29297098cf65c987a",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-166s-three-ribbon-answer",
+        "contentType": "image/png",
+        "bytes": 1157404,
+        "sha256": "4abdf43af1c2e241dbaa42420ccf190a1c55825d19ba8d95cdef18f734f9a9b2",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-176s-many-life-lights",
+        "contentType": "image/png",
+        "bytes": 1157609,
+        "sha256": "0d926f22f871007a8743cef0c2af9052f37ba47c81d9a0b8837e31d7820b6621",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-179s-formal-title",
+        "contentType": "image/png",
+        "bytes": 454951,
+        "sha256": "2830bc004f8397a8d0798133ffb043952e74d046c04a12c53d8d0d2b6369cc39",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 160119,
+        "sha256": "03b4ef1ebd043e54528b74c42934f23a2ef1a65e92ec6fdf07e2ed8e48af1ef5"
+      },
+      {
+        "name": "hero-c-webgpu-142s-human-debris",
+        "contentType": "image/png",
+        "bytes": 1051438,
+        "sha256": "886c8c6e63b586d1af6500e24d64d586a617281bf7e4ca9ca3be2c9fa628b71c",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-158s-peripheral-arcs",
+        "contentType": "image/png",
+        "bytes": 1055188,
+        "sha256": "fa4ee3e96560d3e53927edf6a3e3114cb3d394c043d5477efef8d1e07a8d1601",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-166s-three-ribbon-answer",
+        "contentType": "image/png",
+        "bytes": 1054268,
+        "sha256": "d3990c7d94e2169d2087c961b58509a32d1bc654b82d411ad49bdc2370861a38",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-176s-many-life-lights",
+        "contentType": "image/png",
+        "bytes": 1054947,
+        "sha256": "7aa79634f8e2b45bb2bb62895b6d2a70d79acb454ed25d462e687a955ecec347",
+        "width": 1920,
+        "height": 1080
+      }
+    ]
+  },
+  "runtimeMetrics": [
+    {
+      "name": "webgl2-steady-telemetry",
+      "planned": 88,
+      "compileMaxMs": 24.899999856948853,
+      "uploadMaxMs": 0.2999999523162842,
+      "activationMaxMs": 0.10000014305114746,
+      "compileOver50": 0,
+      "uploadOver50": 0,
+      "activationOver50": 0,
+      "operationalSpikesOver50": 0,
+      "programsAtReady": null,
+      "programGrowthAfterReady": null
+    },
+    {
+      "name": "webgpu-steady-telemetry",
+      "planned": 176,
+      "compileMaxMs": 34.30000019073486,
+      "uploadMaxMs": 0.20000004768371582,
+      "activationMaxMs": 0,
+      "compileOver50": 0,
+      "uploadOver50": 0,
+      "activationOver50": 0,
+      "operationalSpikesOver50": 0,
+      "programsAtReady": null,
+      "programGrowthAfterReady": null
+    },
+    {
+      "name": "hero-a-webgl2-runtime-evidence",
+      "planned": 1210,
+      "compileMaxMs": 32,
+      "uploadMaxMs": 0.20000004768371582,
+      "activationMaxMs": 0.10000014305114746,
+      "compileOver50": 0,
+      "uploadOver50": 0,
+      "activationOver50": 0,
+      "operationalSpikesOver50": 0,
+      "programsAtReady": 91,
+      "programGrowthAfterReady": 0
+    },
+    {
+      "name": "hero-a-webgpu-runtime-evidence",
+      "planned": 2420,
+      "compileMaxMs": 28.899999856948853,
+      "uploadMaxMs": 0.19999980926513672,
+      "activationMaxMs": 0,
+      "compileOver50": 0,
+      "uploadOver50": 0,
+      "activationOver50": 0,
+      "operationalSpikesOver50": 0,
+      "programsAtReady": 189,
+      "programGrowthAfterReady": 0
+    },
+    {
+      "name": "hero-b-webgl2-runtime-evidence",
+      "planned": 660,
+      "compileMaxMs": 23.300000190734863,
+      "uploadMaxMs": 0.20000004768371582,
+      "activationMaxMs": 0.10000014305114746,
+      "compileOver50": 0,
+      "uploadOver50": 0,
+      "activationOver50": 0,
+      "operationalSpikesOver50": 0,
+      "programsAtReady": 94,
+      "programGrowthAfterReady": 0
+    },
+    {
+      "name": "hero-b-webgpu-runtime-evidence",
+      "planned": 1320,
+      "compileMaxMs": 35.799999952316284,
+      "uploadMaxMs": 0.20000004768371582,
+      "activationMaxMs": 0.09999990463256836,
+      "compileOver50": 0,
+      "uploadOver50": 0,
+      "activationOver50": 0,
+      "operationalSpikesOver50": 0,
+      "programsAtReady": 189,
+      "programGrowthAfterReady": 0
+    },
+    {
+      "name": "hero-c-webgl2-runtime-evidence",
+      "planned": 258,
+      "compileMaxMs": 30.5,
+      "uploadMaxMs": 0.20000004768371582,
+      "activationMaxMs": 0.10000014305114746,
+      "compileOver50": 0,
+      "uploadOver50": 0,
+      "activationOver50": 0,
+      "operationalSpikesOver50": 0,
+      "programsAtReady": 54,
+      "programGrowthAfterReady": 0
+    },
+    {
+      "name": "hero-c-webgpu-runtime-evidence",
+      "planned": 516,
+      "compileMaxMs": 38.40000009536743,
+      "uploadMaxMs": 0.10000014305114746,
+      "activationMaxMs": 0,
+      "compileOver50": 0,
+      "uploadOver50": 0,
+      "activationOver50": 0,
+      "operationalSpikesOver50": 0,
+      "programsAtReady": 105,
+      "programGrowthAfterReady": 0
+    }
+  ],
+  "restartEvidence": {
+    "generations": 10,
+    "tailHeapSpreadBytes": 507212,
+    "final": {
+      "cycle": 10,
+      "heapUsedBytes": 19351192,
+      "heapTotalBytes": 20480000,
+      "programs": 21,
+      "geometries": 3,
+      "gpuOwnedCount": 4,
+      "logicalOwners": 4,
+      "poolSlots": 4
+    }
+  },
+  "lifecycleEvidence": {
+    "generations": 10,
+    "terminal": [
+      {
+        "generation": 1,
+        "submittedFrames": 588,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 2,
+        "submittedFrames": 15,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 3,
+        "submittedFrames": 45,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 4,
+        "submittedFrames": 45,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 5,
+        "submittedFrames": 44,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 6,
+        "submittedFrames": 44,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 7,
+        "submittedFrames": 48,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 8,
+        "submittedFrames": 46,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 9,
+        "submittedFrames": 46,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      },
+      {
+        "generation": 10,
+        "submittedFrames": 42,
+        "gpuOwnedCount": 0,
+        "logicalOwners": 0,
+        "poolSlots": 0,
+        "backendRetainedFailureReferences": 0,
+        "telemetryState": "disposed",
+        "runtimeSpikesOver50Ms": 0
+      }
+    ]
+  }
+}

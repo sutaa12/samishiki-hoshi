@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "gate": "R2-G6 current combined Foundation and Hero A/B/C acceptance",
+  "status": "review_pending",
+  "implementation": {
+    "commit": "9688a1d211b6f0a821bc5b4900628cd825e9aab3",
+    "tree": "d25426bd725ac3bbbb8821eab094c07b5317faca",
+    "branch": "graphics-photoreal-megademo",
+    "orderedImplementationManifest": ".quality-gates/r2-g6-current-9688a1d-files.sha256",
+    "orderedImplementationManifestEncoding": "129 lines of sha256, two spaces, repository-relative path, sorted by path, newline",
+    "orderedImplementationManifestSha256": "87627070ef14e7a48916d9f0ed6c695c501e8da9270d41502e9fbc3d7d9864b6",
+    "sourceArchiveRebuildSha256": "c13188ac36f0d5b5831bbf14d982486047900b4d87a945f6301757b9f2beea53",
+    "sourceArchiveBytes": 222545920,
+    "sourceArchiveEntries": 326,
+    "sourceArchiveRegularFiles": 282,
+    "sourceArchiveDirectories": 44,
+    "sourceArchiveSymlinks": 0,
+    "sourceArchiveExtractedRegularBytes": 222297115,
+    "sourceArchivePrefix": "LonelyStar-9688a1d/",
+    "sourceArchiveEmbeddedCommit": "9688a1d211b6f0a821bc5b4900628cd825e9aab3"
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "artifact": ".quality-gates/r2-g6-current-9688a1d-dist.tar",
+    "archiveSha256": "89663292510cafeb2ce94e4cddf2109543faf5f469a8c1fef96dd6e257649a7b",
+    "archiveBytes": 9029632,
+    "archiveEntries": 132,
+    "regularFileCount": 110,
+    "directoryCount": 21,
+    "symlinkCount": 0,
+    "extractedRegularBytes": 8657851,
+    "contentRecordsSha256": "27d1525fe6e3e15ca0108aa7577b754403b2902a1d2fbcad9aaa58a0e85e7f3b",
+    "contentRecordsReproducedFromEmptyExtraction": true,
+    "vinextBuildId": "78336128-b734-46fa-af91-2a2853057fbc",
+    "runtimeNoticeSha256": "db77168a3a9106f127514a3eff4c59c99872885a85b8baea3ca2c0eaa14fb8ac",
+    "runtimeNoticeBytes": 1573,
+    "workerArtifactName": "world-chunk-worker-DCn2LUGC.js",
+    "workerArtifactSha256": "928c30c2e085660e785e6de648688a1c885da2cce10bca9037003807d218216b",
+    "workerArtifactBytes": 58724,
+    "workerArtifactCopies": 3,
+    "rawTypeScriptWorkerArtifacts": 0,
+    "byteReproducibleRebuild": false,
+    "nonDeterminism": "The exact tested dist is preserved; generated Vinext identifiers are not claimed byte-reproducible."
+  },
+  "automatedEvidence": {
+    "completeVerification": "typecheck, global lint, 37 files / 712 tests, production build",
+    "verificationLog": ".quality-gates/r2-g6-current-9688a1d-verify.txt",
+    "verificationLogSha256": "96d6496921007398613a9e2c97714f2a182840755d2b6adaffbc8a4e486a999e",
+    "verificationLogBytes": 2059,
+    "completeVitestReport": ".quality-gates/r2-g6-current-9688a1d-full-vitest.json",
+    "completeVitestReportSha256": "1b7f9d0e76d6410e6f2a323c537828fb334180ccf8efb0180aa033808d1daa90",
+    "completeVitestReportBytes": 252451,
+    "completeVitestFiles": 37,
+    "completeVitestSuitesPassed": 80,
+    "completeVitestTestsPassed": 712,
+    "focusedVitestReport": ".quality-gates/r2-g6-current-9688a1d-vitest.json",
+    "focusedVitestReportSha256": "b9d5d322da4bc3778f6755e99aef1c54b8fd27ee0345783b41bc0f52a8686817",
+    "focusedVitestReportBytes": 23814,
+    "focusedRequestedFiles": 8,
+    "focusedVitestSuitesPassed": 16,
+    "focusedVitestTestsPassed": 60,
+    "failed": 0,
+    "pending": 0,
+    "todo": 0,
+    "productionAudit": ".quality-gates/r2-g6-current-9688a1d-npm-audit.json",
+    "productionAuditSha256": "41e0957f81e8db3f722663db2e5f7c20bacfd3ceb9caba5820b350f3b86c18bd",
+    "productionAuditBytes": 365,
+    "productionAuditVulnerabilities": 0
+  },
+  "browserEvidence": {
+    "command": "rtk env GFX_SPIKE_PORT=41925 PLAYWRIGHT_JSON_OUTPUT_NAME=.quality-gates/r2-g6-current-9688a1d-playwright.json npm exec -- playwright test tests/e2e/gfx-foundation.spec.ts tests/e2e/gfx-hero-a.spec.ts tests/e2e/gfx-hero-b.spec.ts tests/e2e/gfx-hero-c.spec.ts --project=desktop-chromium --workers=1 --reporter=json --output=.quality-gates/r2-g6-current-9688a1d-playwright-output --trace=off",
+    "report": ".quality-gates/r2-g6-current-9688a1d-playwright.json",
+    "reportSha256": "01fa8d2c932240a107ea4ec7d895e8dd6bf524a87d242c028ca333acd947d413",
+    "reportBytes": 36612015,
+    "summary": ".quality-gates/r2-g6-current-9688a1d-browser-summary.json",
+    "summarySha256": "1920dec58554585a780e07a7f16f5484f8b5c6e863b2c8153786f61dc165b5d6",
+    "summaryBytes": 14990,
+    "startTime": "2026-08-20T07:10:51.654Z",
+    "durationMs": 199976.961,
+    "specs": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "flaky": 0,
+    "maximumRetry": 0,
+    "topLevelErrors": 0,
+    "resultErrorFields": 0,
+    "attachments": {
+      "total": 30,
+      "json": 10,
+      "png": 20,
+      "strictlyDecodedPng": 20,
+      "allPng1920x1080": true
+    },
+    "runtimeMetrics": [
+      {
+        "name": "foundation-webgl2",
+        "compileSteps": 88,
+        "compileMaximumMs": 24.899999856948853,
+        "uploadMaximumMs": 0.2999999523162842,
+        "activationMaximumMs": 0.10000014305114746,
+        "compileUploadActivationEventsOver50Ms": 0
+      },
+      {
+        "name": "foundation-webgpu",
+        "compileSteps": 176,
+        "compileMaximumMs": 34.30000019073486,
+        "uploadMaximumMs": 0.20000004768371582,
+        "activationMaximumMs": 0,
+        "compileUploadActivationEventsOver50Ms": 0
+      },
+      {
+        "name": "hero-a-webgl2",
+        "compileSteps": 1210,
+        "compileMaximumMs": 32,
+        "programsAtReady": 91,
+        "programGrowthAfterReady": 0,
+        "compileUploadActivationEventsOver50Ms": 0
+      },
+      {
+        "name": "hero-a-webgpu",
+        "compileSteps": 2420,
+        "compileMaximumMs": 28.899999856948853,
+        "programsAtReady": 189,
+        "programGrowthAfterReady": 0,
+        "compileUploadActivationEventsOver50Ms": 0
+      },
+      {
+        "name": "hero-b-webgl2",
+        "compileSteps": 660,
+        "compileMaximumMs": 23.300000190734863,
+        "programsAtReady": 94,
+        "programGrowthAfterReady": 0,
+        "compileUploadActivationEventsOver50Ms": 0
+      },
+      {
+        "name": "hero-b-webgpu",
+        "compileSteps": 1320,
+        "compileMaximumMs": 35.799999952316284,
+        "programsAtReady": 189,
+        "programGrowthAfterReady": 0,
+        "compileUploadActivationEventsOver50Ms": 0
+      },
+      {
+        "name": "hero-c-webgl2",
+        "compileSteps": 258,
+        "compileMaximumMs": 30.5,
+        "programsAtReady": 54,
+        "programGrowthAfterReady": 0,
+        "compileUploadActivationEventsOver50Ms": 0
+      },
+      {
+        "name": "hero-c-webgpu",
+        "compileSteps": 516,
+        "compileMaximumMs": 38.40000009536743,
+        "programsAtReady": 105,
+        "programGrowthAfterReady": 0,
+        "compileUploadActivationEventsOver50Ms": 0
+      }
+    ],
+    "restartPlateau": {
+      "generations": 10,
+      "lastFiveHeapSpreadBytes": 507212,
+      "heapSpreadLimitBytes": 16777216,
+      "finalHeapUsedBytes": 19351192,
+      "finalHeapTotalBytes": 20480000,
+      "programs": 21,
+      "geometries": 3,
+      "gpuOwnedCount": 4,
+      "logicalOwners": 4,
+      "poolSlots": 4
+    },
+    "lifecycle": {
+      "completeRuntimeGenerations": 10,
+      "allTrackedTerminalOwnersZero": true,
+      "allBackendRetainedFailureReferencesZero": true,
+      "allTelemetryDisposed": true,
+      "allRuntimeSpikesOver50MsZero": true
+    },
+    "referenceHardwareAccepted": false
+  },
+  "acceptedAnchors": {
+    "sharedFoundationImplementation": "3b57eeb213df7a945f13b93c62188f62a9c003b5",
+    "sharedFoundationEvidence": "6e1ff9b7c6f4c790035aa54eb608861bf54617b6",
+    "heroR33Implementation": "e1b101b9438097f739437e0a50af80774fd707ed",
+    "heroR33Evidence": "0c869ab1087f8940015706c2f4d83977ec1bab05",
+    "priorCombinedReceipt": "1d7eae918abeb74036270cc86788adaee85760d4"
+  },
+  "frozenInputs": {
+    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "specSha256": "a2e557bbc3de8aba8a9f093271a55493900c34a34c9b6fa01eeec1f385f43055",
+    "demoSourceProvenanceSha256": "89e42f4cae9560435b2bcc78b8500c6db93661fc1f7ddd39ef2b0a53064f2e29",
+    "canonicalWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
+    "gfx001Implementation": "86928ca987814aa161003bd3ac588d37c95d9a9c",
+    "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
+    "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a"
+  },
+  "artifactReview": {
+    "status": "pending",
+    "reviewedEvidenceHead": null,
+    "reviewedEvidenceTree": null,
+    "reviewers": [],
+    "verdict": null,
+    "severityCounts": {
+      "S0": null,
+      "S1": null,
+      "S2": null,
+      "S3": null
+    },
+    "bindingsReproduced": false,
+    "drift": null
+  },
+  "externalGates": {
+    "referenceHardware": "HARDWARE_PENDING",
+    "humanPlayAndVisualAcceptance": "HUMAN_PENDING",
+    "rightsAcceptance": "HUMAN_PENDING",
+    "r2G7IntegrationDecision": "HUMAN_PENDING",
+    "mainIntegration": "HUMAN_PENDING",
+    "sitesDeployment": "HUMAN_PENDING",
+    "contestSubmission": "HUMAN_PENDING"
+  }
+}
