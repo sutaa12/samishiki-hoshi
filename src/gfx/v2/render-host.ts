@@ -1160,6 +1160,8 @@ export class RenderHost {
   #frameLoopStopped = false;
   #frameLoopStopFailure: Error | null = null;
   #ownedCallbackDepth = 0;
+  #pendingWarmupSchedulerCallbacks = 0;
+  #warmupSchedulerDisposalRejection: Promise<void> | null = null;
   readonly #compileWarmup: CompileWarmupState = {
     planned: 0,
     started: 0,
@@ -1548,6 +1550,18 @@ export class RenderHost {
         this.#errorOwner,
       ));
     }
+    if (this.#pendingWarmupSchedulerCallbacks > 0) {
+      if (this.#warmupSchedulerDisposalRejection === null) {
+        const deferred = deferredVoid();
+        this.#warmupSchedulerDisposalRejection = deferred.promise;
+        deferred.reject(lifecycleError(
+          "dispose while a warm-up scheduler callback is unsettled",
+          this.#lifecycle,
+          this.#errorOwner,
+        ));
+      }
+      return this.#warmupSchedulerDisposalRejection;
+    }
     if (this.#disposePromise) return this.#disposePromise;
     if (this.#lifecycle === "disposed") return Promise.resolve();
     if (this.#failureClaimed && this.#failurePromise) return this.#failurePromise;
@@ -1872,7 +1886,9 @@ export class RenderHost {
   }
 
   async #precompileWarmup(passes: readonly RenderPass[]): Promise<void> {
-    const settleAttempt = this.#invokeOwnedCallback(this.#settleWarmupBeforeFirstStep);
+    const settleAttempt = this.#invokeWarmupSchedulerCallback(
+      this.#settleWarmupBeforeFirstStep,
+    );
     await settleAttempt;
     this.#assertInitializing();
     const session: CompileRunnerSession = {
@@ -2034,7 +2050,9 @@ export class RenderHost {
       }
 
       try {
-        const schedulerAttempt = this.#invokeOwnedCallback(this.#yieldWarmupToMain);
+        const schedulerAttempt = this.#invokeWarmupSchedulerCallback(
+          this.#yieldWarmupToMain,
+        );
         await schedulerAttempt;
       } catch (error: unknown) {
         schedulerFailed = true;
@@ -3954,6 +3972,36 @@ export class RenderHost {
       return operation();
     } finally {
       this.#ownedCallbackDepth -= 1;
+    }
+  }
+
+  #invokeWarmupSchedulerCallback(operation: () => Promise<void>): Promise<void> {
+    this.#pendingWarmupSchedulerCallbacks += 1;
+    let attempt: Promise<void>;
+    try {
+      attempt = this.#invokeOwnedCallback(operation);
+    } catch (error: unknown) {
+      this.#releaseWarmupSchedulerCallback();
+      throw error;
+    }
+    return new hostIntrinsicPromise<void>((resolve, reject) => {
+      hostIntrinsicReflectApply(hostIntrinsicPromiseThen, attempt, [
+        () => {
+          this.#releaseWarmupSchedulerCallback();
+          resolve();
+        },
+        (error: unknown) => {
+          this.#releaseWarmupSchedulerCallback();
+          reject(error);
+        },
+      ]);
+    });
+  }
+
+  #releaseWarmupSchedulerCallback(): void {
+    this.#pendingWarmupSchedulerCallbacks -= 1;
+    if (this.#pendingWarmupSchedulerCallbacks === 0) {
+      this.#warmupSchedulerDisposalRejection = null;
     }
   }
 

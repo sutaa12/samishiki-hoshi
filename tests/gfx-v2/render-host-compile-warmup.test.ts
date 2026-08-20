@@ -448,6 +448,90 @@ describe("GFX-006 atomic compile warm-up", () => {
     });
   });
 
+  it("rejects post-yield settle disposal reentry without an initialization cycle", async () => {
+    const owner: { host: RenderHost | null } = { host: null };
+    let firstDispose: Promise<void> | null = null;
+    let secondDispose: Promise<void> | null = null;
+    const test = harness({
+      async settleBeforeWarmup(): Promise<void> {
+        await Promise.resolve();
+        if (owner.host === null) throw new Error("scheduler host was not installed");
+        firstDispose = owner.host.dispose();
+        secondDispose = owner.host.dispose();
+        await firstDispose;
+      },
+      async precompile(): Promise<Readonly<RenderPrecompileReceipt>> {
+        throw new Error("backend precompile must not start after settle reentry");
+      },
+    });
+    owner.host = test.host;
+
+    await expect(test.host.initialize(
+      JOURNEY,
+      { width: 800, height: 450, pixelRatio: 1 },
+    )).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
+    expect(firstDispose).not.toBeNull();
+    expect(secondDispose).toBe(firstDispose);
+    await expect(firstDispose).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
+    expect(test.precompileCalls()).toBe(0);
+    expect(test.telemetry.snapshot().eventTotals.compile).toBe(0);
+    const terminalCleanup = test.host.dispose();
+    await expect(terminalCleanup).resolves.toBeUndefined();
+    expect(test.host.dispose()).toBe(terminalCleanup);
+    expect(test.host.state).toBe("failed");
+    expect(test.frameLoop).toMatchObject({ running: false, starts: 0 });
+    expect(test.cleanupCalls).toEqual({
+      backend: 1,
+      materials: 1,
+      uploads: 1,
+      resources: 1,
+    });
+  });
+
+  it("rejects post-yield scheduler disposal reentry after recording the action", async () => {
+    const owner: { host: RenderHost | null } = { host: null };
+    let firstDispose: Promise<void> | null = null;
+    let secondDispose: Promise<void> | null = null;
+    const test = harness({
+      now: () => 1,
+      async yieldToMain(): Promise<void> {
+        await Promise.resolve();
+        if (owner.host === null) throw new Error("scheduler host was not installed");
+        firstDispose = owner.host.dispose();
+        secondDispose = owner.host.dispose();
+        await firstDispose;
+      },
+      async precompile(runner): Promise<Readonly<RenderPrecompileReceipt>> {
+        await runner.run(RUNTIME_0, async () => undefined);
+        return receipt(["runtime-object"]);
+      },
+    });
+    owner.host = test.host;
+
+    await expect(test.host.initialize(
+      JOURNEY,
+      { width: 800, height: 450, pixelRatio: 1 },
+    )).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
+    expect(firstDispose).not.toBeNull();
+    expect(secondDispose).toBe(firstDispose);
+    await expect(firstDispose).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
+    expect(test.precompileCalls()).toBe(1);
+    expect(test.telemetry.snapshot().events.filter(
+      (event) => event.kind === "compile",
+    )).toMatchObject([{ durationMs: 0, success: true }]);
+    const terminalCleanup = test.host.dispose();
+    await expect(terminalCleanup).resolves.toBeUndefined();
+    expect(test.host.dispose()).toBe(terminalCleanup);
+    expect(test.host.state).toBe("failed");
+    expect(test.frameLoop).toMatchObject({ running: false, starts: 0 });
+    expect(test.cleanupCalls).toEqual({
+      backend: 1,
+      materials: 1,
+      uploads: 1,
+      resources: 1,
+    });
+  });
+
   it("rejects a hostile scheduler thenable without consulting its then accessor", async () => {
     let thenReads = 0;
     const hostileThenable = Object.defineProperty({}, "then", {
