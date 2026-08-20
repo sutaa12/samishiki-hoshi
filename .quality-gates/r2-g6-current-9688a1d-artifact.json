@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gate": "R2-G6 current combined Foundation and Hero A/B/C acceptance",
-  "status": "review_pending",
+  "status": "rejected",
   "implementation": {
     "commit": "9688a1d211b6f0a821bc5b4900628cd825e9aab3",
     "tree": "d25426bd725ac3bbbb8821eab094c07b5317faca",
@@ -195,8 +195,21 @@
     "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
     "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a"
   },
+  "sourceReview": {
+    "status": "rejected",
+    "reviewer": "gfx005_release_qa_clean",
+    "verdict": "REJECT",
+    "severityCounts": {
+      "S0": 0,
+      "S1": 1,
+      "S2": 0,
+      "S3": 0
+    },
+    "finding": "An asynchronous warm-up scheduler callback could await, call and await host.dispose(), while disposal awaited initialization, creating a permanent initialization/disposal cycle.",
+    "supersededByImplementation": "bae6b717431bfea1d5a9b50fa61a6af07396a596"
+  },
   "artifactReview": {
-    "status": "pending",
+    "status": "not_completed_due_to_source_rejection",
     "reviewedEvidenceHead": null,
     "reviewedEvidenceTree": null,
     "reviewers": [],
@@ -208,7 +221,7 @@
       "S3": null
     },
     "bindingsReproduced": false,
-    "drift": null
+    "drift": false
   },
   "externalGates": {
     "referenceHardware": "HARDWARE_PENDING",

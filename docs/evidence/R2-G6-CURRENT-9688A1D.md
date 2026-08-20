@@ -1,6 +1,12 @@
-# R2-G6 current combined Foundation and Hero evidence
+# R2-G6 rejected combined Foundation and Hero evidence
 
-> **Candidate frozen; independent source, artifact, and visual review pending.**
+> **Rejected and superseded.** Independent source review found an S1
+> initialization/disposal cycle in the asynchronous warm-up scheduler boundary.
+> The corrected candidate is implementation `bae6b717431bfea1d5a9b50fa61a6af07396a596`.
+>
+> This file remains as immutable rejection history; none of its automated or
+> browser results constitute acceptance of implementation `9688a1d`.
+
 > This record binds the current Foundation plus Hero A/B/C implementation to
 > exact source, build, automated-test, browser, restart, lifecycle, and visual
 > attachments. It does not authorize Main integration, Sites deployment,
@@ -90,8 +96,8 @@ is initializing and outside action timing; story time does not advance.
 
 The accepted anchors remain shared Foundation implementation `3b57eeb` with
 evidence `6e1ff9b`, and Hero R33 implementation `e1b101b` with evidence
-`0c869ab`. This current candidate supersedes those scopes only after an
-independent exact-pin source/artifact/visual review reports no blocking
+`0c869ab`. The corrected `bae6b71` candidate can supersede those scopes only
+after an independent exact-pin artifact/visual review reports no blocking
 S0/S1/S2 and a reviewed evidence commit is recorded.
 
 Reference hardware remains `HARDWARE_PENDING`. Human play/visual, public-use
