@@ -87,6 +87,7 @@ class ProbeFrameLoop implements RenderFrameLoop {
 
 type HarnessOptions = Readonly<{
   precompile(runner: RenderCompileStepRunner): Promise<Readonly<RenderPrecompileReceipt>>;
+  settleBeforeWarmup?: () => Promise<void>;
   yieldToMain?: () => Promise<void>;
   now?: (() => number) | null;
   recordOperation?: () => void;
@@ -130,6 +131,7 @@ function harness(options: HarnessOptions) {
     backend,
     frameLoop,
     warmupScheduler: {
+      settleBeforeWarmup: options.settleBeforeWarmup ?? (async () => undefined),
       yieldToMain: options.yieldToMain ?? (async () => undefined),
     },
     features: [],
@@ -184,6 +186,52 @@ function harness(options: HarnessOptions) {
 }
 
 describe("GFX-006 atomic compile warm-up", () => {
+  it("settles the renderer context before starting or timing the first compile action", async () => {
+    const log: string[] = [];
+    let releaseSettle!: () => void;
+    let markSettleEntered!: () => void;
+    const settleGate = new Promise<void>((resolve) => { releaseSettle = resolve; });
+    const settleEntered = new Promise<void>((resolve) => { markSettleEntered = resolve; });
+    const test = harness({
+      log,
+      settleBeforeWarmup: () => {
+        log.push("settle.start");
+        markSettleEntered();
+        return settleGate.then(() => { log.push("settle.end"); });
+      },
+      async precompile(runner): Promise<Readonly<RenderPrecompileReceipt>> {
+        await runner.run(RUNTIME_0, async () => { log.push("action"); });
+        return receipt(["runtime-object"]);
+      },
+    });
+
+    const initialization = test.host.initialize(
+      JOURNEY,
+      { width: 800, height: 450, pixelRatio: 1 },
+    );
+    await settleEntered;
+    expect(test.precompileCalls()).toBe(0);
+    expect(test.telemetry.snapshot().eventTotals.compile).toBe(0);
+    expect(test.host.getSnapshot().compileWarmup).toMatchObject({
+      planned: 0,
+      started: 0,
+      completed: 0,
+    });
+
+    releaseSettle();
+    await initialization;
+    expect(log).toEqual([
+      "settle.start",
+      "settle.end",
+      "backend.precompile.start",
+      "action",
+      "backend.precompile.end",
+      "loop.start",
+    ]);
+    expect(test.telemetry.snapshot().eventTotals.compile).toBe(1);
+    await test.host.dispose();
+  });
+
   it("times only actions, yields between steps, emits no aggregate event, and starts the loop later", async () => {
     const log: string[] = [];
     let now = 10;
@@ -364,6 +412,39 @@ describe("GFX-006 atomic compile warm-up", () => {
         retainedRawFailureCauses: 0,
         retainedIntermediateFailureSnapshots: 0,
       },
+    });
+  });
+
+  it("rejects synchronous settle disposal reentry before backend precompile starts", async () => {
+    const owner: { host: RenderHost | null } = { host: null };
+    let reentrantDispose: Promise<void> | null = null;
+    const test = harness({
+      settleBeforeWarmup(): Promise<void> {
+        if (owner.host === null) throw new Error("scheduler host was not installed");
+        reentrantDispose = owner.host.dispose();
+        return reentrantDispose;
+      },
+      async precompile(): Promise<Readonly<RenderPrecompileReceipt>> {
+        throw new Error("backend precompile must not start before context settlement");
+      },
+    });
+    owner.host = test.host;
+
+    await expect(test.host.initialize(
+      JOURNEY,
+      { width: 800, height: 450, pixelRatio: 1 },
+    )).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
+    await expect(reentrantDispose).rejects.toMatchObject({ code: "INVALID_LIFECYCLE" });
+    expect(test.precompileCalls()).toBe(0);
+    expect(test.telemetry.snapshot().eventTotals.compile).toBe(0);
+    const cleanup = test.host.dispose();
+    await expect(cleanup).resolves.toBeUndefined();
+    expect(test.host.dispose()).toBe(cleanup);
+    expect(test.cleanupCalls).toEqual({
+      backend: 1,
+      materials: 1,
+      uploads: 1,
+      resources: 1,
     });
   });
 
@@ -644,6 +725,28 @@ describe("GFX-006 atomic compile warm-up", () => {
     await expect(scheduler.yieldToMain()).rejects.toThrow(/scheduler is unavailable/);
     expect(schedulerGetterCalls).toBe(0);
     expect(messageChannelCalls).toBe(0);
+  });
+
+  it("uses one captured 500ms timer for the renderer-context settle window", async () => {
+    let timerCalls = 0;
+    let observedDelay: unknown = null;
+    let receiverMatched = false;
+    const scope = Object.freeze({
+      setTimeout(this: unknown, callback: () => void, delay: unknown) {
+        timerCalls += 1;
+        observedDelay = delay;
+        receiverMatched = Object.is(this, scope);
+        queueMicrotask(callback);
+        return 1;
+      },
+      scheduler: Object.freeze({ yield: async () => undefined }),
+    });
+    const scheduler = createBrowserRenderWarmupScheduler(scope);
+
+    await scheduler.settleBeforeWarmup();
+    expect(timerCalls).toBe(1);
+    expect(observedDelay).toBe(500);
+    expect(receiverMatched).toBe(true);
   });
 
   it("captures Chromium-style prototype port getters and reads each port exactly once", async () => {

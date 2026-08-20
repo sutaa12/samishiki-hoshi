@@ -168,6 +168,8 @@ export interface RenderPrecompileReceipt {
 }
 
 export interface RenderWarmupScheduler {
+  /** Waits for a newly initialized renderer context before measured work begins. */
+  settleBeforeWarmup(): Promise<void>;
   yieldToMain(): Promise<void>;
 }
 

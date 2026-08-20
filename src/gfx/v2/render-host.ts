@@ -62,6 +62,7 @@ const hostIntrinsicSetDelete = Set.prototype.delete;
 const hostIntrinsicSetForEach = Set.prototype.forEach;
 const hostIntrinsicSetHas = Set.prototype.has;
 const hostIntrinsicSetSize = Object.getOwnPropertyDescriptor(Set.prototype, "size")!.get!;
+const RENDER_CONTEXT_SETTLE_MS = 500;
 
 function captureRenderPass(
   pass: RenderPass,
@@ -400,6 +401,7 @@ function captureExactPromise(candidate: unknown): Promise<void> {
 export function createBrowserRenderWarmupScheduler(
   scope: object = globalThis,
 ): Readonly<RenderWarmupScheduler> {
+  const setTimeoutMethod = safeDataMethod(scope, "setTimeout");
   const scheduler = optionalOwnDataValue(scope, "scheduler");
   const schedulerYield = (
     (typeof scheduler === "object" && scheduler !== null) || typeof scheduler === "function"
@@ -419,6 +421,20 @@ export function createBrowserRenderWarmupScheduler(
     ? null
     : safeAccessorGetter(messageChannelPrototypeObject, "port2");
   return hostIntrinsicObjectFreeze({
+    settleBeforeWarmup(): Promise<void> {
+      if (setTimeoutMethod === null) {
+        return new hostIntrinsicPromise<void>((_resolve, reject) => {
+          reject(new hostIntrinsicError("A safe renderer-context settle timer is unavailable."));
+        });
+      }
+      return new hostIntrinsicPromise<void>((resolve, reject) => {
+        try {
+          hostIntrinsicReflectApply(setTimeoutMethod, scope, [resolve, RENDER_CONTEXT_SETTLE_MS]);
+        } catch (error: unknown) {
+          reject(error);
+        }
+      });
+    },
     async yieldToMain(): Promise<void> {
       if (schedulerYield !== null) {
         await hostIntrinsicReflectApply(schedulerYield, scheduler, []);
@@ -1069,6 +1085,7 @@ function immutableFailureOccurrence(
 export class RenderHost {
   readonly #dependencies: RenderHostDependencies;
   readonly #instrumentation: Readonly<CapturedRenderHostInstrumentation> | null;
+  readonly #settleWarmupBeforeFirstStep: () => Promise<void>;
   readonly #yieldWarmupToMain: () => Promise<void>;
   readonly #errorOwner = Object.freeze({});
   #lifecycle: RenderHostLifecycle = "new";
@@ -1162,10 +1179,23 @@ export class RenderHost {
     ) {
       throw new TypeError("RenderHost requires a warm-up scheduler object.");
     }
+    const settleBeforeWarmup = safeDataMethod(
+      warmupScheduler as object,
+      "settleBeforeWarmup",
+    );
+    if (settleBeforeWarmup === null) {
+      throw new TypeError(
+        "RenderHost warm-up scheduler settleBeforeWarmup must be a data method.",
+      );
+    }
     const yieldToMain = safeDataMethod(warmupScheduler as object, "yieldToMain");
     if (yieldToMain === null) {
       throw new TypeError("RenderHost warm-up scheduler yieldToMain must be a data method.");
     }
+    this.#settleWarmupBeforeFirstStep = () => {
+      const candidate = hostIntrinsicReflectApply(settleBeforeWarmup, warmupScheduler, []);
+      return captureExactPromise(candidate);
+    };
     this.#yieldWarmupToMain = () => {
       const candidate = hostIntrinsicReflectApply(yieldToMain, warmupScheduler, []);
       return captureExactPromise(candidate);
@@ -1836,6 +1866,9 @@ export class RenderHost {
   }
 
   async #precompileWarmup(passes: readonly RenderPass[]): Promise<void> {
+    const settleAttempt = this.#invokeOwnedCallback(this.#settleWarmupBeforeFirstStep);
+    await settleAttempt;
+    this.#assertInitializing();
     const session: CompileRunnerSession = {
       open: true,
       running: false,

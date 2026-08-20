@@ -378,7 +378,10 @@ function createHarness(options: HarnessOptions = {}): Harness {
   const dependencies: RenderHostDependencies = {
     backend,
     frameLoop,
-    warmupScheduler: { yieldToMain: async () => undefined },
+    warmupScheduler: {
+      settleBeforeWarmup: async () => undefined,
+      yieldToMain: async () => undefined,
+    },
     features: [feature],
     materials,
     uploads,

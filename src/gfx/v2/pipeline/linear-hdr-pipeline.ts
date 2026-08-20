@@ -1445,9 +1445,6 @@ function prepareRuntimeObjectForAtomicDraw(
     if (depth > 8192 || !isThreeObject3D(ancestor)) {
       throw new TypeError("A runtime drawable must have a bounded path to its captured scene.");
     }
-    if (isDrawableObject(ancestor)) {
-      throw new TypeError("Nested drawable ancestors are unsupported for atomic runtime draws.");
-    }
     temporarilyReplaceOwnData(
       ancestor,
       "visible",
@@ -1455,6 +1452,28 @@ function prepareRuntimeObjectForAtomicDraw(
       "A runtime drawable ancestor visibility",
       mutations,
     );
+    if (isDrawableObject(ancestor)) {
+      // A visible drawable ancestor must remain traversable so Three can reach
+      // the selected descendant, but it must not contribute a second render
+      // item to this atomic step. A zero layer mask suppresses only the
+      // ancestor's own draw while preserving descendant traversal. This also
+      // works when ancestor and descendant share one material instance.
+      const ancestorLayers = ownDataValue(
+        ancestor,
+        "layers",
+        "A runtime drawable ancestor layer state",
+      );
+      if (typeof ancestorLayers !== "object" || ancestorLayers === null) {
+        throw new TypeError("A runtime drawable ancestor layer state must be an object.");
+      }
+      temporarilyReplaceOwnData(
+        ancestorLayers,
+        "mask",
+        0,
+        "A runtime drawable ancestor layer mask",
+        mutations,
+      );
+    }
     ancestor = ownDataValue(ancestor, "parent", "A runtime drawable ancestor parent");
   }
   temporarilyReplaceOwnData(

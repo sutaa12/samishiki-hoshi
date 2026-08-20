@@ -14,17 +14,30 @@ async function snapshot(page: Page): Promise<HeroSnapshot> {
 async function waitForSnapshot(
   page: Page,
   predicate: (value: HeroSnapshot) => boolean,
-  timeout = 10_000,
+  timeout = 30_000,
 ): Promise<HeroSnapshot> {
-  await expect.poll(async () => predicate(await snapshot(page)), { timeout }).toBe(true);
+  await page.waitForTimeout(250);
+  await expect.poll(async () => predicate(await snapshot(page)), {
+    timeout,
+    intervals: [250, 500, 1_000],
+  }).toBe(true);
   return snapshot(page);
 }
 
 function expectRuntimeBounded(value: HeroSnapshot): void {
+  expect(value.pipeline.precompileStepsAtReady).not.toBeNull();
+  expect(value.pipeline.precompileSteps).toBe(value.pipeline.precompileStepsAtReady);
   expect(value.pipeline).toMatchObject({
     state: "ready",
-    runtimeCompileEvents: 0,
     programGrowthAfterReady: 0,
+  });
+  expect(value.host.compileWarmup).toMatchObject({
+    planned: value.pipeline.precompileStepsAtReady,
+    started: value.pipeline.precompileStepsAtReady,
+    completed: value.pipeline.precompileStepsAtReady,
+    failed: 0,
+    overBudget: 0,
+    budgetStatus: "pass",
   });
   expect(value.backendLifecycle.resources.pendingUploads).toBe(0);
   expect(value.chunks.workerInboxCount).toBe(0);
@@ -39,9 +52,16 @@ function expectRuntimeBounded(value: HeroSnapshot): void {
     orphanLeaseCount: 0,
     orphanJobCount: 0,
   });
+  expect(value.telemetry.eventTotals.compile).toBe(value.pipeline.precompileStepsAtReady);
+  expect(value.telemetry.eventsOver50Ms).toMatchObject({ compile: 0, upload: 0, activation: 0 });
+  for (const kind of ["compile", "upload", "activation"] as const) {
+    const maximum = value.telemetry.eventMaxDurationMs[kind];
+    if (maximum !== null) expect(maximum, `${kind} all-time maximum`).toBeLessThanOrEqual(50);
+  }
+  expect(value.telemetry.operationalSpikesOver50Ms).toBe(0);
   expect(value.telemetry.runtimeSpikesOver50Ms).toBe(0);
   for (const event of value.telemetry.events) {
-    if (event.kind !== "upload" && event.kind !== "activation") continue;
+    if (event.kind !== "compile" && event.kind !== "upload" && event.kind !== "activation") continue;
     expect(event.durationMs, `${event.kind} event duration`).toBeLessThanOrEqual(50);
   }
 }
@@ -101,6 +121,10 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
     expect(debris.heroC.ownedTextures).toBe(0);
     expect(debris.heroC.ownedObjects).toBeGreaterThan(0);
     expectRuntimeBounded(debris);
+    await testInfo.attach("hero-c-webgl2-runtime-evidence", {
+      body: Buffer.from(JSON.stringify(debris)),
+      contentType: "application/json",
+    });
     await testInfo.attach("hero-c-webgl2-142s-human-debris", {
       body: await page.screenshot(),
       contentType: "image/png",
@@ -321,6 +345,10 @@ test.describe("R2-G5 Hero Slice C real browser candidate", () => {
         allocationsAfterInitialize: 0,
       });
       expectRuntimeBounded(debris);
+      await testInfo.attach("hero-c-webgpu-runtime-evidence", {
+        body: Buffer.from(JSON.stringify(debris)),
+        contentType: "application/json",
+      });
       const baselinePrograms = debris.pipeline.programCountAtReady;
       const baselineGeometries = debris.backendLifecycle.resources.geometries;
       await testInfo.attach("hero-c-webgpu-142s-human-debris", {

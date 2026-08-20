@@ -280,6 +280,24 @@ spike. Constant-zero compile counters are not acceptance evidence. Local
 browser timings remain laboratory evidence; GPU timestamps were unavailable
 and reference-device acceptance remains `HARDWARE_PENDING`.
 
+## D-023 — Renderer context settling precedes, but never replaces, atomic measurement
+
+A newly initialized browser renderer receives one 500-millisecond cooperative
+settle window before RenderHost opens the compile session. The scheduler is a
+required captured dependency, invokes one receiver-fixed browser timer, keeps
+the Host in `initializing`, and cannot advance story time or start the frame
+loop. A missing or reentrant scheduler fails initialization and follows the
+normal ownership cleanup path.
+
+The settle window is not reported as a compile action because it performs no
+renderer work and does not occupy the main thread. After it resolves, every
+renderer-facing compile and first-draw action is still individually measured;
+strict `>50 ms` telemetry and rejection remain unchanged. The value is fixed
+from cold Chromium evidence: 100 milliseconds admitted an intermittent 55.9 ms
+Hero C final-output draw, while five independent 500-millisecond cold runs kept
+all 258 WebGL2 actions between 21.6 and 26.4 ms. This is local laboratory
+evidence only; reference-device acceptance remains `HARDWARE_PENDING`.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

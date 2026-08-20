@@ -8,6 +8,7 @@ import {
   MeshStandardNodeMaterial,
   NoToneMapping,
   NodeUpdateType,
+  type Object3D,
   PassNode,
   PerspectiveCamera,
   RenderPipeline,
@@ -668,6 +669,84 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await graph.dispose();
     geometry.dispose();
     material.dispose();
+  });
+
+  it("draws a nested drawable as one atomic step without also drawing its drawable ancestor", async () => {
+    const scene = new Scene();
+    const camera = new PerspectiveCamera(50, 1, 0.1, 100);
+    camera.layers.set(3);
+    const parentGeometry = new BoxGeometry(1, 1, 1);
+    const childGeometry = new BoxGeometry(0.5, 0.5, 0.5);
+    const sharedMaterial = new MeshStandardNodeMaterial();
+    const parent = new Mesh(parentGeometry, sharedMaterial);
+    parent.name = "nested-parent";
+    parent.layers.set(5);
+    const child = new Mesh(childGeometry, sharedMaterial);
+    child.name = "nested-child";
+    child.layers.set(6);
+    parent.add(child);
+    scene.add(parent);
+    const originalParentVisible = Object.getOwnPropertyDescriptor(parent, "visible");
+    const originalParentLayerMask = Object.getOwnPropertyDescriptor(parent.layers, "mask");
+    const originalChildVisible = Object.getOwnPropertyDescriptor(child, "visible");
+    const originalChildLayerMask = Object.getOwnPropertyDescriptor(child.layers, "mask");
+    const originalMaterialVisible = Object.getOwnPropertyDescriptor(sharedMaterial, "visible");
+    const probe = topologyRenderer();
+    const baseRender = probe.raw.render.getMockImplementation();
+    const atomicRuntimeDraws: string[][] = [];
+    probe.raw.render.mockImplementation((renderScene: unknown, renderCamera: unknown) => {
+      if (renderScene === scene && renderCamera === camera) {
+        const visible: string[] = [];
+        scene.traverseVisible((object) => {
+          const candidate = object as Object3D & {
+            readonly isMesh?: boolean;
+            readonly material?: { readonly visible?: boolean };
+          };
+          if (
+            candidate.isMesh === true
+            && candidate.material?.visible !== false
+            && candidate.layers.test(camera.layers)
+          ) visible.push(candidate.name);
+        });
+        atomicRuntimeDraws.push(visible);
+      }
+      baseRender?.(renderScene, renderCamera);
+    });
+    const graph = createThreeLinearHdrGraph(Object.freeze({
+      renderer: probe.raw,
+      profile: selectLinearHdrPipelineProfile("WebGL2", quality("high", false)),
+      materialWarmupPasses: Object.freeze([]),
+      passes: Object.freeze([{ name: "world", kind: "opaque-pbr", scene, camera }]),
+      passSignature: "nested-atomic-runtime-draw",
+      viewport,
+    }));
+
+    const receipt = await graph.precompile(immediateCompileRunner);
+
+    expect(receipt).toEqual({
+      plannedSteps: 8,
+      completedSteps: 8,
+      phaseCounts: {
+        "runtime-object": 4,
+        "material-isolated": 0,
+        "material-runtime-topology": 0,
+        "output-first-use": 4,
+      },
+    });
+    expect(atomicRuntimeDraws.slice(0, 2)).toEqual([
+      ["nested-parent"],
+      ["nested-child"],
+    ]);
+    expect(Object.getOwnPropertyDescriptor(parent, "visible")).toEqual(originalParentVisible);
+    expect(Object.getOwnPropertyDescriptor(parent.layers, "mask")).toEqual(originalParentLayerMask);
+    expect(Object.getOwnPropertyDescriptor(child, "visible")).toEqual(originalChildVisible);
+    expect(Object.getOwnPropertyDescriptor(child.layers, "mask")).toEqual(originalChildLayerMask);
+    expect(Object.getOwnPropertyDescriptor(sharedMaterial, "visible")).toEqual(originalMaterialVisible);
+
+    await graph.dispose();
+    parentGeometry.dispose();
+    childGeometry.dispose();
+    sharedMaterial.dispose();
   });
 
   it("uses renderer operations captured before runner yields without later method lookup", async () => {

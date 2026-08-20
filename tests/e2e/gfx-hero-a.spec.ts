@@ -6,13 +6,22 @@ interface HeroSnapshot {
   readonly planDigest: string;
   readonly host: {
     readonly lifecycle: string;
+    readonly compileWarmup: {
+      readonly planned: number;
+      readonly started: number;
+      readonly completed: number;
+      readonly failed: number;
+      readonly overBudget: number;
+      readonly budgetStatus: "pending" | "pass" | "fail" | "unmeasured";
+    };
     readonly counters: { readonly submittedFrames: number };
   };
   readonly pipeline: {
     readonly state: string;
+    readonly precompileSteps: number;
+    readonly precompileStepsAtReady: number | null;
     readonly programCountAtReady: number | null;
     readonly programGrowthAfterReady: number;
-    readonly runtimeCompileEvents: number;
   };
   readonly backendLifecycle: {
     readonly state: string;
@@ -65,6 +74,10 @@ interface HeroSnapshot {
     readonly window: { readonly steadyFrames: number };
     readonly frameIntervalMs: { readonly p95: number | null };
     readonly mainThreadWorkMs: { readonly p95: number | null };
+    readonly eventTotals: Readonly<Record<string, number>>;
+    readonly eventMaxDurationMs: Readonly<Record<string, number | null>>;
+    readonly eventsOver50Ms: Readonly<Record<string, number>>;
+    readonly operationalSpikesOver50Ms: number;
     readonly runtimeSpikesOver50Ms: number;
     readonly events: readonly {
       readonly kind: string;
@@ -82,17 +95,30 @@ async function snapshot(page: Page): Promise<HeroSnapshot> {
 async function waitForSnapshot(
   page: Page,
   predicate: (value: HeroSnapshot) => boolean,
-  timeout = 8_000,
+  timeout = 30_000,
 ): Promise<HeroSnapshot> {
-  await expect.poll(async () => predicate(await snapshot(page)), { timeout }).toBe(true);
+  await page.waitForTimeout(250);
+  await expect.poll(async () => predicate(await snapshot(page)), {
+    timeout,
+    intervals: [250, 500, 1_000],
+  }).toBe(true);
   return snapshot(page);
 }
 
 function expectRuntimeBounded(value: HeroSnapshot): void {
+  expect(value.pipeline.precompileStepsAtReady).not.toBeNull();
+  expect(value.pipeline.precompileSteps).toBe(value.pipeline.precompileStepsAtReady);
   expect(value.pipeline).toMatchObject({
     state: "ready",
-    runtimeCompileEvents: 0,
     programGrowthAfterReady: 0,
+  });
+  expect(value.host.compileWarmup).toMatchObject({
+    planned: value.pipeline.precompileStepsAtReady,
+    started: value.pipeline.precompileStepsAtReady,
+    completed: value.pipeline.precompileStepsAtReady,
+    failed: 0,
+    overBudget: 0,
+    budgetStatus: "pass",
   });
   expect(value.backendLifecycle.resources.pendingUploads).toBe(0);
   expect(value.chunks).toMatchObject({
@@ -105,9 +131,20 @@ function expectRuntimeBounded(value: HeroSnapshot): void {
     orphanLeaseCount: 0,
     orphanJobCount: 0,
   });
+  expect(value.telemetry.eventTotals.compile).toBe(value.pipeline.precompileStepsAtReady);
+  expect(value.telemetry.eventsOver50Ms).toMatchObject({
+    compile: 0,
+    upload: 0,
+    activation: 0,
+  });
+  for (const kind of ["compile", "upload", "activation"] as const) {
+    const maximum = value.telemetry.eventMaxDurationMs[kind];
+    if (maximum !== null) expect(maximum, `${kind} all-time maximum`).toBeLessThanOrEqual(50);
+  }
+  expect(value.telemetry.operationalSpikesOver50Ms).toBe(0);
   expect(value.telemetry.runtimeSpikesOver50Ms).toBe(0);
   for (const event of value.telemetry.events) {
-    if (event.kind !== "upload" && event.kind !== "activation") continue;
+    if (event.kind !== "compile" && event.kind !== "upload" && event.kind !== "activation") continue;
     expect(event.durationMs, `${event.kind} event duration`).toBeLessThanOrEqual(50);
   }
 }
@@ -161,6 +198,10 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     expect(life.heroA?.ownedObjects).toBeGreaterThan(0);
     if (!life.heroA) throw new Error("Hero Slice A ownership evidence is unavailable.");
     expectRuntimeBounded(life);
+    await testInfo.attach("hero-a-webgl2-runtime-evidence", {
+      body: Buffer.from(JSON.stringify(life)),
+      contentType: "application/json",
+    });
     await testInfo.attach("hero-a-webgl2-12s-life", {
       body: await page.screenshot(),
       contentType: "image/png",
@@ -324,6 +365,10 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
         allocationsAfterInitialize: 0,
       });
       expectRuntimeBounded(life);
+      await testInfo.attach("hero-a-webgpu-runtime-evidence", {
+        body: Buffer.from(JSON.stringify(life)),
+        contentType: "application/json",
+      });
       await testInfo.attach("hero-a-webgpu-12s-life", {
         body: await page.screenshot(),
         contentType: "image/png",

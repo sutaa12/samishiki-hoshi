@@ -329,7 +329,10 @@ function dependencies(
   return {
     backend,
     frameLoop,
-    warmupScheduler: { yieldToMain: async () => undefined },
+    warmupScheduler: {
+      settleBeforeWarmup: async () => undefined,
+      yieldToMain: async () => undefined,
+    },
     features,
     materials,
     uploads,

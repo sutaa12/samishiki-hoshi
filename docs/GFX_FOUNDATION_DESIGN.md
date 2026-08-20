@@ -147,6 +147,11 @@ world and material descriptor contracts.
   samples. Backend facts, quality changes, passes, draws, programs, nodes,
   transparent draws, fullscreen passes, resources/bytes, and late errors remain
   observable.
+- A newly initialized renderer receives one 500-millisecond cooperative browser
+  settle window before the first measured warm-up action. The Host remains
+  `initializing`, story time does not advance, and the timer yields the main
+  thread. Every renderer-facing action after that boundary is still measured
+  individually and the strict 50-millisecond gate is not waived.
 - Quality may alter pixel ratio, LOD selection, draw/instance ranges, optional
   passes, shadow resolution, and temporal mode only. It may not regenerate or
   mutate world/story/corridor/input/ledger/hash semantics.
