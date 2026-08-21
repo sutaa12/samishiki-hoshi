@@ -8,7 +8,7 @@
 | G1 Deterministic core | phase/shot/ledger/replay/1,000-seed and visual-asset contract tests | passed: 16 automated tests in working candidate |
 | G2 Playable journey | production build plus desktop/mobile browser flows | archived WIP only; not a release claim under the revised graphics source |
 | G3 Accessibility and presentation | settings/input/audio/end-card/focus/reference-gallery checks | archived WIP only; contracts are inputs to R2 |
-| G4 Independent acceptance | isolated artifact review; S0–S2 = 0 | v1 rejected; pre-rebaseline visual pass is superseded by Cinematic Procedural Realism |
+| G4 Independent acceptance | isolated artifact review; S0–S2 = 0 | automated combined scope accepted at `2741af5` / reviewed evidence `ba38e66`; human visual/play remains separate |
 | G5 Public release | anonymous HTTPS smoke interaction and version receipt | frozen; Sites v1 exists but must not be deployed |
 
 ## R2 graphics rebaseline gates
@@ -21,7 +21,7 @@
 | R2-G3 Slice A | ocean/submerged ruin High + fallback | passed in exact Hero R33 implementation `e1b101b`, reviewed evidence `0c869ab`; independent technical, artifact, and visual review S0=0, S1=0, S2=0, S3=0 |
 | R2-G4 Slice B | sunset forest/city High + fallback | passed in exact Hero R33 implementation `e1b101b`, reviewed evidence `0c869ab`; independent technical, artifact, and visual review S0=0, S1=0, S2=0, S3=0 |
 | R2-G5 Slice C | human debris/alien/Twinkle High + fallback | passed in exact Hero R33 implementation `e1b101b`, reviewed evidence `0c869ab`; independent technical, artifact, and visual review S0=0, S1=0, S2=0, S3=0 |
-| R2-G6 Parity and acceptance | 180s hash, 1,000 seeds, restart resources, performance, license, blind review | foundation `3b57eeb` and Hero R33 `e1b101b` are accepted in their exact separate scopes; a fresh combined Hero-current-runtime bundle, reference hardware, human visual/play, and rights acceptance remain pending |
+| R2-G6 Parity and acceptance | 180s hash, 1,000 seeds, restart resources, performance, license, blind review | passed for exact implementation `2741af5` and reviewed evidence `ba38e66`; reference hardware, human visual/play, and rights remain pending |
 | R2-G7 Human integration | explicit `Merge` / `Partial Merge` / `Reject` | `HUMAN_PENDING` |
 
 ## Performance targets
@@ -69,6 +69,29 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Ten live restart cycles retain programs 21, geometries 3, GPU/logical owners 4, and pool slots 4; the last-five forced-GC heap spread is 322,464 bytes. Ten complete runtime generations submit frames and finish with every attached terminal owner/reference/spike value at zero.
 - Exact source/build/test/browser bindings are in `docs/evidence/GFX-004.md`, `docs/evidence/GFX-005.md`, `docs/evidence/GFX-006.md`, `.quality-gates/gfx005-006-3b57eeb-artifact.json`, and the GFX-005/GFX-006 receipts. This automated acceptance does not promote combined Hero-current-runtime evidence or authorize reference-hardware, human visual/play, rights/legal, Main, Sites, or contest gates.
 
+## 2026-08-22 R2-G6 combined automated acceptance
+
+- Exact implementation `2741af51e277bdaa76ac97ee8b207bbfb1683cee`,
+  evidence `ba38e664cf6245a45cfa4eeaf1002de8036e2045`, and receipt
+  `.quality-gates/receipts/r2-g6-current-review.json` close the automated
+  combined Foundation plus Hero A/B/C gate with S0=S1=S2=S3=0.
+- Complete verification is 37 files / 716 tests; focused evidence is 10 files /
+  177 tests; typecheck, lint, build, and production audit pass. Browser evidence
+  is 8/8 with retry/error 0 and twenty unique 1920×1080 PNGs.
+- Both 12-second Hero A frames contain nature only; the 27-second frames contain
+  the intended empty-seat artifact. Runtime scene passes refresh exactly once
+  per submit without post-ready program growth.
+- Source archive, 129-file manifest, reader-independent 110-file dist, runtime
+  notice, compiled Workers, Vitest, Playwright, restart plateau, and ten
+  zero-owner lifecycle generations reproduce without drift.
+- One artifact reviewer perceived overlay clipping and locked an S2. The dissent
+  is preserved, but independent raw-pixel adjudication and final integration
+  proved identical High/Fallback glyph-position masks for all exact overlay
+  colors. It is closed as `MITIGATED_NON_REPRODUCED`, without a source-change
+  claim.
+- Reference hardware stays `HARDWARE_PENDING`. Human visual/play, rights,
+  D-005 integration, Main, Sites, and contest submission stay `HUMAN_PENDING`.
+
 ## Release record
 
 - GitHub: https://github.com/sutaa12/samishiki-hoshi (public, main)
@@ -92,4 +115,5 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Frozen R2-G6 combined candidate: implementation `cbbd4e5e0824846c1172c60fa24476ae973de8ca`, tree `85f624d0b0543da91674cf69c60b2ecc3fe0a934`. Complete verification passes 36/36 files and 617/617 tests; the focused parity/world/Hero/license/telemetry set passes 8 requested files and 54/54 assertions; one fresh-port serial browser run passes Foundation plus Hero A/B/C on forced-WebGL2 and host-Metal WebGPU 8/8. The exact evidence includes 1,000 seed validation, quality/backend-invariant replay, sequential A/B/C scene restoration, ten constant resource plateaus, ten zero-owner runtime generations, twenty embedded Hero frames, the four-package MIT runtime closure, and the byte-identical shipped notice. Bindings are in `docs/evidence/R2-G6.md`, `.quality-gates/r2-g6-cbbd4e5-artifact.json`, and `.quality-gates/receipts/r2-g6-review.json`. R2-G6 remains `review_pending`; independent frozen-scope and visual review, the underlying review-pending gates, reference hardware, human visual/play and rights acceptance, Main integration, Sites deployment, and contest submission remain separate.
 - Superseding R2-G6 visual-remediation candidate: implementation `b84a267ad6cb174af30ef11b6055889f6180e519`, tree `9600aec0c9edbcff211a092bed34fb2231047dbe`. Complete verification passes 36/36 files and 620/620 tests; focused evidence passes 57/57; combined Foundation plus Hero A/B/C browser evidence passes 8/8 with four JSON and twenty PNG attachments. Exact bindings are in `docs/evidence/R2-G6-VISUAL-REMEDIATION.md`, `.quality-gates/r2-g6-b84a267-artifact.json`, and `.quality-gates/receipts/r2-g6-visual-remediation-review.json`. The older `cbbd4e5` evidence remains historical; this candidate remains `review_pending` with all human/external release gates unchanged.
 - Accepted Hero R33 automated scope: implementation `e1b101b9438097f739437e0a50af80774fd707ed`, tree `5c7540fdb86831d46411c7d7aadbabc0e75770ba`, reviewed evidence `0c869ab1087f8940015706c2f4d83977ec1bab05`. The exact accepted bindings are in `docs/evidence/HERO-R33.md`, `.quality-gates/hero-r33-e1b101b-artifact.json`, and `.quality-gates/receipts/hero-r33-review.json`. This supersedes the old Hero source/visual acceptance only; combined R2-G6 remains pending.
+- Accepted current R2-G6 automated scope: implementation `2741af51e277bdaa76ac97ee8b207bbfb1683cee`, tree `42e3e57e03915bf75770156951f905cc4949ffc9`, reviewed evidence `ba38e664cf6245a45cfa4eeaf1002de8036e2045`. Exact bindings and preserved dissent are in `docs/evidence/R2-G6-CURRENT-2741AF5.md`, `.quality-gates/r2-g6-current-2741af5-artifact.json`, and `.quality-gates/receipts/r2-g6-current-review.json`. This completes only automated R2-G6; D-005 and all human/external release gates remain pending.
 - Notion progress: https://app.notion.com/p/3bf9b8d39c2881e7ac83ef4245a80311?pvs=204

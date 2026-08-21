@@ -1,10 +1,10 @@
 # R2-G6 current evidence candidate 2741af5
 
-> **Candidate frozen; scoped remediation reviews accepted; full independent
-> source and artifact review pending.** This package supersedes the rejected
-> Q2 candidate. It does not authorize Main integration, Sites deployment,
-> public-use rights, human visual acceptance, reference hardware, or contest
-> submission.
+> **Automated R2-G6 scope accepted.** Independent full-source, artifact-binding,
+> blind visual, narrow adjudication, and final integration review report final
+> S0=0, S1=0, S2=0, S3=0 for the exact implementation and evidence hashes.
+> This does not authorize Main integration, Sites deployment, public-use rights,
+> human visual acceptance, reference hardware, or contest submission.
 
 ## Exact identity
 
@@ -34,8 +34,8 @@ pipeline explicitly draws each captured runtime scene topology once per submit,
 then draws the output quad once while suppressing duplicate automatic updates.
 Failure restoration and retry are covered by exact regressions.
 
-Scoped independent reviews report S0=0, S1=0, S2=0 for both the 18-second
-boundary and runtime scene refresh. A fresh full-source review remains required.
+Scoped and full independent source reviews report S0=0, S1=0, S2=0 for the
+18-second boundary, runtime scene refresh, and complete combined implementation.
 
 ## Build and automated gates
 
@@ -88,13 +88,27 @@ owner, retained failure reference, pool slot, and runtime spike at zero.
 
 The twenty frames contain separate 12-second and 27-second Hero A captures for
 both backends. The 12-second frames show living ocean nature with no vehicle;
-the 27-second frames show the intended empty-seat artifact. This observation is
-not acceptance until reproduced by the independent artifact reviewer.
+the 27-second frames show the intended empty-seat artifact. The independent
+artifact reviewer reproduced all bindings and required scene content.
+
+## Independent review and preserved dissent
+
+- Full source: `r2g6_2741_source_acceptance` — ACCEPT, S0=S1=S2=S3=0.
+- Artifact-only: `r2g6_n7_artifact_blind` — 20/20 frames and every binding
+  reproduced; one locked S2 alleged missing overlay glyphs in two previews.
+- Narrow raw-pixel adjudication: `r2g6_overlay_adjudication` — ACCEPT,
+  S0=S1=S2=S3=0. Every glyph, line, marker, and divider was complete.
+- Final integration: `r2g6_2741_final_integration_verdict` — ACCEPT,
+  S0=S1=S2=S3=0. High/Fallback position masks were byte-identical for six exact
+  CSS colors, proving the apparent difference came from the inspection display
+  rather than the PNG or game. The original dissent remains preserved as
+  `MITIGATED_NON_REPRODUCED`; no source change is claimed.
+- Receipt: `.quality-gates/receipts/r2-g6-current-review.json`.
 
 ## Gate boundary
 
-The next gate is an isolated full-source audit and artifact-only blind review of
-this exact evidence commit, including all 20 visual frames and all archive/hash
-bindings. Reference hardware remains `HARDWARE_PENDING`. Human play/visual,
-public-use rights, D-005 `Merge` / `Partial Merge` / `Reject`, Main integration,
-Sites deployment, and contest submission remain `HUMAN_PENDING`.
+The automated R2-G6 gate is complete for the exact hashes. The next gate is the
+Human Acceptance Owner's D-005 `Merge` / `Partial Merge` / `Reject` decision and
+public-use/contest-rights acceptance. Reference hardware remains
+`HARDWARE_PENDING`; human play/visual, rights, Main integration, Sites
+deployment, and contest submission remain `HUMAN_PENDING`.

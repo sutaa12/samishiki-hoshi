@@ -23,11 +23,11 @@
         "GFX-004, GFX-005, and GFX-006 pass frozen source and artifact review with zero open S0-S2"
       ],
       "evidence": [
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/gfx005-review.json", "description": "Combined GFX-004/GFX-005 receipt remains review_pending"},
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/gfx006-review.json", "description": "GFX-006 receipt remains review_pending"}
+        {"kind": "accepted", "artifact": ".quality-gates/receipts/gfx005-review.json", "description": "Accepted exact GFX-004/GFX-005 automated foundation receipt"},
+        {"kind": "accepted", "artifact": ".quality-gates/receipts/gfx006-review.json", "description": "Accepted exact GFX-006 telemetry receipt"}
       ],
       "rollback_condition": "Any lifecycle, parity, performance, ownership, or evidence-binding regression",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "id": "R2-G3/G4/G5",
@@ -53,11 +53,12 @@
       ],
       "evidence": [
         {"kind": "historical", "artifact": ".quality-gates/receipts/r2-g6-review.json", "description": "Pre-remediation R2-G6 candidate receipt"},
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/r2-g6-visual-remediation-review.json", "description": "Exact visual-remediation candidate is frozen; independent review remains pending"},
-        {"kind": "artifact", "artifact": ".quality-gates/r2-g6-b84a267-artifact.json", "description": "Bound source archive, tested dist, focused tests, production audit, and 8-case browser report"}
+        {"kind": "historical", "artifact": ".quality-gates/receipts/r2-g6-visual-remediation-review.json", "description": "Superseded visual-remediation checkpoint"},
+        {"kind": "accepted", "artifact": ".quality-gates/receipts/r2-g6-current-review.json", "description": "Exact combined source, artifact, browser, visual, and adjudicated acceptance"},
+        {"kind": "artifact", "artifact": ".quality-gates/r2-g6-current-2741af5-artifact.json", "description": "Bound 129-file source, reader-independent dist, 716 tests, audit, 8-case browser report, and 20 frames"}
       ],
       "rollback_condition": "Any parity mismatch, resource growth, missing runtime notice, or open S0-S2 review finding",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "id": "R2-G7",
@@ -76,7 +77,7 @@
   "known_risks": [
     {"id":"R-HUMAN","description":"Contest consent, identity, rights attestation, Seoul attendance, and final submission require the responsible human","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Tracked as HUMAN_PENDING in docs/QA.md and Notion; not part of automated public deployment"}]},
     {"id":"R-HARDWARE","description":"Reference-device performance acceptance cannot be proven on the build host","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Automated telemetry is collected; final reference hardware remains HARDWARE_PENDING"}]},
-    {"id":"R-INDEPENDENT","description":"GFX-004/GFX-005, GFX-006, and combined R2-G6 still require current artifact-isolated independent review; Hero R33 is accepted separately","severity":"S3","status":"open","evidence":[{"kind":"accepted","artifact":".quality-gates/receipts/hero-r33-review.json","description":"Hero-only independent review is complete; combined foundation and R2-G6 remain separate"}]},
+    {"id":"R-INDEPENDENT","description":"Current GFX-004/GFX-005/GFX-006, Hero R33, and combined R2-G6 automated scopes have exact independent source and artifact review","severity":"S3","status":"mitigated","evidence":[{"kind":"accepted","artifact":".quality-gates/receipts/r2-g6-current-review.json","description":"Exact current combined acceptance including preserved and adjudicated dissent"}]},
     {"id":"R-INTEGRATION-RELEASE","description":"The v2 Hero presentation is intentionally not integrated into Main and Sites deployment is frozen until explicit human Merge, Partial Merge, or Reject","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"docs/SPEC.md, docs/GFX_FOUNDATION_DESIGN.md, and D-005 require the Human Acceptance Owner decision"}]}
   ],
   "project": "さみしき星のまたたきよ",
@@ -100,7 +101,7 @@
     "S0": 0,
     "S1": 0,
     "S2": 0,
-    "S3": 4
+    "S3": 3
   },
   "source_of_truth": [
     {"label":"Executable specification","location":"../docs/SPEC.md","sha256":"a2e557bbc3de8aba8a9f093271a55493900c34a34c9b6fa01eeec1f385f43055"}

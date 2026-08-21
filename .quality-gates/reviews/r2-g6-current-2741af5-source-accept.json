@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "r2-g6-current-2741af5-source-accept-2026-08-22",
+  "mode": "independent-read-only-source-review",
+  "reviewer": "r2g6_2741_source_acceptance",
+  "reviewedEvidenceHead": "ba38e664cf6245a45cfa4eeaf1002de8036e2045",
+  "reviewedEvidenceTree": "b8a74a3121f76c8bed8b8c83a981a71b0f2f6400",
+  "implementationCommit": "2741af51e277bdaa76ac97ee8b207bbfb1683cee",
+  "implementationTree": "42e3e57e03915bf75770156951f905cc4949ffc9",
+  "orderedManifestSha256": "34afcd9d5f852013b8167e2f1ab708ddacfeaea0e8edd81304f0e2c2da783e0d",
+  "orderedManifestFiles": 129,
+  "verdict": "ACCEPT",
+  "severityCounts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
+  "verification": {
+    "manifestFilesMatched": 129,
+    "focusedRequestedFiles": 10,
+    "focusedTestsPassed": 177,
+    "completeTestFiles": 37,
+    "completeTestsPassed": 716,
+    "typecheckPassed": true,
+    "lintPassed": true,
+    "diffCheckPassed": true
+  },
+  "observations": [
+    "Exact deterministic 180-second sequencing and quality/backend-invariant ledger/hash are preserved.",
+    "Chunk ownership, atomic compile/upload/activation telemetry, disposal/recreate tombstones, and zero post-ready program growth are preserved.",
+    "All 92 Hero A human-artifact descendants remain absent before 18 seconds and on seek-back.",
+    "Runtime PassNode scene refresh executes each scene exactly once before output and restores suppression state."
+  ],
+  "drift": false,
+  "limitations": [
+    "No browser E2E was rerun by this read-only source reviewer.",
+    "Human, rights, reference-hardware, Main, Sites, and contest gates are excluded."
+  ]
+}

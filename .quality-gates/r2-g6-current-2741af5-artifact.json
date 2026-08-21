@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gate": "R2-G6 current combined Foundation and Hero A/B/C acceptance",
-  "status": "review_pending",
+  "status": "accepted",
   "evidenceRevision": 3,
   "implementation": {
     "commit": "2741af51e277bdaa76ac97ee8b207bbfb1683cee",
@@ -130,10 +130,10 @@
     "referenceHardwareAccepted": false
   },
   "sourceReview": {
-    "status": "scoped_accepted_full_review_pending",
-    "reviewers": ["hero_a_pre18_fix_audit", "runtime_scene_refresh_audit"],
-    "verdict": "SCOPED_ACCEPT",
-    "severityCounts": {"S0": 0, "S1": 0, "S2": 0, "S3": null},
+    "status": "accepted",
+    "reviewers": ["hero_a_pre18_fix_audit", "runtime_scene_refresh_audit", "r2g6_2741_source_acceptance"],
+    "verdict": "ACCEPT",
+    "severityCounts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
     "heroBoundaryFocusedTestsPassed": 6,
     "runtimeRefreshFocusedTestsPassed": 96,
     "completeVitestFilesPassed": 37,
@@ -141,7 +141,7 @@
     "typecheckPassed": true,
     "lintPassed": true,
     "diffCheckPassed": true,
-    "fullIndependentReviewRequired": true,
+    "fullIndependentReviewRequired": false,
     "drift": false
   },
   "predecessorEvidence": {
@@ -152,19 +152,28 @@
     "remediation": "All 92 descendants of the Hero A human-vehicle graph now start hidden, reveal exactly at storyTime >=18, and hide again on seek-back. Runtime scene passes are explicitly refreshed each submit so the canvas reflects that state without post-ready compile growth."
   },
   "artifactReview": {
-    "status": "pending",
-    "reviewedEvidenceHead": null,
-    "reviewedEvidenceTree": null,
-    "reviewers": [],
-    "verdict": null,
-    "severityCounts": {"S0": null, "S1": null, "S2": null, "S3": null},
-    "bindingsReproduced": false,
-    "visualAttachmentsReviewed": 0,
-    "drift": null
+    "status": "accepted_after_adjudication",
+    "reviewedEvidenceHead": "ba38e664cf6245a45cfa4eeaf1002de8036e2045",
+    "reviewedEvidenceTree": "b8a74a3121f76c8bed8b8c83a981a71b0f2f6400",
+    "reviewers": ["r2g6_n7_artifact_blind", "r2g6_overlay_adjudication", "r2g6_2741_final_integration_verdict"],
+    "verdict": "ACCEPT",
+    "severityCounts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
+    "bindingsReproduced": true,
+    "visualAttachmentsReviewed": 20,
+    "dissent": {
+      "findingId": "N7-OVERLAY-PREVIEW-001",
+      "originalVerdict": "REJECT",
+      "originalSeverity": "S2",
+      "status": "mitigated",
+      "resolution": "MITIGATED_NON_REPRODUCED",
+      "observation": "The first artifact reviewer perceived missing fixed-overlay glyphs in two fallback previews. Independent visual adjudication and final integration reproduced complete text and byte-identical High/Fallback coordinate masks for all six exact CSS colors. Identical raw mask payloads rendered differently in the inspection display, isolating a preview-path artifact rather than a candidate defect.",
+      "sourceChanged": false
+    },
+    "drift": false
   },
   "resumeBoundary": {
-    "nextRequiredAction": "Fresh independent full-source audit plus exact-pin artifact binding and 20-frame blind visual review.",
-    "notionUpdated": false,
+    "nextRequiredAction": "Present the accepted automated R2-G6 evidence to the Human Acceptance Owner for the D-005 Merge, Partial Merge, or Reject decision and rights acceptance.",
+    "notionUpdated": true,
     "mainIntegrated": false,
     "sitesDeployed": false
   },

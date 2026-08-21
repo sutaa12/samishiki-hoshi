@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "r2-g6-current-2741af5-overlay-adjudication-2026-08-22",
+  "mode": "isolated-narrow-visual-adjudication",
+  "reviewer": "r2g6_overlay_adjudication",
+  "subjectImages": ["hero-a-webgl2-fallback", "hero-a-webgl2-37s-waterline", "hero-b-webgl2-75s-fallback", "hero-b-webgl2-75s-empty-city"],
+  "verdict": "ACCEPT",
+  "severityCounts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
+  "findingResolution": {
+    "findingId": "N7-OVERLAY-PREVIEW-001",
+    "status": "mitigated",
+    "resolution": "MITIGATED_NON_REPRODUCED",
+    "sourceChanged": false
+  },
+  "visualObservations": {
+    "heroA": "Eyebrow, all three Japanese title lines, punctuation, underline, and marker are complete in both images.",
+    "heroB": "Eyebrow, both Japanese title lines, punctuation, underline, and marker are complete in both images."
+  },
+  "exactColorMasks": [
+    {"pair": "hero-a", "color": "#ECFBFF", "pixelsPerImage": 7611, "identical": true},
+    {"pair": "hero-a", "color": "#91E7E3", "pixelsPerImage": 408, "identical": true},
+    {"pair": "hero-a", "color": "#FFD59A", "pixelsPerImage": 161, "identical": true},
+    {"pair": "hero-b", "color": "#FFF6DF", "pixelsPerImage": 6639, "identical": true},
+    {"pair": "hero-b", "color": "#C7E7A3", "pixelsPerImage": 368, "identical": true},
+    {"pair": "hero-b", "color": "#FFC477", "pixelsPerImage": 191, "identical": true}
+  ],
+  "conclusion": "No fixed-overlay readability regression exists in either raw image pair."
+}

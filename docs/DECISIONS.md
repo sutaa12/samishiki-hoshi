@@ -300,6 +300,27 @@ Hero C final-output draw, while five independent 500-millisecond cold runs kept
 all 258 WebGL2 actions between 21.6 and 26.4 ms. This is local laboratory
 evidence only; reference-device acceptance remains `HARDWARE_PENDING`.
 
+## D-024 — Exact raw pixels adjudicate inspection-preview disagreements
+
+The exact R2-G6 candidate binds implementation `2741af51e277bdaa76ac97ee8b207bbfb1683cee`
+to reviewed evidence `ba38e664cf6245a45cfa4eeaf1002de8036e2045`.
+Independent source review accepted the complete manifest and runtime contracts.
+The artifact-only reviewer reproduced every source, build, test, browser,
+lifecycle, and visual-content binding, but locked one S2 after its inspection
+display appeared to omit fixed-overlay glyphs in two fallback frames.
+
+That dissent is preserved. A separate isolated adjudicator and final SolMax
+integrator inspected the native PNGs and reproduced identical High/Fallback
+coordinate masks and counts for all six exact title, eyebrow, and marker colors.
+Every glyph, punctuation mark, divider, and marker was present at the same raw
+pixel coordinates. Identical mask payloads rendered differently in the review
+display, so the finding is `MITIGATED_NON_REPRODUCED`, not source-fixed.
+
+The final automated R2-G6 verdict is S0=0, S1=0, S2=0, S3=0 for the exact hashes.
+This does not weaken D-005: reference hardware, human visual/play, public-use
+and contest rights, Main integration, Sites deployment, and submission remain
+outside automated acceptance.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "review_id": "r2-g6-current-2741af5-final-automated-acceptance-2026-08-22",
+  "gate": "R2-G6 combined parity, restart, license, technical, artifact, and blind visual acceptance",
+  "implementation_commit": "2741af51e277bdaa76ac97ee8b207bbfb1683cee",
+  "implementation_tree": "42e3e57e03915bf75770156951f905cc4949ffc9",
+  "reviewed_evidence_head": "ba38e664cf6245a45cfa4eeaf1002de8036e2045",
+  "reviewed_evidence_tree": "b8a74a3121f76c8bed8b8c83a981a71b0f2f6400",
+  "artifact_manifest": ".quality-gates/r2-g6-current-2741af5-artifact.json",
+  "reviewed_candidate_artifact_manifest_sha256": "a6d3095114fa27774110c56f84a9eb7827b45d5e8f117dc9ec7f4d2fd238f045",
+  "ordered_manifest_sha256": "34afcd9d5f852013b8167e2f1ab708ddacfeaea0e8edd81304f0e2c2da783e0d",
+  "source_archive_sha256": "42afe8d299071ee198d95c6dfb5a3e775716f1c5a12425c2dcda9b22b7c130f7",
+  "build_archive_sha256": "3041b21238ff82738b1aca0485e70eca230d433532ecdffaa5416e59e64c8741",
+  "build_content_records_sha256": "3d08b61c28ede6d715d4c30ab76d491215798a74c0af049973265d509c4a65d0",
+  "full_vitest_report_sha256": "dafa2a7a54a5cadd67edec6643d8a62e6a792c96465a84230d5bc65cfedef6f1",
+  "focused_vitest_report_sha256": "6fd322b4a385a8575b1af970e5f6df42978106e621c925a7a2939d52bf589366",
+  "playwright_report_sha256": "2ae5328fd47c0e1b811d24e0b56ce79e60233dad2891e9f379a47d58aee7ff2e",
+  "browser_summary_sha256": "39aa4e035a29032c90e8501a844de9a228033e6493aed13c4b96f01f326a580a",
+  "production_audit_report_sha256": "41e0957f81e8db3f722663db2e5f7c20bacfd3ceb9caba5820b350f3b86c18bd",
+  "reviewers": [
+    "r2g6_2741_source_acceptance",
+    "r2g6_n7_artifact_blind",
+    "r2g6_overlay_adjudication",
+    "r2g6_2741_final_integration_verdict"
+  ],
+  "verdict": "accept",
+  "severity_counts": {"s0": 0, "s1": 0, "s2": 0, "s3": 0},
+  "preserved_dissent": {
+    "reviewer": "r2g6_n7_artifact_blind",
+    "locked_verdict": "REJECT",
+    "finding_id": "N7-OVERLAY-PREVIEW-001",
+    "finding_status": "mitigated",
+    "resolution": "MITIGATED_NON_REPRODUCED",
+    "resolution_evidence": "Independent raw-pixel adjudication and final SolMax integration found complete overlays and byte-identical High/Fallback coordinate masks for all six CSS colors; no source change was made."
+  },
+  "observations": {
+    "ordered_manifest_files": 129,
+    "complete_test_files": 37,
+    "complete_tests_passed": 716,
+    "focused_requested_files": 10,
+    "focused_tests_passed": 177,
+    "browser_specs_passed": 8,
+    "browser_specs_failed": 0,
+    "browser_retries": 0,
+    "embedded_screenshots": 20,
+    "compile_upload_activation_events_over_50_ms": 0,
+    "post_ready_program_growth": 0,
+    "restart_plateau_cycles": 10,
+    "full_runtime_generations": 10,
+    "terminal_resource_owners": 0,
+    "production_audit_vulnerabilities": 0,
+    "reference_hardware_accepted": false,
+    "human_rights_accepted": false
+  },
+  "limitations": [
+    "This acceptance is limited to the exact automated R2-G6 source, build, test, browser, lifecycle, and AI visual-review scope.",
+    "Local host-Metal and forced-WebGL2 evidence does not replace reference-hardware acceptance.",
+    "AI visual review does not replace human play/visual acceptance or public-use and contest-rights acceptance.",
+    "D-005 still requires the Human Acceptance Owner to choose Merge, Partial Merge, or Reject before Main integration or Sites deployment."
+  ],
+  "release_effect": "R2-G6 automated evidence is accepted for the exact hashes only. No Main merge, Sites save/deploy, public release, contest submission, human acceptance, rights acceptance, or reference-hardware acceptance is authorized."
+}
