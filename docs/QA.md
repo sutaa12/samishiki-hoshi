@@ -22,7 +22,7 @@
 | R2-G4 Slice B | sunset forest/city High + fallback | passed in exact Hero R33 implementation `e1b101b`, reviewed evidence `0c869ab`; independent technical, artifact, and visual review S0=0, S1=0, S2=0, S3=0 |
 | R2-G5 Slice C | human debris/alien/Twinkle High + fallback | passed in exact Hero R33 implementation `e1b101b`, reviewed evidence `0c869ab`; independent technical, artifact, and visual review S0=0, S1=0, S2=0, S3=0 |
 | R2-G6 Parity and acceptance | 180s hash, 1,000 seeds, restart resources, performance, license, blind review | passed for exact implementation `2741af5` and reviewed evidence `ba38e66`; reference hardware, human visual/play, and rights remain pending |
-| R2-G7 Human integration | explicit `Merge` / `Partial Merge` / `Reject` | `HUMAN_PENDING` |
+| R2-G7 Human integration | explicit `Merge` / `Partial Merge` / `Reject` | `HUMAN_PENDING`; decision packet: `docs/HUMAN_ACCEPTANCE_R2_G7.md` |
 
 ## Performance targets
 

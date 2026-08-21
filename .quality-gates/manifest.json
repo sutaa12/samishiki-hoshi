@@ -68,7 +68,9 @@
         "Final visual/play and rights acceptance are recorded",
         "Exact accepted build is merged, deployed anonymously to Sites, and smoke-tested through a real interaction"
       ],
-      "evidence": [],
+      "evidence": [
+        {"kind": "boundary", "artifact": "docs/HUMAN_ACCEPTANCE_R2_G7.md", "description": "Exact candidate identity, human review checklist, decision form, release authorization boundary, and rollback instructions"}
+      ],
       "rollback_condition": "Human Reject, missing rights attestation, unavailable anonymous URL, or failed primary interaction",
       "status": "pending"
     }
