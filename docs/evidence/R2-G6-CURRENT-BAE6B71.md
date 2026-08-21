@@ -1,6 +1,13 @@
-# R2-G6 corrected combined Foundation and Hero evidence
+# R2-G6 rejected combined Foundation and Hero evidence
 
-> **Candidate frozen; source review accepted; artifact and blind visual review pending.**
+> **Artifact review rejected; superseded by the v2 evidence package.**
+> Source review remained accepted, but the preserved dist tar contained 132
+> undeclared macOS AppleDouble members. The raw archive inventory therefore
+> differed across readers. No visual frame was reviewed before the mandatory
+> S2 stop.
+>
+> This file remains as rejection history for evidence commit `4191d61`.
+
 > This is the intentional resume point. It does not authorize Main integration,
 > Sites deployment, reference-hardware acceptance, public-use rights, human
 > play/visual acceptance, or contest submission.
@@ -83,11 +90,11 @@ against a 16 MiB limit. Ten full runtime generations each terminate with every
 tracked owner, pool slot, retained backend failure reference, and spike count at
 zero; telemetry is disposed.
 
-## Resume boundary
+## Rejection boundary
 
-The next action is an independent exact-pin artifact binding audit plus blind
-review of all 20 visual frames. Only an accepted review may be followed by the
-reviewed receipt, QA log, and Notion progress update.
+The implementation is unchanged. The dist was repackaged with macOS metadata
+disabled, and the corrected v2 evidence package must receive a fresh independent
+exact-pin artifact binding audit plus blind review of all 20 visual frames.
 
 Reference hardware remains `HARDWARE_PENDING`. Human play/visual acceptance,
 public-use rights, the R2-G7 `Merge` / `Partial Merge` / `Reject` decision,

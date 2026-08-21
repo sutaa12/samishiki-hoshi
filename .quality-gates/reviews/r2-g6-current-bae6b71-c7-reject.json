@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "r2-g6-current-c7-artifact-review-2026-08-21",
+  "mode": "artifact-only-blind",
+  "candidateLabel": "C7",
+  "reviewer": "r2g6_c7_blind_acceptance",
+  "reviewedEvidenceHead": "4191d610ade518c81564097955b218b9cb747d99",
+  "reviewedEvidenceTree": "13dc856d895e0f1061caaf83391d91686816a907",
+  "implementationCommit": "bae6b717431bfea1d5a9b50fa61a6af07396a596",
+  "implementationTree": "631a910e98c1a741627167d071b4e0482ee3fe9e",
+  "candidateArtifactSha256": "c067106936f9f861837d748641c0337752c81bd45637260d61272570ff4880a0",
+  "verdict": "REJECT",
+  "severityCounts": {"S0": 0, "S1": 0, "S2": 1, "S3": null},
+  "finding": {
+    "id": "C7-DIST-INVENTORY-001",
+    "severity": "S2",
+    "status": "open",
+    "observation": "The preserved dist tar contains 132 undeclared 163-byte AppleDouble regular members. Python tarfile sees 264 members and 242 regular files, while macOS bsdtar reports 132 members and extracts 110 regular files.",
+    "declaredMembers": 132,
+    "rawMembers": 264,
+    "declaredRegularFiles": 110,
+    "rawRegularFiles": 242,
+    "appleDoubleMembers": 132,
+    "appleDoubleBytes": 21516,
+    "declaredExtractedRegularBytes": 8658603,
+    "rawExtractedRegularBytes": 8680119
+  },
+  "bindingsReproducedBeforeStop": {
+    "sourceArchive": true,
+    "implementationManifest": true,
+    "distShaAndBytes": true,
+    "verificationLog": true,
+    "fullVitest": true,
+    "focusedVitest": true,
+    "npmAudit": true,
+    "browserReport": true,
+    "browserSummary": true
+  },
+  "visualAttachmentsReviewed": 0,
+  "drift": false,
+  "externalGatesUnchanged": [
+    "HARDWARE_PENDING",
+    "HUMAN_PENDING_PLAY_VISUAL",
+    "HUMAN_PENDING_RIGHTS",
+    "HUMAN_PENDING_D005",
+    "HUMAN_PENDING_MAIN",
+    "HUMAN_PENDING_SITES",
+    "HUMAN_PENDING_CONTEST"
+  ]
+}

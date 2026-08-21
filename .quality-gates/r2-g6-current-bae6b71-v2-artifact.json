@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
   "gate": "R2-G6 current combined Foundation and Hero A/B/C acceptance",
-  "status": "rejected",
+  "status": "review_pending",
+  "evidenceRevision": 2,
   "implementation": {
     "commit": "bae6b717431bfea1d5a9b50fa61a6af07396a596",
     "tree": "631a910e98c1a741627167d071b4e0482ee3fe9e",
@@ -21,14 +22,17 @@
   },
   "build": {
     "command": "rtk npm run verify",
-    "artifact": ".quality-gates/r2-g6-current-bae6b71-dist.tar",
-    "archiveSha256": "8f84e74b0e838f6e62f759860d9b769cdf6c441f4f3da818e157a2d96efb02f9",
-    "archiveBytes": 9030656,
+    "artifact": ".quality-gates/r2-g6-current-bae6b71-v2-dist.tar",
+    "archiveSha256": "a6a980e35d281fadfc5141ed34e5a6dee3644e81ce1145ce63bb83eb7abc4797",
+    "archiveBytes": 8894464,
     "archiveEntries": 132,
     "regularFileCount": 110,
     "directoryCount": 22,
     "symlinkCount": 0,
+    "appleDoubleMembers": 0,
     "extractedRegularBytes": 8658603,
+    "rawTarfileInventoryReproduced": true,
+    "pythonExtractionInventoryReproduced": true,
     "contentRecordsSha256": "916a28e95b0a60e8297930f763a87c705383f5428fe0a9cb022b2a220a7a782b",
     "contentRecordsReproducedFromEmptyExtraction": true,
     "vinextBuildId": "cf48d846-b931-4dd6-af3a-5883e1d48aed",
@@ -39,7 +43,7 @@
     "workerArtifactCopies": 3,
     "rawTypeScriptWorkerArtifacts": 0,
     "byteReproducibleRebuild": false,
-    "nonDeterminism": "The exact tested dist is preserved; generated Vinext identifiers are not claimed byte-reproducible."
+    "nonDeterminism": "The exact tested dist content is preserved; generated Vinext identifiers are not claimed byte-reproducible."
   },
   "automatedEvidence": {
     "completeVerification": "typecheck, global lint, 37 files / 714 tests, production build",
@@ -67,7 +71,6 @@
     "productionAuditVulnerabilities": 0
   },
   "browserEvidence": {
-    "command": "rtk env GFX_SPIKE_PORT=41937 PLAYWRIGHT_JSON_OUTPUT_NAME=.quality-gates/r2-g6-current-bae6b71-playwright.json npm exec -- playwright test tests/e2e/gfx-foundation.spec.ts tests/e2e/gfx-hero-a.spec.ts tests/e2e/gfx-hero-b.spec.ts tests/e2e/gfx-hero-c.spec.ts --project=desktop-chromium --workers=1 --reporter=json --output=.quality-gates/r2-g6-current-bae6b71-playwright-output --trace=off",
     "report": ".quality-gates/r2-g6-current-bae6b71-playwright.json",
     "reportSha256": "33d3e1dd7ff39efb47967546fb9c996e6c7d69de6abbf73b1b5024125aa24978",
     "reportBytes": 36612107,
@@ -137,36 +140,26 @@
     "diffCheckPassed": true,
     "drift": false
   },
+  "predecessorEvidence": {
+    "evidenceHead": "4191d610ade518c81564097955b218b9cb747d99",
+    "candidateArtifactSha256": "c067106936f9f861837d748641c0337752c81bd45637260d61272570ff4880a0",
+    "reviewVerdict": "REJECT",
+    "finding": "C7-DIST-INVENTORY-001",
+    "remediation": "Repacked identical tested dist content with macOS metadata disabled; raw and Python extraction inventories now agree."
+  },
   "artifactReview": {
-    "status": "rejected",
-    "reviewedEvidenceHead": "4191d610ade518c81564097955b218b9cb747d99",
-    "reviewedEvidenceTree": "13dc856d895e0f1061caaf83391d91686816a907",
-    "reviewers": ["r2g6_c7_blind_acceptance"],
-    "verdict": "REJECT",
-    "severityCounts": {"S0": 0, "S1": 0, "S2": 1, "S3": null},
+    "status": "pending",
+    "reviewedEvidenceHead": null,
+    "reviewedEvidenceTree": null,
+    "reviewers": [],
+    "verdict": null,
+    "severityCounts": {"S0": null, "S1": null, "S2": null, "S3": null},
     "bindingsReproduced": false,
     "visualAttachmentsReviewed": 0,
-    "finding": "The preserved dist tar contained 132 undeclared AppleDouble regular members, making raw inventory and fresh extraction reader-dependent.",
-    "drift": false
-  },
-  "acceptedAnchors": {
-    "sharedFoundationImplementation": "3b57eeb213df7a945f13b93c62188f62a9c003b5",
-    "sharedFoundationEvidence": "6e1ff9b7c6f4c790035aa54eb608861bf54617b6",
-    "heroR33Implementation": "e1b101b9438097f739437e0a50af80774fd707ed",
-    "heroR33Evidence": "0c869ab1087f8940015706c2f4d83977ec1bab05",
-    "priorCombinedReceipt": "1d7eae918abeb74036270cc86788adaee85760d4"
-  },
-  "frozenInputs": {
-    "packageLockSha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
-    "specSha256": "a2e557bbc3de8aba8a9f093271a55493900c34a34c9b6fa01eeec1f385f43055",
-    "demoSourceProvenanceSha256": "89e42f4cae9560435b2bcc78b8500c6db93661fc1f7ddd39ef2b0a53064f2e29",
-    "canonicalWorldPlanDigest": "world-plan-v1:75d93cbb8e0580cd",
-    "gfx001Implementation": "86928ca987814aa161003bd3ac588d37c95d9a9c",
-    "gfx002Implementation": "2cfaafb5cbecca816cccabff6ddce3af83a207dc",
-    "gfx003Implementation": "c0245667b00e80fe68a511eb0fc206e14f5ead9a"
+    "drift": null
   },
   "resumeBoundary": {
-    "nextRequiredAction": "Independent exact-pin artifact binding and 20-frame blind visual review, followed by reviewed receipt and QA documentation if accepted.",
+    "nextRequiredAction": "Fresh independent exact-pin artifact binding and 20-frame blind visual review.",
     "notionUpdated": false,
     "mainIntegrated": false,
     "sitesDeployed": false
