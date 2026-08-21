@@ -1,0 +1,392 @@
+{
+  "report": {
+    "path": ".quality-gates/r2-g6-current-2741af5-playwright.json",
+    "bytes": 40015737,
+    "sha256": "2ae5328fd47c0e1b811d24e0b56ce79e60233dad2891e9f379a47d58aee7ff2e",
+    "stats": {
+      "startTime": "2026-08-21T14:14:47.488Z",
+      "duration": 275047.532,
+      "expected": 8,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "results": [
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 55387
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 6425
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 61492
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 23792
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 65297
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 15592
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 30549
+      },
+      {
+        "status": "passed",
+        "retry": 0,
+        "errors": 0,
+        "duration": 11021
+      }
+    ]
+  },
+  "attachments": {
+    "total": 30,
+    "png": 20,
+    "json": 10,
+    "allPng1920x1080": true,
+    "strictlyDecodedPng": 20,
+    "uniquePngHashes": 20,
+    "items": [
+      {
+        "name": "webgl2-steady-telemetry",
+        "contentType": "application/json",
+        "bytes": 32509,
+        "sha256": "016e0c3413a8cb44fc8aca0446c7c511e0c84bac78e4b47948f88168008b434b"
+      },
+      {
+        "name": "webgl2-ten-restart-plateau",
+        "contentType": "application/json",
+        "bytes": 1422,
+        "sha256": "4ff9a7ea6f8e57842a1c70eaeba86ee5478cd84696a7a6f827f790530331a759"
+      },
+      {
+        "name": "webgl2-ten-cycle-lifecycle",
+        "contentType": "application/json",
+        "bytes": 1793,
+        "sha256": "8037c176ced4ef3ce834e1d81deba5f84523a2bb3a0fd87096ef2f4a8c3fdbdb"
+      },
+      {
+        "name": "webgpu-steady-telemetry",
+        "contentType": "application/json",
+        "bytes": 55519,
+        "sha256": "0332bd846a8d8fe3f745fdcb6e9255c36afd7c1fe633fce073f67d8c65f8012b"
+      },
+      {
+        "name": "hero-a-webgl2-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 278682,
+        "sha256": "287bd0d04d3a6cbb3567472523261478ddee1f23ded124fc51d8dcdbbe10753f"
+      },
+      {
+        "name": "hero-a-webgl2-12s-life",
+        "contentType": "image/png",
+        "bytes": 1961049,
+        "sha256": "f30dcdf51c16c6c63100cf5434f19cf0d20fba1cdc7b689bfbd171b8b7fbbcb6",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-27s-empty-seat",
+        "contentType": "image/png",
+        "bytes": 1896640,
+        "sha256": "fdd1a201198c8fdb3526e3634d11df50b123f18b3b5c8d6d56980fe1a6653262",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-37s-waterline",
+        "contentType": "image/png",
+        "bytes": 1185861,
+        "sha256": "4535979de1198e5a8b3fcfaafb0c914769b63569806dad3439db20ec60efef7b",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgl2-fallback",
+        "contentType": "image/png",
+        "bytes": 1051072,
+        "sha256": "c64354d0fd05a4fb5e88dedd0fe658ca7e7ecf3db22bab3a14c524775038c9c3",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgpu-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 279308,
+        "sha256": "6f7de2eb3120b0a01edcae71b0b8059e43a0ab42c725ef9743b9dd448fd664e1"
+      },
+      {
+        "name": "hero-a-webgpu-12s-life",
+        "contentType": "image/png",
+        "bytes": 1996680,
+        "sha256": "7ad62f8a08f830ef4b9d1f80429395e26d04575698b525696d9767be3681a3c8",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-a-webgpu-27s-empty-seat",
+        "contentType": "image/png",
+        "bytes": 1917630,
+        "sha256": "9d5149053b37a568a1cae2684fb65093256176fed9f808ca5e0d86630eaa6ea0",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgl2-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 196044,
+        "sha256": "fc58e01a0cfe05986eee30b735cf00a328bb297554bd12d47604e36497bb2f80"
+      },
+      {
+        "name": "hero-b-webgl2-58s-forest",
+        "contentType": "image/png",
+        "bytes": 1920501,
+        "sha256": "8af5422ee3d75f9a8d40395f64f930ee7bbb10027d127382c5c683dc876b4570",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgl2-75s-empty-city",
+        "contentType": "image/png",
+        "bytes": 2050906,
+        "sha256": "5737644dda7e985b796eb8bf2dfaf30a305847d9915d5468b4c32e171f0b00f0",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgl2-75s-fallback",
+        "contentType": "image/png",
+        "bytes": 1725631,
+        "sha256": "45053302cb14a5c996c103b21bc6b401f3ba395351aa884458b98ec5ff9bf874",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgpu-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 280317,
+        "sha256": "05196134a69080c159db5f545a985e7b5efeb6e2dc6da9cb92ba82822186da24"
+      },
+      {
+        "name": "hero-b-webgpu-58s-forest",
+        "contentType": "image/png",
+        "bytes": 1910931,
+        "sha256": "f82fdbfc100a2dcbbb513c39050e1df08708f6e0e36f2a4164ab18b5bb986dae",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-b-webgpu-75s-empty-city",
+        "contentType": "image/png",
+        "bytes": 2060732,
+        "sha256": "0fdda6a70c4204bdd68ab0e6a16504aed7573dd758863bbea4267bae2519b222",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 93195,
+        "sha256": "95dd3650fe5a8d75cb433696d29a785049a065e9ffe2d0179496f0a630de9171"
+      },
+      {
+        "name": "hero-c-webgl2-142s-human-debris",
+        "contentType": "image/png",
+        "bytes": 681928,
+        "sha256": "f6fdaa9b2656e3d22506c8bffabece04447323efb800c7d362b35d7ddd611a62",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-158s-peripheral-arcs",
+        "contentType": "image/png",
+        "bytes": 998174,
+        "sha256": "91bb40d625d49a0d0404447154db6b9bdfd49818aed2e059f09c4ec6bb83947d",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-166s-three-ribbon-answer",
+        "contentType": "image/png",
+        "bytes": 1105862,
+        "sha256": "5c25b8587e5005deea639ddce34a32c4f65e329f6711e71d0dee0bbf1aeb8c28",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-176s-many-life-lights",
+        "contentType": "image/png",
+        "bytes": 1177019,
+        "sha256": "d5fc50ba719abd9e1eae8a127f48aab378c27101e61ab0ea78224146c225bd51",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgl2-179s-formal-title",
+        "contentType": "image/png",
+        "bytes": 1179634,
+        "sha256": "074d6e37e71f1c46eb3f4da171ee419c495b86f4b80c83da4c65a1242d22225e",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-runtime-evidence",
+        "contentType": "application/json",
+        "bytes": 160037,
+        "sha256": "9db9ca3d60b7e7078c118198bec023798ecbf5e9e4eef3d55be89918b430cc43"
+      },
+      {
+        "name": "hero-c-webgpu-142s-human-debris",
+        "contentType": "image/png",
+        "bytes": 641043,
+        "sha256": "ae1d50825ada4597f26fb873cbaf0e1056dceac3bd95b7053e8247eb7856a4e3",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-158s-peripheral-arcs",
+        "contentType": "image/png",
+        "bytes": 962137,
+        "sha256": "26b50346abab162ebe3e733682b7344d37bbe9695c83988066cacaa883be7662",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-166s-three-ribbon-answer",
+        "contentType": "image/png",
+        "bytes": 1079834,
+        "sha256": "dd08011ec7d18e4508cd49e8414f3573a99f0a63bca42507d7e8675d835e5edf",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "name": "hero-c-webgpu-176s-many-life-lights",
+        "contentType": "image/png",
+        "bytes": 1114230,
+        "sha256": "d8992faed54ce9b5076b20190a147a67c3baeb8c849782775473e11feeb0dbfc",
+        "width": 1920,
+        "height": 1080
+      }
+    ]
+  },
+  "runtimeMetrics": [
+    {
+      "name": "foundation-webgl2",
+      "compileSteps": 88,
+      "compileMaximumMs": 24.299999952316284,
+      "uploadMaximumMs": 0.2999999523162842,
+      "activationMaximumMs": 0.10000014305114746,
+      "compileUploadActivationEventsOver50Ms": 0
+    },
+    {
+      "name": "foundation-webgpu",
+      "compileSteps": 176,
+      "compileMaximumMs": 33.60000014305115,
+      "uploadMaximumMs": 0.20000004768371582,
+      "activationMaximumMs": 0.09999990463256836,
+      "compileUploadActivationEventsOver50Ms": 0
+    },
+    {
+      "name": "hero-a-webgl2",
+      "compileSteps": 1210,
+      "compileMaximumMs": 40.89999985694885,
+      "programsAtReady": 91,
+      "programGrowthAfterReady": 0,
+      "uploadMaximumMs": 0.10000014305114746,
+      "activationMaximumMs": 0.10000014305114746,
+      "compileUploadActivationEventsOver50Ms": 0
+    },
+    {
+      "name": "hero-a-webgpu",
+      "compileSteps": 2420,
+      "compileMaximumMs": 28.40000009536743,
+      "programsAtReady": 189,
+      "programGrowthAfterReady": 0,
+      "uploadMaximumMs": 0.19999980926513672,
+      "activationMaximumMs": 0.09999990463256836,
+      "compileUploadActivationEventsOver50Ms": 0
+    },
+    {
+      "name": "hero-b-webgl2",
+      "compileSteps": 660,
+      "compileMaximumMs": 35.40000009536743,
+      "programsAtReady": 94,
+      "programGrowthAfterReady": 0,
+      "uploadMaximumMs": 0.20000004768371582,
+      "activationMaximumMs": 0,
+      "compileUploadActivationEventsOver50Ms": 0
+    },
+    {
+      "name": "hero-b-webgpu",
+      "compileSteps": 1320,
+      "compileMaximumMs": 34.10000014305115,
+      "programsAtReady": 189,
+      "programGrowthAfterReady": 0,
+      "uploadMaximumMs": 0.20000004768371582,
+      "activationMaximumMs": 0,
+      "compileUploadActivationEventsOver50Ms": 0
+    },
+    {
+      "name": "hero-c-webgl2",
+      "compileSteps": 258,
+      "compileMaximumMs": 32.39999985694885,
+      "programsAtReady": 54,
+      "programGrowthAfterReady": 0,
+      "uploadMaximumMs": 0.20000004768371582,
+      "activationMaximumMs": 0,
+      "compileUploadActivationEventsOver50Ms": 0
+    },
+    {
+      "name": "hero-c-webgpu",
+      "compileSteps": 516,
+      "compileMaximumMs": 38.19999980926514,
+      "programsAtReady": 105,
+      "programGrowthAfterReady": 0,
+      "uploadMaximumMs": 0.19999980926513672,
+      "activationMaximumMs": 0.09999990463256836,
+      "compileUploadActivationEventsOver50Ms": 0
+    }
+  ],
+  "restartPlateau": {
+    "generations": 10,
+    "lastFiveHeapSpreadBytes": 619088,
+    "heapSpreadLimitBytes": 16777216,
+    "finalHeapUsedBytes": 19621760,
+    "finalHeapTotalBytes": 20742144,
+    "programs": 21,
+    "geometries": 3,
+    "gpuOwnedCount": 4,
+    "logicalOwners": 4,
+    "poolSlots": 4
+  },
+  "lifecycle": {
+    "completeRuntimeGenerations": 10,
+    "allTrackedTerminalOwnersZero": true,
+    "allBackendRetainedFailureReferencesZero": true,
+    "allTelemetryDisposed": true,
+    "allRuntimeSpikesOver50MsZero": true
+  }
+}

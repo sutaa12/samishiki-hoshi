@@ -1,8 +1,10 @@
 # R2-G6 corrected evidence package v2
 
-> **Candidate frozen; source review accepted; fresh artifact and blind visual
-> review pending.** The game implementation and tested dist contents are
-> unchanged from `bae6b71`; only the tar packaging was corrected.
+> **Rejected and superseded.** The corrected tar packaging passed the former
+> inventory boundary, but blind candidate Q2 exposed an S1 visual rule breach:
+> both 12-second LIFE frames already showed the rectilinear multi-seat vehicle
+> that must remain absent until 18 seconds. Implementation `2741af5` supersedes
+> this candidate; this record remains immutable rejection history.
 
 ## Exact subject
 
@@ -45,8 +47,21 @@ raw TypeScript Worker is present.
 - Ten restarts plateau; ten complete generations end with all tracked terminal
   ownership and retained failure references at zero.
 
+## Blind visual rejection
+
+- Reviewed evidence: `f72d4b67a22483fb9a7c9826c444694754e3895b`
+- Reviewed tree: `6444aefb766867e25739e53548388d4796d398d2`
+- Reviewer: `r2g6_q2_blind_acceptance`
+- Verdict: REJECT; S0=0, S1=1, S2=0
+- Receipt: `.quality-gates/reviews/r2-g6-current-bae6b71-q2-reject.json`
+- Finding: both WebGL2 and WebGPU 12-second LIFE frames visibly contained the
+  same central rectilinear vehicle shown at 27 seconds, violating the locked
+  zero-visible-human-artifact-before-18-seconds rule.
+
 ## Gate boundary
 
-The next action is a fresh artifact-only blind review of the v2 evidence commit,
-including all 20 visual frames. Reference hardware, human play/visual, public
-rights, D-005 integration, Main, Sites, and contest submission remain pending.
+This candidate cannot authorize integration or release. The next action is an
+independent exact-pin source and artifact review of the superseding `2741af5`
+package, including all 20 visual frames. Reference hardware, human play/visual,
+public rights, D-005 integration, Main, Sites, and contest submission remain
+pending.

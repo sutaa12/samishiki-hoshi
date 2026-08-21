@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "r2-g6-current-q2-artifact-review-2026-08-21",
+  "mode": "artifact-only-blind",
+  "candidateLabel": "Q2",
+  "reviewer": "r2g6_q2_blind_acceptance",
+  "reviewedEvidenceHead": "f72d4b67a22483fb9a7c9826c444694754e3895b",
+  "reviewedEvidenceTree": "6444aefb766867e25739e53548388d4796d398d2",
+  "implementationCommit": "bae6b717431bfea1d5a9b50fa61a6af07396a596",
+  "implementationTree": "631a910e98c1a741627167d071b4e0482ee3fe9e",
+  "candidateArtifactSha256": "19741e8907f9516f51ce84c02dee9e445c409a9b88d1148ee79ecdbe64c0cc00",
+  "verdict": "REJECT",
+  "severityCounts": {"S0": 0, "S1": 1, "S2": 0, "S3": null},
+  "finding": {
+    "id": "Q2-PRE18-HUMAN-ARTIFACT-001",
+    "severity": "S1",
+    "status": "open",
+    "observation": "Both 12-second LIFE frames visibly contain the same central rectilinear multi-seat vehicle structure shown and labeled as the 27-second empty-seat artifact.",
+    "violatedGate": "SPEC and R2-G3 require zero visible human artifact before 18 seconds.",
+    "affectedAttachments": [
+      "hero-a-webgl2-12s-life.png",
+      "hero-a-webgpu-12s-life.png"
+    ],
+    "comparisonAttachments": [
+      "hero-a-webgl2-27s-empty-seat.png",
+      "hero-a-webgpu-27s-empty-seat.png"
+    ]
+  },
+  "bindingsReproducedBeforeStop": true,
+  "visualAttachmentsReviewed": 6,
+  "drift": false,
+  "supersededByImplementation": "2741af51e277bdaa76ac97ee8b207bbfb1683cee",
+  "externalGatesUnchanged": [
+    "HARDWARE_PENDING",
+    "HUMAN_PENDING_PLAY_VISUAL",
+    "HUMAN_PENDING_RIGHTS",
+    "HUMAN_PENDING_D005",
+    "HUMAN_PENDING_MAIN",
+    "HUMAN_PENDING_SITES",
+    "HUMAN_PENDING_CONTEST"
+  ]
+}

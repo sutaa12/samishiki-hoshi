@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gate": "R2-G6 current combined Foundation and Hero A/B/C acceptance",
-  "status": "review_pending",
+  "status": "rejected",
   "evidenceRevision": 2,
   "implementation": {
     "commit": "bae6b717431bfea1d5a9b50fa61a6af07396a596",
@@ -148,18 +148,20 @@
     "remediation": "Repacked identical tested dist content with macOS metadata disabled; raw and Python extraction inventories now agree."
   },
   "artifactReview": {
-    "status": "pending",
-    "reviewedEvidenceHead": null,
-    "reviewedEvidenceTree": null,
-    "reviewers": [],
-    "verdict": null,
-    "severityCounts": {"S0": null, "S1": null, "S2": null, "S3": null},
-    "bindingsReproduced": false,
-    "visualAttachmentsReviewed": 0,
-    "drift": null
+    "status": "rejected",
+    "reviewedEvidenceHead": "f72d4b67a22483fb9a7c9826c444694754e3895b",
+    "reviewedEvidenceTree": "6444aefb766867e25739e53548388d4796d398d2",
+    "reviewers": ["r2g6_q2_blind_acceptance"],
+    "verdict": "REJECT",
+    "severityCounts": {"S0": 0, "S1": 1, "S2": 0, "S3": null},
+    "bindingsReproduced": true,
+    "visualAttachmentsReviewed": 6,
+    "finding": "Both 12-second LIFE frames visibly contain the central rectilinear multi-seat vehicle structure that is intentionally revealed only at 27 seconds. This violates the zero-visible-human-artifact-before-18-seconds gate.",
+    "supersededByImplementation": "2741af51e277bdaa76ac97ee8b207bbfb1683cee",
+    "drift": false
   },
   "resumeBoundary": {
-    "nextRequiredAction": "Fresh independent exact-pin artifact binding and 20-frame blind visual review.",
+    "nextRequiredAction": "Review the superseding 2741af5 evidence package; this candidate must remain rejected history.",
     "notionUpdated": false,
     "mainIntegrated": false,
     "sitesDeployed": false
