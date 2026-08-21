@@ -350,6 +350,27 @@ function findNodeType(root: unknown, expected: string): object | undefined {
   return undefined;
 }
 
+function findNodeTypes(root: unknown, expected: string): readonly object[] {
+  const queue: unknown[] = [root];
+  const seen = new Set<object>();
+  const matches: object[] = [];
+  for (let inspected = 0; queue.length > 0 && inspected < 4096; inspected += 1) {
+    const value = queue.shift();
+    if ((typeof value !== "object" || value === null) && typeof value !== "function") continue;
+    const object = value as object;
+    if (seen.has(object)) continue;
+    seen.add(object);
+    if ((object as { constructor?: { name?: string } }).constructor?.name === expected) {
+      matches.push(object);
+    }
+    for (const key of Reflect.ownKeys(object).slice(0, 64)) {
+      const descriptor = Object.getOwnPropertyDescriptor(object, key);
+      if (descriptor && "value" in descriptor) queue.push(descriptor.value);
+    }
+  }
+  return matches;
+}
+
 function containsNodeType(root: unknown, expected: string): boolean {
   return findNodeType(root, expected) !== undefined;
 }
@@ -956,6 +977,191 @@ describe("GFX-005 Linear HDR pipeline", () => {
     await graph.dispose();
     geometry.dispose();
     material.dispose();
+  });
+
+  it("refreshes every captured scene pass exactly once before each submitted output frame", async () => {
+    const firstScene = new Scene();
+    const secondScene = new Scene();
+    const firstCamera = new PerspectiveCamera();
+    const secondCamera = new PerspectiveCamera();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const firstMaterial = new MeshStandardNodeMaterial();
+    const secondMaterial = new MeshStandardNodeMaterial();
+    const firstMesh = new Mesh(geometry, firstMaterial);
+    const secondMesh = new Mesh(geometry, secondMaterial);
+    firstMesh.visible = false;
+    firstScene.add(firstMesh);
+    secondScene.add(secondMesh);
+    const firstPass: RenderPass = Object.freeze({
+      name: "world",
+      kind: "opaque-pbr",
+      scene: firstScene,
+      camera: firstCamera,
+    });
+    const secondPass: RenderPass = Object.freeze({
+      name: "atmosphere",
+      kind: "transparent-forward",
+      scene: secondScene,
+      camera: secondCamera,
+    });
+    const probe = topologyRenderer();
+    const pipeline = new ProductionLinearHdrPipeline();
+    pipeline.attachBackend(probe.raw, "webgl2", viewport);
+    await pipeline.initialize({} as FeatureInitContext);
+    pipeline.quality(quality("high", false));
+    await precompile(pipeline, [firstPass, secondPass]);
+    const outputCompile = probe.compiled.find((entry) => entry.targetScene === undefined)!;
+    const scenePasses = findNodeTypes(outputCompile.fragmentNode, "PassNode");
+    const originalTypes = scenePasses.map((scenePass) => (
+      Object.getOwnPropertyDescriptor(scenePass, "updateBeforeType")
+    ));
+    const outputDrawTypes: Array<readonly (PropertyDescriptor | undefined)[]> = [];
+    const baseRender = probe.raw.render.getMockImplementation();
+    probe.raw.render.mockImplementation((scene: unknown, camera: unknown) => {
+      if (scene === outputCompile.scene) {
+        outputDrawTypes.push(scenePasses.map((scenePass) => (
+          Object.getOwnPropertyDescriptor(scenePass, "updateBeforeType")
+        )));
+      }
+      baseRender?.(scene, camera);
+    });
+    const programsAtReady = probe.raw.info.memory.programs;
+    probe.raw.render.mockClear();
+    probe.rendered.length = 0;
+
+    await pipeline.submit([firstPass, secondPass]);
+    firstMesh.visible = true;
+    secondMesh.visible = false;
+    await pipeline.submit([firstPass, secondPass]);
+
+    expect(probe.rendered.map((entry) => entry.scene)).toEqual([
+      firstScene,
+      secondScene,
+      outputCompile.scene,
+      firstScene,
+      secondScene,
+      outputCompile.scene,
+    ]);
+    expect(probe.rendered.map((entry) => entry.visibleMeshCount)).toEqual([0, 1, 1, 1, 0, 1]);
+    expect(outputDrawTypes).toHaveLength(2);
+    expect(outputDrawTypes.map((types) => types.map((descriptor) => descriptor?.value)))
+      .toEqual([
+        [NodeUpdateType.NONE, NodeUpdateType.NONE],
+        [NodeUpdateType.NONE, NodeUpdateType.NONE],
+      ]);
+    expect(scenePasses).toHaveLength(2);
+    expect(scenePasses.map((scenePass) => (
+      Object.getOwnPropertyDescriptor(scenePass, "updateBeforeType")
+    ))).toEqual(originalTypes);
+    expect(probe.raw.info.memory.programs).toBe(programsAtReady);
+    expect(pipeline.snapshot()).toMatchObject({
+      state: "ready",
+      programGrowthAfterReady: 0,
+    });
+
+    await pipeline.dispose();
+    geometry.dispose();
+    firstMaterial.dispose();
+    secondMaterial.dispose();
+  });
+
+  it("restores runtime draw state after a failed scene refresh and permits an honest retry", async () => {
+    const firstScene = new Scene();
+    const secondScene = new Scene();
+    const firstCamera = new PerspectiveCamera();
+    const secondCamera = new PerspectiveCamera();
+    const geometry = new BoxGeometry(1, 1, 1);
+    const firstMaterial = new MeshStandardNodeMaterial();
+    const secondMaterial = new MeshStandardNodeMaterial();
+    firstScene.add(new Mesh(geometry, firstMaterial));
+    secondScene.add(new Mesh(geometry, secondMaterial));
+    const firstPass: RenderPass = Object.freeze({
+      name: "world",
+      kind: "opaque-pbr",
+      scene: firstScene,
+      camera: firstCamera,
+    });
+    const secondPass: RenderPass = Object.freeze({
+      name: "atmosphere",
+      kind: "transparent-forward",
+      scene: secondScene,
+      camera: secondCamera,
+    });
+    const probe = topologyRenderer();
+    const pipeline = new ProductionLinearHdrPipeline();
+    pipeline.attachBackend(probe.raw, "webgl2", viewport);
+    await pipeline.initialize({} as FeatureInitContext);
+    pipeline.quality(quality("high", false));
+    await precompile(pipeline, [firstPass, secondPass]);
+    const outputCompile = probe.compiled.find((entry) => entry.targetScene === undefined)!;
+    const scenePasses = findNodeTypes(outputCompile.fragmentNode, "PassNode");
+    const originalTypes = scenePasses.map((scenePass) => (
+      Object.getOwnPropertyDescriptor(scenePass, "updateBeforeType")
+    ));
+    const runtimeTargets = new Set(probe.compiled.filter((entry) => (
+      entry.targetScene === firstScene || entry.targetScene === secondScene
+    )).map((entry) => entry.target as object));
+    const priorTarget = Object.freeze({ id: "runtime-frame-prior-target" });
+    const priorMrt = Object.freeze({ id: "runtime-frame-prior-mrt" });
+    const priorContext = Object.freeze({ id: "runtime-frame-prior-context" });
+    probe.raw.setRenderTarget(priorTarget);
+    probe.raw.setMRT(priorMrt);
+    probe.raw.autoClear = false;
+    probe.raw.transparent = false;
+    probe.raw.opaque = false;
+    probe.raw.contextNode = priorContext;
+    probe.raw.xr.enabled = true;
+    const priorToneMapping = probe.raw.toneMapping;
+    const priorOutputColorSpace = probe.raw.outputColorSpace;
+    const baseRender = probe.raw.render.getMockImplementation();
+    let failSecondScene = true;
+    probe.raw.render.mockImplementation((scene: unknown, camera: unknown) => {
+      baseRender?.(scene, camera);
+      if (failSecondScene && scene === secondScene) {
+        throw new Error("runtime scene refresh failed once");
+      }
+    });
+    probe.raw.render.mockClear();
+    probe.rendered.length = 0;
+
+    await expect(pipeline.submit([firstPass, secondPass]))
+      .rejects.toThrow(/atomic scene-pass draw failed/);
+    expect(probe.rendered.map((entry) => entry.scene)).toEqual([firstScene, secondScene]);
+    expect(probe.raw.getRenderTarget()).toBe(priorTarget);
+    expect(probe.raw.getMRT()).toBe(priorMrt);
+    expect(probe.raw.autoClear).toBe(false);
+    expect(probe.raw.transparent).toBe(false);
+    expect(probe.raw.opaque).toBe(false);
+    expect(probe.raw.contextNode).toBe(priorContext);
+    expect(probe.raw.xr.enabled).toBe(true);
+    expect(probe.raw.toneMapping).toBe(priorToneMapping);
+    expect(probe.raw.outputColorSpace).toBe(priorOutputColorSpace);
+    expect(scenePasses.map((scenePass) => (
+      Object.getOwnPropertyDescriptor(scenePass, "updateBeforeType")
+    ))).toEqual(originalTypes);
+    expect(pipeline.snapshot()).toMatchObject({ state: "ready" });
+
+    failSecondScene = false;
+    await expect(pipeline.submit([firstPass, secondPass])).resolves.toBeUndefined();
+    expect(probe.rendered.map((entry) => entry.scene)).toEqual([
+      firstScene,
+      secondScene,
+      firstScene,
+      secondScene,
+      outputCompile.scene,
+    ]);
+    expect(scenePasses.map((scenePass) => (
+      Object.getOwnPropertyDescriptor(scenePass, "updateBeforeType")
+    ))).toEqual(originalTypes);
+    expect(pipeline.snapshot()).toMatchObject({ state: "ready", programGrowthAfterReady: 0 });
+
+    await pipeline.dispose();
+    for (const target of runtimeTargets) {
+      expect(probe.targetDisposals.get(target)).toHaveBeenCalledOnce();
+    }
+    geometry.dispose();
+    firstMaterial.dispose();
+    secondMaterial.dispose();
   });
 
   it("stops after the first failed atomic action and restores renderer and drawable state", async () => {

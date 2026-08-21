@@ -165,6 +165,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
 
     const life = await waitForSnapshot(page, (value) => (
       value.heroA?.storyTime === 12
+      && value.host.counters.submittedFrames > 0
       && value.chunks.focusChunkId === "S03"
       && value.chunks.activeChunkIds.length === 4
       && value.chunks.workerInboxCount === 0
@@ -202,6 +203,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
       body: Buffer.from(JSON.stringify(life)),
       contentType: "application/json",
     });
+    const lifeCanvas = await page.getByTestId("gfx-hero-a-canvas").screenshot();
     await testInfo.attach("hero-a-webgl2-12s-life", {
       body: await page.screenshot(),
       contentType: "image/png",
@@ -218,6 +220,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     await page.getByRole("button", { name: "27s Empty seat" }).click();
     const emptySeat = await waitForSnapshot(page, (value) => (
       value.heroA?.storyTime === 27
+      && value.host.counters.submittedFrames > life.host.counters.submittedFrames
       && value.chunks.focusChunkId === "S05"
       && value.chunks.activeChunkIds.length === 4
       && value.chunks.workerInboxCount === 0
@@ -237,6 +240,8 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     expect(emptySeat.backendLifecycle.resources.geometries).toBe(baselineGeometries);
     expect(emptySeat.heroA).toMatchObject(baselineHeroOwnership);
     expectRuntimeBounded(emptySeat);
+    const emptySeatCanvas = await page.getByTestId("gfx-hero-a-canvas").screenshot();
+    expect(emptySeatCanvas.equals(lifeCanvas)).toBe(false);
     await testInfo.attach("hero-a-webgl2-27s-empty-seat", {
       body: await page.screenshot(),
       contentType: "image/png",
@@ -245,6 +250,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
     await page.getByRole("button", { name: "37s Waterline" }).click();
     const waterline = await waitForSnapshot(page, (value) => (
       value.heroA?.storyTime === 37
+      && value.host.counters.submittedFrames > emptySeat.host.counters.submittedFrames
       && value.chunks.focusChunkId === "S07"
       && value.chunks.activeChunkIds.length === 4
       && value.chunks.workerInboxCount === 0
@@ -349,6 +355,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
 
       const life = await waitForSnapshot(page, (value) => (
         value.heroA?.storyTime === 12
+        && value.host.counters.submittedFrames > 0
         && value.chunks.focusChunkId === "S03"
         && value.chunks.activeChunkIds.length === 4
         && value.chunks.workerInboxCount === 0
@@ -369,6 +376,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
         body: Buffer.from(JSON.stringify(life)),
         contentType: "application/json",
       });
+      const lifeCanvas = await page.getByTestId("gfx-hero-a-canvas").screenshot();
       await testInfo.attach("hero-a-webgpu-12s-life", {
         body: await page.screenshot(),
         contentType: "image/png",
@@ -379,6 +387,7 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
       await page.getByRole("button", { name: "27s Empty seat" }).click();
       const emptySeat = await waitForSnapshot(page, (value) => (
         value.heroA?.storyTime === 27
+        && value.host.counters.submittedFrames > life.host.counters.submittedFrames
         && value.chunks.focusChunkId === "S05"
         && value.chunks.activeChunkIds.length === 4
         && value.chunks.workerInboxCount === 0
@@ -393,6 +402,8 @@ test.describe("R2-G3 Hero Slice A real browser candidate", () => {
       expect(emptySeat.pipeline.programCountAtReady).toBe(baselinePrograms);
       expect(emptySeat.backendLifecycle.resources.geometries).toBe(baselineGeometries);
       expectRuntimeBounded(emptySeat);
+      const emptySeatCanvas = await page.getByTestId("gfx-hero-a-canvas").screenshot();
+      expect(emptySeatCanvas.equals(lifeCanvas)).toBe(false);
       await testInfo.attach("hero-a-webgpu-27s-empty-seat", {
         body: await page.screenshot(),
         contentType: "image/png",

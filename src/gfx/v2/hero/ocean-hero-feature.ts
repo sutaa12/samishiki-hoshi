@@ -1094,6 +1094,7 @@ export class OceanHeroFeature implements RenderFeature {
   readonly #bubbles: AnimatedBubble[] = [];
   readonly #kelp: AnimatedKelp[] = [];
   readonly #coralClusters: Group[] = [];
+  readonly #humanArtifactObjects: Object3D[] = [];
   readonly #materials: HeroOwnedMaterial[] = [];
   readonly #geometries: HeroOwnedGeometry[] = [];
   readonly #textures: HeroOwnedTexture[] = [];
@@ -1862,11 +1863,13 @@ export class OceanHeroFeature implements RenderFeature {
       kelpMaterial,
       coralRose,
     );
+    this.#captureHumanArtifactObjects();
+    this.#setHumanArtifactsVisible(false);
     this.#buildWaterline(bubbleMaterial);
 
-    // Keep all topology visible through compile-before-ready. The first update
-    // applies the exact story boundary before a runtime frame is submitted.
-    this.#vehicleRoot.visible = true;
+    // Keep all non-human topology visible through compile-before-ready. The
+    // fully attached and preallocated human graph starts at the exact default
+    // 12-second state so the warm-up canvas cannot disclose it before update.
     this.#waterlineRoot.visible = true;
     this.#protagonistRoot.visible = true;
     this.#pulseRoot.visible = true;
@@ -1896,7 +1899,7 @@ export class OceanHeroFeature implements RenderFeature {
     this.#shotId = frame.shotId;
     const underwater = this.#storyTime < WATERLINE_SECONDS + 1.4;
     const revealVehicle = this.#storyTime >= HUMAN_REVEAL_SECONDS && this.#storyTime < WATERLINE_SECONDS;
-    this.#vehicleRoot.visible = revealVehicle;
+    this.#setHumanArtifactsVisible(revealVehicle);
     this.#waterlineRoot.visible = this.#storyTime >= 34 && this.#storyTime <= 42;
     this.#naturalRoot.visible = this.#storyTime < 42;
     this.#protagonistRoot.visible = this.#storyTime <= 44;
@@ -2277,6 +2280,18 @@ export class OceanHeroFeature implements RenderFeature {
       );
       waterBubble.scale.setScalar(0.38 + (index % 4) * 0.13);
       this.#waterlineRoot.add(waterBubble);
+    }
+  }
+
+  #captureHumanArtifactObjects(): void {
+    this.#vehicleRoot.traverse((object) => {
+      this.#humanArtifactObjects.push(object);
+    });
+  }
+
+  #setHumanArtifactsVisible(visible: boolean): void {
+    for (let index = 0; index < this.#humanArtifactObjects.length; index += 1) {
+      this.#humanArtifactObjects[index]!.visible = visible;
     }
   }
 

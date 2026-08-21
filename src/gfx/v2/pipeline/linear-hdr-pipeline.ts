@@ -2137,10 +2137,19 @@ class ThreeLinearHdrGraph implements LinearHdrGraph {
 
   render(): void {
     this.#assertLive();
+    const runtimeTopologies = this.#runtimeTopologies;
+    for (let index = 0; index < runtimeTopologies.length; index += 1) {
+      drawScenePassSafely(
+        this.#renderer,
+        this.#rendererOperations,
+        runtimeTopologies[index]!,
+      );
+    }
     renderOutputSafely(
       this.#renderer,
       this.#rendererOperations,
       this.#outputFirstUseTopology!.render,
+      runtimeTopologies,
     );
   }
 

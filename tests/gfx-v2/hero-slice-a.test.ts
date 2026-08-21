@@ -5,6 +5,7 @@ import {
   MeshPhysicalNodeMaterial,
   MeshStandardNodeMaterial,
   NoColorSpace,
+  type Object3D,
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
@@ -82,10 +83,26 @@ function harness() {
   return { world, scene, camera, feature, originalBackground };
 }
 
+function humanArtifactObjects(scene: Scene): readonly Object3D[] {
+  const root = scene.getObjectByName("hero-a:submerged-vehicle");
+  if (!root) throw new Error("Missing Hero A human-artifact root.");
+  const objects: Object3D[] = [];
+  root.traverse((object) => objects.push(object));
+  return objects;
+}
+
+function expectHumanArtifactsVisible(scene: Scene, visible: boolean): void {
+  const objects = humanArtifactObjects(scene);
+  expect(objects).toHaveLength(92);
+  for (const object of objects) {
+    expect(object.visible, object.name || object.type).toBe(visible);
+  }
+}
+
 describe("R2-G3 Hero Slice A ocean realization", () => {
   it("preallocates every material and geometry, then shows abundant nature with no human artifact at 12 seconds", async () => {
     const { world, scene, feature } = harness();
-    expect(scene.getObjectByName("hero-a:submerged-vehicle")?.visible).toBe(true);
+    expectHumanArtifactsVisible(scene, false);
     await feature.initialize({} as FeatureInitContext);
     feature.quality(HIGH);
     feature.update(frame(world, 12), CLOCK);
@@ -109,7 +126,7 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
     expect(snapshot.ownedGeometries).toBeGreaterThan(30);
     expect(snapshot.ownedMaterials).toBeGreaterThan(15);
     expect(snapshot.ownedTextures).toBe(12);
-    expect(scene.getObjectByName("hero-a:submerged-vehicle")?.visible).toBe(false);
+    expectHumanArtifactsVisible(scene, false);
     expect(scene.getObjectByName("hero-a:life-droplet")?.visible).toBe(true);
     expect(scene.getObjectByName("hero-a:pulse-living-target")?.visible).toBe(true);
     const physicalMaterials = new Set<MeshPhysicalNodeMaterial>();
@@ -135,15 +152,23 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
     }
   });
 
-  it("uses the exact 18-second boundary and keeps a readable rectilinear empty-seat inventory at 27 seconds", async () => {
-    const { world, feature } = harness();
+  it("synchronizes every human-artifact descendant at 18 seconds across quality changes and seek-back", async () => {
+    const { world, scene, feature } = harness();
     await feature.initialize({} as FeatureInitContext);
     feature.quality(HIGH);
 
     feature.update(frame(world, 17.999), CLOCK);
     expect(feature.snapshot().humanArtifactsVisible).toBe(false);
+    expectHumanArtifactsVisible(scene, false);
+    feature.quality(LOW);
+    expectHumanArtifactsVisible(scene, false);
+
     feature.update(frame(world, 18), CLOCK);
     expect(feature.snapshot().humanArtifactsVisible).toBe(true);
+    expectHumanArtifactsVisible(scene, true);
+    feature.quality(HIGH);
+    expectHumanArtifactsVisible(scene, true);
+
     feature.update(frame(world, 27), CLOCK);
 
     expect(feature.snapshot()).toMatchObject({
@@ -158,6 +183,31 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
       allocationsAfterInitialize: 0,
     });
     expect(feature.snapshot().visibleCoralClusters).toBeGreaterThanOrEqual(5);
+    expectHumanArtifactsVisible(scene, true);
+
+    feature.quality(LOW);
+    expectHumanArtifactsVisible(scene, true);
+    feature.update(frame(world, 12), CLOCK);
+    expect(feature.snapshot()).toMatchObject({
+      storyTime: 12,
+      shotId: "S03",
+      qualityTier: "low",
+      humanArtifactsVisible: false,
+      allocationsAfterInitialize: 0,
+    });
+    expectHumanArtifactsVisible(scene, false);
+
+    feature.quality(HIGH);
+    expectHumanArtifactsVisible(scene, false);
+    feature.update(frame(world, 27), CLOCK);
+    expect(feature.snapshot()).toMatchObject({
+      storyTime: 27,
+      shotId: "S05",
+      qualityTier: "high",
+      humanArtifactsVisible: true,
+      allocationsAfterInitialize: 0,
+    });
+    expectHumanArtifactsVisible(scene, true);
   });
 
   it("preallocates organic reef silhouettes instead of repeating primitive placeholders", async () => {
