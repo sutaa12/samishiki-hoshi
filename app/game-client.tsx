@@ -29,6 +29,11 @@ import {
   type ProductionPresentationPreferences,
   type ProductionGfxRuntime,
 } from "@/src/gfx/v2/integration/production-journey-runtime";
+import type { PhaseDirectorSnapshot } from "@/src/gfx/v2/integration/phase-director";
+import {
+  createProductionPhaseAudioPresentation,
+  type ProductionPhaseAudioPresentation,
+} from "@/src/gfx/v2/integration/phase-audio-presentation";
 import { RuntimeCleanupTombstone } from "@/src/gfx/v2/integration/runtime-cleanup-tombstone";
 import { projectJourneyState, projectRailFlightState } from "@/src/gfx/v2/project-journey";
 import { GFX_TELEMETRY_MINIMUM_PERCENTILE_SAMPLES } from "@/src/gfx/v2/telemetry";
@@ -114,9 +119,12 @@ type ProductionRendererMetrics = {
   cameraLookAheadSeconds: number;
   phaseFrom: JourneyPhase;
   phaseTo: JourneyPhase;
-  phaseBlend: number;
+  phaseBlendProgress: number;
+  phaseLocalTransitionMix: number | null;
   exposureParameter: number;
+  exposureApplied: number;
   materialParameter: number;
+  materialApplied: number;
   particleParameter: number;
   audioLayerParameter: number;
   continuityComplete: boolean;
@@ -125,6 +133,7 @@ type ProductionRendererMetrics = {
   continuityBlackFrames: number;
   continuityMonochromeFrames: number;
   continuityRuntimeCompileDelta: number;
+  continuityBackendProgramDelta: number;
   continuityMaxCameraJump: number;
   continuityStillFrameRatio: number;
   continuityCurrentChunkMissingFrames: number;
@@ -244,9 +253,12 @@ function rendererEvidence(runtime: ProductionGfxRuntime): {
       cameraLookAheadSeconds: snapshot.railCamera.lookAheadSeconds,
       phaseFrom: snapshot.phaseDirector.fromPhase,
       phaseTo: snapshot.phaseDirector.toPhase,
-      phaseBlend: snapshot.phaseDirector.blend01,
+      phaseBlendProgress: snapshot.phaseDirector.phaseBlendProgress01,
+      phaseLocalTransitionMix: snapshot.phaseDirector.localTransitionMix01,
       exposureParameter: snapshot.phaseDirector.channels.exposure,
+      exposureApplied: snapshot.pipeline.exposure,
       materialParameter: snapshot.phaseDirector.channels.material,
+      materialApplied: snapshot.materials.phaseMaterialParameter,
       particleParameter: snapshot.phaseDirector.channels.particle,
       audioLayerParameter: snapshot.phaseDirector.channels.audioLayer,
       continuityComplete: snapshot.continuity.complete,
@@ -255,6 +267,7 @@ function rendererEvidence(runtime: ProductionGfxRuntime): {
       continuityBlackFrames: snapshot.continuity.blackFrames,
       continuityMonochromeFrames: snapshot.continuity.monochromeFrames,
       continuityRuntimeCompileDelta: snapshot.continuity.runtimeCompileDelta,
+      continuityBackendProgramDelta: snapshot.continuity.backendProgramDelta,
       continuityMaxCameraJump: snapshot.continuity.maxCameraJumpSceneUnits,
       continuityStillFrameRatio: snapshot.continuity.stillFrameRatio,
       continuityCurrentChunkMissingFrames: snapshot.continuity.currentChunkMissingFrames,
@@ -296,8 +309,37 @@ function pointerSample(event: ReactPointerEvent<HTMLElement>): PointerGestureSam
   });
 }
 
+function applyPhasePresentation(
+  phaseSnapshot: Readonly<PhaseDirectorSnapshot>,
+  phase: JourneyPhase,
+  storyTime: number,
+  particleLayer: HTMLDivElement | null,
+  shell: HTMLElement | null,
+  journeyAudio: JourneyAudio | null,
+  phaseAudio: ProductionPhaseAudioPresentation | null,
+): void {
+  const particle = phaseSnapshot.channels.particle;
+  if (particleLayer) {
+    particleLayer.style.setProperty("--phase-particle", particle.toFixed(6));
+    particleLayer.dataset.renderParticleApplied = particle.toFixed(6);
+  }
+  journeyAudio?.update(phase, storyTime);
+  const appliedAudioLayer = phaseAudio?.update(phaseSnapshot.channels.audioLayer) ?? null;
+  if (!shell) return;
+  shell.dataset.renderPhaseProgress = phaseSnapshot.phaseBlendProgress01.toFixed(6);
+  shell.dataset.renderPhaseLocalMix = phaseSnapshot.localTransitionMix01 === null
+    ? "inactive"
+    : phaseSnapshot.localTransitionMix01.toFixed(6);
+  shell.dataset.renderParticleApplied = particle.toFixed(6);
+  shell.dataset.renderAudioLayerApplied = appliedAudioLayer === null
+    ? "inactive"
+    : appliedAudioLayer.toFixed(6);
+}
+
 export function GameClient() {
+  const shellRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const particleLayerRef = useRef<HTMLDivElement>(null);
   const gameContentRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsPanelRef = useRef<HTMLElement>(null);
@@ -305,6 +347,7 @@ export function GameClient() {
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const rendererRef = useRef<ProductionGfxRuntime | null>(null);
   const audioRef = useRef<JourneyAudio | null>(null);
+  const phaseAudioRef = useRef<ProductionPhaseAudioPresentation | null>(null);
   const seedRef = useRef(DEFAULT_SEED);
   const stateRef = useRef<RailFlightState>(createJourneyState({ seed: DEFAULT_SEED }));
   const settingsRef = useRef<Settings>(INITIAL_SETTINGS);
@@ -353,6 +396,7 @@ export function GameClient() {
   useEffect(() => {
     settingsRef.current = settings;
     audioRef.current?.setMuted(settings.muted);
+    phaseAudioRef.current?.setMuted(settings.muted);
   }, [settings]);
 
   useEffect(() => {
@@ -458,6 +502,7 @@ export function GameClient() {
     startedRef.current = true;
     setStarted(true);
     audioRef.current?.start().catch(() => undefined);
+    phaseAudioRef.current?.start().catch(() => undefined);
   }, [rendererError, rendererReady]);
 
   const restart = useCallback(() => {
@@ -472,9 +517,18 @@ export function GameClient() {
     setRestartCount((count) => count + 1);
     const renderer = rendererRef.current;
     if (renderer) {
-      renderer.update(
+      const phasePresentation = renderer.update(
         projectJourneyState(stateRef.current),
         projectRailFlightState(stateRef.current),
+      );
+      applyPhasePresentation(
+        phasePresentation,
+        phaseAt(stateRef.current.time),
+        stateRef.current.time,
+        particleLayerRef.current,
+        shellRef.current,
+        audioRef.current,
+        phaseAudioRef.current,
       );
       const evidence = rendererEvidence(renderer);
       setSnapshot(makeSnapshot(
@@ -489,6 +543,7 @@ export function GameClient() {
     startedRef.current = true;
     setStarted(true);
     audioRef.current?.start().catch(() => undefined);
+    phaseAudioRef.current?.start().catch(() => undefined);
   }, [syncInputStatus]);
 
   useEffect(() => {
@@ -585,9 +640,20 @@ export function GameClient() {
 
       const state = stateRef.current;
       const phase = phaseAt(state.time);
-      audioRef.current?.update(phase, state.time);
       try {
-        renderer.update(projectJourneyState(state), projectRailFlightState(state));
+        const phasePresentation = renderer.update(
+          projectJourneyState(state),
+          projectRailFlightState(state),
+        );
+        applyPhasePresentation(
+          phasePresentation,
+          phase,
+          state.time,
+          particleLayerRef.current,
+          shellRef.current,
+          audioRef.current,
+          phaseAudioRef.current,
+        );
       } catch (error: unknown) {
         setRendererError(error instanceof Error ? error.message : "Production rendererの更新に失敗しました。");
         setRendererReady(false);
@@ -645,7 +711,23 @@ export function GameClient() {
       const runtime = await operation;
       if (!runtime || cancelled) return;
       rendererRef.current = runtime;
-      audioRef.current = createJourneyAudio({ muted: settingsRef.current.muted });
+      const initialPhasePresentation = runtime.getSnapshot().phaseDirector;
+      audioRef.current = createJourneyAudio({
+        muted: settingsRef.current.muted,
+      });
+      phaseAudioRef.current = createProductionPhaseAudioPresentation({
+        muted: settingsRef.current.muted,
+        audioLayer: initialPhasePresentation.channels.audioLayer,
+      });
+      applyPhasePresentation(
+        initialPhasePresentation,
+        phaseAt(stateRef.current.time),
+        stateRef.current.time,
+        particleLayerRef.current,
+        shellRef.current,
+        audioRef.current,
+        phaseAudioRef.current,
+      );
       const evidence = rendererEvidence(runtime);
       setSnapshot(makeSnapshot(
         stateRef.current,
@@ -683,6 +765,8 @@ export function GameClient() {
       }
       audioRef.current?.dispose();
       audioRef.current = null;
+      phaseAudioRef.current?.dispose();
+      phaseAudioRef.current = null;
     };
   }, [syncInputStatus]);
 
@@ -731,6 +815,7 @@ export function GameClient() {
     if (routed.steerIntent) setHasMoved(true);
     syncInputStatus();
     audioRef.current?.start().catch(() => undefined);
+    phaseAudioRef.current?.start().catch(() => undefined);
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
@@ -823,6 +908,7 @@ export function GameClient() {
 
   return (
     <main
+      ref={shellRef}
       className={classes}
       aria-label="生命のしずくを導く三分間の旅"
       data-testid="game-shell"
@@ -880,9 +966,14 @@ export function GameClient() {
       data-render-camera-look-ahead={snapshot.metrics?.cameraLookAheadSeconds.toFixed(2) ?? ""}
       data-render-phase-from={snapshot.metrics?.phaseFrom ?? ""}
       data-render-phase-to={snapshot.metrics?.phaseTo ?? ""}
-      data-render-phase-blend={snapshot.metrics?.phaseBlend.toFixed(6) ?? ""}
+      data-render-phase-progress={snapshot.metrics?.phaseBlendProgress.toFixed(6) ?? ""}
+      data-render-phase-local-mix={snapshot.metrics?.phaseLocalTransitionMix === null
+        ? "inactive"
+        : snapshot.metrics?.phaseLocalTransitionMix.toFixed(6) ?? ""}
       data-render-exposure-parameter={snapshot.metrics?.exposureParameter.toFixed(6) ?? ""}
+      data-render-exposure-applied={snapshot.metrics?.exposureApplied.toFixed(6) ?? ""}
       data-render-material-parameter={snapshot.metrics?.materialParameter.toFixed(6) ?? ""}
+      data-render-material-applied={snapshot.metrics?.materialApplied.toFixed(6) ?? ""}
       data-render-particle-parameter={snapshot.metrics?.particleParameter.toFixed(6) ?? ""}
       data-render-audio-layer-parameter={snapshot.metrics?.audioLayerParameter.toFixed(6) ?? ""}
       data-render-continuity-complete={snapshot.metrics?.continuityComplete ? "true" : "false"}
@@ -893,6 +984,7 @@ export function GameClient() {
       data-render-continuity-black-frames={snapshot.metrics?.continuityBlackFrames ?? 0}
       data-render-continuity-monochrome-frames={snapshot.metrics?.continuityMonochromeFrames ?? 0}
       data-render-continuity-runtime-compile-delta={snapshot.metrics?.continuityRuntimeCompileDelta ?? 0}
+      data-render-continuity-backend-program-delta={snapshot.metrics?.continuityBackendProgramDelta ?? 0}
       data-render-continuity-max-camera-jump={snapshot.metrics?.continuityMaxCameraJump.toFixed(6) ?? ""}
       data-render-continuity-still-ratio={snapshot.metrics?.continuityStillFrameRatio.toFixed(6) ?? ""}
       data-render-continuity-current-chunk-missing={snapshot.metrics?.continuityCurrentChunkMissingFrames ?? 0}
@@ -919,6 +1011,12 @@ export function GameClient() {
     >
       <div ref={gameContentRef} className="game-content">
         <canvas ref={canvasRef} className="world-canvas" aria-label="海から宇宙へ続く手続き生成の世界" />
+        <div
+          ref={particleLayerRef}
+          className="phase-particle-layer"
+          data-testid="phase-particle-layer"
+          aria-hidden="true"
+        />
 
       {!started && !rendererError && (
         <section className="start-screen" aria-label="旅を始める">

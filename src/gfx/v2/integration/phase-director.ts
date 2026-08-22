@@ -41,7 +41,10 @@ export interface PhaseDirectorSnapshot {
   readonly storyTime: number;
   readonly fromPhase: JourneyPhase;
   readonly toPhase: JourneyPhase;
-  readonly blend01: number;
+  /** Monotonic journey-wide completion of all phase transitions. */
+  readonly phaseBlendProgress01: number;
+  /** Local adjacent-phase interpolation, or null while no transition window is active. */
+  readonly localTransitionMix01: number | null;
   readonly transitionBoundarySeconds: number | null;
   readonly transitionStartSeconds: number | null;
   readonly transitionEndSeconds: number | null;
@@ -204,21 +207,32 @@ export function phaseDirectorSnapshotAt(storyTime: number): Readonly<PhaseDirect
   if (!Number.isFinite(storyTime) || storyTime < 0 || storyTime > 180) {
     throw new RangeError("PhaseDirector story time must be within the 180 second journey.");
   }
-  for (const transition of PHASE_TRANSITIONS) {
+  let completedTransitions = 0;
+  for (let transitionIndex = 0; transitionIndex < PHASE_TRANSITIONS.length; transitionIndex += 1) {
+    const transition = PHASE_TRANSITIONS[transitionIndex]!;
     const start = transition.boundary - PHASE_BLEND_HALF_SECONDS;
     const end = transition.boundary + PHASE_BLEND_HALF_SECONDS;
-    if (storyTime < start || storyTime > end) continue;
+    if (storyTime < start) break;
+    if (storyTime > end) {
+      completedTransitions = transitionIndex + 1;
+      continue;
+    }
     const raw = (storyTime - start) / PHASE_BLEND_DURATION_SECONDS;
-    const blend01 = raw * raw * (3 - 2 * raw);
+    const localTransitionMix01 = raw * raw * (3 - 2 * raw);
     return Object.freeze({
       storyTime,
       fromPhase: transition.from,
       toPhase: transition.to,
-      blend01,
+      phaseBlendProgress01: (transitionIndex + localTransitionMix01) / PHASE_TRANSITIONS.length,
+      localTransitionMix01,
       transitionBoundarySeconds: transition.boundary,
       transitionStartSeconds: start,
       transitionEndSeconds: end,
-      channels: mixChannels(PHASE_PRESETS[transition.from], PHASE_PRESETS[transition.to], blend01),
+      channels: mixChannels(
+        PHASE_PRESETS[transition.from],
+        PHASE_PRESETS[transition.to],
+        localTransitionMix01,
+      ),
     });
   }
   const phase = phaseAt(storyTime);
@@ -226,7 +240,8 @@ export function phaseDirectorSnapshotAt(storyTime: number): Readonly<PhaseDirect
     storyTime,
     fromPhase: phase,
     toPhase: phase,
-    blend01: 0,
+    phaseBlendProgress01: completedTransitions / PHASE_TRANSITIONS.length,
+    localTransitionMix01: null,
     transitionBoundarySeconds: null,
     transitionStartSeconds: null,
     transitionEndSeconds: null,
@@ -240,6 +255,7 @@ export const LIFE_EARTH_CONTINUITY_THRESHOLDS = Object.freeze({
   maxBlackFrames: 0,
   maxMonochromeFrames: 0,
   maxRuntimeCompileDelta: 0,
+  maxBackendProgramDelta: 0,
   maxStillFrameRatio: 0.05,
   maxMissingCurrentChunkFrames: 0,
   maxMissingCameraChunkFrames: 0,
@@ -251,6 +267,7 @@ export interface LifeEarthContinuityObservation {
   readonly cameraPosition: Readonly<RailScenePointSnapshot>;
   readonly backgroundColor: Readonly<PhaseColorSnapshot>;
   readonly runtimeCompileEvents: number;
+  readonly backendProgramCount: number;
   readonly currentChunkReady: boolean;
   readonly cameraChunkReady: boolean;
   readonly nextChunkReadyBeforeBoundary: boolean;
@@ -263,6 +280,7 @@ export interface LifeEarthContinuitySnapshot {
   readonly blackFrames: number;
   readonly monochromeFrames: number;
   readonly runtimeCompileDelta: number;
+  readonly backendProgramDelta: number;
   readonly maxCameraJumpSceneUnits: number;
   readonly stillFrames: number;
   readonly stillFrameRatio: number;
@@ -276,6 +294,8 @@ export class LifeEarthContinuityTrace {
   #previous: Readonly<LifeEarthContinuityObservation> | null = null;
   #compileBaseline: number | null = null;
   #maximumCompileEvents = 0;
+  #programBaseline: number | null = null;
+  #maximumBackendPrograms = 0;
   #sampleFrames = 0;
   #blackFrames = 0;
   #monochromeFrames = 0;
@@ -292,6 +312,9 @@ export class LifeEarthContinuityTrace {
     if (!Number.isSafeInteger(observation.runtimeCompileEvents) || observation.runtimeCompileEvents < 0) {
       throw new RangeError("Continuity trace compile events must be a non-negative safe integer.");
     }
+    if (!Number.isSafeInteger(observation.backendProgramCount) || observation.backendProgramCount < 0) {
+      throw new RangeError("Continuity trace backend program count must be a non-negative safe integer.");
+    }
     if (this.#previous && observation.storyTime < this.#previous.storyTime) this.#reset();
     const previous = this.#previous;
     this.#previous = Object.freeze({
@@ -299,6 +322,7 @@ export class LifeEarthContinuityTrace {
       cameraPosition: Object.freeze({ ...observation.cameraPosition }),
       backgroundColor: Object.freeze({ ...observation.backgroundColor }),
       runtimeCompileEvents: observation.runtimeCompileEvents,
+      backendProgramCount: observation.backendProgramCount,
       currentChunkReady: Boolean(observation.currentChunkReady),
       cameraChunkReady: Boolean(observation.cameraChunkReady),
       nextChunkReadyBeforeBoundary: Boolean(observation.nextChunkReadyBeforeBoundary),
@@ -306,6 +330,8 @@ export class LifeEarthContinuityTrace {
     if (observation.storyTime <= LIFE_EARTH_TRACE_START_SECONDS && this.#sampleFrames === 0) {
       this.#compileBaseline = observation.runtimeCompileEvents;
       this.#maximumCompileEvents = observation.runtimeCompileEvents;
+      this.#programBaseline = observation.backendProgramCount;
+      this.#maximumBackendPrograms = observation.backendProgramCount;
     }
     if (
       previous === null
@@ -316,7 +342,12 @@ export class LifeEarthContinuityTrace {
     ) return;
 
     if (this.#compileBaseline === null) this.#compileBaseline = previous.runtimeCompileEvents;
+    if (this.#programBaseline === null) this.#programBaseline = previous.backendProgramCount;
     this.#maximumCompileEvents = Math.max(this.#maximumCompileEvents, observation.runtimeCompileEvents);
+    this.#maximumBackendPrograms = Math.max(
+      this.#maximumBackendPrograms,
+      observation.backendProgramCount,
+    );
     const cameraJump = Math.hypot(
       observation.cameraPosition.x - previous.cameraPosition.x,
       observation.cameraPosition.y - previous.cameraPosition.y,
@@ -351,11 +382,15 @@ export class LifeEarthContinuityTrace {
     const runtimeCompileDelta = this.#compileBaseline === null
       ? 0
       : Math.max(0, this.#maximumCompileEvents - this.#compileBaseline);
+    const backendProgramDelta = this.#programBaseline === null
+      ? 0
+      : Math.max(0, this.#maximumBackendPrograms - this.#programBaseline);
     const stillFrameRatio = this.#sampleFrames === 0 ? 0 : this.#stillFrames / this.#sampleFrames;
     const passed = complete
       ? this.#blackFrames <= LIFE_EARTH_CONTINUITY_THRESHOLDS.maxBlackFrames
         && this.#monochromeFrames <= LIFE_EARTH_CONTINUITY_THRESHOLDS.maxMonochromeFrames
         && runtimeCompileDelta <= LIFE_EARTH_CONTINUITY_THRESHOLDS.maxRuntimeCompileDelta
+        && backendProgramDelta <= LIFE_EARTH_CONTINUITY_THRESHOLDS.maxBackendProgramDelta
         && this.#maxCameraJumpSceneUnits <= LIFE_EARTH_CONTINUITY_THRESHOLDS.maxCameraJumpSceneUnits
         && stillFrameRatio <= LIFE_EARTH_CONTINUITY_THRESHOLDS.maxStillFrameRatio
         && this.#currentChunkMissingFrames <= LIFE_EARTH_CONTINUITY_THRESHOLDS.maxMissingCurrentChunkFrames
@@ -370,6 +405,7 @@ export class LifeEarthContinuityTrace {
       blackFrames: this.#blackFrames,
       monochromeFrames: this.#monochromeFrames,
       runtimeCompileDelta,
+      backendProgramDelta,
       maxCameraJumpSceneUnits: this.#maxCameraJumpSceneUnits,
       stillFrames: this.#stillFrames,
       stillFrameRatio,
@@ -384,6 +420,8 @@ export class LifeEarthContinuityTrace {
     this.#previous = null;
     this.#compileBaseline = null;
     this.#maximumCompileEvents = 0;
+    this.#programBaseline = null;
+    this.#maximumBackendPrograms = 0;
     this.#sampleFrames = 0;
     this.#blackFrames = 0;
     this.#monochromeFrames = 0;

@@ -8,7 +8,7 @@ import {
   PerspectiveCamera,
   Scene,
 } from "three/webgpu";
-import { float, vec3 } from "three/tsl";
+import { float, uniform, vec3 } from "three/tsl";
 import type {
   RenderPass,
   RenderQualityProfile,
@@ -331,10 +331,12 @@ function midpoint(range: readonly [number, number]): number {
   return (range[0] + range[1]) / 2000;
 }
 
+type PhaseMaterialUniform = { value: number };
+
 function defaultMaterialFactory(
   descriptor: Readonly<WorldMaterialDescriptor>,
   variantId: TslMaterialVariantId,
-): OwnedTslMaterial {
+): Readonly<{ material: OwnedTslMaterial; phaseUniform: PhaseMaterialUniform }> {
   const transmission = midpoint(descriptor.transmissionPermille);
   const needsPhysical = descriptor.shadingModel === "transmissive-dielectric"
     || descriptor.family === "foliage"
@@ -349,8 +351,10 @@ function defaultMaterialFactory(
   const roughness = midpoint(descriptor.roughnessPermille);
   const metalness = midpoint(descriptor.metalnessPermille);
   const emission = midpoint(descriptor.emissionLinearPermille) * (lean ? 0.72 : 1);
+  const phaseUniformNode = uniform(0);
+  const phaseUniform = phaseUniformNode as unknown as PhaseMaterialUniform;
   material.name = `gfx005:${descriptor.family}:${variantId}`;
-  material.colorNode = vec3(red!, green!, blue!);
+  material.colorNode = vec3(red!, green!, blue!).mul(phaseUniformNode.mul(0.16).add(0.92));
   material.roughnessNode = float(Math.min(1, roughness + (lean ? 0.08 : 0)));
   material.metalnessNode = float(metalness);
   material.emissiveNode = vec3(red!, green!, blue!).mul(emission);
@@ -365,6 +369,7 @@ function defaultMaterialFactory(
     transmission,
     emission,
   });
+  material.userData.gfx005PhaseMaterialUniform = phaseUniform;
   if (material instanceof MeshPhysicalNodeMaterial) {
     const effectiveTransmission = lean ? transmission * 0.65 : transmission;
     // Three's built-in physical transmission samples the currently bound
@@ -383,7 +388,7 @@ function defaultMaterialFactory(
       material.depthWrite = false;
     }
   }
-  return material;
+  return trustedObjectFreeze({ material, phaseUniform });
 }
 
 type CapturedMaterialDisposal = Readonly<{
@@ -449,12 +454,14 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
   readonly #warmupPasses: RenderPass[] = [];
   readonly #manifest: TslMaterialVariantManifestEntry[] = [];
   readonly #ownedMaterials = new Map<object, CapturedMaterialDisposal>();
+  readonly #phaseMaterialUniforms = new Map<object, PhaseMaterialUniform>();
   #warmupGeometry: BoxGeometry | null = null;
   #state: TslMaterialLibrarySnapshot["state"] = "new";
   #actualApi: RendererApi | null = null;
   #activeVariantId: TslMaterialVariantId | null = null;
   #createdMaterials = 0;
   #disposedMaterials = 0;
+  #phaseMaterialParameter = 0;
   #initializePromise: Promise<void> | null = null;
   #disposePromise: Promise<void> | null = null;
   #disposeRequested = false;
@@ -522,8 +529,10 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
             descriptorIndex += 1
           ) {
             const descriptor = this.#descriptors[descriptorIndex]!;
-            const material = defaultMaterialFactory(descriptor, variantId);
+            const created = defaultMaterialFactory(descriptor, variantId);
+            const material = created.material;
             this.#claimMaterial(libraryOwnedThreeDisposal(material));
+            mapSet(this.#phaseMaterialUniforms, material, created.phaseUniform);
             const handle = trustedObjectFreeze({
               id: `${descriptor.id}:${variantId}`,
               family: descriptor.family,
@@ -615,6 +624,17 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
     }
   }
 
+  setPhaseMaterialParameter(value: number): void {
+    this.#assertReady("set the phase material parameter");
+    if (!Number.isFinite(value) || value < 0 || value > 1) {
+      throw new RangeError("The phase material parameter must be finite and between 0 and 1.");
+    }
+    mapForEach(this.#phaseMaterialUniforms, (binding) => {
+      binding.value = value;
+    });
+    this.#phaseMaterialParameter = value;
+  }
+
   resolve(family: WorldMaterialFamily): Readonly<TslMaterialHandle> {
     this.#assertReady("resolve a material");
     let recognized = false;
@@ -652,6 +672,8 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
       ownedMaterials: mapSize(this.#ownedMaterials),
       ownedGeometry: this.#warmupGeometry === null ? 0 : 1,
       warmupPasses: this.#warmupPasses.length,
+      phaseMaterialParameter: this.#phaseMaterialParameter,
+      phaseMaterialBindings: mapSize(this.#phaseMaterialUniforms),
       variants: trustedObjectFreeze(variants),
     });
   }
@@ -717,6 +739,7 @@ export class ProductionTslMaterialLibrary implements TslMaterialLibrary {
     this.#warmupPasses.length = 0;
     this.#manifest.length = 0;
     mapClear(this.#materials);
+    mapClear(this.#phaseMaterialUniforms);
     if (failures.length > 0) {
       throw withTrustedArrayIterator(() => (
         ownedAggregateError(failures, "TSL material disposal failed.")

@@ -487,6 +487,34 @@ describe("GFX-005 TSL material library", () => {
     await library.dispose();
   });
 
+  it("applies the phase material channel through persistent prewarmed uniforms", async () => {
+    const library = new ProductionTslMaterialLibrary();
+    await library.initialize(context("WebGL2"));
+    const createdMaterials = library.snapshot().createdMaterials;
+    const full = library.resolve("water");
+    const fullBinding = full.material.userData.gfx005PhaseMaterialUniform as { value: number };
+
+    library.setPhaseMaterialParameter(0.625);
+
+    expect(full.material).toBe(library.resolve("water").material);
+    expect(fullBinding.value).toBe(0.625);
+    expect(library.snapshot()).toMatchObject({
+      phaseMaterialParameter: 0.625,
+      phaseMaterialBindings: 14,
+      createdMaterials,
+    });
+
+    library.quality(quality("low", false));
+    const leanBinding = library.resolve("water").material
+      .userData.gfx005PhaseMaterialUniform as { value: number };
+    expect(leanBinding.value).toBe(0.625);
+    expect(() => library.setPhaseMaterialParameter(Number.NaN)).toThrow(/finite/);
+    expect(() => library.setPhaseMaterialParameter(1.001)).toThrow(/between 0 and 1/);
+    expect(library.snapshot().phaseMaterialParameter).toBe(0.625);
+    expect(library.snapshot().createdMaterials).toBe(createdMaterials);
+    await library.dispose();
+  });
+
   it("rejects accessor and reentrant quality input without committing a variant", async () => {
     const library = new ProductionTslMaterialLibrary();
     await library.initialize(context("WebGPU"));

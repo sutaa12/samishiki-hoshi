@@ -217,6 +217,7 @@ function renderer(programs = 8) {
   return {
     compileAsync: vi.fn(async () => undefined),
     info: { memory: { programs } },
+    toneMappingExposure: 1,
   };
 }
 
@@ -1662,6 +1663,29 @@ describe("GFX-005 Linear HDR pipeline", () => {
       actualApi: "WebGPU",
       historyResetCounts: { initialization: 1, resize: 1 },
     });
+    await pipeline.dispose();
+  });
+
+  it("applies phase exposure to the persistent renderer output without graph replacement", async () => {
+    const harness = graphHarness();
+    const outputRenderer = renderer();
+    const pipeline = new ProductionLinearHdrPipeline({ graphFactory: harness.factory });
+    pipeline.attachBackend(outputRenderer, "webgl2", viewport);
+    await pipeline.initialize({} as FeatureInitContext);
+    await precompile(pipeline, [runtimePass()]);
+    const graphCount = pipeline.snapshot().graphCount;
+
+    pipeline.setExposure(1.18);
+
+    expect(outputRenderer.toneMappingExposure).toBe(1.18);
+    expect(pipeline.snapshot()).toMatchObject({
+      state: "ready",
+      exposure: 1.18,
+      graphCount,
+      programGrowthAfterReady: 0,
+    });
+    expect(() => pipeline.setExposure(Number.POSITIVE_INFINITY)).toThrow(/finite/);
+    expect(outputRenderer.toneMappingExposure).toBe(1.18);
     await pipeline.dispose();
   });
 

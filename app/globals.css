@@ -74,6 +74,27 @@ input:focus-visible {
   height: 100%;
 }
 
+.phase-particle-layer {
+  --phase-particle: 0.75;
+  position: absolute;
+  z-index: 1;
+  inset: -6%;
+  pointer-events: none;
+  opacity: calc(0.08 + var(--phase-particle) * 0.34);
+  transform: scale(calc(0.96 + var(--phase-particle) * 0.08));
+  filter: brightness(calc(0.82 + var(--phase-particle) * 0.42));
+  background:
+    radial-gradient(circle at 12% 26%, rgba(189, 255, 238, 0.78) 0 1px, transparent 2px),
+    radial-gradient(circle at 28% 68%, rgba(121, 225, 255, 0.62) 0 1px, transparent 2px),
+    radial-gradient(circle at 46% 17%, rgba(255, 226, 166, 0.66) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 64% 73%, rgba(176, 255, 230, 0.72) 0 1px, transparent 2px),
+    radial-gradient(circle at 79% 34%, rgba(141, 220, 255, 0.7) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 91% 61%, rgba(255, 236, 193, 0.62) 0 1px, transparent 2px);
+  mix-blend-mode: screen;
+  transition: opacity 120ms linear, transform 120ms linear, filter 120ms linear;
+  will-change: opacity, transform, filter;
+}
+
 .start-screen,
 .fallback-panel {
   position: absolute;

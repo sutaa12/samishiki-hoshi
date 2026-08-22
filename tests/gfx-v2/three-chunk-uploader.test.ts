@@ -78,6 +78,7 @@ class StubMaterialLibrary implements TslMaterialLibrary {
   quality(profile: Readonly<RenderQualityProfile>): void {
     this.#active = profile.tier === "low" ? this.lean : this.full;
   }
+  setPhaseMaterialParameter(): void {}
   resolve(family: WorldMaterialFamily): Readonly<TslMaterialHandle> {
     return Object.freeze({
       id: `${family}:${this.#active === this.lean ? "lean" : "full"}`,
@@ -99,6 +100,8 @@ class StubMaterialLibrary implements TslMaterialLibrary {
       ownedMaterials: 2,
       ownedGeometry: 0,
       warmupPasses: 0,
+      phaseMaterialParameter: 0,
+      phaseMaterialBindings: 0,
       variants: Object.freeze(["webgl2-full", "webgl2-lean"] as const),
     });
   }

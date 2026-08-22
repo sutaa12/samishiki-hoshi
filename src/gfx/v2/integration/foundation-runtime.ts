@@ -462,7 +462,10 @@ export interface GfxFoundationSnapshot {
 export interface GfxFoundationRuntime {
   getSnapshot(): Readonly<GfxFoundationSnapshot>;
   subscribe(listener: () => void): Unsubscribe;
-  update(snapshot: Readonly<JourneyRenderSnapshot>, rail?: Readonly<RailRenderSnapshot>): void;
+  update(
+    snapshot: Readonly<JourneyRenderSnapshot>,
+    rail?: Readonly<RailRenderSnapshot>,
+  ): Readonly<PhaseDirectorSnapshot>;
   seek(chunkId: StoryChunkId): void;
   seekTime(storyTime: number): void;
   resize(width: number, height: number): Promise<void>;
@@ -814,6 +817,8 @@ async function performGfxFoundationConstruction(options: {
         if (cameraChanged) applyRailCamera(camera, railCameraSnapshot);
         if (phaseDirectorSnapshot.channels !== previousPhaseDirectorSnapshot.channels) {
           applyPhaseDirector(background, fog, ambient, sun, phaseDirectorSnapshot);
+          pipeline.setExposure(phaseDirectorSnapshot.channels.exposure);
+          materials.setPhaseMaterialParameter(phaseDirectorSnapshot.channels.material);
         }
       }
       if (
@@ -821,17 +826,20 @@ async function performGfxFoundationConstruction(options: {
         || !ownsJourneyPresentation
         || journey.storyTime < LIFE_EARTH_TRACE_START_SECONDS
         || journey.storyTime > LIFE_EARTH_TRACE_END_SECONDS + 1e-6
-      ) return;
+      ) return phaseDirectorSnapshot;
       const residency = chunkResidencySnapshot();
+      const backendProgramCount = backend!.snapshotLifecycle().resources.programs;
       continuityTrace.observe({
         storyTime: journey.storyTime,
         cameraPosition: railCameraSnapshot.position,
         backgroundColor: phaseDirectorSnapshot.channels.background,
         runtimeCompileEvents: telemetry.snapshot().eventTotals.compile,
+        backendProgramCount,
         currentChunkReady: residency.currentReady,
         cameraChunkReady: residency.cameraReady,
         nextChunkReadyBeforeBoundary: residency.nextReady,
       });
+      return phaseDirectorSnapshot;
     };
     const persistentPass = Object.freeze({
       name: "gfx-foundation-world",
@@ -957,6 +965,10 @@ async function performGfxFoundationConstruction(options: {
 
     await host.initialize(initialSnapshot, initialViewport);
     assertFoundationHostReady(host, "initialization");
+    if (ownsJourneyPresentation) {
+      pipeline.setExposure(phaseDirectorSnapshot.channels.exposure);
+      materials.setPhaseMaterialParameter(phaseDirectorSnapshot.channels.material);
+    }
     resizeBinding.attach();
     assertFoundationHostReady(host, "resize listener binding");
     const currentViewport = viewportFor(options.canvas, qualityProvider.getProfile());
@@ -983,10 +995,11 @@ async function performGfxFoundationConstruction(options: {
           && next.storyTime < previousProductionSnapshot.storyTime
           ? "restart-or-qa-seek" as const
           : undefined;
-        updateJourneyPresentation(next, nextRail, true);
+        const presentation = updateJourneyPresentation(next, nextRail, true);
         host.setSnapshot(next, discontinuity);
         previousProductionSnapshot = next;
         notify();
+        return presentation;
       },
       seek(chunkId) {
         const next = renderSnapshot(plan, chunkId);

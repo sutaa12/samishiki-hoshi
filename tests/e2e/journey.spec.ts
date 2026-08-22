@@ -97,6 +97,7 @@ test("all six phases keep visual density inside automated safety ceilings", asyn
   // per-frame inventory is larger than the retired canvas renderer. This is
   // a connection-regression guard, not a replacement for the stricter target
   // budgets and reference-hardware gate documented in GFX_REBASELINE_PLAN.
+  const productionConnectionCumulativeDrawCallsCeiling = 600;
   const productionConnectionDrawCallsPerSampleCeiling = 5;
   const samples: Array<{
     quality: QualityLevel;
@@ -139,6 +140,10 @@ test("all six phases keep visual density inside automated safety ceilings", asyn
       });
       const sampleLabel = `${testInfo.project.name}/${quality}/${checkpoint.phase}`;
       expect.soft(drawCalls, `${sampleLabel} draw calls`).toBeGreaterThan(0);
+      expect.soft(
+        drawCalls,
+        `${sampleLabel} cumulative connection draw calls`,
+      ).toBeLessThanOrEqual(productionConnectionCumulativeDrawCallsCeiling);
       expect.soft(
         drawCallsPerSample,
         `${sampleLabel} connection draw calls per sampled frame`,

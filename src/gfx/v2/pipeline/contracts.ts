@@ -115,6 +115,7 @@ export interface LinearHdrPipelineSnapshot {
   readonly precompileStepsAtReady: number | null;
   readonly programCountAtReady: number | null;
   readonly programGrowthAfterReady: number;
+  readonly exposure: number;
   readonly outputTransformCount: 0 | 1;
   readonly intermediateType: "half-float";
   readonly depthOwned: boolean;
@@ -131,6 +132,7 @@ export interface LinearHdrPipelineSnapshot {
 
 export type LinearHdrPipelineFeature = RenderFeature & ThreeRenderPipelinePort & {
   readonly id: "gfx005-linear-hdr-pipeline";
+  setExposure(exposure: number): void;
   snapshot(): Readonly<LinearHdrPipelineSnapshot>;
   update(frame: JourneyRenderSnapshot, clock: RenderOperationClock): void;
 };

@@ -124,11 +124,36 @@ describe("QX-R3-005 PhaseDirector", () => {
     const after = phaseDirectorSnapshotAt(40.001);
 
     expect(PHASE_BLEND_DURATION_SECONDS).toBe(8);
-    expect(before).toMatchObject({ fromPhase: "LIFE", toPhase: "LIFE", blend01: 0 });
-    expect(start).toMatchObject({ fromPhase: "LIFE", toPhase: "EARTH", blend01: 0 });
-    expect(center).toMatchObject({ fromPhase: "LIFE", toPhase: "EARTH", blend01: 0.5 });
-    expect(end).toMatchObject({ fromPhase: "LIFE", toPhase: "EARTH", blend01: 1 });
-    expect(after).toMatchObject({ fromPhase: "EARTH", toPhase: "EARTH", blend01: 0 });
+    expect(before).toMatchObject({
+      fromPhase: "LIFE",
+      toPhase: "LIFE",
+      phaseBlendProgress01: 0,
+      localTransitionMix01: null,
+    });
+    expect(start).toMatchObject({
+      fromPhase: "LIFE",
+      toPhase: "EARTH",
+      phaseBlendProgress01: 0,
+      localTransitionMix01: 0,
+    });
+    expect(center).toMatchObject({
+      fromPhase: "LIFE",
+      toPhase: "EARTH",
+      phaseBlendProgress01: 0.1,
+      localTransitionMix01: 0.5,
+    });
+    expect(end).toMatchObject({
+      fromPhase: "LIFE",
+      toPhase: "EARTH",
+      phaseBlendProgress01: 0.2,
+      localTransitionMix01: 1,
+    });
+    expect(after).toMatchObject({
+      fromPhase: "EARTH",
+      toPhase: "EARTH",
+      phaseBlendProgress01: 0.2,
+      localTransitionMix01: null,
+    });
     expect(end.channels).toEqual(after.channels);
     expect(center.channels.fog.density).toBeGreaterThan(end.channels.fog.density);
     expect(center.channels.exposure).toBeGreaterThan(start.channels.exposure);
@@ -148,8 +173,28 @@ describe("QX-R3-005 PhaseDirector", () => {
       expect(leftJump).toBeLessThan(0.01);
       expect(rightJump).toBeLessThan(0.01);
       expect(exact.transitionBoundarySeconds).toBe(boundary);
+      expect(exact.localTransitionMix01).toBe(0.5);
     }
     expect(phaseDirectorSnapshotAt(88)).toEqual(phaseDirectorSnapshotAt(88));
+  });
+
+  it("keeps public phase-blend progress finite, clamped, monotonic, and continuous at 60 Hz", () => {
+    let previous = phaseDirectorSnapshotAt(0).phaseBlendProgress01;
+    for (let frame = 1; frame <= 180 * 60; frame += 1) {
+      const snapshot = phaseDirectorSnapshotAt(frame / 60);
+      const progress = snapshot.phaseBlendProgress01;
+      expect(Number.isFinite(progress)).toBe(true);
+      expect(progress).toBeGreaterThanOrEqual(0);
+      expect(progress).toBeLessThanOrEqual(1);
+      expect(progress).toBeGreaterThanOrEqual(previous);
+      expect(Math.abs(progress - previous)).toBeLessThanOrEqual(0.01);
+      if (snapshot.localTransitionMix01 !== null) {
+        expect(snapshot.localTransitionMix01).toBeGreaterThanOrEqual(0);
+        expect(snapshot.localTransitionMix01).toBeLessThanOrEqual(1);
+      }
+      previous = progress;
+    }
+    expect(previous).toBe(1);
   });
 });
 
@@ -161,6 +206,7 @@ describe("QX-R3-005 LIFE to EARTH 120-frame continuity gate", () => {
       maxBlackFrames: 0,
       maxMonochromeFrames: 0,
       maxRuntimeCompileDelta: 0,
+      maxBackendProgramDelta: 0,
       maxStillFrameRatio: 0.05,
       maxMissingCurrentChunkFrames: 0,
       maxMissingCameraChunkFrames: 0,
@@ -180,6 +226,7 @@ describe("QX-R3-005 LIFE to EARTH 120-frame continuity gate", () => {
       cameraPosition: initialCamera.position,
       backgroundColor: initialPhase.channels.background,
       runtimeCompileEvents: 88,
+      backendProgramCount: 24,
       currentChunkReady: true,
       cameraChunkReady: true,
       nextChunkReadyBeforeBoundary: true,
@@ -199,6 +246,7 @@ describe("QX-R3-005 LIFE to EARTH 120-frame continuity gate", () => {
         cameraPosition: camera.position,
         backgroundColor: phase.channels.background,
         runtimeCompileEvents: 88,
+        backendProgramCount: 24,
         currentChunkReady: true,
         cameraChunkReady: true,
         nextChunkReadyBeforeBoundary: true,
@@ -213,6 +261,7 @@ describe("QX-R3-005 LIFE to EARTH 120-frame continuity gate", () => {
       blackFrames: 0,
       monochromeFrames: 0,
       runtimeCompileDelta: 0,
+      backendProgramDelta: 0,
       currentChunkMissingFrames: 0,
       cameraChunkMissingFrames: 0,
       nextChunkMissingFramesBeforeBoundary: 0,
@@ -220,5 +269,38 @@ describe("QX-R3-005 LIFE to EARTH 120-frame continuity gate", () => {
     expect(snapshot.maxCameraJumpSceneUnits).toBeLessThanOrEqual(0.25);
     expect(snapshot.stillFrameRatio).toBeLessThanOrEqual(0.05);
     expect(Object.isFrozen(snapshot)).toBe(true);
+  });
+
+  it("fails closed when the backend program inventory grows inside the exact trace", () => {
+    const trace = new LifeEarthContinuityTrace();
+    const backgroundColor = Object.freeze({ r: 0.05, g: 0.16, b: 0.24 });
+    trace.observe({
+      storyTime: 35,
+      cameraPosition: Object.freeze({ x: 0, y: 0, z: 0 }),
+      backgroundColor,
+      runtimeCompileEvents: 88,
+      backendProgramCount: 24,
+      currentChunkReady: true,
+      cameraChunkReady: true,
+      nextChunkReadyBeforeBoundary: true,
+    });
+    for (let frame = 1; frame <= 120; frame += 1) {
+      trace.observe({
+        storyTime: 35 + frame / 60,
+        cameraPosition: Object.freeze({ x: frame * 0.001, y: 0, z: 0 }),
+        backgroundColor,
+        runtimeCompileEvents: 88,
+        backendProgramCount: frame < 60 ? 24 : 25,
+        currentChunkReady: true,
+        cameraChunkReady: true,
+        nextChunkReadyBeforeBoundary: true,
+      });
+    }
+    expect(trace.snapshot()).toMatchObject({
+      complete: true,
+      passed: false,
+      backendProgramDelta: 1,
+      runtimeCompileDelta: 0,
+    });
   });
 });

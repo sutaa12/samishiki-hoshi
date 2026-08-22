@@ -2180,6 +2180,29 @@ type PendingResizeTransaction = {
   readonly completedGraphs: Set<LinearHdrGraph>;
 };
 
+function captureOutputExposure(value: number): number {
+  if (!Number.isFinite(value) || value < 0.25 || value > 4) {
+    throw new RangeError("Linear HDR output exposure must be finite and between 0.25 and 4.");
+  }
+  return value;
+}
+
+function applyOutputExposure(renderer: unknown, exposure: number): void {
+  if ((typeof renderer !== "object" || renderer === null) && typeof renderer !== "function") {
+    throw new Error("Cannot apply Linear HDR output exposure without an attached renderer.");
+  }
+  const descriptor = intrinsicGetOwnPropertyDescriptor(renderer, "toneMappingExposure");
+  if (!descriptor || !("value" in descriptor) || descriptor.writable !== true) {
+    throw new TypeError("Renderer toneMappingExposure must be a writable own data property.");
+  }
+  intrinsicDefineProperty(renderer, "toneMappingExposure", {
+    configurable: descriptor.configurable,
+    enumerable: descriptor.enumerable,
+    value: exposure,
+    writable: descriptor.writable,
+  });
+}
+
 export class ProductionLinearHdrPipeline implements LinearHdrPipelineFeature {
   readonly id = "gfx005-linear-hdr-pipeline" as const;
   readonly #graphFactory: LinearHdrGraphFactory;
@@ -2202,6 +2225,7 @@ export class ProductionLinearHdrPipeline implements LinearHdrPipelineFeature {
   #precompileReceipt: Readonly<RenderPrecompileReceipt> | null = null;
   #programCountAtReady: number | null = null;
   #programGrowthAfterReady = 0;
+  #exposure = 1;
   #disposedGraphs = 0;
   #disposePromise: Promise<void> | null = null;
   #disposeRequested = false;
@@ -2292,6 +2316,15 @@ export class ProductionLinearHdrPipeline implements LinearHdrPipelineFeature {
 
   render(recorder: RenderPassRecorder): void;
   render(): void {}
+
+  setExposure(exposure: number): void {
+    if (this.#state !== "ready" || this.#disposeRequested) {
+      throw new Error(`Cannot set Linear HDR output exposure while ${this.#state}.`);
+    }
+    const captured = captureOutputExposure(exposure);
+    applyOutputExposure(this.#renderer, captured);
+    this.#exposure = captured;
+  }
 
   quality(profile: Readonly<RenderQualityProfile>): void {
     if (this.#externalGraphCallbackDepth !== 0) {
@@ -2736,6 +2769,7 @@ export class ProductionLinearHdrPipeline implements LinearHdrPipelineFeature {
       precompileStepsAtReady: this.#precompileStepsAtReady,
       programCountAtReady: this.#programCountAtReady,
       programGrowthAfterReady: this.#programGrowthAfterReady,
+      exposure: this.#exposure,
       outputTransformCount: graphCount > 0 ? 1 : 0,
       intermediateType: "half-float",
       depthOwned: graphCount > 0,

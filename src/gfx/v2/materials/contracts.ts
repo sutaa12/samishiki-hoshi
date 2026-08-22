@@ -48,10 +48,13 @@ export interface TslMaterialLibrarySnapshot {
   readonly ownedMaterials: number;
   readonly ownedGeometry: 0 | 1;
   readonly warmupPasses: number;
+  readonly phaseMaterialParameter: number;
+  readonly phaseMaterialBindings: number;
   readonly variants: readonly TslMaterialVariantId[];
 }
 
 export interface TslMaterialLibrary extends RenderMaterialLibrary {
+  setPhaseMaterialParameter(value: number): void;
   resolve(family: WorldMaterialFamily): Readonly<TslMaterialHandle>;
   variantManifest(): readonly Readonly<TslMaterialVariantManifestEntry>[];
   snapshot(): Readonly<TslMaterialLibrarySnapshot>;

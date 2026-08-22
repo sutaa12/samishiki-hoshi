@@ -205,6 +205,7 @@ test("QX-R3-005 LIFE to EARTH keeps 120 actual WebGL2 frames continuous", async 
     blackFrames: Number(element.getAttribute("data-render-continuity-black-frames")),
     monochromeFrames: Number(element.getAttribute("data-render-continuity-monochrome-frames")),
     runtimeCompileDelta: Number(element.getAttribute("data-render-continuity-runtime-compile-delta")),
+    backendProgramDelta: Number(element.getAttribute("data-render-continuity-backend-program-delta")),
     maxCameraJump: Number(element.getAttribute("data-render-continuity-max-camera-jump")),
     stillFrameRatio: Number(element.getAttribute("data-render-continuity-still-ratio")),
     currentChunkMissing: Number(element.getAttribute("data-render-continuity-current-chunk-missing")),
@@ -212,7 +213,16 @@ test("QX-R3-005 LIFE to EARTH keeps 120 actual WebGL2 frames continuous", async 
     nextChunkMissing: Number(element.getAttribute("data-render-continuity-next-chunk-missing")),
     phaseFrom: element.getAttribute("data-render-phase-from"),
     phaseTo: element.getAttribute("data-render-phase-to"),
-    phaseBlend: Number(element.getAttribute("data-render-phase-blend")),
+    phaseProgress: Number(element.getAttribute("data-render-phase-progress")),
+    phaseLocalMix: Number(element.getAttribute("data-render-phase-local-mix")),
+    exposureParameter: Number(element.getAttribute("data-render-exposure-parameter")),
+    exposureApplied: Number(element.getAttribute("data-render-exposure-applied")),
+    materialParameter: Number(element.getAttribute("data-render-material-parameter")),
+    materialApplied: Number(element.getAttribute("data-render-material-applied")),
+    particleParameter: Number(element.getAttribute("data-render-particle-parameter")),
+    particleApplied: Number(element.getAttribute("data-render-particle-applied")),
+    audioLayerParameter: Number(element.getAttribute("data-render-audio-layer-parameter")),
+    audioLayerApplied: Number(element.getAttribute("data-render-audio-layer-applied")),
   }));
   await testInfo.attach("qx-r3-005-life-earth-120-frame-trace", {
     body: Buffer.from(JSON.stringify({
@@ -224,6 +234,7 @@ test("QX-R3-005 LIFE to EARTH keeps 120 actual WebGL2 frames continuous", async 
         pixelChannelChangeThreshold: PIXEL_CHANNEL_CHANGE_THRESHOLD,
         maxStillFrameRatio: MAX_STILL_FRAME_RATIO,
         maxCameraJumpSceneUnits: MAX_CAMERA_JUMP_SCENE_UNITS,
+        maxBackendProgramDelta: 0,
       },
       pixelTrace,
       runtimeTrace,
@@ -246,6 +257,7 @@ test("QX-R3-005 LIFE to EARTH keeps 120 actual WebGL2 frames continuous", async 
     blackFrames: 0,
     monochromeFrames: 0,
     runtimeCompileDelta: 0,
+    backendProgramDelta: 0,
     currentChunkMissing: 0,
     cameraChunkMissing: 0,
     nextChunkMissing: 0,
@@ -254,6 +266,14 @@ test("QX-R3-005 LIFE to EARTH keeps 120 actual WebGL2 frames continuous", async 
   });
   expect(runtimeTrace.maxCameraJump).toBeLessThanOrEqual(MAX_CAMERA_JUMP_SCENE_UNITS);
   expect(runtimeTrace.stillFrameRatio).toBeLessThanOrEqual(MAX_STILL_FRAME_RATIO);
-  expect(runtimeTrace.phaseBlend).toBeGreaterThan(0.5);
+  expect(runtimeTrace.phaseProgress).toBeGreaterThan(0.1);
+  expect(runtimeTrace.phaseProgress).toBeLessThanOrEqual(0.2);
+  expect(runtimeTrace.phaseLocalMix).toBeGreaterThan(0.5);
+  expect(runtimeTrace.exposureApplied).toBeCloseTo(runtimeTrace.exposureParameter, 6);
+  expect(runtimeTrace.materialApplied).toBeCloseTo(runtimeTrace.materialParameter, 6);
+  expect(Math.abs(runtimeTrace.particleApplied - runtimeTrace.particleParameter)).toBeLessThan(0.01);
+  expect(Math.abs(runtimeTrace.audioLayerApplied - runtimeTrace.audioLayerParameter)).toBeLessThan(0.01);
+  await expect(page.getByTestId("phase-particle-layer"))
+    .toHaveAttribute("data-render-particle-applied", /0\.\d+/);
   expect(errors).toEqual([]);
 });

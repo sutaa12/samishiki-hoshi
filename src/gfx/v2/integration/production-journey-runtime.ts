@@ -8,6 +8,7 @@ import {
   type GfxFoundationRuntime,
   type GfxFoundationSnapshot,
 } from "./foundation-runtime";
+import type { PhaseDirectorSnapshot } from "./phase-director";
 
 const PRODUCTION_QUALITY_IDS: Readonly<Record<QualityLevel, FoundationQualityId>> = Object.freeze({
   low: "low-static",
@@ -36,7 +37,10 @@ export function productionQualityId(
 }
 
 export interface ProductionGfxRuntime {
-  update(snapshot: Readonly<JourneyRenderSnapshot>, rail: Readonly<RailRenderSnapshot>): void;
+  update(
+    snapshot: Readonly<JourneyRenderSnapshot>,
+    rail: Readonly<RailRenderSnapshot>,
+  ): Readonly<PhaseDirectorSnapshot>;
   setQuality(quality: QualityLevel): Promise<void>;
   configurePresentation(preferences: Readonly<ProductionPresentationPreferences>): Promise<void>;
   resize(width: number, height: number): Promise<void>;
@@ -81,13 +85,17 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
     return this.#foundation.diagnostics;
   }
 
-  update(snapshot: Readonly<JourneyRenderSnapshot>, rail: Readonly<RailRenderSnapshot>): void {
+  update(
+    snapshot: Readonly<JourneyRenderSnapshot>,
+    rail: Readonly<RailRenderSnapshot>,
+  ): Readonly<PhaseDirectorSnapshot> {
     const next = copyJourneySnapshot(snapshot);
     const nextRail = copyRailSnapshot(rail);
-    this.#foundation.update(next, nextRail);
+    const presentation = this.#foundation.update(next, nextRail);
     this.#journey = next;
     this.#rail = nextRail;
     this.#applyJourneyDataset();
+    return presentation;
   }
 
   setQuality(quality: QualityLevel): Promise<void> {
