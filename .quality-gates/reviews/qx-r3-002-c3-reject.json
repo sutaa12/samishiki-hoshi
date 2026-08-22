@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "qx-r3-002-c3-blind-review-2026-08-22",
+  "mode": "isolated-artifact-and-source-blind",
+  "candidateLabel": "C3",
+  "reviewer": "qx_r3_002_blind_review",
+  "reviewedEvidenceHead": "600b74ccadf7779eb8a28aa8633c119dfbba55dd",
+  "implementationCommit": "651d085861ca2ddf05fb850b7c447068d3e0c763",
+  "implementationTree": "0ae3da765cee4602d61b941a622347be1526f696",
+  "verdict": "REJECT",
+  "scores": {
+    "correctnessAndDeterminism": 2,
+    "taskSemantics": 2,
+    "architecture": 3,
+    "accessibilityAndInput": 2,
+    "evidenceAndReproducibility": 2
+  },
+  "severityCounts": {"S0": 0, "S1": 2, "S2": 2, "S3": 0},
+  "findings": [
+    {
+      "id": "C3-ENCOUNTER-ENDPOINT-3D",
+      "severity": "S1",
+      "status": "remediated_in_4658c18",
+      "observation": "Gate and Obstacle outcomes ignored longitudinal endpoint separation after a fixed step crossed the encounter. A 152 mm endpoint separation could pass a 100 mm Gate or count as a 100 mm Obstacle hit."
+    },
+    {
+      "id": "C3-DISTANCE-PARTITION-DEPENDENCE",
+      "severity": "S1",
+      "status": "remediated_in_4658c18",
+      "observation": "Rounding travel on every slice made distance depend on frame partitioning: sixty 1/60-second slices produced 10020 mm while one second produced 10000 mm."
+    },
+    {
+      "id": "C3-SPEC-AUTOMATIC-ANSWER",
+      "severity": "S2",
+      "status": "remediated_in_4658c18",
+      "observation": "The executable specification still described the removed 168.5-second automatic Answer."
+    },
+    {
+      "id": "C3-AUTO-GIVE-HINT",
+      "severity": "S2",
+      "status": "remediated_in_4658c18",
+      "observation": "The settings hint still described a pulse about every four seconds although auto-give had become Life-Node-aware with a 700 ms minimum cooldown."
+    }
+  ],
+  "reviewerChecks": {
+    "completeTrackedManifest": "matched",
+    "buildArchive": "hash and 128 tar entries matched",
+    "fullVerify": "passed on reviewed source",
+    "focusedRailTests": "51 passed",
+    "browserReports": "matched and passed",
+    "preservedBuildAndVideo": "verified"
+  },
+  "rollback": "QX-R3-003, Main, and Sites remained blocked. Remediation continued only on the isolated QX-R3-002 branch.",
+  "externalGatesUnchanged": ["HUMAN_PENDING_PLAY_VISUAL", "HUMAN_PENDING_RIGHTS", "HARDWARE_PENDING", "HUMAN_PENDING_MAIN", "HUMAN_PENDING_SITES", "HUMAN_PENDING_CONTEST"]
+}

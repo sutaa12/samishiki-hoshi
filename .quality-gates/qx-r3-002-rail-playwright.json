@@ -4,6 +4,7 @@
       "/opt/homebrew/Cellar/node/25.6.0/bin/node",
       "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-002/node_modules/.bin/playwright",
       "test",
+      "--reporter=json",
       "tests/e2e/rail-flight.spec.ts",
       "--project=desktop-chromium"
     ],
@@ -59,14 +60,7 @@
     "quiet": false,
     "reporter": [
       [
-        "line",
-        null
-      ],
-      [
-        "json",
-        {
-          "outputFile": ".quality-gates/qx-r3-002-rail-playwright.json"
-        }
+        "json"
       ]
     ],
     "reportSlowTests": {
@@ -109,12 +103,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 5313,
+                  "duration": 5374,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:06:12.560Z",
+                  "startTime": "2026-08-22T08:38:58.892Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -143,12 +137,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3932,
+                  "duration": 4002,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:06:17.996Z",
+                  "startTime": "2026-08-22T08:39:04.391Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -177,12 +171,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3072,
+                  "duration": 3086,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:06:21.933Z",
+                  "startTime": "2026-08-22T08:39:08.399Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -211,12 +205,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2626,
+                  "duration": 2635,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:06:25.010Z",
+                  "startTime": "2026-08-22T08:39:11.490Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -234,8 +228,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-08-22T08:06:06.071Z",
-    "duration": 21647.808,
+    "startTime": "2026-08-22T08:38:52.472Z",
+    "duration": 21745.582000000002,
     "expected": 4,
     "skipped": 0,
     "unexpected": 0,

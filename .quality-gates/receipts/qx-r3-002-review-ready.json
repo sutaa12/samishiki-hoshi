@@ -2,20 +2,20 @@
   "schema_version": 1,
   "task_id": "QX-R3-002",
   "status": "review_ready",
-  "recorded_at": "2026-08-22T17:10:00+09:00",
+  "recorded_at": "2026-08-22T17:45:00+09:00",
   "implementation": {
     "branch": "codex/qx-r3-002-rail-flight-state",
     "base_commit": "5b0650e1d9cdec2eef28291d6b830903e19b7751",
-    "commit": "651d085861ca2ddf05fb850b7c447068d3e0c763",
-    "tree": "0ae3da765cee4602d61b941a622347be1526f696",
-    "all_tracked_file_manifest": ".quality-gates/qx-r3-002-651d085-all-tracked-files.sha256",
-    "all_tracked_file_count": 344,
-    "manifest_sha256": "7e65d369443a272b9bba18c49f36d0124a3e423cf4496955ef1bba948ea79256"
+    "commit": "4658c1871b4df823aa29886cd3828a2bb2b17307",
+    "tree": "8275b51fe13324956dcb359be32f8ac16f3033a4",
+    "all_tracked_file_manifest": ".quality-gates/qx-r3-002-4658c18-all-tracked-files.sha256",
+    "all_tracked_file_count": 355,
+    "manifest_sha256": "c4b00dc1d9fabad34d20e122c7d655557e9f5d7518f275be1f0fd5e132cc7dc4"
   },
   "build": {
     "command": "rtk npm run verify",
-    "archive": ".quality-gates/qx-r3-002-651d085-dist.tar",
-    "archive_sha256": "114a4b6a275b8a83d593f44f4a27aff6bed767a7eeda0a098fe5ef93e67ccdcb",
+    "archive": ".quality-gates/qx-r3-002-4658c18-dist.tar",
+    "archive_sha256": "6f2f75273d2dea8eaf61620280933e4b9d4e1adf40d1253588248a2b7daa0b27",
     "archive_bytes": 8107520,
     "archive_entries": 128,
     "apple_double_entries": 0,
@@ -24,37 +24,37 @@
   "verification": {
     "typecheck": "passed",
     "lint": "passed",
-    "vitest": {"files_passed": 39, "tests_passed": 726, "failed": 0},
+    "vitest": {"files_passed": 39, "tests_passed": 728, "failed": 0},
     "production_build": "passed",
     "rail_browser": {
       "report": ".quality-gates/qx-r3-002-rail-playwright.json",
-      "sha256": "3097de24408140904735741fdced41d48dd5d59dcfa8b306487d59d32dee304d",
+      "sha256": "f4616d11fb0529b1cbad7dd609ef9b017e0119ee61e123575130cea4061ef1f7",
       "expected": 4,
       "unexpected": 0,
       "flaky": 0
     },
     "production_browser": {
       "report": ".quality-gates/qx-r3-002-production-playwright.json",
-      "sha256": "8ab36d5ead18ccb56cd4b41a3912f009108196e0681e1435570d15979ac660c1",
+      "sha256": "da12dce8c899503e9848cf3a09c24391c1e565f9de2f6400cf3fb55acbd9ddd7",
       "expected": 4,
       "unexpected": 0,
       "flaky": 0,
-      "checkpoint_hash_both_backends": "2a15518f"
+      "checkpoint_hash_both_backends": "2662d902"
     },
     "journey_browser": {
       "report": ".quality-gates/qx-r3-002-journey-playwright.json",
-      "sha256": "955a79c73ab06a49f73c9e2632c8dd010e212bab123c8ab8744868ff2a338766",
+      "sha256": "245264e384e3f1f3bcb7ea489980a6d9894d418b12b14208a689674de5921d75",
       "passed": 8,
       "skipped_by_project": 6,
       "failed": 0
     },
     "graybox_video": {
       "report": ".quality-gates/qx-r3-002-graybox-playwright.json",
-      "report_sha256": "0c8316e819ac2539da96122d52f17902212770767c6ac5b3853317108bc7c7ba",
+      "report_sha256": "82e96cd2e724e4d954be458924f5e133ffbd323fc208a661dbbf9077e3474c25",
       "video": ".quality-gates/qx-r3-002-graybox-30s.webm",
-      "video_sha256": "f0453f686b91a3c4b218d1567155dc5a9fa63ea38dd7201905062cd298f1c7ad",
+      "video_sha256": "22f00e92f01c54240c5bc3ee431e3cfa60bc12a31380811167a2655d3b48391f",
       "duration_seconds": 34.44,
-      "bytes": 1067780,
+      "bytes": 1068070,
       "checkpoint_png": ".quality-gates/screenshots/qx-r3-002-graybox-20s.png",
       "checkpoint_sha256": "bb00d23d59cc9b0d8241ac2e014977a220eca92bc508021a48db0bb9a45bce7f"
     }
@@ -71,7 +71,9 @@
     "normal_automatic_answer_removed": true,
     "auto_give_waits_for_nearby_life_node": true,
     "game_over_absent": true,
-    "millisecond_story_boundaries_match_world_plan": true
+    "millisecond_story_boundaries_match_world_plan": true,
+    "gate_and_obstacle_use_3d_endpoint_separation": true,
+    "distance_is_invariant_to_slice_partitioning": true
   },
   "dependency_audit": {
     "report": ".quality-gates/qx-r3-002-npm-audit.json",
@@ -82,7 +84,8 @@
     "action": "reported separately; no automatic npm audit fix or dependency rewrite"
   },
   "separate_gates": {
-    "independent_review": "PENDING",
+    "independent_review": "C3_REJECT_REMEDIATED_AWAITING_FRESH_REVIEW",
+    "prior_review": ".quality-gates/reviews/qx-r3-002-c3-reject.json",
     "world_plan_encounter_generation_qx_r3_004": "PENDING",
     "main_integration": "PENDING",
     "public_deployment_of_this_source": "PENDING",

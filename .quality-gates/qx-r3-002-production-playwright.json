@@ -4,6 +4,7 @@
       "/opt/homebrew/Cellar/node/25.6.0/bin/node",
       "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-002/node_modules/.bin/playwright",
       "test",
+      "--reporter=json",
       "tests/e2e/production-v2.spec.ts",
       "--project=desktop-chromium"
     ],
@@ -59,14 +60,7 @@
     "quiet": false,
     "reporter": [
       [
-        "line",
-        null
-      ],
-      [
-        "json",
-        {
-          "outputFile": ".quality-gates/qx-r3-002-production-playwright.json"
-        }
+        "json"
       ]
     ],
     "reportSlowTests": {
@@ -109,12 +103,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4248,
+                  "duration": 4522,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:06:34.885Z",
+                  "startTime": "2026-08-22T08:38:33.382Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -143,12 +137,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2787,
+                  "duration": 2647,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:06:39.241Z",
+                  "startTime": "2026-08-22T08:38:38.023Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -177,12 +171,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2692,
+                  "duration": 2680,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:06:42.033Z",
+                  "startTime": "2026-08-22T08:38:40.674Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -211,12 +205,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4188,
+                  "duration": 3673,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:06:44.729Z",
+                  "startTime": "2026-08-22T08:38:43.359Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -240,8 +234,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-08-22T08:06:28.376Z",
-    "duration": 20641.381999999998,
+    "startTime": "2026-08-22T08:38:26.880Z",
+    "duration": 20250.275,
     "expected": 4,
     "skipped": 0,
     "unexpected": 0,
