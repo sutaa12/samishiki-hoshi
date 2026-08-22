@@ -199,6 +199,40 @@ describe("QX-R3-002 deterministic rail flight", () => {
     expect(accepted.gameplayEvents.at(-1)?.kind).toBe("node-perfect");
   });
 
+  it("applies timestamped Pulse edges at their exact time before and at 700ms", () => {
+    const cooldownNodes: readonly Readonly<RailEncounter>[] = [
+      {
+        id: "replay-cooldown-origin",
+        kind: "life-node",
+        distanceMm: 0,
+        center: { x: 0, y: -720 },
+        perfectRadiusMm: 120,
+        goodRadiusMm: 300,
+      },
+      {
+        id: "replay-cooldown-boundary",
+        kind: "life-node",
+        distanceMm: 7_000,
+        center: { x: 0, y: -700 },
+        perfectRadiusMm: 1_000,
+        goodRadiusMm: 1_200,
+      },
+    ];
+    const justBefore = simulateJourney([
+      { at: 0, moveX: 0, moveY: 0, pulse: true },
+      { at: 0.699_999_999, moveX: 0, moveY: 0, pulse: true },
+    ], { seed: 55, encounters: cooldownNodes });
+    const exactBoundary = simulateJourney([
+      { at: 0, moveX: 0, moveY: 0, pulse: true },
+      { at: 0.7, moveX: 0, moveY: 0, pulse: true },
+    ], { seed: 55, encounters: cooldownNodes });
+
+    expect(justBefore.pulses).toHaveLength(1);
+    expect(justBefore.gameplayEvents.some((event) => event.kind === "pulse-cooldown")).toBe(true);
+    expect(exactBoundary.pulses).toHaveLength(2);
+    expect(exactBoundary.gameplayEvents.some((event) => event.kind === "pulse-cooldown")).toBe(false);
+  });
+
   it("widens only the next gate after three consecutive misses and never game-overs", () => {
     const encounters: readonly Readonly<RailEncounter>[] = [
       ...[1_000, 2_000, 3_000].map((distanceMm, index) => ({

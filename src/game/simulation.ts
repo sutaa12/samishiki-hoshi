@@ -215,12 +215,13 @@ function resolvePulse(
   const distance = distanceToEncounter3dMm(next.distanceMm, next.corridorOffset, node);
   const perfect = distance <= node.perfectRadiusMm;
   const id = next.pulses.length + 1;
+  const journeyTime = Math.round(next.time * 1_000) / 1_000;
   const pulse: TwinkleSeed = Object.freeze({
     id,
-    journeyTime: Number(next.time.toFixed(3)),
+    journeyTime,
     x: Number(next.position.x.toFixed(6)),
     y: Number(next.position.y.toFixed(6)),
-    phase: phaseAt(next.time),
+    phase: phaseAt(journeyTime),
     source: "player",
     value: seedForPulse(next, id),
   });
@@ -241,8 +242,22 @@ function resolvePulse(
 }
 
 function remainingMilliseconds(value: number): number {
-  const normalized = Number(Math.max(0, value).toFixed(9));
-  return normalized <= 1e-6 ? 0 : normalized;
+  return Number(Math.max(0, value).toFixed(9));
+}
+
+function latchActiveEncounter(
+  state: RailFlightState,
+  encounters: readonly Readonly<RailEncounter>[],
+): RailFlightState {
+  const active = activeEncounterAt(state.distanceMm, new Set(state.resolvedEncounterIds), encounters);
+  return {
+    ...state,
+    activeEncounterId: active?.id ?? null,
+    activeEncounterKind: active?.kind ?? null,
+    activeEncounterDistanceMm: active === null
+      ? null
+      : Math.round(distanceToEncounter3dMm(state.distanceMm, state.corridorOffset, active)),
+  };
 }
 
 /** Advance one canonical slice. Story time and rail distance are separate clocks. */
@@ -303,15 +318,7 @@ function stepJourneySlice(
   };
   next = resolvePassedEncounters(next, previousDistanceMm, encounters);
   if (input.pulse) next = resolvePulse(next, encounters);
-  const active = activeEncounterAt(next.distanceMm, new Set(next.resolvedEncounterIds), encounters);
-  return {
-    ...next,
-    activeEncounterId: active?.id ?? null,
-    activeEncounterKind: active?.kind ?? null,
-    activeEncounterDistanceMm: active === null
-      ? null
-      : Math.round(distanceToEncounter3dMm(next.distanceMm, next.corridorOffset, active)),
-  };
+  return latchActiveEncounter(next, encounters);
 }
 
 /**
@@ -369,7 +376,7 @@ export function simulateJourney(inputs: readonly TimedInput[] = [], options: Sim
       const event = ordered[inputIndex];
       const normalized = normalizeInput(event);
       held = { moveX: normalized.moveX, moveY: normalized.moveY, pulse: false };
-      state = stepJourney(state, { ...held, pulse: Boolean(event.pulse) }, 0.000_001, encounters);
+      if (event.pulse) state = latchActiveEncounter(resolvePulse(state, encounters), encounters);
       inputIndex += 1;
     }
     if (boundary === state.time && !nextInput && !state.finished) {

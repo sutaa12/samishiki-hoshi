@@ -55,10 +55,10 @@ describe("GFX-003 Twinkle semantic projection", () => {
 
   it("normalizes a real simulation signed-zero position only in the owned semantic copy", () => {
     const state = simulateJourney([
-      { at: 0, moveX: 0, moveY: 0, pulse: true },
+      { at: 0.000_001, moveX: 0, moveY: 0, pulse: true },
     ], { seed: 0 });
     const source = state.pulses[0];
-    if (!source) throw new Error("Expected the seed-zero pulse at story time zero.");
+    if (!source) throw new Error("Expected the seed-zero pulse near story time zero.");
     const beforeHash = hashJourney(state);
 
     expect(Object.is(source.x, -0)).toBe(true);
@@ -83,7 +83,7 @@ describe("GFX-003 Twinkle semantic projection", () => {
 
     const yState = simulateJourney([
       { at: 0, moveX: 0, moveY: 1 },
-      { at: 1.128_397_376_332_195_7, moveX: 0, moveY: 1, pulse: true },
+      { at: 1.128_398_376_332_195_6, moveX: 0, moveY: 1, pulse: true },
     ], { seed: 0 });
     const ySource = yState.pulses[0];
     if (!ySource) throw new Error("Expected a legal simulation pulse with signed-zero y.");
