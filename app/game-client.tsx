@@ -74,6 +74,8 @@ type HudSnapshot = {
   mistakes: number;
   assistLevel: number;
   activeEncounterId: string | null;
+  activeEncounterKind: string | null;
+  activeEncounterDistanceMm: number | null;
   lastGameplayEvent: string | null;
 };
 
@@ -142,6 +144,8 @@ function makeSnapshot(
     mistakes: state.mistakes,
     assistLevel: state.assistLevel,
     activeEncounterId: state.activeEncounterId,
+    activeEncounterKind: state.activeEncounterKind,
+    activeEncounterDistanceMm: state.activeEncounterDistanceMm,
     lastGameplayEvent: state.gameplayEvents.at(-1)?.kind ?? null,
   };
 }
@@ -443,7 +447,9 @@ export function GameClient() {
           let pulse = pendingPulseRef.current;
           if (
             settingsRef.current.autoGive &&
-            state.time - lastAutoPulseRef.current >= 4
+            state.activeEncounterKind === "life-node" &&
+            (state.activeEncounterDistanceMm ?? Number.POSITIVE_INFINITY) <= 8_000 &&
+            state.time - lastAutoPulseRef.current >= 0.7
           ) {
             pulse = true;
             lastAutoPulseRef.current = state.time;
@@ -705,6 +711,8 @@ export function GameClient() {
       data-mistakes={snapshot.mistakes}
       data-assist-level={snapshot.assistLevel}
       data-active-encounter={snapshot.activeEncounterId ?? ""}
+      data-active-encounter-kind={snapshot.activeEncounterKind ?? ""}
+      data-active-encounter-distance-mm={snapshot.activeEncounterDistanceMm ?? ""}
       data-gameplay-event={snapshot.lastGameplayEvent ?? ""}
       data-finished={snapshot.finished ? "true" : "false"}
       data-answer-at={snapshot.answerAt === null ? "" : snapshot.answerAt.toFixed(2)}

@@ -282,7 +282,14 @@ export function stepJourney(
   next = resolvePassedEncounters(next, previousDistanceMm, encounters);
   if (input.pulse) next = resolvePulse(next, encounters);
   const active = activeEncounterAt(next.distanceMm, new Set(next.resolvedEncounterIds), encounters);
-  return { ...next, activeEncounterId: active?.id ?? null };
+  return {
+    ...next,
+    activeEncounterId: active?.id ?? null,
+    activeEncounterKind: active?.kind ?? null,
+    activeEncounterDistanceMm: active === null
+      ? null
+      : Math.round(distanceToEncounter3dMm(next.distanceMm, next.corridorOffset, active)),
+  };
 }
 
 /** Advance to an exact story-time checkpoint for deterministic QA and replay tooling. */
@@ -337,7 +344,7 @@ export function hashJourney(state: RailFlightState): string {
     answerAt: state.answerAt === null ? null : Number(state.answerAt.toFixed(6)),
     finished: state.finished,
     pulses: state.pulses.map((pulse) => [pulse.id, pulse.journeyTime, pulse.x, pulse.y, pulse.phase, pulse.value]),
-    rail: [state.score, state.distanceMm, state.forwardSpeedMmPerSecond, state.corridorOffset.x, state.corridorOffset.y, state.lifeChain, state.flowPurity, state.mistakes, state.consecutiveMisses, state.assistLevel, state.assistNextGate ? 1 : 0, state.pulseCooldownRemainingMs, state.slowdownRemainingMs, state.activeEncounterId],
+    rail: [state.score, state.distanceMm, state.forwardSpeedMmPerSecond, state.corridorOffset.x, state.corridorOffset.y, state.lifeChain, state.flowPurity, state.mistakes, state.consecutiveMisses, state.assistLevel, state.assistNextGate ? 1 : 0, state.pulseCooldownRemainingMs, state.slowdownRemainingMs, state.activeEncounterId, state.activeEncounterKind, state.activeEncounterDistanceMm],
     outcomes: [state.passedEncounterIds, state.activatedEncounterIds, state.missedEncounterIds, state.resolvedEncounterIds],
     events: state.gameplayEvents.map((event) => [event.id, event.kind, event.encounterId, event.journeyTime, event.distanceMm, event.phase, event.scoreDelta]),
   });

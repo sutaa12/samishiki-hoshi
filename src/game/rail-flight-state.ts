@@ -28,6 +28,8 @@ export interface RailFlightState extends JourneyState {
   readonly pulseCooldownRemainingMs: number;
   readonly slowdownRemainingMs: number;
   readonly activeEncounterId: string | null;
+  readonly activeEncounterKind: "gate" | "obstacle" | "life-node" | null;
+  readonly activeEncounterDistanceMm: number | null;
   readonly passedEncounterIds: readonly string[];
   readonly activatedEncounterIds: readonly string[];
   readonly missedEncounterIds: readonly string[];
@@ -60,6 +62,8 @@ export function initialRailFlightFields(position: Readonly<{ x: number; y: numbe
     pulseCooldownRemainingMs: 0,
     slowdownRemainingMs: 0,
     activeEncounterId: null,
+    activeEncounterKind: null,
+    activeEncounterDistanceMm: null,
     passedEncounterIds: Object.freeze([]),
     activatedEncounterIds: Object.freeze([]),
     missedEncounterIds: Object.freeze([]),

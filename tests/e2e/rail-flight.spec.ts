@@ -62,3 +62,20 @@ test("the normal journey never synthesizes ANSWER without a valid node pulse", a
   await expect(shell).toHaveAttribute("data-render-answer-at", "");
   expect(errors).toEqual([]);
 });
+
+test("auto-give waits for a nearby Life Node and then creates one valid Seed", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "desktop rail acceptance");
+  const errors = captureRuntimeErrors(page);
+  await page.goto("/?qa=1&backend=webgl2&seed=20260818&at=23.5");
+  const shell = page.getByTestId("game-shell");
+  await expect(shell).toHaveAttribute("data-renderer-status", "ready", { timeout: 120_000 });
+  await page.getByRole("button", { name: "旅をはじめる" }).click();
+  await page.getByRole("button", { name: "設定を開く" }).click();
+  await page.getByLabel("生命を自動でわたす").check();
+  await page.getByRole("button", { name: "旅へ戻る" }).click();
+  await expect.poll(async () => Number(await shell.getAttribute("data-pulses"))).toBe(1);
+  await expect(shell).toHaveAttribute("data-active-encounter-kind", "");
+  await expect.poll(async () => await shell.getAttribute("data-gameplay-event"))
+    .toMatch(/node-perfect|node-good/);
+  expect(errors).toEqual([]);
+});
