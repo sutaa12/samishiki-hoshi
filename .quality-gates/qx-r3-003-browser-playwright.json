@@ -1,0 +1,1710 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.6.0/bin/node",
+      "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/node_modules/.bin/playwright",
+      "test",
+      "--reporter=json",
+      "tests/e2e/input-router.spec.ts",
+      "tests/e2e/journey.spec.ts",
+      "tests/e2e/rail-flight.spec.ts",
+      "tests/e2e/production-v2.spec.ts"
+    ],
+    "configFile": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/playwright.config.ts",
+    "rootDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop-chromium",
+        "name": "desktop-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 3000",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "input-router.spec.ts",
+      "file": "input-router.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "mouse click and Space emit one edge each while mouse drag emits none",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4201,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:02:14.000Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-6351eac0f413f64f0fd7",
+          "file": "input-router.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "left touch drag steers without a pulse and right touch tap creates one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "mobile input acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                    "line": 53,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 66,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:02:18.309Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "mobile input acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                        "line": 53,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-40472d9ea50acded43f6",
+          "file": "input-router.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "settings, cancel, blur, and visibility changes cannot leak held input",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "mobile input isolation acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                    "line": 72,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 72,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:02:18.380Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "mobile input isolation acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                        "line": 72,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-b5bcb89d9e5558a717fc",
+          "file": "input-router.spec.ts",
+          "line": 71,
+          "column": 1
+        },
+        {
+          "title": "mouse click and Space emit one edge each while mouse drag emits none",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop input acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                    "line": 28,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 133,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:51.929Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop input acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                        "line": 28,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-935ad5f339deaaa4934f",
+          "file": "input-router.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "left touch drag steers without a pulse and right touch tap creates one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4983,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:52.180Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-8c23c137f442ce162737",
+          "file": "input-router.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "settings, cancel, blur, and visibility changes cannot leak held input",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2925,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:57.170Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-0c8c863c8ea83754f2fb",
+          "file": "input-router.spec.ts",
+          "line": 71,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "journey.spec.ts",
+      "file": "journey.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "desktop steering, pulse, settings, and human motif checkpoint",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3500,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:02:18.464Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-5bf6292c2183824cca08",
+          "file": "journey.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "Notion-reference phase gallery renders every natural-to-space transition",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10867,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:02:21.969Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-f882fffa6707fb9ab21a",
+          "file": "journey.spec.ts",
+          "line": 59,
+          "column": 1
+        },
+        {
+          "title": "all six phases keep visual density inside automated safety ceilings",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 150000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 40537,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:02:32.841Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "visual-performance-samples",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNTA2LAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxMzksCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjMsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNTE1LAogICAgInRyaWFuZ2xlcyI6IDc0LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQU5TV0VSIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogNTAsCiAgICAicDk1RnJhbWVNcyI6IDEwLjMsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQyLAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJUV0lOS0xFIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogMzgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjMsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU5LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogMzk0LAogICAgInRyaWFuZ2xlcyI6IDE1NywKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJFQVJUSCIsCiAgICAiZHJhd0NhbGxzIjogMzY0LAogICAgInRyaWFuZ2xlcyI6IDE0NSwKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJBU0NFTlQiLAogICAgImRyYXdDYWxscyI6IDM2NCwKICAgICJ0cmlhbmdsZXMiOiA5NywKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogMzY0LAogICAgInRyaWFuZ2xlcyI6IDczLAogICAgInA5NUZyYW1lTXMiOiAxMC4xLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIkFOU1dFUiIsCiAgICAiZHJhd0NhbGxzIjogMzY0LAogICAgInRyaWFuZ2xlcyI6IDQ5LAogICAgInA5NUZyYW1lTXMiOiAxMC4xLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIlRXSU5LTEUiLAogICAgImRyYXdDYWxscyI6IDM5NCwKICAgICJ0cmlhbmdsZXMiOiAzNywKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxNTksCiAgICAid2FybXVwTXMiOiAwCiAgfQpd"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-be0b0165e24b71c43ddb",
+          "file": "journey.spec.ts",
+          "line": 81,
+          "column": 1
+        },
+        {
+          "title": "S20 keeps the unknown craft as a peripheral silhouette",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3049,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:13.383Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-a3a2197e1dc467521815",
+          "file": "journey.spec.ts",
+          "line": 154,
+          "column": 1
+        },
+        {
+          "title": "final journey checkpoint reaches the exact title without an automatic answer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4495,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:16.438Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-48311fb6a381150d90ce",
+          "file": "journey.spec.ts",
+          "line": 169,
+          "column": 1
+        },
+        {
+          "title": "mobile touch, settings, and alien response remain usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "mobile acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                    "line": 192,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 57,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:20.939Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "mobile acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                        "line": 192,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-9fbacc123c6cf48fc6d9",
+          "file": "journey.spec.ts",
+          "line": 191,
+          "column": 1
+        },
+        {
+          "title": "compact 320 by 568 ending keeps two title lines and 44px actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4416,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:21.001Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-98cdcefa29195fefd1b4",
+          "file": "journey.spec.ts",
+          "line": 233,
+          "column": 1
+        },
+        {
+          "title": "desktop steering, pulse, settings, and human motif checkpoint",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                    "line": 22,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 86,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:00.110Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                        "line": 22,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-d46231169c26bf5074e6",
+          "file": "journey.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "Notion-reference phase gallery renders every natural-to-space transition",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop visual acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                    "line": 60,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 96,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:00.202Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop visual acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                        "line": 60,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-17fe42eb3e18ca81134a",
+          "file": "journey.spec.ts",
+          "line": 59,
+          "column": 1
+        },
+        {
+          "title": "all six phases keep visual density inside automated safety ceilings",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 20240,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:00.302Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "visual-performance-samples",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNTA5LAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxNDAsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMC4xLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiU09MSVRVREUiLAogICAgImRyYXdDYWxscyI6IDUxNSwKICAgICJ0cmlhbmdsZXMiOiA3NCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxNDIsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkFOU1dFUiIsCiAgICAiZHJhd0NhbGxzIjogNTE1LAogICAgInRyaWFuZ2xlcyI6IDUwLAogICAgInA5NUZyYW1lTXMiOiAxMC4xLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiVFdJTktMRSIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDM4LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1OSwKICAgICJ3YXJtdXBNcyI6IDAKICB9Cl0="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-6f819a1a968cdc30f7f1",
+          "file": "journey.spec.ts",
+          "line": 81,
+          "column": 1
+        },
+        {
+          "title": "S20 keeps the unknown craft as a peripheral silhouette",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop timeline acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                    "line": 155,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 120,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:20.547Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop timeline acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                        "line": 155,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-ba42578727e65281da20",
+          "file": "journey.spec.ts",
+          "line": 154,
+          "column": 1
+        },
+        {
+          "title": "final journey checkpoint reaches the exact title without an automatic answer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                    "line": 170,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 87,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:20.674Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                        "line": 170,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-077d749cbbd2ef5670ec",
+          "file": "journey.spec.ts",
+          "line": 169,
+          "column": 1
+        },
+        {
+          "title": "mobile touch, settings, and alien response remain usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3147,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:20.765Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-5c5df9cb0e273071334c",
+          "file": "journey.spec.ts",
+          "line": 191,
+          "column": 1
+        },
+        {
+          "title": "compact 320 by 568 ending keeps two title lines and 44px actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "compact acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                    "line": 234,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 84,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:23.918Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "compact acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/journey.spec.ts",
+                        "line": 234,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-b1f202858cad4753eb5b",
+          "file": "journey.spec.ts",
+          "line": 233,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "production-v2.spec.ts",
+      "file": "production-v2.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "public root uses the forced WebGL2 v2 runtime and latches live game state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3901,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:25.430Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-62f130e6dd54d6d7aa10",
+          "file": "production-v2.spec.ts",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "public root latches the real answer state into the production renderer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2768,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:29.345Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-e51f01f6fc405b09a255",
+          "file": "production-v2.spec.ts",
+          "line": 105,
+          "column": 1
+        },
+        {
+          "title": "public root prefers actual host-Metal WebGPU without changing the checkpoint hash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2699,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:32.116Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-b86b4d7769a0c3b7f1c8",
+          "file": "production-v2.spec.ts",
+          "line": 125,
+          "column": 1
+        },
+        {
+          "title": "ten same-star restarts keep the production renderer ownership plateau",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4153,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:34.819Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "qx-r3-001-ten-restart-plateau",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJjeWNsZSI6IDEsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiAyLAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogMywKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDQsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiA1LAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogNiwKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDcsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiA4LAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogOSwKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDEwLAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0KXQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-b38537f34e820b278165",
+          "file": "production-v2.spec.ts",
+          "line": 146,
+          "column": 1
+        },
+        {
+          "title": "public root uses the forced WebGL2 v2 runtime and latches live game state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop production integration gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/production-v2.spec.ts",
+                    "line": 60,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:24.015Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop production integration gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/production-v2.spec.ts",
+                        "line": 60,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-1ba0157972d01f2562f9",
+          "file": "production-v2.spec.ts",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "public root latches the real answer state into the production renderer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop answer-state gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/production-v2.spec.ts",
+                    "line": 107,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:24.019Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop answer-state gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/production-v2.spec.ts",
+                        "line": 107,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-321ecca9f6cda23141cd",
+          "file": "production-v2.spec.ts",
+          "line": 105,
+          "column": 1
+        },
+        {
+          "title": "public root prefers actual host-Metal WebGPU without changing the checkpoint hash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop WebGPU production gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/production-v2.spec.ts",
+                    "line": 127,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:24.023Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop WebGPU production gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/production-v2.spec.ts",
+                        "line": 127,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-86c9d2c2433c8e7cd89d",
+          "file": "production-v2.spec.ts",
+          "line": 125,
+          "column": 1
+        },
+        {
+          "title": "ten same-star restarts keep the production renderer ownership plateau",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop restart gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/production-v2.spec.ts",
+                    "line": 148,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:24.026Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop restart gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/production-v2.spec.ts",
+                        "line": 148,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-1c8ee9f968b3ecc0a95f",
+          "file": "production-v2.spec.ts",
+          "line": 146,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "rail-flight.spec.ts",
+      "file": "rail-flight.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "rail distance advances without input while score and seeds stay zero",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2536,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:38.982Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-40b0c6c2b5d91ded2f60",
+          "file": "rail-flight.spec.ts",
+          "line": 12,
+          "column": 1
+        },
+        {
+          "title": "an arbitrary pulse is empty but a nearby Life Node creates exactly one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4084,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:41.523Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-84a08f9fc270b7265d4f",
+          "file": "rail-flight.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "the normal journey never synthesizes ANSWER without a valid node pulse",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3065,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:45.612Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-89b7eea74d0a95c9e55c",
+          "file": "rail-flight.spec.ts",
+          "line": 53,
+          "column": 1
+        },
+        {
+          "title": "auto-give waits for a nearby Life Node and then creates one valid Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2666,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:03:48.684Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-e714973b04c614b7bb25",
+          "file": "rail-flight.spec.ts",
+          "line": 66,
+          "column": 1
+        },
+        {
+          "title": "rail distance advances without input while score and seeds stay zero",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop rail acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/rail-flight.spec.ts",
+                    "line": 13,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 86,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:24.033Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop rail acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/rail-flight.spec.ts",
+                        "line": 13,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-07a0e26ef8344a85b17f",
+          "file": "rail-flight.spec.ts",
+          "line": 12,
+          "column": 1
+        },
+        {
+          "title": "an arbitrary pulse is empty but a nearby Life Node creates exactly one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop rail acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/rail-flight.spec.ts",
+                    "line": 28,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 89,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:24.123Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop rail acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/rail-flight.spec.ts",
+                        "line": 28,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-5c73de004404d063a51e",
+          "file": "rail-flight.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "the normal journey never synthesizes ANSWER without a valid node pulse",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop rail acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/rail-flight.spec.ts",
+                    "line": 54,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 87,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:24.223Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop rail acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/rail-flight.spec.ts",
+                        "line": 54,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-2290a5f766d69cdb1e32",
+          "file": "rail-flight.spec.ts",
+          "line": 53,
+          "column": 1
+        },
+        {
+          "title": "auto-give waits for a nearby Life Node and then creates one valid Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop rail acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/rail-flight.spec.ts",
+                    "line": 67,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 87,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:04:24.315Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop rail acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/rail-flight.spec.ts",
+                        "line": 67,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-d0e52b217a8632c0f30c",
+          "file": "rail-flight.spec.ts",
+          "line": 66,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-22T10:02:07.565Z",
+    "duration": 136982.943,
+    "expected": 19,
+    "skipped": 17,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

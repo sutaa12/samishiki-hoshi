@@ -166,6 +166,24 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Status is `review_ready`. Independent review, QX-R3-003, Main, Sites, human,
   rights, reference hardware, and contest gates remain pending.
 
+## 2026-08-22 QX-R3-003 input-router checkpoint
+
+- The isolated candidate separates mouse click from drag, locks left-zone touch
+  to Steer and right-zone touch tap to Pulse, ignores Space repeat, and resets
+  all held input on settings, pointer cancellation, blur, visibility change,
+  and restart.
+- Complete verification passes typecheck, lint, 40/40 Vitest files and 738/738
+  tests, plus production build. The focused browser input gate passes 3/3; the
+  combined input, journey, rail, and production gate passes 19 with 17
+  intentional project skips and zero failures.
+- A broad 72-test graphics-inclusive run passed all input/journey/rail/
+  production cases but exceeded the local 50ms compile warmup budget in four
+  unrelated Graphics cases. The accepted QX-R3-002 baseline reproduced the
+  same class of timing failure (two of four focused cases), so this is recorded
+  as local laboratory instability, not waived as reference-hardware evidence.
+- Main, current public Sites v2, human play, rights, reference hardware, and
+  contest gates remain unchanged pending frozen-source review.
+
 ## Release record
 
 - GitHub: https://github.com/sutaa12/samishiki-hoshi (public, main)

@@ -203,7 +203,7 @@ test("mobile touch, settings, and alien response remain usable", async ({ page }
   await page.getByRole("button", { name: "旅をはじめる" }).tap();
   await expect(shell).toHaveAttribute("data-shot", "S22");
   await expect(shell).toHaveAttribute("data-alien-state", "revealed");
-  await page.locator("canvas").tap({ position: { x: 195, y: 410 } });
+  await page.locator("canvas").tap({ position: { x: 340, y: 410 } });
   await expect.poll(async () => Number(await shell.getAttribute("data-pulses"))).toBeGreaterThanOrEqual(1);
   await expect.poll(async () => await shell.getAttribute("data-answer-at")).not.toBe("");
   const hintStyle = await page.locator(".control-hints").evaluate((element) => {

@@ -8,7 +8,10 @@ Status: graphics rebaseline R2, isolated implementation on 2026-08-18 JST. Canon
 - Tagline: `ひとりの光は、やがて無数のまたたきになる。`
 - Format: one continuous, wordless, 180-second browser journey.
 - Actions: steer and give life only.
-- Input: pointer/touch/WASD/arrows for movement; click/tap/Space for pulse.
+- Input: mouse follow or drag, left-70%-screen touch drag, WASD, and arrows steer.
+  Mouse click, right-30%-screen touch tap, and non-repeat Space emit one Pulse
+  edge. A pointer gesture is locked to one route and can never both steer and
+  pulse; settings controls never reach the gameplay router.
 - Runtime: TypeScript + Three.js. `WebGPURenderer + TSL` uses WebGPU as the capable High path and the same renderer's WebGL2 backend as fallback. Procedural geometry/effects and generated Web Audio require no account, personal data, runtime network service, paid API, game over, dialogue, narration, audio log, corpse, or stated extinction cause.
 
 ## Exact timeline

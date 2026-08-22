@@ -1,0 +1,365 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.6.0/bin/node",
+      "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/node_modules/.bin/playwright",
+      "test",
+      "--reporter=json",
+      "tests/e2e/input-router.spec.ts"
+    ],
+    "configFile": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/playwright.config.ts",
+    "rootDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop-chromium",
+        "name": "desktop-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 3000",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "input-router.spec.ts",
+      "file": "input-router.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "mouse click and Space emit one edge each while mouse drag emits none",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4979,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:01:01.001Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-6351eac0f413f64f0fd7",
+          "file": "input-router.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "left touch drag steers without a pulse and right touch tap creates one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "mobile input acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                    "line": 53,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 70,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:01:06.104Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "mobile input acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                        "line": 53,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-40472d9ea50acded43f6",
+          "file": "input-router.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "settings, cancel, blur, and visibility changes cannot leak held input",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "mobile input isolation acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                    "line": 72,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 64,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:01:06.178Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "mobile input isolation acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                        "line": 72,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-b5bcb89d9e5558a717fc",
+          "file": "input-router.spec.ts",
+          "line": 71,
+          "column": 1
+        },
+        {
+          "title": "mouse click and Space emit one edge each while mouse drag emits none",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop input acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                    "line": 28,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 131,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:01:06.574Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop input acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                        "line": 28,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-935ad5f339deaaa4934f",
+          "file": "input-router.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "left touch drag steers without a pulse and right touch tap creates one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4696,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:01:06.824Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-8c23c137f442ce162737",
+          "file": "input-router.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "settings, cancel, blur, and visibility changes cannot leak held input",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2814,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:01:11.525Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-0c8c863c8ea83754f2fb",
+          "file": "input-router.spec.ts",
+          "line": 71,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-22T10:00:54.258Z",
+    "duration": 20161.189,
+    "expected": 3,
+    "skipped": 3,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

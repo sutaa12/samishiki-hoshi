@@ -36,6 +36,11 @@ import {
   createJourneyAudio,
   type JourneyAudio,
 } from "@/src/game/audio";
+import {
+  InputRouter,
+  type InputRouterStatus,
+} from "@/src/game/input/input-router";
+import type { PointerGestureSample } from "@/src/game/input/pointer-gesture";
 
 const FIXED_STEP = 1 / 60;
 const DEFAULT_SEED = 20_260_818;
@@ -77,6 +82,9 @@ type HudSnapshot = {
   activeEncounterKind: string | null;
   activeEncounterDistanceMm: number | null;
   lastGameplayEvent: string | null;
+  gameplayEventCount: number;
+  steerLearned: boolean;
+  pulseLearned: boolean;
 };
 
 type ProductionRendererMetrics = {
@@ -115,6 +123,13 @@ const INITIAL_SETTINGS: Settings = {
   quality: "balanced",
 };
 
+const INITIAL_INPUT_STATUS: InputRouterStatus = Object.freeze({
+  heldKeyCount: 0,
+  pointerActive: false,
+  activePointerId: null,
+  pendingPulse: false,
+});
+
 function makeSnapshot(
   state: RailFlightState,
   metrics: ProductionRendererMetrics | null = null,
@@ -147,6 +162,11 @@ function makeSnapshot(
     activeEncounterKind: state.activeEncounterKind,
     activeEncounterDistanceMm: state.activeEncounterDistanceMm,
     lastGameplayEvent: state.gameplayEvents.at(-1)?.kind ?? null,
+    gameplayEventCount: state.gameplayEvents.length,
+    steerLearned: state.gameplayEvents.some((event) => event.kind === "gate-pass"),
+    pulseLearned: state.gameplayEvents.some(
+      (event) => event.kind === "node-perfect" || event.kind === "node-good",
+    ),
   };
 }
 
@@ -201,6 +221,19 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest("button, input, select, [role='dialog']"));
 }
 
+function pointerSample(event: ReactPointerEvent<HTMLElement>): PointerGestureSample {
+  return Object.freeze({
+    pointerId: event.pointerId,
+    pointerType: event.pointerType,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    buttons: event.buttons,
+    timeStamp: event.timeStamp,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+  });
+}
+
 export function GameClient() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameContentRef = useRef<HTMLDivElement>(null);
@@ -215,9 +248,7 @@ export function GameClient() {
   const settingsRef = useRef<Settings>(INITIAL_SETTINGS);
   const startedRef = useRef(false);
   const settingsOpenRef = useRef(false);
-  const pendingPulseRef = useRef(false);
-  const keysRef = useRef(new Set<string>());
-  const pointerRef = useRef({ x: 0, y: -0.72, active: false });
+  const inputRouterRef = useRef(new InputRouter());
   const lastAutoPulseRef = useRef(-10);
   const lastUiUpdateRef = useRef(0);
   const qaRestartCheckpointRef = useRef(0);
@@ -231,9 +262,22 @@ export function GameClient() {
   const [restartCount, setRestartCount] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasMoved, setHasMoved] = useState(false);
+  const [inputStatus, setInputStatus] = useState<InputRouterStatus>(INITIAL_INPUT_STATUS);
   const [rendererReady, setRendererReady] = useState(false);
   const [rendererError, setRendererError] = useState<string | null>(null);
   const [qaMode, setQaMode] = useState(false);
+
+  const syncInputStatus = useCallback(() => {
+    const next = inputRouterRef.current.status();
+    setInputStatus((current) => (
+      current.heldKeyCount === next.heldKeyCount
+      && current.pointerActive === next.pointerActive
+      && current.activePointerId === next.activePointerId
+      && current.pendingPulse === next.pendingPulse
+        ? current
+        : next
+    ));
+  }, []);
 
   useEffect(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -273,7 +317,11 @@ export function GameClient() {
 
   useEffect(() => {
     settingsOpenRef.current = settingsOpen;
-  }, [settingsOpen]);
+    if (settingsOpen) {
+      inputRouterRef.current.reset();
+      syncInputStatus();
+    }
+  }, [settingsOpen, syncInputStatus]);
 
   useEffect(() => {
     if (!settingsOpen) return;
@@ -355,8 +403,8 @@ export function GameClient() {
     stateRef.current = qaRestartCheckpointRef.current > 0
       ? advanceJourneyTo(initial, qaRestartCheckpointRef.current)
       : initial;
-    pendingPulseRef.current = false;
-    pointerRef.current = { x: 0, y: -0.72, active: false };
+    inputRouterRef.current.reset();
+    syncInputStatus();
     lastAutoPulseRef.current = -10;
     setHasMoved(false);
     setRestartCount((count) => count + 1);
@@ -376,7 +424,7 @@ export function GameClient() {
     startedRef.current = true;
     setStarted(true);
     audioRef.current?.start().catch(() => undefined);
-  }, []);
+  }, [syncInputStatus]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -434,17 +482,18 @@ export function GameClient() {
         accumulator += realDelta * speed;
         while (accumulator >= FIXED_STEP && !stateRef.current.finished) {
           const state = stateRef.current;
-          const keys = keysRef.current;
-          let moveX = Number(keys.has("ArrowRight") || keys.has("KeyD")) - Number(keys.has("ArrowLeft") || keys.has("KeyA"));
-          let moveY = Number(keys.has("ArrowUp") || keys.has("KeyW")) - Number(keys.has("ArrowDown") || keys.has("KeyS"));
+          const routed = inputRouterRef.current.consumeFrame();
+          if (routed.pulse) syncInputStatus();
+          let moveX = routed.moveX;
+          let moveY = routed.moveY;
 
-          if (pointerRef.current.active) {
+          if (routed.pointer.active) {
             const strength = settingsRef.current.wideFlow ? 2.8 : 1.9;
-            moveX += (pointerRef.current.x - state.position.x) * strength;
-            moveY += (pointerRef.current.y - state.position.y) * strength;
+            moveX += (routed.pointer.x - state.position.x) * strength;
+            moveY += (routed.pointer.y - state.position.y) * strength;
           }
 
-          let pulse = pendingPulseRef.current;
+          let pulse = routed.pulse;
           if (
             settingsRef.current.autoGive &&
             state.activeEncounterKind === "life-node" &&
@@ -454,8 +503,6 @@ export function GameClient() {
             pulse = true;
             lastAutoPulseRef.current = state.time;
           }
-          pendingPulseRef.current = false;
-
           const previousPulseCount = state.pulses.length;
           const previousAnswer = state.answerAt;
           stateRef.current = stepJourney(state, { moveX, moveY, pulse }, FIXED_STEP);
@@ -498,8 +545,8 @@ export function GameClient() {
       raf = requestAnimationFrame(frame);
     };
     const clearHeldInput = () => {
-      keysRef.current.clear();
-      pointerRef.current.active = false;
+      inputRouterRef.current.reset();
+      syncInputStatus();
       lastRealTime = performance.now();
       accumulator = 0;
     };
@@ -571,7 +618,7 @@ export function GameClient() {
       audioRef.current?.dispose();
       audioRef.current = null;
     };
-  }, []);
+  }, [syncInputStatus]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -585,42 +632,59 @@ export function GameClient() {
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
         event.preventDefault();
       }
-      if (event.code === "Space" && !event.repeat) pendingPulseRef.current = true;
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
-        keysRef.current.add(event.code);
-        setHasMoved(true);
+      const routed = inputRouterRef.current.keyDown(event.code, event.repeat);
+      if (routed.steerIntent) setHasMoved(true);
+      if (routed.handled) syncInputStatus();
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (inputRouterRef.current.keyUp(event.code)) {
+        syncInputStatus();
       }
     };
-    const onKeyUp = (event: KeyboardEvent) => keysRef.current.delete(event.code);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [begin]);
-
-  const updatePointer = (event: ReactPointerEvent<HTMLElement>, active: boolean) => {
-    pointerRef.current = {
-      x: Math.max(-0.94, Math.min(0.94, (event.clientX / window.innerWidth) * 1.88 - 0.94)),
-      y: Math.max(-0.94, Math.min(0.94, 0.94 - (event.clientY / window.innerHeight) * 1.88)),
-      active,
-    };
-    setHasMoved(true);
-  };
+  }, [begin, syncInputStatus]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (!startedRef.current || settingsOpenRef.current || isInteractiveTarget(event.target)) return;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    updatePointer(event, true);
-    pendingPulseRef.current = true;
+    const routed = inputRouterRef.current.pointerDown(pointerSample(event));
+    if (!routed.handled) return;
+    if (routed.capturePointer) {
+      try {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      } catch {
+        inputRouterRef.current.pointerCancel(event.pointerId);
+        syncInputStatus();
+        return;
+      }
+    }
+    if (routed.steerIntent) setHasMoved(true);
+    syncInputStatus();
     audioRef.current?.start().catch(() => undefined);
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
     if (!startedRef.current || settingsOpenRef.current || isInteractiveTarget(event.target)) return;
     if (event.pointerType === "touch" && event.buttons === 0) return;
-    updatePointer(event, event.pointerType === "mouse" || event.buttons > 0);
+    const routed = inputRouterRef.current.pointerMove(pointerSample(event));
+    if (routed.steerIntent) setHasMoved(true);
+    if (routed.handled) syncInputStatus();
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!startedRef.current || settingsOpenRef.current) return;
+    const routed = inputRouterRef.current.pointerUp(pointerSample(event));
+    if (!routed.handled) return;
+    syncInputStatus();
+  };
+
+  const handlePointerCancel = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!inputRouterRef.current.pointerCancel(event.pointerId)) return;
+    syncInputStatus();
   };
 
   const downloadPostcard = () => {
@@ -714,6 +778,13 @@ export function GameClient() {
       data-active-encounter-kind={snapshot.activeEncounterKind ?? ""}
       data-active-encounter-distance-mm={snapshot.activeEncounterDistanceMm ?? ""}
       data-gameplay-event={snapshot.lastGameplayEvent ?? ""}
+      data-gameplay-events={snapshot.gameplayEventCount}
+      data-input-held-keys={inputStatus.heldKeyCount}
+      data-input-pointer-active={inputStatus.pointerActive ? "true" : "false"}
+      data-input-pointer-id={inputStatus.activePointerId ?? ""}
+      data-input-pending-pulse={inputStatus.pendingPulse ? "true" : "false"}
+      data-steer-learned={snapshot.steerLearned ? "true" : "false"}
+      data-pulse-learned={snapshot.pulseLearned ? "true" : "false"}
       data-finished={snapshot.finished ? "true" : "false"}
       data-answer-at={snapshot.answerAt === null ? "" : snapshot.answerAt.toFixed(2)}
       data-alien-state={alienState}
@@ -744,10 +815,8 @@ export function GameClient() {
       data-restarts={restartCount}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={(event) => {
-        if (event.pointerType !== "mouse") pointerRef.current.active = false;
-      }}
-      onPointerCancel={() => { pointerRef.current.active = false; }}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       <div ref={gameContentRef} className="game-content">
         <canvas ref={canvasRef} className="world-canvas" aria-label="海から宇宙へ続く手続き生成の世界" />
@@ -805,9 +874,9 @@ export function GameClient() {
 
           {!snapshot.finished && snapshot.time < 171 && (
             <div className="control-hints" aria-hidden="true">
-              <p className={hasMoved ? "is-learned" : ""}>流れへ導く</p>
+              <p className={snapshot.steerLearned ? "is-learned" : ""}>流れへ導く</p>
               <span />
-              <p className={snapshot.pulses > 0 ? "is-learned" : hasMoved ? "is-current" : ""}>光をわたす</p>
+              <p className={snapshot.pulseLearned ? "is-learned" : snapshot.steerLearned ? "is-current" : ""}>光をわたす</p>
             </div>
           )}
 

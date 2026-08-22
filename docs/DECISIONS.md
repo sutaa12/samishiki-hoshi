@@ -404,6 +404,28 @@ must use the same rounded integer-ms clock as WorldPlan validation.
 QX-R3-002 remains review-ready until independent acceptance. Main, Sites,
 human, rights, reference hardware, and contest gates are unchanged.
 
+## D-028 — Pointer identity locks one gesture to either Steer or Pulse
+
+QX-R3-003 routes keyboard, mouse, pen, and touch through one renderer-free
+`InputRouter`. Touch identity is fixed at pointer-down: the left 70% of the
+viewport is Steer-only and the right 30% is a Pulse candidate. A right-zone
+drag cancels instead of changing roles. Mouse down remains a click candidate
+until movement exceeds 14 pixels; it then becomes Steer-only. A click or tap
+must also finish within 350 milliseconds. Pointer hover remains mouse-follow
+Steer outside an active gesture.
+
+Space emits one edge only when `repeat` is false. Settings opening, blur,
+visibility change, pointer cancellation, and restart clear keys, pointer
+ownership, and any unconsumed Pulse. Cooldown attempts still enter the
+simulation and produce its existing feedback event, but cannot create a Seed.
+Control hints become learned only after an actual Gate pass and valid Life Node
+activation, rather than after raw input.
+
+These thresholds and zones are input semantics and therefore feed only the
+fixed-step simulation input. They do not alter story time, renderer quality,
+or deterministic state rules. Main, Sites, human, rights, reference hardware,
+and contest gates remain unchanged.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.
