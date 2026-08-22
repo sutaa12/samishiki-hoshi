@@ -139,8 +139,7 @@ export class InputRouter {
   pointerCancel(pointerId?: number): boolean {
     if (this.#gesture === null) return false;
     if (pointerId !== undefined && this.#gesture.pointerId !== pointerId) return false;
-    this.#gesture = null;
-    this.#pointer.active = false;
+    this.reset();
     return true;
   }
 

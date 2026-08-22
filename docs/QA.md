@@ -189,6 +189,13 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
   `.quality-gates/reviews/qx-r3-003-j1-reject.json`. The remediation uses a
   counted edge queue and adds unit plus real-browser two-edge coverage; it must
   be frozen and independently reviewed as a new candidate before acceptance.
+- Independent K2 then rejected candidate `6ddaea02` with one S1: pointer cancel
+  removed only the pointer gesture while held keys and queued Pulse edges
+  survived. The rejection is preserved in
+  `.quality-gates/reviews/qx-r3-003-k2-reject.json`. The next remediation routes
+  an active pointer cancellation through the complete InputRouter reset and
+  tests pointer, key, and Pulse cleanup together; it also requires a fresh
+  frozen candidate and independent review.
 
 ## Release record
 

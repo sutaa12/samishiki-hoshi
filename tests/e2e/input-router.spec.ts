@@ -94,6 +94,19 @@ test("settings, cancel, blur, and visibility changes cannot leak held input", as
     touchPoints: [{ x: 80, y: 430, id: 23, radiusX: 4, radiusY: 4, force: 1 }],
   });
   await expect(shell).toHaveAttribute("data-input-pointer-active", "true");
+  await page.evaluate(() => {
+    const main = document.querySelector<HTMLElement>("[data-testid='game-shell']");
+    const pointerId = Number(main?.dataset.inputPointerId);
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowRight" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", repeat: false }));
+    main?.dispatchEvent(new PointerEvent("pointercancel", {
+      bubbles: true,
+      pointerId,
+      pointerType: "touch",
+    }));
+  });
+  await expect(shell).toHaveAttribute("data-input-held-keys", "0");
+  await expect(shell).toHaveAttribute("data-input-pending-pulse", "false");
   await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
   await expect(shell).toHaveAttribute("data-input-pointer-active", "false");
   await session.detach();

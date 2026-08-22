@@ -91,11 +91,18 @@ describe("QX-R3-003 InputRouter", () => {
   it("ignores secondary pointers and clears every held route on cancel or reset", () => {
     const router = new InputRouter();
     router.keyDown("KeyA", false);
+    router.keyDown("Space", false);
     router.pointerDown(pointer({ pointerId: 10 }));
     expect(router.pointerDown(pointer({ pointerId: 11, clientX: 850 })).handled).toBe(false);
     expect(router.pointerUp(pointer({ pointerId: 11, clientX: 850, buttons: 0 })).handled).toBe(false);
     expect(router.pointerCancel(10)).toBe(true);
-    expect(router.status()).toMatchObject({ pointerActive: false, activePointerId: null, heldKeyCount: 1 });
+    expect(router.status()).toEqual({
+      pointerActive: false,
+      activePointerId: null,
+      heldKeyCount: 0,
+      pendingPulse: false,
+    });
+    expect(router.consumeFrame()).toMatchObject({ moveX: 0, moveY: 0, pulse: false });
     router.keyDown("Space", false);
     router.reset();
     expect(router.status()).toEqual({
