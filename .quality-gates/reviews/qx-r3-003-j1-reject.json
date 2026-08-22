@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-003",
+  "review_id": "J1",
+  "verdict": "REJECT",
+  "reviewed_at": "2026-08-22T19:13:00+09:00",
+  "reviewed_implementation": "30d9e761848141f70adb9e76618074686ae8b20a",
+  "reviewed_evidence_head": "1ac629885b7471e5804157639898e59cf49273ea",
+  "scores": {
+    "functional_correctness": 2,
+    "route_exclusivity": 4,
+    "reset_isolation": 4,
+    "determinism_accessibility_preservation": 4,
+    "evidence_integrity_regression_risk": 3
+  },
+  "severity_counts": {"S0": 0, "S1": 1, "S2": 0, "S3": 0},
+  "findings": [
+    {
+      "severity": "S1",
+      "title": "Distinct Pulse edges coalesce before the next fixed frame",
+      "detail": "InputRouter stored pending Pulse as a boolean. Two valid non-repeat edges could both report pulseEdge true before consumeFrame, but only one simulation Pulse and no second cooldown feedback were consumed.",
+      "promotion_effect": "Blocks acceptance and QX-R3-004."
+    }
+  ],
+  "independent_checks": {
+    "manifest_entries_checked": 371,
+    "manifest_mismatches": 0,
+    "verify": "passed: typecheck, lint, 40 files / 738 tests, production build",
+    "focused_browser": "3 passed / 3 intentional skips / 0 failed",
+    "build_archive": "hash and 128 entries matched; AppleDouble 0",
+    "graphics_timing": "not attributable to inspected input diff; separate local diagnostic"
+  },
+  "external_gates": {
+    "human": "HUMAN_PENDING",
+    "rights": "HUMAN_PENDING",
+    "hardware": "HARDWARE_PENDING",
+    "main": "PENDING",
+    "sites": "PENDING",
+    "contest": "HUMAN_PENDING"
+  }
+}
