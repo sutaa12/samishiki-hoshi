@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-005",
+  "candidate_id": "N9",
+  "status": "review_ready",
+  "recorded_at": "2026-08-23T00:26:53+09:00",
+  "implementation": {
+    "branch": "codex/qx-r3-005-rail-camera-phase-blend",
+    "base_commit": "038d809ff1df265df2747e95faf1f725560ea21b",
+    "commit": "45244df6d22d98f90e3c298552b9e5e30a2f6435",
+    "tree": "eb528d5c41aee1c3f4eb5819029f0e3f5d6c99ae",
+    "all_tracked_file_manifest": ".quality-gates/qx-r3-005-45244df-all-tracked-files.sha256",
+    "all_tracked_file_count": 418,
+    "manifest_sha256": "2870cdc90250c0a150c9f710f70b8c78d9544c79a1696e7269b474b0d4b02825"
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "archive": ".quality-gates/qx-r3-005-45244df-dist.tar",
+    "archive_sha256": "3a84bdc099802192e5847386757a19b3fbbd509fcde5517375e3a4c92c5c45d4",
+    "archive_bytes": 8206848,
+    "archive_entries": 128,
+    "apple_double_entries": 0,
+    "bundle_warning": "One or more minified chunks exceed 500 kB; reference-hardware acceptance remains separate."
+  },
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": {"files_passed": 43, "tests_passed": 776, "failed": 0},
+    "phase_audio_lifecycle": {"files_passed": 1, "tests_passed": 22, "failed": 0},
+    "production_build": "passed",
+    "relevant_browser": {
+      "report": ".quality-gates/qx-r3-005-playwright-n9-final.json",
+      "sha256": "68156e13d5abfaa8360b7458949e59fd4a36e3f34ecff7f265f4d7e613115c90",
+      "expected": 17,
+      "skipped_by_project": 15,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "boundary_120_frames": {
+      "actual_canvas_frames": 120,
+      "black_frames": 0,
+      "monochrome_frames": 0,
+      "still_frame_ratio": 0,
+      "read_errors": 0,
+      "runtime_compile_delta": 0,
+      "backend_program_delta": 0,
+      "max_camera_jump_scene_units": 0.006863,
+      "minimum_quantized_color_bins": 21,
+      "minimum_normalized_luminance_stddev": 0.048251050081675385,
+      "minimum_changed_pixel_ratio": 0.0028211805555555555,
+      "current_chunk_missing": 0,
+      "camera_chunk_missing": 0,
+      "next_chunk_missing": 0,
+      "phase_progress": 0.139052,
+      "local_transition_mix": 0.695259,
+      "exposure_parameter": 1.098261,
+      "exposure_applied": 1.098261,
+      "material_parameter": 0.37236,
+      "material_applied": 0.37236,
+      "particle_parameter": 0.612112,
+      "particle_applied": 0.610948,
+      "audio_layer_parameter": 0.251677,
+      "audio_layer_applied": 0.252957
+    },
+    "density": {
+      "sampling": "QA-only first snapshot at the unchanged 120-frame minimum; raw live cumulative telemetry remains separately exposed.",
+      "cumulative_draw_call_ceiling": 600,
+      "observed_cumulative_draw_calls_max": 449,
+      "draw_calls_per_sample_ceiling": 5,
+      "observed_draw_calls_per_sample_max": 3.7417,
+      "frame_samples": 120,
+      "maximum_p95_ms": 10.3
+    },
+    "pre_latch_diagnostics": {
+      "first_full_report": ".quality-gates/qx-r3-005-playwright-n9.json",
+      "first_full_report_sha256": "56c0d13518dad0f067e96b79c2d54482c5978a4ab4e43743bc428e88cc74352c",
+      "first_full_result": "15 expected / 15 project skips / 2 unexpected; incidental 154-189 frame sampling exceeded the unchanged cumulative 600 ceiling by 5 and 8 while normalized values remained <= 3.52.",
+      "second_full_report": ".quality-gates/qx-r3-005-playwright-n9-accepted.json",
+      "second_full_report_sha256": "dcdf2a407e3404099f2d9a451d75af2084b6427f193b9ae26fccda3e23996a4a",
+      "second_full_result": "16 expected / 15 project skips / 1 unexpected; incidental mobile LIFE sampling exceeded 600 by 5.",
+      "isolated_density_report": ".quality-gates/qx-r3-005-playwright-n9-density-rerun.json",
+      "isolated_density_report_sha256": "77c30f571a97c0a940566ea7d5b207f5e173c94867b010137013fe6ff9636a7c",
+      "isolated_density_result": "2 expected / 0 unexpected; confirmed timing-dependent observation rather than a render or audio regression.",
+      "resolution": "No ceiling was weakened. The QA density evidence now latches the first renderer sample at the predeclared 120-frame minimum and preserves raw live metrics in their original attributes."
+    }
+  },
+  "n8_remediation": {
+    "rejected_review": ".quality-gates/reviews/qx-r3-005-n8-reject.json",
+    "local_ownership_until_publish": true,
+    "construction_checkpoints": 16,
+    "reverse_stop_disconnect_close": true,
+    "cleanup_failure_aggregation": true,
+    "idempotent_dispose_promise": true,
+    "second_oscillator_start_failure_injected": true,
+    "byte_frozen_audio_core_sha256": "c86f1881832ea45a025f9c580afdc5396a53f9e199afab061dfaf3c0f6a7f57f"
+  },
+  "dependency_audit": {
+    "report": ".quality-gates/qx-r3-004-npm-audit.json",
+    "sha256": "60dca32ceb1ccc97726399ea4da334e8e25bcc45584cabc504399f6d511da9c4",
+    "dependency_lock_changed": false,
+    "low": 2,
+    "high": 15,
+    "critical": 0,
+    "action": "Inherited and reported separately; no automatic npm audit fix or dependency rewrite."
+  },
+  "separate_gates": {
+    "independent_review": "PENDING_N9",
+    "qx_r3_006": "BLOCKED_UNTIL_QX_R3_005_REVIEW",
+    "main_integration": "PENDING",
+    "public_deployment_of_this_source": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  },
+  "rollback": {
+    "branch_base": "038d809ff1df265df2747e95faf1f725560ea21b",
+    "condition": "Any open S0/S1/S2, lifecycle leak, cleanup failure masking, deterministic or hash drift, unconsumed phase channel, discontinuous progress, camera teleport, missing phase overlap, runtime compile or backend program growth, black or monochrome boundary frame, unchanged draw ceiling regression, chunk residency gap, or failed production/rail browser gate blocks QX-R3-006."
+  }
+}

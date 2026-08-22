@@ -1,0 +1,1618 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.6.0/bin/node",
+      "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/node_modules/.bin/playwright",
+      "test",
+      "--reporter=json",
+      "tests/e2e/journey.spec.ts",
+      "tests/e2e/production-v2.spec.ts",
+      "tests/e2e/rail-camera-phase-continuity.spec.ts",
+      "tests/e2e/rail-flight.spec.ts"
+    ],
+    "configFile": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/playwright.config.ts",
+    "rootDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop-chromium",
+        "name": "desktop-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 43195",
+      "url": "http://localhost:43195",
+      "reuseExistingServer": false,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "journey.spec.ts",
+      "file": "journey.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "desktop steering, pulse, settings, and human motif checkpoint",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5277,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:12:22.381Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-5bf6292c2183824cca08",
+          "file": "journey.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "Notion-reference phase gallery renders every natural-to-space transition",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12579,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:12:27.784Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-f882fffa6707fb9ab21a",
+          "file": "journey.spec.ts",
+          "line": 59,
+          "column": 1
+        },
+        {
+          "title": "all six phases keep visual density inside automated safety ceilings",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 150000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 42516,
+                  "error": {
+                    "message": "Error: desktop-chromium/low/TWINKLE cumulative connection draw calls\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m600\u001b[39m\nReceived:    \u001b[31m605\u001b[39m",
+                    "stack": "Error: desktop-chromium/low/TWINKLE cumulative connection draw calls\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m600\u001b[39m\nReceived:    \u001b[31m605\u001b[39m\n    at /Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts:146:9",
+                    "location": {
+                      "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                      "column": 9,
+                      "line": 146
+                    },
+                    "snippet": "  144 |         drawCalls,\n  145 |         `${sampleLabel} cumulative connection draw calls`,\n> 146 |       ).toBeLessThanOrEqual(productionConnectionCumulativeDrawCallsCeiling);\n      |         ^\n  147 |       expect.soft(\n  148 |         drawCallsPerSample,\n  149 |         `${sampleLabel} connection draw calls per sampled frame`,"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                        "column": 9,
+                        "line": 146
+                      },
+                      "message": "Error: desktop-chromium/low/TWINKLE cumulative connection draw calls\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m600\u001b[39m\nReceived:    \u001b[31m605\u001b[39m\n\n  144 |         drawCalls,\n  145 |         `${sampleLabel} cumulative connection draw calls`,\n> 146 |       ).toBeLessThanOrEqual(productionConnectionCumulativeDrawCallsCeiling);\n      |         ^\n  147 |       expect.soft(\n  148 |         drawCallsPerSample,\n  149 |         `${sampleLabel} connection draw calls per sampled frame`,\n    at /Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts:146:9"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:12:40.369Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "visual-performance-samples",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNTUxLAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDMuNTc3OTIyMDc3OTIyMDc3NywKICAgICJ0cmlhbmdsZXMiOiAxNTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU0LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJFQVJUSCIsCiAgICAiZHJhd0NhbGxzIjogNDcwLAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDMuNzAwNzg3NDAxNTc0ODAzMiwKICAgICJ0cmlhbmdsZXMiOiAxNDYsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTI3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJBU0NFTlQiLAogICAgImRyYXdDYWxscyI6IDQ3MCwKICAgICJkcmF3Q2FsbHNQZXJTYW1wbGUiOiAzLjMwOTg1OTE1NDkyOTU3NzUsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQyLAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNDcwLAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDMuNzAwNzg3NDAxNTc0ODAzMiwKICAgICJ0cmlhbmdsZXMiOiA3NCwKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxMjcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkFOU1dFUiIsCiAgICAiZHJhd0NhbGxzIjogNDcwLAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDMuNzAwNzg3NDAxNTc0ODAzMiwKICAgICJ0cmlhbmdsZXMiOiA1MCwKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxMjcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIlRXSU5LTEUiLAogICAgImRyYXdDYWxscyI6IDYwNSwKICAgICJkcmF3Q2FsbHNQZXJTYW1wbGUiOiAzLjIwMTA1ODIwMTA1ODIwMSwKICAgICJ0cmlhbmdsZXMiOiAzOCwKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxODksCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJMSUZFIiwKICAgICJkcmF3Q2FsbHMiOiAzMzQsCiAgICAiZHJhd0NhbGxzUGVyU2FtcGxlIjogMi42Mjk5MjEyNTk4NDI1MiwKICAgICJ0cmlhbmdsZXMiOiAxNTcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTI3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiRUFSVEgiLAogICAgImRyYXdDYWxscyI6IDMzNCwKICAgICJkcmF3Q2FsbHNQZXJTYW1wbGUiOiAyLjYyOTkyMTI1OTg0MjUyLAogICAgInRyaWFuZ2xlcyI6IDE0NSwKICAgICJwOTVGcmFtZU1zIjogOS45LAogICAgImZyYW1lU2FtcGxlcyI6IDEyNywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIkFTQ0VOVCIsCiAgICAiZHJhd0NhbGxzIjogMzM0LAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDIuNjI5OTIxMjU5ODQyNTIsCiAgICAidHJpYW5nbGVzIjogOTcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTI3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiU09MSVRVREUiLAogICAgImRyYXdDYWxscyI6IDMzNCwKICAgICJkcmF3Q2FsbHNQZXJTYW1wbGUiOiAyLjYyOTkyMTI1OTg0MjUyLAogICAgInRyaWFuZ2xlcyI6IDczLAogICAgInA5NUZyYW1lTXMiOiAxMC4xLAogICAgImZyYW1lU2FtcGxlcyI6IDEyNywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIkFOU1dFUiIsCiAgICAiZHJhd0NhbGxzIjogMzM0LAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDIuNjI5OTIxMjU5ODQyNTIsCiAgICAidHJpYW5nbGVzIjogNDksCiAgICAicDk1RnJhbWVNcyI6IDEwLAogICAgImZyYW1lU2FtcGxlcyI6IDEyNywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIlRXSU5LTEUiLAogICAgImRyYXdDYWxscyI6IDMzNCwKICAgICJkcmF3Q2FsbHNQZXJTYW1wbGUiOiAyLjU4OTE0NzI4NjgyMTcwNTYsCiAgICAidHJpYW5nbGVzIjogMzcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTI5LAogICAgIndhcm11cE1zIjogMAogIH0KXQ=="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/.quality-gates/playwright-output/journey-all-six-phases-kee-8bcf2-e-automated-safety-ceilings-desktop-chromium/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/.quality-gates/playwright-output/journey-all-six-phases-kee-8bcf2-e-automated-safety-ceilings-desktop-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/.quality-gates/playwright-output/journey-all-six-phases-kee-8bcf2-e-automated-safety-ceilings-desktop-chromium/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                    "column": 9,
+                    "line": 146
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-be0b0165e24b71c43ddb",
+          "file": "journey.spec.ts",
+          "line": 81,
+          "column": 1
+        },
+        {
+          "title": "S20 keeps the unknown craft as a peripheral silhouette",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3275,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:24.046Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-a3a2197e1dc467521815",
+          "file": "journey.spec.ts",
+          "line": 167,
+          "column": 1
+        },
+        {
+          "title": "final journey checkpoint reaches the exact title without an automatic answer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4570,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:27.454Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-48311fb6a381150d90ce",
+          "file": "journey.spec.ts",
+          "line": 182,
+          "column": 1
+        },
+        {
+          "title": "mobile touch, settings, and alien response remain usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "mobile acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                    "line": 205,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 67,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:32.030Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "mobile acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                        "line": 205,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-9fbacc123c6cf48fc6d9",
+          "file": "journey.spec.ts",
+          "line": 204,
+          "column": 1
+        },
+        {
+          "title": "compact 320 by 568 ending keeps two title lines and 44px actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4497,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:32.103Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-98cdcefa29195fefd1b4",
+          "file": "journey.spec.ts",
+          "line": 246,
+          "column": 1
+        },
+        {
+          "title": "desktop steering, pulse, settings, and human motif checkpoint",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                    "line": 22,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 146,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:17.933Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                        "line": 22,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-d46231169c26bf5074e6",
+          "file": "journey.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "Notion-reference phase gallery renders every natural-to-space transition",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop visual acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                    "line": 60,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 95,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:18.206Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop visual acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                        "line": 60,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-17fe42eb3e18ca81134a",
+          "file": "journey.spec.ts",
+          "line": 59,
+          "column": 1
+        },
+        {
+          "title": "all six phases keep visual density inside automated safety ceilings",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 21654,
+                  "error": {
+                    "message": "Error: mobile-chromium/low/LIFE cumulative connection draw calls\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m600\u001b[39m\nReceived:    \u001b[31m608\u001b[39m",
+                    "stack": "Error: mobile-chromium/low/LIFE cumulative connection draw calls\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m600\u001b[39m\nReceived:    \u001b[31m608\u001b[39m\n    at /Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts:146:9",
+                    "location": {
+                      "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                      "column": 9,
+                      "line": 146
+                    },
+                    "snippet": "  144 |         drawCalls,\n  145 |         `${sampleLabel} cumulative connection draw calls`,\n> 146 |       ).toBeLessThanOrEqual(productionConnectionCumulativeDrawCallsCeiling);\n      |         ^\n  147 |       expect.soft(\n  148 |         drawCallsPerSample,\n  149 |         `${sampleLabel} connection draw calls per sampled frame`,"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                        "column": 9,
+                        "line": 146
+                      },
+                      "message": "Error: mobile-chromium/low/LIFE cumulative connection draw calls\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m600\u001b[39m\nReceived:    \u001b[31m608\u001b[39m\n\n  144 |         drawCalls,\n  145 |         `${sampleLabel} cumulative connection draw calls`,\n> 146 |       ).toBeLessThanOrEqual(productionConnectionCumulativeDrawCallsCeiling);\n      |         ^\n  147 |       expect.soft(\n  148 |         drawCallsPerSample,\n  149 |         `${sampleLabel} connection draw calls per sampled frame`,\n    at /Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts:146:9"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:18.309Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "visual-performance-samples",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNjA4LAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDMuNTE0NDUwODY3MDUyMDIzLAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxNzMsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA0NzAsCiAgICAiZHJhd0NhbGxzUGVyU2FtcGxlIjogMy43MDA3ODc0MDE1NzQ4MDMyLAogICAgInRyaWFuZ2xlcyI6IDE0NiwKICAgICJwOTVGcmFtZU1zIjogMTAsCiAgICAiZnJhbWVTYW1wbGVzIjogMTI3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJBU0NFTlQiLAogICAgImRyYXdDYWxscyI6IDQ3MCwKICAgICJkcmF3Q2FsbHNQZXJTYW1wbGUiOiAzLjcwMDc4NzQwMTU3NDgwMzIsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTI3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNDcwLAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDMuNzAwNzg3NDAxNTc0ODAzMiwKICAgICJ0cmlhbmdsZXMiOiA3NCwKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxMjcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkFOU1dFUiIsCiAgICAiZHJhd0NhbGxzIjogNDcwLAogICAgImRyYXdDYWxsc1BlclNhbXBsZSI6IDMuNzAwNzg3NDAxNTc0ODAzMiwKICAgICJ0cmlhbmdsZXMiOiA1MCwKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxMjcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIlRXSU5LTEUiLAogICAgImRyYXdDYWxscyI6IDQ3MCwKICAgICJkcmF3Q2FsbHNQZXJTYW1wbGUiOiAzLjY0MzQxMDg1MjcxMzE3OCwKICAgICJ0cmlhbmdsZXMiOiAzOCwKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxMjksCiAgICAid2FybXVwTXMiOiAwCiAgfQpd"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/.quality-gates/playwright-output/journey-all-six-phases-kee-8bcf2-e-automated-safety-ceilings-mobile-chromium/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/.quality-gates/playwright-output/journey-all-six-phases-kee-8bcf2-e-automated-safety-ceilings-mobile-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/.quality-gates/playwright-output/journey-all-six-phases-kee-8bcf2-e-automated-safety-ceilings-mobile-chromium/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                    "column": 9,
+                    "line": 146
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-6f819a1a968cdc30f7f1",
+          "file": "journey.spec.ts",
+          "line": 81,
+          "column": 1
+        },
+        {
+          "title": "S20 keeps the unknown craft as a peripheral silhouette",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop timeline acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                    "line": 168,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 142,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:40.729Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop timeline acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                        "line": 168,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-ba42578727e65281da20",
+          "file": "journey.spec.ts",
+          "line": 167,
+          "column": 1
+        },
+        {
+          "title": "final journey checkpoint reaches the exact title without an automatic answer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                    "line": 183,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 86,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:41.004Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                        "line": 183,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-077d749cbbd2ef5670ec",
+          "file": "journey.spec.ts",
+          "line": 182,
+          "column": 1
+        },
+        {
+          "title": "mobile touch, settings, and alien response remain usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3777,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:41.097Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-5c5df9cb0e273071334c",
+          "file": "journey.spec.ts",
+          "line": 204,
+          "column": 1
+        },
+        {
+          "title": "compact 320 by 568 ending keeps two title lines and 44px actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "compact acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                    "line": 247,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 90,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:44.881Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "compact acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/journey.spec.ts",
+                        "line": 247,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bf222bad70f76648f722-b1f202858cad4753eb5b",
+          "file": "journey.spec.ts",
+          "line": 246,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "production-v2.spec.ts",
+      "file": "production-v2.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "public root uses the forced WebGL2 v2 runtime and latches live game state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3533,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:36.612Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-62f130e6dd54d6d7aa10",
+          "file": "production-v2.spec.ts",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "public root latches the real answer state into the production renderer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2850,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:40.151Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-e51f01f6fc405b09a255",
+          "file": "production-v2.spec.ts",
+          "line": 105,
+          "column": 1
+        },
+        {
+          "title": "public root prefers actual host-Metal WebGPU without changing the checkpoint hash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2754,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:43.006Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-b86b4d7769a0c3b7f1c8",
+          "file": "production-v2.spec.ts",
+          "line": 125,
+          "column": 1
+        },
+        {
+          "title": "ten same-star restarts keep the production renderer ownership plateau",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3799,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:45.765Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "qx-r3-001-ten-restart-plateau",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJjeWNsZSI6IDEsCiAgICAicHJvZ3JhbXMiOiAzNywKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiAyLAogICAgInByb2dyYW1zIjogMzcsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogMywKICAgICJwcm9ncmFtcyI6IDM3LAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDQsCiAgICAicHJvZ3JhbXMiOiAzNywKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiA1LAogICAgInByb2dyYW1zIjogMzcsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogNiwKICAgICJwcm9ncmFtcyI6IDM3LAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDcsCiAgICAicHJvZ3JhbXMiOiAzNywKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiA4LAogICAgInByb2dyYW1zIjogMzcsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogOSwKICAgICJwcm9ncmFtcyI6IDM3LAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDEwLAogICAgInByb2dyYW1zIjogMzcsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0KXQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-b38537f34e820b278165",
+          "file": "production-v2.spec.ts",
+          "line": 146,
+          "column": 1
+        },
+        {
+          "title": "public root uses the forced WebGL2 v2 runtime and latches live game state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop production integration gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/production-v2.spec.ts",
+                    "line": 60,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:44.982Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop production integration gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/production-v2.spec.ts",
+                        "line": 60,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-1ba0157972d01f2562f9",
+          "file": "production-v2.spec.ts",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "public root latches the real answer state into the production renderer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop answer-state gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/production-v2.spec.ts",
+                    "line": 107,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:44.987Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop answer-state gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/production-v2.spec.ts",
+                        "line": 107,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-321ecca9f6cda23141cd",
+          "file": "production-v2.spec.ts",
+          "line": 105,
+          "column": 1
+        },
+        {
+          "title": "public root prefers actual host-Metal WebGPU without changing the checkpoint hash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop WebGPU production gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/production-v2.spec.ts",
+                    "line": 127,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:44.991Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop WebGPU production gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/production-v2.spec.ts",
+                        "line": 127,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-86c9d2c2433c8e7cd89d",
+          "file": "production-v2.spec.ts",
+          "line": 125,
+          "column": 1
+        },
+        {
+          "title": "ten same-star restarts keep the production renderer ownership plateau",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop restart gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/production-v2.spec.ts",
+                    "line": 148,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:44.995Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop restart gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/production-v2.spec.ts",
+                        "line": 148,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-1c8ee9f968b3ecc0a95f",
+          "file": "production-v2.spec.ts",
+          "line": 146,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "rail-camera-phase-continuity.spec.ts",
+      "file": "rail-camera-phase-continuity.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "QX-R3-005 LIFE to EARTH keeps 120 actual WebGL2 frames continuous",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10470,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:13:49.576Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "qx-r3-005-life-earth-120-frame-trace",
+                      "contentType": "application/json",
+                      "body": "ewogICJ0aHJlc2hvbGRzIjogewogICAgImJsYWNrTWVhbkx1bWluYW5jZSI6IDIuNTUwMDAwMDAwMDAwMDAwMywKICAgICJtb25vY2hyb21lTWluUXVhbnRpemVkQ29sb3JCaW5zIjogMTYsCiAgICAibW9ub2Nocm9tZU1pbkx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjAwNSwKICAgICJzdGlsbE1pbkNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDEsCiAgICAicGl4ZWxDaGFubmVsQ2hhbmdlVGhyZXNob2xkIjogMiwKICAgICJtYXhTdGlsbEZyYW1lUmF0aW8iOiAwLjA1LAogICAgIm1heENhbWVyYUp1bXBTY2VuZVVuaXRzIjogMC4yNSwKICAgICJtYXhCYWNrZW5kUHJvZ3JhbURlbHRhIjogMAogIH0sCiAgInBpeGVsVHJhY2UiOiB7CiAgICAiZnJhbWVzIjogMTIwLAogICAgIndpZHRoIjogMTI4LAogICAgImhlaWdodCI6IDcyLAogICAgImJsYWNrRnJhbWVzIjogMCwKICAgICJtb25vY2hyb21lRnJhbWVzIjogMCwKICAgICJzdGlsbEZyYW1lcyI6IDAsCiAgICAic3RpbGxGcmFtZVJhdGlvIjogMCwKICAgICJyZWFkRXJyb3JzIjogW10sCiAgICAic2FtcGxlcyI6IFsKICAgICAgewogICAgICAgICJmcmFtZSI6IDEsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjAxNjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDkyLjI3Njk2ODk4ODcwMTkxLAogICAgICAgICJtZWFuQ2hyb21hIjogOTYuMTUyMTI2NzM2MTExMTEsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDM0LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDgyNTEwNTAwODE2NzUzODUsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogbnVsbCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiBudWxsCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAyLAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4wMzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5Mi40NjYyMjAzMTI0ODMyNCwKICAgICAgICAibWVhbkNocm9tYSI6IDk1LjI4MDI3MzQzNzUsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDM0LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDgzODcwOTQxNDU5ODc4OTQsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNjMzMTc0MTg5ODE0ODE0NSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTA5OTgyNjM4ODg4ODg4OQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMywKICAgICAgICAic3RvcnlUaW1lIjogMzUuMDUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5My4xMTYwNzc1MTczNzI5OSwKICAgICAgICAibWVhbkNocm9tYSI6IDk1LjMwMTk3NDgyNjM4ODg5LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzMCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDQ4ODg3NjQ4MDA0NjY4NDUsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNTc2MDI3MTk5MDc0MDc0LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0NTU3MjkxNjY2NjY2NjY3CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA0LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4wNjY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5My4xMTAzNzgyOTg2MjMsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA5NS4zMjc0NzM5NTgzMzMzMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzQsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA0ODg4NTI3MDk1NjUyNzQ1NiwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA2MzgwMjA4MzMzMzMzMzMzLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1MDk5ODI2Mzg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA1LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4wODMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5My4yOTIyMDMyOTg2MTk2MywKICAgICAgICAibWVhbkNocm9tYSI6IDk0LjQ1ODg3NTg2ODA1NTU2LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzMywKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDQ5MDc4NzMyNzA1MDAyMTIsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNjM4OTYxMjI2ODUxODUyLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0NDQ4Nzg0NzIyMjIyMjIyCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA2LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4xLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTMuMjc5MDM2NTY2ODQ4NzIsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA5NC40OTQwMzIxMTgwNTU1NiwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzMsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA0OTExMTI0MzM5NTc0NDkxLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDY0NTI1NDYyOTYyOTYyOTcsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU0MjUzNDcyMjIyMjIyMjIKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDcsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjExNjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDkzLjI2NzMzMzg3NTg3NjQ2LAogICAgICAgICJtZWFuQ2hyb21hIjogOTQuNTI1MDY1MTA0MTY2NjcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMyLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDkxNDE4NTM5Njk1OTcwNTUsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNTQ3NTk4Mzc5NjI5NjI5NjUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDUzMTY4NDAyNzc3Nzc3NzgKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDgsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjEzMzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDkzLjI1NTYzNTA5MTE1NDIyLAogICAgICAgICJtZWFuQ2hyb21hIjogOTQuNTUwODg5NzU2OTQ0NDQsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDM0LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDkxNTg5Njc5MjM3NzYwNCwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA1MDIzODcxNTI3Nzc3Nzc3NiwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDEyMzI2Mzg4ODg4ODg4OQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogOSwKICAgICAgICAic3RvcnlUaW1lIjogMzUuMTUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5My4zNzY0MjM5NTgzNDQwNiwKICAgICAgICAibWVhbkNocm9tYSI6IDkyLjc5Nzg1MTU2MjUsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDM0LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDkyNDE4NjA5MDY2NzgxMDYsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC42NTU4MTU5NzIyMjIyMjIyLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDAzNTgwNzI5MTY2NjY2NjY2NQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTAsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjE2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDkzLjM2MzYxNTcxMTgxNjA4LAogICAgICAgICJtZWFuQ2hyb21hIjogOTIuODM2Njk3MDQ4NjExMTEsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDM1LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDkyMTE4NTE1MTQ4MzQxLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDY0NzQyNDc2ODUxODUxODUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ3NzQzMDU1NTU1NTU1NTYKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDExLAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4xODMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5My4zNTg3MTg4MzY4MTYwOCwKICAgICAgICAibWVhbkNocm9tYSI6IDkyLjg2OTI0OTEzMTk0NDQ0LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzNCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDQ5MjA4Mzg1ODc3MzY2NjIsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNjE1MjM0Mzc1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0ODgyODEyNQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTIsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjIsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5My45OTc3NjkyOTI1NDc3OSwKICAgICAgICAibWVhbkNocm9tYSI6IDkyLjg5NTUwNzgxMjUsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMzLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDk4MTM2Njg1NTA1NDQzNiwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjM1NjM3Mjk3NDUzNzAzNzAzLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MzQwMjc3Nzc3Nzc3Nzc4CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMywKICAgICAgICAic3RvcnlUaW1lIjogMzUuMjE2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTQuMTc3MzEyMTk2MTczNCwKICAgICAgICAibWVhbkNocm9tYSI6IDkyLjAzNzU0MzQwMjc3Nzc3LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzMiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUwMDA5ODIzNjI2OTM3MTIsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNTM2MjQxMzE5NDQ0NDQ0LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDAzOTA2MjUKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDE0LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4yMzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5NC4xNjk3NDM5NDUzMDU0NiwKICAgICAgICAibWVhbkNocm9tYSI6IDkyLjA3ODY2NzUzNDcyMjIzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzMiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDQ5OTY3MDE2MjU0NTkzMTU1LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDYwNTEwNzA2MDE4NTE4NTIsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDUwOTk4MjYzODg4ODg4ODkKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDE1LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4yNSwKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk0LjE1NjAwMTI1ODY3MzQzLAogICAgICAgICJtZWFuQ2hyb21hIjogOTIuMTEwODk0MDk3MjIyMjMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMzLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDk5ODM2MDA0MTIxNzQ2MSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA1NzE4MzE1OTcyMjIyMjIyNCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDIzMTc3MDgzMzMzMzMzMwogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTYsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjI2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk0LjE1MjYzOTk3Mzk1MDk1LAogICAgICAgICJtZWFuQ2hyb21hIjogOTIuMTI0NTY1OTcyMjIyMjMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMzLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNDk5NTgwOTQwODI5MDM5MSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA1NzcyNTY5NDQ0NDQ0NDQ1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MjMxNzcwODMzMzMzMzMzCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxNywKICAgICAgICAic3RvcnlUaW1lIjogMzUuMjgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTQuMzUyMzM1Nzg1NTc4OTQsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA5MS4yNjkwOTcyMjIyMjIyMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzQsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA0OTkyNDQyNzgwNTAwNDE2LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzc5NDg0OTUzNzAzNzAzNywKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNjI5MzQwMjc3Nzc3Nzc3OAogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTgsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5NC4zNDAwNzEwOTM3Mzg2NywKICAgICAgICAibWVhbkNocm9tYSI6IDkxLjMwMzgxOTQ0NDQ0NDQ0LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzNSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDQ5ODg1NzUxODUxOTEyMjM0LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDYzMTg3MjEwNjQ4MTQ4MTUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDUwOTk4MjYzODg4ODg4ODkKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDE5LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4zMTY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5NC4zNDM0MjAyNjkwODU5LAogICAgICAgICJtZWFuQ2hyb21hIjogOTEuMzM2OTE0MDYyNSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzIsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA0OTgwMzI1OTUxMDA4Njg3LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDgzNDc4MDA5MjU5MjU5MjYsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDYwNzYzODg4ODg4ODg4ODkKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDIwLAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4zMzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5NC4zNDI5OTIyMDkxOTAxMywKICAgICAgICAibWVhbkNocm9tYSI6IDkxLjM1NTU3NzI1Njk0NDQ0LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzNywKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDQ5NzU3NTIxNDY2NzEwNTEsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNjU4OTk4ODQyNTkyNTkyNiwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTk2Nzg4MTk0NDQ0NDQ0NAogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMjEsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjM1LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTQuNTMyODY5ODU2Nzg0NDIsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA5MC40NzgxOTAxMDQxNjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzYsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA0OTg1NzI0NjU5NzQ2MjU3LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzY5Mjg1MzAwOTI1OTI1OTMsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ1NTcyOTE2NjY2NjY2NjcKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDIyLAogICAgICAgICJzdG9yeVRpbWUiOiAzNS4zNjY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5NS4xNTg2NDUxNjA2MDUxLAogICAgICAgICJtZWFuQ2hyb21hIjogOTAuNTAyMjc4NjQ1ODMzMzMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDM2LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTA1NTM2ODQ5MDEzNDExNSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjM2MTM2NDI5Mzk4MTQ4MTQ1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1NDI1MzQ3MjIyMjIyMjIyCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAyMywKICAgICAgICAic3RvcnlUaW1lIjogMzUuMzgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTUuMTM0MTIxNzY2NTA3ODcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA5MC41MzA4MTU5NzIyMjIyMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzUsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MDY0MTg4MjM4MTk4Mjg2LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDY2MTE2ODk4MTQ4MTQ4MTUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU0MjUzNDcyMjIyMjIyMjIKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDI0LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS40LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTUuMTE5NDE5Mzc5MzU1MDcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA5MC41NTc0MDAxNzM2MTExMSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzcsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MDY4OTM5OTYzOTkxOTIzLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDY1MjQ4ODQyNTkyNTkyNTksCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDUzMTY4NDAyNzc3Nzc3NzgKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDI1LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS40MTY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5NS4zMDE1MTk1OTYzNDg2NywKICAgICAgICAibWVhbkNocm9tYSI6IDg5LjY5MTk0ODc4NDcyMjIzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzNSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUwODQxODM0MDc1Njk4MjMsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNzIxNDI2NTA0NjI5NjI5NywKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTc1MDg2ODA1NTU1NTU1NgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMjYsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjQzMzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk1LjI5NDkyNDE3NTM0MTYyLAogICAgICAgICJtZWFuQ2hyb21hIjogODkuNzA5MzA5ODk1ODMzMzMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMzLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTA3NzU0NjQwNzA3MjE2NjQsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNzAxNjc4MjQwNzQwNzQwNywKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTY0MjM2MTExMTExMTExMQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMjcsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjQ1LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTUuMjE2Njk2MjIzOTc5NjIsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4OC44Mzc5OTkxMzE5NDQ0NCwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzMsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MDcxMTIyMzAyMDc2NTExLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzcyNzkzNjkyMTI5NjI5NjUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU0MjUzNDcyMjIyMjIyMjIKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDI4LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS40NjY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5NS4yMDMxODczMDQ3MDg4MywKICAgICAgICAibWVhbkNocm9tYSI6IDg4Ljg2NDU4MzMzMzMzMzMzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzNSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUwNjg5ODI3MzE4MzA2NCwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA2ODcyMTA2NDgxNDgxNDgxLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1NjQyMzYxMTExMTExMTExCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAyOSwKICAgICAgICAic3RvcnlUaW1lIjogMzUuNDgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTUuMzgyNzI1NjA3NjU2MTQsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4Ny45OTAxMjU4NjgwNTU1NiwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzIsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MDg4MjM0MTMzODIwOTYxLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzcxODE3MTI5NjI5NjI5NjUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU3NTA4NjgwNTU1NTU1NTYKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDMwLAogICAgICAgICJzdG9yeVRpbWUiOiAzNS41LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTUuMzYyMzczMDY4NTkzNiwKICAgICAgICAibWVhbkNocm9tYSI6IDg4LjAxNDEwNTkwMjc3Nzc3LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzMiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUwOTU1MDY3NjE5MTU4MDIsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNjY5ODQ5NTM3MDM3MDM3LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1OTY3ODgxOTQ0NDQ0NDQ0CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAzMSwKICAgICAgICAic3RvcnlUaW1lIjogMzUuNTE2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTUuOTkxNzY4NDQ2MTgzMjcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4OC4wMjEwNTAzNDcyMjIyMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzIsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MTY4OTMwOTc4MjEwMDAxLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzY5NTM4NDgzNzk2Mjk2MywKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTQyNTM0NzIyMjIyMjIyMgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMzIsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjUzMzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk1Ljk3NzA5MjI5NjAwOTY0LAogICAgICAgICJtZWFuQ2hyb21hIjogODguMDU1MTIxNTI3Nzc3NzcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMyLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTE2NjAyNzc1MDc2MDQwOCwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA2OTkxNDY0MTIwMzcwMzcsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU3NTA4NjgwNTU1NTU1NTYKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDMzLAogICAgICAgICJzdG9yeVRpbWUiOiAzNS41NSwKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk2LjE1MzU4OTczNTIyNTQ0LAogICAgICAgICJtZWFuQ2hyb21hIjogODcuMTgzNzAyMjU2OTQ0NDQsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMwLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTE4NDg1MTc3MTk3NzA5NywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjM2NTA4OTY5OTA3NDA3NDA3LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1MDk5ODI2Mzg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAzNCwKICAgICAgICAic3RvcnlUaW1lIjogMzUuNTY2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTYuMTM5MDEwNDE2NjQ5MDYsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4Ny4yMTExNTQ1MTM4ODg4OSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzAsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MTgzOTg4MTY3MDAzMjgxLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDY5OTE0NjQxMjAzNzAzNywKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTQyNTM0NzIyMjIyMjIyMgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMzUsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjU4MzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk2LjEyNDU3NTk5ODI0NjI5LAogICAgICAgICJtZWFuQ2hyb21hIjogODcuMjM2MDAyNjA0MTY2NjcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMxLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTE4NjM3MzM1NDYxMDQ1OTQsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNjMxODcyMTA2NDgxNDgxNSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTUzMzg1NDE2NjY2NjY2NwogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMzYsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjYsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5Ni4xMjM3MzU3ODU1NzI5OCwKICAgICAgICAibWVhbkNocm9tYSI6IDg3LjI1NTMxNjg0MDI3Nzc3LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyOSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUxNzM5MTM1NzM2Mjg1NzYsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNzAwNTkzMTcxMjk2Mjk2NCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTIwODMzMzMzMzMzMzMzMwogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMzcsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjYxNjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk2LjExMjAwMjA4MzMxNjAxLAogICAgICAgICJtZWFuQ2hyb21hIjogODcuMjk2NTQ5NDc5MTY2NjcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMwLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTE3MjgzODk5NzgwMTU5MywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA2ODg2NTc0MDc0MDc0MDc0LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1NjQyMzYxMTExMTExMTExCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAzOCwKICAgICAgICAic3RvcnlUaW1lIjogMzUuNjMzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTYuMjkwMDE3NTEyOTk5MDksCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4Ni40MjA1NzI5MTY2NjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjcsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MTk4MjkzOTU2MDI0OTY3LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzY4MzgxMDc2Mzg4ODg4OSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTA5OTgyNjM4ODg4ODg4OQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMzksCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjY1LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTYuMjgzMzAwMDQzMzgxMDYsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4Ni40NTU5NDYxODA1NTU1NiwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzAsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MTkwODcxNzk3MTkzMDg3LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDYyNjQ0Njc1OTI1OTI1OTMsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ4ODI4MTI1CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA0MCwKICAgICAgICAic3RvcnlUaW1lIjogMzUuNjY2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTYuOTIwODcyNzY0NzY2OTEsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4Ni40Nzk0OTIxODc1LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyOCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUyNTYyNzI5NzI3MjA5MTcsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNjE2ODk4MTQ4MTQ4MTQ4LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0NjY1Nzk4NjExMTExMTExCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA0MSwKICAgICAgICAic3RvcnlUaW1lIjogMzUuNjgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTYuOTA2NTA5MTM2Mjk0NCwKICAgICAgICAibWVhbkNocm9tYSI6IDg2LjQ5MTQyNzk1MTM4ODg5LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyOCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUyNTQ3MTcxNjU4Nzk2NTgsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNjg3MjEwNjQ4MTQ4MTQ4MSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTA5OTgyNjM4ODg4ODg4OQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNDIsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5Ny4wOTg1NTgxNTk3MjcxOCwKICAgICAgICAibWVhbkNocm9tYSI6IDg1LjU5ODUyNDMwNTU1NTU2LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyOSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUyNzA3NTgwNjMyNTU5NDQ2LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzU4MDAwNTc4NzAzNzAzNywKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDM0MDI3Nzc3Nzc3Nzc3OAogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNDMsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjcxNjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk3LjAyNDY3NzE5MTgyNTQ1LAogICAgICAgICJtZWFuQ2hyb21hIjogODQuNzA0OTY5NjE4MDU1NTYsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI4LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTI2NTM1NzQyMTc4NzA3NiwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjM1NjQwOTE0MzUxODUxODU1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0ODgyODEyNQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNDQsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjczMzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk3LjAxNzY4OTE0OTI5MDY5LAogICAgICAgICJtZWFuQ2hyb21hIjogODQuNzIzMzA3MjkxNjY2NjcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI4LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTI2NjQwMTM4NjIyMDQ3MSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA1MTQ2ODQ2MDY0ODE0ODE1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MTIzMjYzODg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA0NSwKICAgICAgICAic3RvcnlUaW1lIjogMzUuNzUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5Ny4wMTA5NDM3OTMzODc4MiwKICAgICAgICAibWVhbkNocm9tYSI6IDg0LjcyNDE3NTM0NzIyMjIzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUyNzIxMjg5NzU5MDU0MjgsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNDg2MTExMTExMTExMTExMSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwMzY4OTIzNjExMTExMTExMQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNDYsCiAgICAgICAgInN0b3J5VGltZSI6IDM1Ljc2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk3LjIwOTQzOTgwMDM1ODcxLAogICAgICAgICJtZWFuQ2hyb21hIjogODMuODA5Njc4ODE5NDQ0NDQsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDIyLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTI5MDY1ODkwODI1MTczNSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjMzNzQyMDQyODI0MDc0MDc2LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDAzNzk3NzQzMDU1NTU1NTU1NQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNDcsCiAgICAgICAgInN0b3J5VGltZSI6IDM1Ljc4MzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk3LjIxNjIxODU5ODEwMTgsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4My44MTExOTc5MTY2NjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjEsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MjgzOTU0Njk1NjkwNDYyLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDMwMzQ1Nzc1NDYyOTYyOTYsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDI4MjExODA1NTU1NTU1NTU1CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA0OCwKICAgICAgICAic3RvcnlUaW1lIjogMzUuOCwKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk3LjIxODc2Njc3NTE4NTEyLAogICAgICAgICJtZWFuQ2hyb21hIjogODMuODA3MjkxNjY2NjY2NjcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI0LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTI3ODMyNDA0NTc3NTUxOCwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjAzNTU1NDEwODc5NjI5NjI5NCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwMzY4OTIzNjExMTExMTExMQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNDksCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjgxNjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk3LjIyMTE3Mjc2NDc2ODQ4LAogICAgICAgICJtZWFuQ2hyb21hIjogODMuODAxNTQwNzk4NjExMTEsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI2LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTI3NDUzMDMzOTMzMTU2LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDQyNzUxNzM2MTExMTExMTEsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQxMjMyNjM4ODg4ODg4ODkKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDUwLAogICAgICAgICJzdG9yeVRpbWUiOiAzNS44MzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5Ny44NzE1OTE3MTAwNzg1OCwKICAgICAgICAibWVhbkNocm9tYSI6IDgzLjc5MzE4NTc2Mzg4ODg5LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUzNDIzNzcwMTAzODUzMjA2LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzM3MjM5NTgzMzMzMzMzMywKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwMzc5Nzc0MzA1NTU1NTU1NTUKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDUxLAogICAgICAgICJzdG9yeVRpbWUiOiAzNS44NSwKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk4LjA2ODI1ODQyMDEyNzk5LAogICAgICAgICJtZWFuQ2hyb21hIjogODIuODYxMjE5NjE4MDU1NTYsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI4LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTM1ODU5NDA0NzkyNTQyMjUsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNDQ5Nzk3NDUzNzAzNzAzNSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwMzQ3MjIyMjIyMjIyMjIyMgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNTIsCiAgICAgICAgInN0b3J5VGltZSI6IDM1Ljg2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk4LjA2OTc5NDcwNDg1MDE1LAogICAgICAgICJtZWFuQ2hyb21hIjogODIuODU0NjAwNjk0NDQ0NDQsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI3LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTM1NTkxMTAzNjg1MjQwOCwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjAzNjUzMDY3MTI5NjI5NjI5NCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDM0MDI3Nzc3Nzc3Nzc3OAogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNTMsCiAgICAgICAgInN0b3J5VGltZSI6IDM1Ljg4MzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk4LjA2NDk2ODQ0NjE2OTY0LAogICAgICAgICJtZWFuQ2hyb21hIjogODIuODQzNzUsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI2LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTM2MDcwMDEwMTY4NjA0MywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjAzNzA3MzIwNjAxODUxODUyLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDAzOTA2MjUKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDU0LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS45LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTguMDY4ODQ3OTE2NjU1NzYsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4Mi44NDA0OTQ3OTE2NjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjQsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MzU4Njg5ODc0MTgwNjMxLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDQwNzI2MjczMTQ4MTQ4MTUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDM3OTc3NDMwNTU1NTU1NTU1CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA1NSwKICAgICAgICAic3RvcnlUaW1lIjogMzUuOTE2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTguMDc2MDE4MDU1NTQ0MzcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4Mi44MzI2ODIyOTE2NjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjQsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1MzU1NTIxODQ4ODgwMDg3LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDM5Njc3MzcyNjg1MTg1MTgsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDM5MDYyNQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNTYsCiAgICAgICAgInN0b3J5VGltZSI6IDM1LjkzMzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk4LjI2NjE3NTU2NDIyMzI2LAogICAgICAgICJtZWFuQ2hyb21hIjogODEuODk3MTM1NDE2NjY2NjcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI1LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNTM3ODUwMTI5Njk0ODYzNiwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjM0NDI1NjM2NTc0MDc0MDc2LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MDE0NzU2OTQ0NDQ0NDQ0CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA1NywKICAgICAgICAic3RvcnlUaW1lIjogMzUuOTUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OC4yNjAwMjM3MTk2MDUxOSwKICAgICAgICAibWVhbkNocm9tYSI6IDgxLjg4NDIyMzA5MDI3Nzc3LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDUzODQwMzg0OTEyMjAxMDM1LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDM2MzEzNjU3NDA3NDA3NDA2LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDAzMzYzNzE1Mjc3Nzc3Nzc4CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA1OCwKICAgICAgICAic3RvcnlUaW1lIjogMzUuOTY2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTguMTkyOTc2MzAyMDk0NDQsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA4MC45NzIzMzA3MjkxNjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjYsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA1Mzc2OTU2MzE1NTI3MTQ4LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzM2OTUwMjMxNDgxNDgxNDUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDM2ODkyMzYxMTExMTExMTEKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDU5LAogICAgICAgICJzdG9yeVRpbWUiOiAzNS45ODMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OC44NDA1MjUzOTA2MjEwNywKICAgICAgICAibWVhbkNocm9tYSI6IDgwLjk2ODUzMjk4NjExMTExLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDU0NDg2MDI0MTY1MDAyNzMsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zMzQzODIyMzM3OTYyOTYzLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDAzNjg5MjM2MTExMTExMTExCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA2MCwKICAgICAgICAic3RvcnlUaW1lIjogMzYsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OS4wMzIwMzM3NDU2NTA2MSwKICAgICAgICAibWVhbkNocm9tYSI6IDgwLjA2MTE5NzkxNjY2NjY3LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDU0Njk1MjQzNjkyNjU3MTQsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zMzg3NTg2ODA1NTU1NTU2LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MDE0NzU2OTQ0NDQ0NDQ0CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA2MSwKICAgICAgICAic3RvcnlUaW1lIjogMzYuMDE2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTcuMzA4NzI2NTg0MTkyOSwKICAgICAgICAibWVhbkNocm9tYSI6IDc4LjU3NjM4ODg4ODg4ODg5LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY0MzgxNjY0NjcxODYxMjQsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMS44MzkwODQyMDEzODg4ODg4LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDQ3NDE3NTM0NzIyMjIyMjI0CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA2MiwKICAgICAgICAic3RvcnlUaW1lIjogMzYuMDMzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTcuMzE4NzA2NDg4NzA3MTIsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3OC41NTg4MTA3NjM4ODg4OSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjksCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NDMyMDY3NzczMDM0MTIyLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDQ0MzA3MDAyMzE0ODE0ODIsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQwMTQ3NTY5NDQ0NDQ0NDQKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDYzLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi4wNSwKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk3LjMyMzc0MTc3NTE2NTQ2LAogICAgICAgICJtZWFuQ2hyb21hIjogNzguNTUyNDA4ODU0MTY2NjcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI5LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjQyNzU2NTMxMDI0Nzk1OCwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA0Mjg2MDI0MzA1NTU1NTU1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MTIzMjYzODg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA2NCwKICAgICAgICAic3RvcnlUaW1lIjogMzYuMDY2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTcuMzMyMzU0MDE0NzQ4ODYsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3OC41NDIzMTc3MDgzMzMzMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjgsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NDI0NzM5MjY1MTY5OTksCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNTEzMjM3ODQ3MjIyMjIyMjQsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ5OTEzMTk0NDQ0NDQ0NDQKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDY1LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi4wODMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5Ny41MTg0ODkyNTc4MzAyNywKICAgICAgICAibWVhbkNocm9tYSI6IDc3LjY3MDI0NzM5NTgzMzMzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyOSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY0NDg4Nzk5NjIyMzQwNDYsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zMzc4NTQ0NTYwMTg1MTg1NSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTQyNTM0NzIyMjIyMjIyMgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNjYsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjEsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5Ny41MjY4NTM3NTQzNTc5NCwKICAgICAgICAibWVhbkNocm9tYSI6IDc3LjY2MDA0Nzc0MzA1NTU2LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyOSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY0NDU0NTc3NjY1OTAyMTUsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNTI3NzA1NDM5ODE0ODE0OCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTIwODMzMzMzMzMzMzMzMwogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNjcsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjExNjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk3LjUzNzU4MDg4MTA5MzgzLAogICAgICAgICJtZWFuQ2hyb21hIjogNzcuNjQ0ODU2NzcwODMzMzMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDMxLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjQ0MjcwODY4ODE5MDkzLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDQ4NzkxOTU2MDE4NTE4NTIsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ1NTcyOTE2NjY2NjY2NjcKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDY4LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi4xMzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OC4xNjI5NDk2MDkzOTMwMiwKICAgICAgICAibWVhbkNocm9tYSI6IDc3LjYzMzc4OTA2MjUsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI2LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjUyMTMxMTA0NTM4OTY3NywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjMzMzkxMjAzNzAzNzAzNzAzLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MTIzMjYzODg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA2OSwKICAgICAgICAic3RvcnlUaW1lIjogMzYuMTUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OC4xNjg1NzUwNDM0MjA5LAogICAgICAgICJtZWFuQ2hyb21hIjogNzcuNjI1MTA4NTA2OTQ0NDQsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI5LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjUxOTA2OTQ4MDg1NDQ4NiwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA0ODgyODEyNSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDQ0ODc4NDcyMjIyMjIyMgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNzAsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjE2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk4LjM1NzU4OTQ1MzEyMzk0LAogICAgICAgICJtZWFuQ2hyb21hIjogNzYuNzU4MTM4MDIwODMzMzMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI4LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjU0NDA3MzMwNzExNDcxNywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjMyODg0ODM3OTYyOTYyOTY1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MTIzMjYzODg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA3MSwKICAgICAgICAic3RvcnlUaW1lIjogMzYuMTgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTguMzYwMTg0NjU3MTE2OTIsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3Ni43NTI0OTU2NTk3MjIyMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjksCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NTQxMjQ0MzI1NzkwODA4LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDQwNzI2MjczMTQ4MTQ4MTUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQzNDAyNzc3Nzc3Nzc3NzgKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDcyLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi4yLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTguMzYwMDczNTg5NDA4NTMsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3Ni43NDU3NjgyMjkxNjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjcsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NTM5NTI2NjM1NTExMDI3LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDQ3MjAwNTIwODMzMzMzMzM2LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDAzOTA2MjUKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDczLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi4yMTY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OC4zMDIxMTMxMjkzMjAwMiwKICAgICAgICAibWVhbkNocm9tYSI6IDc1Ljg2Njc1MzQ3MjIyMjIzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzMCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY1MjgwNDc4MTQ4MDM0NDYsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zMzg4NjcxODc1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0OTkxMzE5NDQ0NDQ0NDQ0CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA3NCwKICAgICAgICAic3RvcnlUaW1lIjogMzYuMjMzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTguNDg4OTkxNjIzMjY5ODUsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3NC45ODczMDQ2ODc1LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyOSwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY1NTIwMjg0OTU1NTY0MTEsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zMzQ0MTg0MDI3Nzc3Nzc4LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MTIzMjYzODg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA3NSwKICAgICAgICAic3RvcnlUaW1lIjogMzYuMjUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OC40OTQ3Nzc2MDQxNzI3MSwKICAgICAgICAibWVhbkNocm9tYSI6IDc0Ljk4MjUzMDM4MTk0NDQ0LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAzMCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY1NDYyMzcxNTU2MjYyMjIsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNDI1NzA4OTEyMDM3MDM3MDYsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDM5MDYyNQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNzYsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjI2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk4LjQ5ODcxMzU0MTY3MjgxLAogICAgICAgICJtZWFuQ2hyb21hIjogNzQuOTcyOTgxNzcwODMzMzMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI1LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjU0MjkzNjk1NDIxNDIwNSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA0NjE4Nzc4OTM1MTg1MTg1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MDE0NzU2OTQ0NDQ0NDQ0CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA3NywKICAgICAgICAic3RvcnlUaW1lIjogMzYuMjgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTguNDg5Njg2NDgwMDQwODksCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3NC45NTc2ODIyOTE2NjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjcsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NTQ2NDQxMzA4MTgzMjU4LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDQ3NzQzMDU1NTU1NTU1NTUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQzNDAyNzc3Nzc3Nzc3NzgKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDc4LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi4zLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTkuMTAyNDUyNzU2MDgyNDEsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3NC45NDEyOTc3NDMwNTU1NiwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjgsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NjI4OTEwODg0NDkwMjI5LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzM3MzQ4MDkwMjc3Nzc3OCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDY2NTc5ODYxMTExMTExMQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogNzksCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjMxNjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk5LjI5MzM3ODQ3MjIwOTA2LAogICAgICAgICJtZWFuQ2hyb21hIjogNzQuMDYzNjkzNTc2Mzg4ODksCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI5LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjY0NTE4NTIwMDkyMDg4LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzM3OTI2NzkzOTgxNDgxNDUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ2NjU3OTg2MTExMTExMTEKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDgwLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi4zMzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OS4yOTc4OTcwOTIwMDA5NCwKICAgICAgICAibWVhbkNocm9tYSI6IDc0LjA0Mjg2MDI0MzA1NTU2LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY2Mzk2MzMwMDk1NDgxNjQsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNTM5Mjc5NTEzODg4ODg4OSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDk5MTMxOTQ0NDQ0NDQ0NAogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogODEsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjM1LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTkuMzA3NTM1OTU5MTg4NDQsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3NC4wMjc3Nzc3Nzc3Nzc3NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjcsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NjMyMDEzMTE5OTU3NTA4LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDUyNjI1ODY4MDU1NTU1NTUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU1MzM4NTQxNjY2NjY2NjcKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDgyLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi4zNjY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiA5OS4zMTYwNjYxMDI0MTc0OCwKICAgICAgICAibWVhbkNocm9tYSI6IDc0LjAyMDI5MDc5ODYxMTExLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNywKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY2MjY3NjQ4OTEyNjI1MzEsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNTY2NDA2MjUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ4ODI4MTI1CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA4MywKICAgICAgICAic3RvcnlUaW1lIjogMzYuMzgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTkuMzI2NjkwNDI5Njc0MzcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3NC4wMTk0MjI3NDMwNTU1NiwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjcsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NjIwNjM4MjQxNTY0MzIxLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDUwOTI1OTI1OTI1OTI1OTIsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU3NTA4NjgwNTU1NTU1NTYKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDg0LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi40LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTkuMzM2NzY3MDU3Mjc4MzcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3NC4wMTYyNzYwNDE2NjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjYsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NjEwNzcyMzQ5MDgyOTQ3LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDQ4OTAwNDYyOTYyOTYyOTY1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0NTU3MjkxNjY2NjY2NjY3CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA4NSwKICAgICAgICAic3RvcnlUaW1lIjogMzYuNDE2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogOTkuNTE4ODY4MDU1NTM3MzcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3My4xNTIwMTgyMjkxNjY2NywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzEsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NjMxNTA1ODE4MTA3OTE1LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzQ0MDc1NTIwODMzMzMzMywKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTg1OTM3NQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogODYsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjQzMzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDk5LjUyNDY4NTAwNDMyMjUyLAogICAgICAgICJtZWFuQ2hyb21hIjogNzMuMTM0MTE0NTgzMzMzMzMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI3LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjYyNjQyNTY4NDkyODk5NSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA2MjkzNDAyNzc3Nzc3Nzc4LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA2MDc2Mzg4ODg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA4NywKICAgICAgICAic3RvcnlUaW1lIjogMzYuNDUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuMDc3OTk5OTM0ODg3MzcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3Mi4yNjgxMjA2NTk3MjIyMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjgsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2Njk5NDExMzg1MDc0OTg1LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuNjI1NzU5NTQ4NjExMTExMiwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTQyNTM0NzIyMjIyMjIyMgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogODgsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjQ2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMC4wODI2NjM2NTAxNjUyLAogICAgICAgICJtZWFuQ2hyb21hIjogNzIuMjY4MTIwNjU5NzIyMjMsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI4LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjY5NDQwMjUzMzg3NDAzLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDU5MzUzMjk4NjExMTExMTEsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDYwNzYzODg4ODg4ODg4ODkKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDg5LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi40ODMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuMDg5MTA2NDg4NzA2OTMsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3Mi4yNjg1NTQ2ODc1LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY2OTAwNzczNTA2MTQ3MDgsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNTEzOTYxMjI2ODUxODUxOCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTY0MjM2MTExMTExMTExMQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogOTAsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuMjc5MjYyMDg3NjU5NTYsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MS40MDk3MjIyMjIyMjIyMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMzAsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NzEyMTI5NzQ2NTA0MzQyLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzQ3NjU2MjUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU2NDIzNjExMTExMTExMTEKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDkxLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi41MTY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuMjg2Mzg2MzI4MTExMDIsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MS40MDIyMzUyNDMwNTU1NiwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjcsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NzA4OTc5NTg3NDQxMTI3LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDU5MzUzMjk4NjExMTExMTEsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU1MzM4NTQxNjY2NjY2NjcKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDkyLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi41MzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuMjk0Njc3MTcwMTI0ODYsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MS4zOTE3MTAwNjk0NDQ0NCwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjYsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NzAzODY5MzkzMTQzODQ0LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDU3Njg5NTI1NDYyOTYyOTY1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1MDk5ODI2Mzg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA5MywKICAgICAgICAic3RvcnlUaW1lIjogMzYuNTUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuMzAwODE4MDEyMTM4MzQsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MS4zNjUwMTczNjExMTExMSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjgsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2Njk4MTk4NjM5MzAwNDYxLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDYyOTM0MDI3Nzc3Nzc3NzgsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDUzMTY4NDAyNzc3Nzc3NzgKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDk0LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi41NjY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuMzE0ODYxNDgwMDIwMDYsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MS4zNTI1MzkwNjI1LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY2ODg3OTI0NTg0NzY5NzYsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNTYzMTUxMDQxNjY2NjY2NjQsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU1MzM4NTQxNjY2NjY2NjcKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDk1LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi41ODMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuNTE2MDU3ODU1OTE1MzQsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MC40OTAxMjU4NjgwNTU1NiwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjcsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NzA0NDE1NTM0MjY5MTE2LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzM5NjI2NzM2MTExMTExMSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTUzMzg1NDE2NjY2NjY2NwogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogOTYsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjYsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDAuNTMzODAzOTI3OTYzNzcsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MC40ODM3MjM5NTgzMzMzMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjUsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2Njk3NTEwNDUyNDU1MTM0LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDYyNjgwODQ0OTA3NDA3NDEsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDUwOTk4MjYzODg4ODg4ODkKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDk3LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi42MTY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDEuMTYxMjc3MDE4MjQxMjYsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MC40ODM3MjM5NTgzMzMzMywKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjQsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2Nzc1MjcxMzQyNjY4MzMzLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMzQ1OTU2MzA3ODcwMzcwMzUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDU2NDIzNjExMTExMTExMTEKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDk4LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi42MzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDEuMTY2MTgwMjMwMDQ2NzMsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA3MC40ODA0Njg3NSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjIsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2Nzc1NTg5MTE4NzM3OTM2LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDUxOTAyNDg4NDI1OTI1OTIsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ4ODI4MTI1CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiA5OSwKICAgICAgICAic3RvcnlUaW1lIjogMzYuNjUsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDEuMTc0OTIyNDM5MjQ4MSwKICAgICAgICAibWVhbkNocm9tYSI6IDcwLjQ3OTgxNzcwODMzMzMzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY3NzQ0MjQ3OTI4NTAwNTUsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNDM2NTU5NjA2NDgxNDgxNSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNTA5OTgyNjM4ODg4ODg4OQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTAwLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi42NjY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDEuMTgyMjc3NjkwOTg0NywKICAgICAgICAibWVhbkNocm9tYSI6IDcwLjQ1ODk4NDM3NSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjMsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NzY5NDIxNTg4Nzc2MDI4LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDU2MzUxMjczMTQ4MTQ4MTUsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ3NzQzMDU1NTU1NTU1NTYKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDEwMSwKICAgICAgICAic3RvcnlUaW1lIjogMzYuNjgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogMTAxLjM3NDQ5ODc4NDcxNTQ0LAogICAgICAgICJtZWFuQ2hyb21hIjogNjkuNTkyNjY0OTMwNTU1NTYsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI1LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjc5MzgyMTEwMzAzMjI4NywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjMzNDU5OTI0NzY4NTE4NTIsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ5OTEzMTk0NDQ0NDQ0NDQKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDEwMiwKICAgICAgICAic3RvcnlUaW1lIjogMzYuNywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMS4zMjI4MjQ5NzgzMTg5MywKICAgICAgICAibWVhbkNocm9tYSI6IDY5LjU4MzQ0MTg0MDI3Nzc3LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyMywKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY3ODM4NzUzNzM5NDI4OTYsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNDAxMzMxMDE4NTE4NTE4NiwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDc3NDMwNTU1NTU1NTU1NgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTAzLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi43MTY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDEuMzQyNTc0NDc5MTg3MSwKICAgICAgICAibWVhbkNocm9tYSI6IDY5LjU4NDIwMTM4ODg4ODg5LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyMywKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY3NzY4NTk3NDEzNTUwNjgsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNDU4OTg0Mzc1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0NjY1Nzk4NjExMTExMTExCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMDQsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjczMzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMS4zNDYwMTg0MjQ0OTk3LAogICAgICAgICJtZWFuQ2hyb21hIjogNjkuNTc1MTk1MzEyNSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjQsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2NzczNzkwNjgwODQzMzIsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4wNDY3MzAzMjQwNzQwNzQwOCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDEyMzI2Mzg4ODg4ODg4OQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTA1LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi43NSwKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMS4zNTExMjE0MTkyOTEzOSwKICAgICAgICAibWVhbkNocm9tYSI6IDY5LjU3MjQ4MjYzODg4ODg5LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyMywKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY3NzE1NTQ2ODI0Njc1NSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA0ODY0NzI4MDA5MjU5MjU5NCwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDc3NDMwNTU1NTU1NTU1NgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTA2LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi43NjY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDEuNTQ1NjAwNzgxMjY0NjEsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA2OC43MDgwMDc4MTI1LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY3ODk3NzIwMDY3MDI1MzgsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zMjk1MzU1OTAyNzc3Nzc4LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0NDQ4Nzg0NzIyMjIyMjIyCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMDcsCiAgICAgICAgInN0b3J5VGltZSI6IDM2Ljc4MzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMi4xNjc2NTI4ODYyODU3LAogICAgICAgICJtZWFuQ2hyb21hIjogNjkuNTUxMjE1Mjc3Nzc3NzcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI0LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjg2ODg2NDc2NTUwMjI5NywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjMzNzk2Mjk2Mjk2Mjk2Mjk3LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0MzQwMjc3Nzc3Nzc3Nzc4CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMDgsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjgsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDIuMTc3ODA3MjY5OTY2NTEsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA2OS41MjY1ODQyMDEzODg4OSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjMsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2ODYzNzU0MDQ5MzczMDI4LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDU2NjA0NDU2MDE4NTE4NTIsCiAgICAgICAgImNoYW5nZWRQaXhlbFJhdGlvIjogMC4wMDQ0NDg3ODQ3MjIyMjIyMjIKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDEwOSwKICAgICAgICAic3RvcnlUaW1lIjogMzYuODE2NjY3LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogMTAyLjE5MjI0Mjg2MDI0NDE1LAogICAgICAgICJtZWFuQ2hyb21hIjogNjkuNTEwOTU5MjAxMzg4ODksCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI1LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjg1ODY1MDA3MDA2MDM5MywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA1OTcxNDk4ODQyNTkyNTkyLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0ODgyODEyNQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTEwLAogICAgICAgICJzdG9yeVRpbWUiOiAzNi44MzMzMzMsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDIuMjA3MzIwMTE3MTg3OTgsCiAgICAgICAgIm1lYW5DaHJvbWEiOiA2OS40ODU1Njg1NzYzODg4OSwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjMsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2ODUzNDEzOTMxMzI1Mzc0LAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDU4NDEyOTA1MDkyNTkyNTk0LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0Nzc0MzA1NTU1NTU1NTU2CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMTEsCiAgICAgICAgInN0b3J5VGltZSI6IDM2Ljg1LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogMTAyLjIyMDczMzc4OTA2MzIzLAogICAgICAgICJtZWFuQ2hyb21hIjogNjkuNDY4NjQxNDkzMDU1NTYsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDIzLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjg0NTA2ODU2MzA3OTY1OCwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA1OTYwNjQ4MTQ4MTQ4MTQ4LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1MDk5ODI2Mzg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMTIsCiAgICAgICAgInN0b3J5VGltZSI6IDM2Ljg2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMi40MTMxMTc4Mzg1MzYzNywKICAgICAgICAibWVhbkNocm9tYSI6IDY4LjYwMzA4MTU5NzIyMjIzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyMywKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY4NjczNDI0NDgxNzE0OTQsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNDY0MjY1MDQ2Mjk2Mjk2NSwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDg4MjgxMjUKICAgICAgfSwKICAgICAgewogICAgICAgICJmcmFtZSI6IDExMywKICAgICAgICAic3RvcnlUaW1lIjogMzYuODgzMzMzLAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogMTAyLjQzMDMwMzg0MTE0MDU0LAogICAgICAgICJtZWFuQ2hyb21hIjogNjguNTk5MDY2ODQwMjc3NzcsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDIyLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjg2MTY5MDgyNzAzNDU5NCwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA0NTEwMjcxOTkwNzQwNzQwNiwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDM0MDI3Nzc3Nzc3Nzc3OAogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTE0LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi45LAogICAgICAgICJtZWFuTHVtaW5hbmNlIjogMTAyLjQ0NjYyMjU2OTQzOTEzLAogICAgICAgICJtZWFuQ2hyb21hIjogNjguNTk2Nzg4MTk0NDQ0NDQsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDI0LAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjg1NDg5NTY2OTU0OTc0OSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA0MjIwOTIwMTM4ODg4ODg5LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDAzNzk3NzQzMDU1NTU1NTU1NQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTE1LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi45MTY2NjcsCiAgICAgICAgIm1lYW5MdW1pbmFuY2UiOiAxMDIuNDU4MzMzMTM4MDE1MDksCiAgICAgICAgIm1lYW5DaHJvbWEiOiA2OC41ODI4OTkzMDU1NTU1NiwKICAgICAgICAicXVhbnRpemVkQ29sb3JCaW5zIjogMjMsCiAgICAgICAgImx1bWluYW5jZVN0ZERldk5vcm1hbGl6ZWQiOiAwLjA2ODQ3NDYxMTkxODA5NzczLAogICAgICAgICJtZWFuQWJzb2x1dGVSZ2JEZWx0YSI6IDAuMDU1NzM2NDAwNDYyOTYyOTY1LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0NTU3MjkxNjY2NjY2NjY3CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMTYsCiAgICAgICAgInN0b3J5VGltZSI6IDM2LjkzMzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMi40MDk2NjY2MjMyNzI0NCwKICAgICAgICAibWVhbkNocm9tYSI6IDY4LjU3NzY5MDk3MjIyMjIzLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY4MzQyMzUxMzk1MDIwMzIsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zMzcwOTQ5MDc0MDc0MDc0LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0ODgyODEyNQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTE3LAogICAgICAgICJzdG9yeVRpbWUiOiAzNi45NSwKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMi42MTYxNDU0MjEwMDk0OSwKICAgICAgICAibWVhbkNocm9tYSI6IDY3LjcxODUzMjk4NjExMTExLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNCwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY4NTI0Mzg5MDkwMjE2NDUsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zMzcyMzk1ODMzMzMzMzMzLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0NjY1Nzk4NjExMTExMTExCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMTgsCiAgICAgICAgInN0b3J5VGltZSI6IDM2Ljk2NjY2NywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMy4yNTM5NjExNTQ1MDE3OCwKICAgICAgICAibWVhbkNocm9tYSI6IDY4LjU3OTg2MTExMTExMTExLAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY5MzAwNjEyMDA1NDIwNzIsCiAgICAgICAgIm1lYW5BYnNvbHV0ZVJnYkRlbHRhIjogMC4zNDAxNjkyNzA4MzMzMzMzLAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA1MDk5ODI2Mzg4ODg4ODg5CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJhbWUiOiAxMTksCiAgICAgICAgInN0b3J5VGltZSI6IDM2Ljk4MzMzMywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMy4yNjk0Nzg5Mjc5MzkzNSwKICAgICAgICAibWVhbkNocm9tYSI6IDY4LjU3OTEwMTU2MjUsCiAgICAgICAgInF1YW50aXplZENvbG9yQmlucyI6IDIyLAogICAgICAgICJsdW1pbmFuY2VTdGREZXZOb3JtYWxpemVkIjogMC4wNjkyNzA1OTU4MTcyODgxNywKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA1OTA2Mzk0Njc1OTI1OTI2LAogICAgICAgICJjaGFuZ2VkUGl4ZWxSYXRpbyI6IDAuMDA0ODgyODEyNQogICAgICB9LAogICAgICB7CiAgICAgICAgImZyYW1lIjogMTIwLAogICAgICAgICJzdG9yeVRpbWUiOiAzNywKICAgICAgICAibWVhbkx1bWluYW5jZSI6IDEwMy4yOTUyMjMxMzM2Njg1MSwKICAgICAgICAibWVhbkNocm9tYSI6IDY4LjU4NzU2NTEwNDE2NjY3LAogICAgICAgICJxdWFudGl6ZWRDb2xvckJpbnMiOiAyNiwKICAgICAgICAibHVtaW5hbmNlU3RkRGV2Tm9ybWFsaXplZCI6IDAuMDY5MTc1MjM2ODA5NDYyOSwKICAgICAgICAibWVhbkFic29sdXRlUmdiRGVsdGEiOiAwLjA1MDM4MzM5MTIwMzcwMzcwNiwKICAgICAgICAiY2hhbmdlZFBpeGVsUmF0aW8iOiAwLjAwNDk5MTMxOTQ0NDQ0NDQ0NAogICAgICB9CiAgICBdCiAgfSwKICAicnVudGltZVRyYWNlIjogewogICAgInNhbXBsZXMiOiAxMjAsCiAgICAiYmxhY2tGcmFtZXMiOiAwLAogICAgIm1vbm9jaHJvbWVGcmFtZXMiOiAwLAogICAgInJ1bnRpbWVDb21waWxlRGVsdGEiOiAwLAogICAgImJhY2tlbmRQcm9ncmFtRGVsdGEiOiAwLAogICAgIm1heENhbWVyYUp1bXAiOiAwLjAwNjg2MywKICAgICJzdGlsbEZyYW1lUmF0aW8iOiAwLAogICAgImN1cnJlbnRDaHVua01pc3NpbmciOiAwLAogICAgImNhbWVyYUNodW5rTWlzc2luZyI6IDAsCiAgICAibmV4dENodW5rTWlzc2luZyI6IDAsCiAgICAicGhhc2VGcm9tIjogIkxJRkUiLAogICAgInBoYXNlVG8iOiAiRUFSVEgiLAogICAgInBoYXNlUHJvZ3Jlc3MiOiAwLjEzOTA1MiwKICAgICJwaGFzZUxvY2FsTWl4IjogMC42OTUyNTksCiAgICAiZXhwb3N1cmVQYXJhbWV0ZXIiOiAxLjA5ODI2MSwKICAgICJleHBvc3VyZUFwcGxpZWQiOiAxLjA5ODI2MSwKICAgICJtYXRlcmlhbFBhcmFtZXRlciI6IDAuMzcyMzYsCiAgICAibWF0ZXJpYWxBcHBsaWVkIjogMC4zNzIzNiwKICAgICJwYXJ0aWNsZVBhcmFtZXRlciI6IDAuNjEyMTEyLAogICAgInBhcnRpY2xlQXBwbGllZCI6IDAuNjEwOTQ4LAogICAgImF1ZGlvTGF5ZXJQYXJhbWV0ZXIiOiAwLjI1MTY3NywKICAgICJhdWRpb0xheWVyQXBwbGllZCI6IDAuMjUyOTU3CiAgfQp9"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7c7d2c10c2e15bf9d022-bb74127e7671003ad359",
+          "file": "rail-camera-phase-continuity.spec.ts",
+          "line": 185,
+          "column": 1
+        },
+        {
+          "title": "QX-R3-005 LIFE to EARTH keeps 120 actual WebGL2 frames continuous",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "single desktop continuity gate",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-camera-phase-continuity.spec.ts",
+                    "line": 186,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 89,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:45.004Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "single desktop continuity gate",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-camera-phase-continuity.spec.ts",
+                        "line": 186,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "7c7d2c10c2e15bf9d022-86b577a5569ec9fabcde",
+          "file": "rail-camera-phase-continuity.spec.ts",
+          "line": 185,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "rail-flight.spec.ts",
+      "file": "rail-flight.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "rail distance advances without input while score and seeds stay zero",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6119,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:00.054Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-40b0c6c2b5d91ded2f60",
+          "file": "rail-flight.spec.ts",
+          "line": 12,
+          "column": 1
+        },
+        {
+          "title": "an arbitrary pulse is empty but a nearby Life Node creates exactly one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5186,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:06.179Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-84a08f9fc270b7265d4f",
+          "file": "rail-flight.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "the normal journey never synthesizes ANSWER without a valid node pulse",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3127,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:11.369Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-89b7eea74d0a95c9e55c",
+          "file": "rail-flight.spec.ts",
+          "line": 53,
+          "column": 1
+        },
+        {
+          "title": "auto-give waits for a nearby Life Node and then creates one valid Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2954,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:14.501Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-e714973b04c614b7bb25",
+          "file": "rail-flight.spec.ts",
+          "line": 66,
+          "column": 1
+        },
+        {
+          "title": "rail distance advances without input while score and seeds stay zero",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop rail acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-flight.spec.ts",
+                    "line": 13,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 91,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:45.102Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop rail acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-flight.spec.ts",
+                        "line": 13,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-07a0e26ef8344a85b17f",
+          "file": "rail-flight.spec.ts",
+          "line": 12,
+          "column": 1
+        },
+        {
+          "title": "an arbitrary pulse is empty but a nearby Life Node creates exactly one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop rail acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-flight.spec.ts",
+                    "line": 28,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 96,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:45.199Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop rail acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-flight.spec.ts",
+                        "line": 28,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-5c73de004404d063a51e",
+          "file": "rail-flight.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "the normal journey never synthesizes ANSWER without a valid node pulse",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop rail acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-flight.spec.ts",
+                    "line": 54,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 92,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:45.301Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop rail acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-flight.spec.ts",
+                        "line": 54,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-2290a5f766d69cdb1e32",
+          "file": "rail-flight.spec.ts",
+          "line": 53,
+          "column": 1
+        },
+        {
+          "title": "auto-give waits for a nearby Life Node and then creates one valid Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "desktop rail acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-flight.spec.ts",
+                    "line": 67,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 95,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T15:14:45.399Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "desktop rail acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-005/tests/e2e/rail-flight.spec.ts",
+                        "line": 67,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-d0e52b217a8632c0f30c",
+          "file": "rail-flight.spec.ts",
+          "line": 66,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-22T15:12:15.660Z",
+    "duration": 149906.228,
+    "expected": 15,
+    "skipped": 15,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}
