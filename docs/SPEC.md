@@ -56,8 +56,9 @@ The runtime exposes the exact 24 authored shot boundaries from 0–3 through 178
 - Rail flight advances automatically in integer millimetres. Gate, obstacle,
   and Life Node outcomes use deterministic 3D rail/corridor distance and fire
   once per encounter.
-- Pulse cooldown is 0.7 seconds. Empty-space pulses do not create Twinkle Seeds,
-  and normal play does not synthesize an automatic Answer.
+- Pulse cooldown is 0.7 seconds of journey time without per-slice millisecond
+  rounding. Empty-space pulses do not create Twinkle Seeds, and normal play
+  does not synthesize an automatic Answer.
 - UI controls are keyboard-focusable, have visible focus states, and remain usable at 320×568, 390×844, tablet, and desktop widths.
 - Audio starts only after user input and is synthesized with Web Audio. The experience remains fully understandable when muted.
 

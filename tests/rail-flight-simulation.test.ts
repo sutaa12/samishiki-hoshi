@@ -8,7 +8,11 @@ import {
   simulateJourney,
   stepJourney,
 } from "../src/game/simulation";
-import { PULSE_COOLDOWN_MS, RAIL_FORWARD_SPEED_MM_PER_SECOND } from "../src/game/rail-flight-state";
+import {
+  PULSE_COOLDOWN_MS,
+  RAIL_FORWARD_SPEED_MM_PER_SECOND,
+  RAIL_HIT_SPEED_MM_PER_SECOND,
+} from "../src/game/rail-flight-state";
 
 const centeredGate = (id: string, distanceMm: number): Readonly<RailEncounter> => ({
   id,
@@ -112,6 +116,28 @@ describe("QX-R3-002 deterministic rail flight", () => {
     expect(fixed.distanceRemainderMm).toBeCloseTo(unsplit.distanceRemainderMm, 8);
   });
 
+  it("integrates a slowdown expiry identically for one requested interval or 60 slices", () => {
+    const reachedSlowdown = {
+      ...createJourneyState({ seed: 2 }),
+      time: 0.2,
+      distanceMm: 1_550,
+      distanceRemainderMm: 0,
+      forwardSpeedMmPerSecond: RAIL_HIT_SPEED_MM_PER_SECOND,
+      slowdownRemainingMs: 548,
+    };
+    const unsplit = stepJourney(reachedSlowdown, {}, 1, []);
+    let fixed = reachedSlowdown;
+    for (let frame = 0; frame < 60; frame += 1) {
+      fixed = stepJourney(fixed, {}, 1 / 60, []);
+    }
+
+    expect(unsplit.distanceMm).toBe(9_084);
+    expect(fixed.distanceMm).toBe(unsplit.distanceMm);
+    expect(fixed.distanceRemainderMm).toBeCloseTo(unsplit.distanceRemainderMm, 8);
+    expect(fixed.slowdownRemainingMs).toBe(0);
+    expect(unsplit.slowdownRemainingMs).toBe(0);
+  });
+
   it("creates a Seed only for a nearby Life Node and enforces the 0.7-second cooldown", () => {
     const node: Readonly<RailEncounter> = {
       id: "life-node",
@@ -133,6 +159,44 @@ describe("QX-R3-002 deterministic rail flight", () => {
     expect(cooldownRejected.gameplayEvents.at(-1)?.kind).toBe("pulse-cooldown");
     expect(empty.pulses).toHaveLength(0);
     expect(empty.gameplayEvents.at(-1)?.kind).toBe("pulse-empty");
+  });
+
+  it("rejects a valid-node Pulse at 690ms and accepts it at exactly 700ms", () => {
+    const firstNode: Readonly<RailEncounter> = {
+      id: "cooldown-origin",
+      kind: "life-node",
+      distanceMm: 0,
+      center: { x: 0, y: -720 },
+      perfectRadiusMm: 120,
+      goodRadiusMm: 300,
+    };
+    const activated = stepJourney(createJourneyState({ seed: 55 }), { pulse: true }, 0.000_001, [firstNode]);
+    const before690 = stepJourney(activated, {}, 0.689_999, []);
+    const nodeAt690: Readonly<RailEncounter> = {
+      id: "cooldown-690",
+      kind: "life-node",
+      distanceMm: before690.distanceMm,
+      center: before690.corridorOffset,
+      perfectRadiusMm: 120,
+      goodRadiusMm: 300,
+    };
+    const rejected = stepJourney(before690, { pulse: true }, 0.000_001, [nodeAt690]);
+
+    const before700 = stepJourney(activated, {}, 0.699_999, []);
+    const nodeAt700: Readonly<RailEncounter> = {
+      id: "cooldown-700",
+      kind: "life-node",
+      distanceMm: before700.distanceMm,
+      center: before700.corridorOffset,
+      perfectRadiusMm: 120,
+      goodRadiusMm: 300,
+    };
+    const accepted = stepJourney(before700, { pulse: true }, 0.000_001, [nodeAt700]);
+
+    expect(rejected.pulses).toHaveLength(1);
+    expect(rejected.gameplayEvents.at(-1)?.kind).toBe("pulse-cooldown");
+    expect(accepted.pulses).toHaveLength(2);
+    expect(accepted.gameplayEvents.at(-1)?.kind).toBe("node-perfect");
   });
 
   it("widens only the next gate after three consecutive misses and never game-overs", () => {

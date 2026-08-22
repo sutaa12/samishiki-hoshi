@@ -240,8 +240,13 @@ function resolvePulse(
   return emit(next, perfect ? "node-perfect" : "node-good", node.id, scoreDelta);
 }
 
-/** Advance one deterministic slice. Story time and rail distance are separate clocks. */
-export function stepJourney(
+function remainingMilliseconds(value: number): number {
+  const normalized = Number(Math.max(0, value).toFixed(9));
+  return normalized <= 1e-6 ? 0 : normalized;
+}
+
+/** Advance one canonical slice. Story time and rail distance are separate clocks. */
+function stepJourneySlice(
   state: RailFlightState,
   rawInput: Partial<NormalizedInput> = {},
   seconds = STEP_SECONDS,
@@ -259,9 +264,16 @@ export function stepJourney(
     x: state.position.x + velocity.x * dt,
     y: state.position.y + velocity.y * dt,
   });
-  const elapsedMs = Math.round(dt * 1_000);
+  const elapsedMs = dt * 1_000;
   const previousDistanceMm = state.distanceMm;
-  const exactTravelMm = state.distanceRemainderMm + state.forwardSpeedMmPerSecond * dt;
+  const slowedSeconds = Math.min(dt, state.slowdownRemainingMs / 1_000);
+  const normalSeconds = dt - slowedSeconds;
+  const normalSpeedMmPerSecond = state.slowdownRemainingMs > 0
+    ? RAIL_FORWARD_SPEED_MM_PER_SECOND
+    : state.forwardSpeedMmPerSecond;
+  const exactTravelMm = state.distanceRemainderMm
+    + (slowedSeconds > 0 ? state.forwardSpeedMmPerSecond * slowedSeconds : 0)
+    + (normalSeconds > 0 ? normalSpeedMmPerSecond * normalSeconds : 0);
   let wholeTravelMm = Math.floor(exactTravelMm + 1e-9);
   let distanceRemainderMm = exactTravelMm - wholeTravelMm;
   if (distanceRemainderMm >= 1 - 1e-6) {
@@ -272,7 +284,7 @@ export function stepJourney(
   }
   distanceRemainderMm = Number(distanceRemainderMm.toFixed(12));
   const distanceMm = previousDistanceMm + Math.max(0, wholeTravelMm);
-  const slowdownRemainingMs = Math.max(0, state.slowdownRemainingMs - elapsedMs);
+  const slowdownRemainingMs = remainingMilliseconds(state.slowdownRemainingMs - elapsedMs);
   const nextTime = Math.min(JOURNEY_SECONDS, state.time + dt);
   let next: RailFlightState = {
     ...state,
@@ -282,7 +294,7 @@ export function stepJourney(
     distanceMm,
     distanceRemainderMm,
     corridorOffset: corridorOffsetFromPosition(position),
-    pulseCooldownRemainingMs: Math.max(0, state.pulseCooldownRemainingMs - elapsedMs),
+    pulseCooldownRemainingMs: remainingMilliseconds(state.pulseCooldownRemainingMs - elapsedMs),
     slowdownRemainingMs,
     forwardSpeedMmPerSecond: slowdownRemainingMs > 0
       ? RAIL_HIT_SPEED_MM_PER_SECOND
@@ -300,6 +312,29 @@ export function stepJourney(
       ? null
       : Math.round(distanceToEncounter3dMm(next.distanceMm, next.corridorOffset, active)),
   };
+}
+
+/**
+ * Advance deterministically on the canonical 60 Hz clock. Longer requested
+ * intervals are partitioned internally; edge-triggered Pulse is consumed only
+ * by the first slice.
+ */
+export function stepJourney(
+  state: RailFlightState,
+  rawInput: Partial<NormalizedInput> = {},
+  seconds = STEP_SECONDS,
+  encounters: readonly Readonly<RailEncounter>[] = DEFAULT_RAIL_ENCOUNTERS,
+): RailFlightState {
+  if (state.finished || !Number.isFinite(seconds) || seconds <= 0) return state;
+  const targetTime = Math.min(JOURNEY_SECONDS, state.time + seconds);
+  let next = state;
+  let pulsePending = Boolean(rawInput.pulse);
+  while (!next.finished && next.time < targetTime) {
+    const sliceSeconds = Math.min(STEP_SECONDS, targetTime - next.time);
+    next = stepJourneySlice(next, { ...rawInput, pulse: pulsePending }, sliceSeconds, encounters);
+    pulsePending = false;
+  }
+  return next;
 }
 
 /** Advance to an exact story-time checkpoint for deterministic QA and replay tooling. */
