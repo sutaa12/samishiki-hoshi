@@ -1,0 +1,178 @@
+.shell {
+  min-height: 100svh;
+  position: relative;
+  overflow: hidden;
+  background: #030713;
+  color: #edf8ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.panel {
+  position: relative;
+  z-index: 1;
+  width: min(35rem, calc(100% - 2rem));
+  margin: 0;
+  padding: clamp(1rem, 4vw, 2rem);
+  min-height: 100svh;
+  box-sizing: border-box;
+  background: linear-gradient(90deg, rgba(2, 7, 19, 0.94) 0%, rgba(2, 7, 19, 0.8) 72%, transparent 100%);
+  pointer-events: none;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: #75dfff;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+}
+
+.labWarning {
+  display: inline-flex;
+  margin: 0 0 0.8rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(255, 188, 94, 0.58);
+  border-radius: 999px;
+  color: #ffd99d;
+  background: rgba(72, 35, 4, 0.78);
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+.panel h1 {
+  margin: 0;
+  max-width: 12ch;
+  font: 500 clamp(2rem, 6vw, 4.5rem) / 0.98 system-ui, sans-serif;
+  letter-spacing: -0.055em;
+}
+
+.summary {
+  max-width: 36rem;
+  margin: 1.25rem 0;
+  color: #b9cad9;
+  font: 400 0.86rem / 1.75 system-ui, sans-serif;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.statusGrid div {
+  padding: 0.65rem;
+  border: 1px solid rgba(117, 223, 255, 0.24);
+  background: rgba(2, 8, 20, 0.72);
+}
+
+.statusGrid dt {
+  color: #6c8496;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+
+.statusGrid dd {
+  margin: 0.25rem 0 0;
+  color: #eafaff;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1rem 0;
+  pointer-events: auto;
+}
+
+.switcher a {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(117, 223, 255, 0.5);
+  border-radius: 999px;
+  color: #dff9ff;
+  text-decoration: none;
+  background: rgba(5, 24, 43, 0.82);
+}
+
+.telemetry {
+  max-height: min(40svh, 24rem);
+  overflow: auto;
+  margin: 1rem 0 0;
+  padding: 0.8rem;
+  border: 1px solid rgba(192, 145, 255, 0.25);
+  border-radius: 0.65rem;
+  color: #b9d0dc;
+  background: rgba(0, 3, 10, 0.82);
+  font-size: 0.66rem;
+  line-height: 1.45;
+  pointer-events: auto;
+}
+
+.error {
+  padding: 0.8rem;
+  border: 1px solid #ff879c;
+  color: #ffdce3;
+  background: rgba(72, 8, 24, 0.84);
+  font-size: 0.75rem;
+}
+
+.qaPanel {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border: 1px dashed rgba(255, 188, 94, 0.58);
+  border-radius: 0.65rem;
+  color: #ffd99d;
+  background: rgba(30, 16, 3, 0.82);
+  font-size: 0.66rem;
+  pointer-events: auto;
+}
+
+.qaPanel p {
+  margin: 0 0 0.65rem;
+}
+
+.qaPanel div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.qaPanel button {
+  min-height: 2.5rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(255, 217, 157, 0.58);
+  border-radius: 0.35rem;
+  color: #fff1d9;
+  background: rgba(72, 35, 4, 0.8);
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 560px) {
+  .panel {
+    width: 100%;
+    min-height: auto;
+    padding-bottom: 1rem;
+    background: linear-gradient(180deg, rgba(2, 7, 19, 0.96) 0%, rgba(2, 7, 19, 0.76) 82%, transparent 100%);
+  }
+
+  .panel h1 {
+    max-width: 10ch;
+  }
+
+  .telemetry {
+    max-height: 28svh;
+  }
+}

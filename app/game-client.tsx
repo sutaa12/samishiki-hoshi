@@ -34,6 +34,8 @@ import {
 
 const FIXED_STEP = 1 / 60;
 const DEFAULT_SEED = 20_260_818;
+const FRAME_METRIC_WARMUP_MS = 900;
+const FRAME_METRIC_MIN_SAMPLES = 24;
 
 type Settings = {
   reducedMotion: boolean;
@@ -48,12 +50,13 @@ type HudSnapshot = {
   time: number;
   phase: JourneyPhase;
   shot: string;
-  cue: string;
   pulses: number;
   answerAt: number | null;
   finished: boolean;
   hash: string;
   p95FrameMs: number;
+  frameSampleCount: number;
+  frameMetricsReady: boolean;
   metrics: WorldMetrics | null;
   x: number;
   y: number;
@@ -72,18 +75,20 @@ function makeSnapshot(
   state: JourneyState,
   metrics: WorldMetrics | null = null,
   p95FrameMs = 0,
+  frameSampleCount = 0,
 ): HudSnapshot {
   const shot = shotAt(state.time);
   return {
     time: state.time,
     phase: phaseAt(state.time),
     shot: shot.id,
-    cue: shot.cue,
     pulses: state.pulses.length,
     answerAt: state.answerAt,
     finished: state.finished,
     hash: hashJourney(state),
     p95FrameMs,
+    frameSampleCount,
+    frameMetricsReady: frameSampleCount >= FRAME_METRIC_MIN_SAMPLES,
     metrics,
     x: state.position.x,
     y: state.position.y,
@@ -102,6 +107,11 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 
 export function GameClient() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gameContentRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsPanelRef = useRef<HTMLElement>(null);
+  const settingsCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const worldRef = useRef<LonelyStarWorld | null>(null);
   const audioRef = useRef<JourneyAudio | null>(null);
   const seedRef = useRef(DEFAULT_SEED);
@@ -115,7 +125,6 @@ export function GameClient() {
   const lastAutoPulseRef = useRef(-10);
   const frameSamplesRef = useRef<number[]>([]);
   const lastUiUpdateRef = useRef(0);
-  const lastAnswerRef = useRef<number | null>(null);
 
   const [settings, setSettings] = useState<Settings>(INITIAL_SETTINGS);
   const [snapshot, setSnapshot] = useState<HudSnapshot>(() =>
@@ -155,6 +164,74 @@ export function GameClient() {
     settingsOpenRef.current = settingsOpen;
   }, [settingsOpen]);
 
+  useEffect(() => {
+    if (!settingsOpen) return;
+
+    const background = gameContentRef.current;
+    const canvas = canvasRef.current;
+    const panel = settingsPanelRef.current;
+    const opener = restoreFocusRef.current ?? settingsButtonRef.current;
+    if (!panel) return;
+
+    const focusableSelector = [
+      "button:not([disabled])",
+      "input:not([disabled])",
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      "a[href]",
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(",");
+    const focusables = () =>
+      Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+        (element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true",
+      );
+
+    (settingsCloseButtonRef.current ?? focusables()[0] ?? panel).focus();
+    background?.setAttribute("inert", "");
+    background?.setAttribute("aria-hidden", "true");
+    canvas?.setAttribute("inert", "");
+    canvas?.setAttribute("aria-hidden", "true");
+
+    const onModalKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSettingsOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const available = focusables();
+      if (available.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = available[0];
+      const last = available[available.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !panel.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !panel.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onModalKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onModalKeyDown);
+      background?.removeAttribute("inert");
+      background?.removeAttribute("aria-hidden");
+      canvas?.removeAttribute("inert");
+      canvas?.removeAttribute("aria-hidden");
+      requestAnimationFrame(() => {
+        if (opener?.isConnected) opener.focus();
+      });
+    };
+  }, [settingsOpen]);
+
   const begin = useCallback(() => {
     if (startedRef.current || webglError) return;
     startedRef.current = true;
@@ -167,7 +244,6 @@ export function GameClient() {
     pendingPulseRef.current = false;
     pointerRef.current = { x: 0, y: -0.72, active: false };
     lastAutoPulseRef.current = -10;
-    lastAnswerRef.current = null;
     frameSamplesRef.current = [];
     setHasMoved(false);
     setSnapshot(makeSnapshot(stateRef.current, worldRef.current?.metrics ?? null));
@@ -185,6 +261,13 @@ export function GameClient() {
     const seed = Number.isFinite(requestedSeed) ? requestedSeed >>> 0 : DEFAULT_SEED;
     const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
     const isQa = localHost && params.get("qa") === "1";
+    const qualityParam = params.get("quality");
+    const qaQuality: QualityLevel | null = isQa && (qualityParam === "low" || qualityParam === "balanced" || qualityParam === "high")
+      ? qualityParam
+      : null;
+    if (qaQuality) {
+      settingsRef.current = { ...settingsRef.current, quality: qaQuality };
+    }
     const requestedSpeed = Number(params.get("speed"));
     const speed = isQa && Number.isFinite(requestedSpeed)
       ? Math.max(1, Math.min(60, requestedSpeed))
@@ -227,6 +310,8 @@ export function GameClient() {
     let lastRealTime = performance.now();
     let accumulator = 0;
     let wasFinished = false;
+    const frameMetricWarmupUntil = performance.now() + FRAME_METRIC_WARMUP_MS;
+    let frameMetricGenerationStarted = false;
 
     const frame = (now: number) => {
       const world = worldRef.current;
@@ -266,7 +351,6 @@ export function GameClient() {
           }
           if (previousAnswer === null && stateRef.current.answerAt !== null) {
             audioRef.current?.answer();
-            lastAnswerRef.current = stateRef.current.answerAt;
           }
           accumulator -= FIXED_STEP;
         }
@@ -277,6 +361,7 @@ export function GameClient() {
       const state = stateRef.current;
       const phase = phaseAt(state.time);
       audioRef.current?.update(phase, state.time);
+      const renderStartedAt = performance.now();
       world.update(
         {
           storyTime: state.time,
@@ -289,15 +374,35 @@ export function GameClient() {
         },
         now / 1000,
       );
+      const renderDurationMs = performance.now() - renderStartedAt;
 
-      frameSamplesRef.current.push(world.metrics.frameMs);
-      if (frameSamplesRef.current.length > 600) frameSamplesRef.current.shift();
+      if (!frameMetricGenerationStarted) {
+        if (now >= frameMetricWarmupUntil) {
+          // The frame crossing the fixed warmup boundary still contains work
+          // performed before the boundary (notably first-use shader compile).
+          // Start the steady-state generation on the following RAF instead.
+          frameMetricGenerationStarted = true;
+          frameSamplesRef.current = [];
+        }
+      } else if (!document.hidden) {
+        // Do not filter slow steady-state frames: every sample after the fixed
+        // startup window contributes to the published P95.
+        frameSamplesRef.current.push(renderDurationMs);
+        if (frameSamplesRef.current.length > 600) frameSamplesRef.current.shift();
+      }
       const finishedChanged = state.finished !== wasFinished;
       wasFinished = state.finished;
       if (now - lastUiUpdateRef.current >= 120 || finishedChanged) {
         lastUiUpdateRef.current = now;
         const p95 = percentile95(frameSamplesRef.current);
-        setSnapshot(makeSnapshot(state, world.metrics, Number(p95.toFixed(2))));
+        setSnapshot(
+          makeSnapshot(
+            state,
+            world.metrics,
+            Number(p95.toFixed(2)),
+            frameSamplesRef.current.length,
+          ),
+        );
       }
       raf = requestAnimationFrame(frame);
     };
@@ -414,6 +519,24 @@ export function GameClient() {
 
   const progress = Math.min(100, (snapshot.time / JOURNEY_SECONDS) * 100);
   const showFormalTitle = snapshot.time >= 178;
+  const alienState = snapshot.time >= 155 && snapshot.time < 161
+    ? "silhouette"
+    : snapshot.time >= 161
+      ? "revealed"
+      : "hidden";
+  const assistiveStatus = !started
+    ? "旅を始める準備ができました。EnterまたはSpaceでも開始できます。"
+    : settingsOpen
+      ? "旅の設定を開きました。Tabで項目を移動し、Escapeで旅へ戻れます。"
+      : snapshot.finished
+        ? `3分間の旅が完了しました。生命の光を${snapshot.pulses}回わたしました。`
+        : snapshot.answerAt !== null
+          ? "応答を受け取りました。移動と生命の光の操作を続けられます。"
+          : snapshot.pulses > 0
+            ? `生命の光を${snapshot.pulses}回わたしました。移動操作も続けられます。`
+            : hasMoved
+              ? "移動操作を受け付けています。クリック、タップ、またはSpaceで生命の光をわたせます。"
+              : "移動できます。クリック、タップ、またはSpaceで生命の光をわたせます。";
   const classes = [
     "game-shell",
     settings.highContrast ? "is-high-contrast" : "",
@@ -433,6 +556,7 @@ export function GameClient() {
       data-position-y={snapshot.y.toFixed(5)}
       data-finished={snapshot.finished ? "true" : "false"}
       data-answer-at={snapshot.answerAt === null ? "" : snapshot.answerAt.toFixed(2)}
+      data-alien-state={alienState}
       data-webgl={webglError ? "false" : "true"}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -441,7 +565,8 @@ export function GameClient() {
       }}
       onPointerCancel={() => { pointerRef.current.active = false; }}
     >
-      <canvas ref={canvasRef} className="world-canvas" aria-label="海から宇宙へ続く手続き生成の世界" />
+      <div ref={gameContentRef} className="game-content">
+        <canvas ref={canvasRef} className="world-canvas" aria-label="海から宇宙へ続く手続き生成の世界" />
 
       {!started && !webglError && (
         <section className="start-screen" aria-label="旅を始める">
@@ -450,7 +575,10 @@ export function GameClient() {
           <button className="primary-button" type="button" onClick={begin}>
             旅をはじめる
           </button>
-          <p className="start-controls">移動：MOUSE · TOUCH · WASD · 矢印 / 生命：TAP · SPACE</p>
+          <p className="start-controls">
+            <span>移動：MOUSE · TOUCH · WASD · 矢印</span>
+            <span>生命：TAP · SPACE</span>
+          </p>
         </section>
       )}
 
@@ -466,21 +594,30 @@ export function GameClient() {
 
       {started && !webglError && (
         <>
-          <div className="journey-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
-          <div className="corner-meta" aria-hidden="true">
-            <span className="seed-mark">{runSeed.toString(36).toUpperCase()}</span>
-            <span className="twinkle-count">✦ {snapshot.pulses.toString().padStart(3, "0")}</span>
-          </div>
-          <button
-            className="settings-button"
-            type="button"
-            aria-label="設定を開く"
-            aria-expanded={settingsOpen}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => setSettingsOpen(true)}
-          >
-            <span aria-hidden="true">◌</span>
-          </button>
+          {!showFormalTitle && (
+            <>
+              <div className="journey-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
+              <div className="corner-meta" aria-hidden="true">
+                <span className="seed-mark">{runSeed.toString(36).toUpperCase()}</span>
+                <span className="twinkle-count">✦ {snapshot.pulses.toString().padStart(3, "0")}</span>
+              </div>
+              <button
+                ref={settingsButtonRef}
+                className="settings-button"
+                type="button"
+                aria-label="設定を開く"
+                aria-expanded={settingsOpen}
+                aria-controls="journey-settings"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  restoreFocusRef.current = event.currentTarget;
+                  setSettingsOpen(true);
+                }}
+              >
+                <span aria-hidden="true">◌</span>
+              </button>
+            </>
+          )}
 
           {!snapshot.finished && snapshot.time < 171 && (
             <div className="control-hints" aria-hidden="true">
@@ -496,15 +633,16 @@ export function GameClient() {
 
           {showFormalTitle && (
             <div className={`formal-title ${snapshot.finished ? "is-finished" : ""}`}>
-              <p>TWINKLE, O LONELY STAR</p>
-              <h1>さみしき星のまたたきよ</h1>
-              {snapshot.finished && <p className="final-tagline">ひとりの光は、やがて無数のまたたきになる。</p>}
+              <h1 aria-label="さみしき星のまたたきよ">
+                <span className="title-line">さみしき星の</span>
+                <span className="title-line">またたきよ</span>
+              </h1>
             </div>
           )}
 
           {snapshot.finished && (
             <section className="end-actions" aria-label="旅の記録">
-              <p className="world-memory">WORLD {runSeed} · {snapshot.pulses} TWINKLES · {snapshot.hash}</p>
+              <p className="visually-hidden">WORLD {runSeed} · {snapshot.pulses} TWINKLES · {snapshot.hash}</p>
               <div>
                 <button type="button" onClick={restart}>同じ星を飛ぶ</button>
                 <button type="button" onClick={newWorld}>新しい星へ</button>
@@ -515,12 +653,38 @@ export function GameClient() {
         </>
       )}
 
+        {qaMode && (
+          <output
+            className="qa-metrics"
+            data-testid="qa-metrics"
+            data-draw-calls={snapshot.metrics?.drawCalls ?? 0}
+            data-triangles={snapshot.metrics?.triangles ?? 0}
+            data-p95-frame-ms={snapshot.p95FrameMs.toFixed(2)}
+            data-frame-samples={snapshot.frameSampleCount}
+            data-frame-metrics-ready={snapshot.frameMetricsReady}
+            data-frame-warmup-ms={FRAME_METRIC_WARMUP_MS}
+            data-frame-metric="main-thread-render-duration"
+            data-quality={snapshot.metrics?.quality ?? settings.quality}
+          >
+            {snapshot.time.toFixed(2)}s · {snapshot.shot} · P95 {snapshot.p95FrameMs.toFixed(2)}ms · {snapshot.metrics?.drawCalls ?? 0} calls
+          </output>
+        )}
+      </div>
+
       {settingsOpen && (
         <div className="settings-backdrop" role="presentation" onPointerDown={(event) => event.stopPropagation()}>
-          <section className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+          <section
+            ref={settingsPanelRef}
+            id="journey-settings"
+            className="settings-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+            tabIndex={-1}
+          >
             <header>
               <div><p>JOURNEY OPTIONS</p><h2 id="settings-title">旅の設定</h2></div>
-              <button type="button" aria-label="設定を閉じる" onClick={() => setSettingsOpen(false)}>×</button>
+              <button ref={settingsCloseButtonRef} type="button" aria-label="設定を閉じる" onClick={() => setSettingsOpen(false)}>×</button>
             </header>
             <Toggle label="動きを抑える" hint="カメラと視差を穏やかにします" checked={settings.reducedMotion} onChange={(value) => setSettings((current) => ({ ...current, reducedMotion: value }))} />
             <Toggle label="高コントラスト" hint="光と輪郭の差を強めます" checked={settings.highContrast} onChange={(value) => setSettings((current) => ({ ...current, highContrast: value }))} />
@@ -540,12 +704,9 @@ export function GameClient() {
         </div>
       )}
 
-      <p className="visually-hidden" aria-live="polite">{started ? snapshot.cue : "旅を始める準備ができました。"}</p>
-      {qaMode && (
-        <output className="qa-metrics" data-testid="qa-metrics">
-          {snapshot.time.toFixed(2)}s · {snapshot.shot} · P95 {snapshot.p95FrameMs.toFixed(2)}ms · {snapshot.metrics?.drawCalls ?? 0} calls
-        </output>
-      )}
+      <p className="visually-hidden" role="status" aria-live="polite" data-testid="assistive-status">
+        {assistiveStatus}
+      </p>
     </main>
   );
 }

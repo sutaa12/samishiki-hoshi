@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://samishiki-hoshi-seoul.sites.openai.com"),
+  metadataBase: new URL("https://samishiki-hoshi-seoul.narinarinari.chatgpt.site"),
   title: "さみしき星のまたたきよ｜TWINKLE, O LONELY STAR",
   description:
     "豊かな地球から宇宙へ、一滴の生命を導く3分間のプロシージャル・ネイチャーフライト。",

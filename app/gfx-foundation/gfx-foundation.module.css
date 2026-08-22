@@ -1,0 +1,50 @@
+.shell {
+  height: 100svh;
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 450px);
+  overflow: hidden;
+  color: #eefaff;
+  background: #020611;
+}
+
+.stage { height: 100svh; min-height: 0; position: relative; }
+.canvas { width: 100%; height: 100%; display: block; }
+
+.panel {
+  height: 100svh;
+  min-height: 0;
+  padding: clamp(24px, 4vw, 48px);
+  overflow: auto;
+  border-left: 1px solid rgba(164, 224, 255, 0.16);
+  background: rgba(2, 6, 17, 0.9);
+  backdrop-filter: blur(22px);
+}
+
+.warning, .eyebrow {
+  margin: 0 0 10px;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+.warning { color: #ffc87b; }
+.eyebrow { color: #75ddff; }
+.panel h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.5rem); letter-spacing: -0.04em; }
+.summary { margin: 14px 0 22px; color: rgba(226, 243, 255, 0.72); line-height: 1.65; }
+
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 0; }
+.facts div { padding: 11px; border: 1px solid rgba(164, 224, 255, 0.14); border-radius: 11px; background: rgba(91, 177, 220, 0.06); }
+.facts dt { margin-bottom: 5px; color: rgba(210, 236, 252, 0.56); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.facts dd { margin: 0; overflow-wrap: anywhere; font: 0.76rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 19px 0; }
+.actions button { min-height: 42px; padding: 8px 13px; border: 1px solid rgba(126, 215, 255, 0.34); border-radius: 999px; background: rgba(74, 159, 201, 0.12); color: inherit; cursor: pointer; }
+.actions button:hover, .actions button:focus-visible { border-color: #9fe5ff; background: rgba(80, 183, 228, 0.22); outline: none; }
+.failure { padding: 11px; border: 1px solid rgba(255, 130, 140, 0.34); border-radius: 10px; background: rgba(150, 30, 46, 0.2); color: #ffd4d8; }
+.output { max-height: 38svh; margin: 0; padding: 12px; overflow: auto; white-space: pre-wrap; border: 1px solid rgba(164, 224, 255, 0.13); border-radius: 11px; background: rgba(0, 0, 0, 0.3); color: #c7edff; font-size: 0.68rem; line-height: 1.48; }
+
+@media (max-width: 820px) {
+  .shell { height: auto; min-height: 100svh; grid-template-columns: 1fr; overflow: visible; }
+  .stage { height: 48svh; min-height: 48svh; }
+  .panel { height: auto; min-height: auto; border-top: 1px solid rgba(164, 224, 255, 0.16); border-left: 0; }
+}

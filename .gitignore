@@ -15,6 +15,8 @@
 /playwright-report
 /test-results
 .quality-gates/playwright-output/
+.quality-gates/gfx002-playwright-output/
+.serena/
 *.tsbuildinfo
 
 # next.js
