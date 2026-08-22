@@ -120,10 +120,10 @@ test("all six phases keep visual density inside automated safety ceilings", asyn
       await expect(metrics).toHaveAttribute("data-quality", quality);
       await expect(metrics).toHaveAttribute("data-frame-metric", "gfx-v2-raf-interval");
       await expect(metrics).toHaveAttribute("data-frame-metrics-ready", "true", { timeout: 6_000 });
-      const drawCalls = Number(await metrics.getAttribute("data-draw-calls"));
+      const drawCalls = Number(await metrics.getAttribute("data-density-draw-calls"));
       const triangles = Number(await metrics.getAttribute("data-triangles"));
       const p95FrameMs = Number(await metrics.getAttribute("data-p95-frame-ms"));
-      const frameSamples = Number(await metrics.getAttribute("data-frame-samples"));
+      const frameSamples = Number(await metrics.getAttribute("data-density-frame-samples"));
       const warmupMs = Number(await metrics.getAttribute("data-frame-warmup-ms"));
       const drawCallsPerSample = frameSamples > 0
         ? drawCalls / frameSamples

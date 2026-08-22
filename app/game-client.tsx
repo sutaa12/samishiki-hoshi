@@ -73,6 +73,8 @@ type HudSnapshot = {
   p95FrameMs: number;
   frameSampleCount: number;
   frameMetricsReady: boolean;
+  densityDrawCalls: number | null;
+  densityFrameSampleCount: number;
   metrics: ProductionRendererMetrics | null;
   x: number;
   y: number;
@@ -175,6 +177,8 @@ function makeSnapshot(
   metrics: ProductionRendererMetrics | null = null,
   p95FrameMs = 0,
   frameSampleCount = 0,
+  densityDrawCalls: number | null = null,
+  densityFrameSampleCount = 0,
 ): HudSnapshot {
   const shot = shotAt(state.time);
   return {
@@ -188,6 +192,8 @@ function makeSnapshot(
     p95FrameMs,
     frameSampleCount,
     frameMetricsReady: frameSampleCount >= GFX_TELEMETRY_MINIMUM_PERCENTILE_SAMPLES,
+    densityDrawCalls,
+    densityFrameSampleCount,
     metrics,
     x: state.position.x,
     y: state.position.y,
@@ -591,6 +597,7 @@ export function GameClient() {
     let accumulator = 0;
     let wasFinished = false;
     let listenersAttached = false;
+    let qaDensitySample: Readonly<{ drawCalls: number; frameSampleCount: number }> | null = null;
 
     const frame = (now: number) => {
       const renderer = rendererRef.current;
@@ -661,15 +668,27 @@ export function GameClient() {
       }
       const finishedChanged = state.finished !== wasFinished;
       wasFinished = state.finished;
+      let frameEvidence: ReturnType<typeof rendererEvidence> | null = null;
+      if (isQa && qaDensitySample === null) {
+        frameEvidence = rendererEvidence(renderer);
+        if (frameEvidence.frameSampleCount >= GFX_TELEMETRY_MINIMUM_PERCENTILE_SAMPLES) {
+          qaDensitySample = Object.freeze({
+            drawCalls: frameEvidence.metrics.drawCalls,
+            frameSampleCount: frameEvidence.frameSampleCount,
+          });
+        }
+      }
       if (now - lastUiUpdateRef.current >= 120 || finishedChanged) {
         lastUiUpdateRef.current = now;
-        const evidence = rendererEvidence(renderer);
+        const evidence = frameEvidence ?? rendererEvidence(renderer);
         setSnapshot(
           makeSnapshot(
             state,
             evidence.metrics,
             evidence.p95FrameMs,
             evidence.frameSampleCount,
+            qaDensitySample?.drawCalls ?? null,
+            qaDensitySample?.frameSampleCount ?? 0,
           ),
         );
       }
@@ -765,7 +784,7 @@ export function GameClient() {
       }
       audioRef.current?.dispose();
       audioRef.current = null;
-      phaseAudioRef.current?.dispose();
+      void phaseAudioRef.current?.dispose().catch(() => undefined);
       phaseAudioRef.current = null;
     };
   }, [syncInputStatus]);
@@ -1108,9 +1127,11 @@ export function GameClient() {
             className="qa-metrics"
             data-testid="qa-metrics"
             data-draw-calls={snapshot.metrics?.drawCalls ?? 0}
+            data-density-draw-calls={snapshot.densityDrawCalls ?? snapshot.metrics?.drawCalls ?? 0}
             data-triangles={snapshot.metrics?.triangles ?? 0}
             data-p95-frame-ms={snapshot.p95FrameMs.toFixed(2)}
             data-frame-samples={snapshot.frameSampleCount}
+            data-density-frame-samples={snapshot.densityFrameSampleCount || snapshot.frameSampleCount}
             data-frame-metrics-ready={snapshot.frameMetricsReady}
             data-frame-warmup-ms={0}
             data-frame-metric="gfx-v2-raf-interval"
