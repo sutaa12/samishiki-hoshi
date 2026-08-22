@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "authorization_id": "r2-g7-public-human-test-2026-08-22",
+  "recorded_at": "2026-08-22T00:00:00+09:00",
+  "request": "人間がテストプレイできる状態にしてURLなどを共有してください",
+  "authorized_scope": {
+    "public_test_deployment": true,
+    "source_branch": "graphics-photoreal-megademo",
+    "accepted_implementation_commit": "2741af51e277bdaa76ac97ee8b207bbfb1683cee",
+    "accepted_automated_receipt_commit": "bd2aefd7235c2ac8a4d803438a30a6622b6e3498",
+    "sites_project_id": "appgprj_6a837fe8fec08191aeb514bf721a0634",
+    "access_mode": "public"
+  },
+  "not_authorized_or_not_yet_decided": {
+    "main_integration": true,
+    "final_release_acceptance": true,
+    "human_visual_play_acceptance": true,
+    "public_use_and_contest_rights_acceptance": true,
+    "reference_hardware_acceptance": true,
+    "contest_submission": true
+  },
+  "rollback_condition": "Any anonymous-access failure, primary-interaction failure, new open S0-S2 finding, or Human Acceptance Owner stop request removes the test deployment and restores the prior Sites version."
+}

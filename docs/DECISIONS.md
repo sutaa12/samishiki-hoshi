@@ -321,6 +321,20 @@ This does not weaken D-005: reference hardware, human visual/play, public-use
 and contest rights, Main integration, Sites deployment, and submission remain
 outside automated acceptance.
 
+## D-025 — Public human-test deployment is authorized without Main integration
+
+On 2026-08-22 the Human Acceptance Owner explicitly requested a playable URL
+for human testing. This authorizes one reversible public Sites deployment from
+the exact accepted `graphics-photoreal-megademo` source, while Main remains at
+`6c010ee228ace28e655ceeba764513806505b03e`.
+
+This is a test-distribution exception to the earlier no-deploy hold, not a
+`Merge`, `Partial Merge`, final human visual/play acceptance, rights guarantee,
+reference-hardware acceptance, or contest submission. The deployed URL must be
+anonymous, must support a real steer and give-life interaction, and must remain
+bound to its exact Git source and Sites version. Any failed smoke gate or human
+stop request rolls back to the prior Sites version.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

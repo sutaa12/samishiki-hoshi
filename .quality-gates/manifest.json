@@ -69,7 +69,8 @@
         "Exact accepted build is merged, deployed anonymously to Sites, and smoke-tested through a real interaction"
       ],
       "evidence": [
-        {"kind": "boundary", "artifact": "docs/HUMAN_ACCEPTANCE_R2_G7.md", "description": "Exact candidate identity, human review checklist, decision form, release authorization boundary, and rollback instructions"}
+        {"kind": "boundary", "artifact": "docs/HUMAN_ACCEPTANCE_R2_G7.md", "description": "Exact candidate identity, human review checklist, decision form, release authorization boundary, and rollback instructions"},
+        {"kind": "authorization", "artifact": ".quality-gates/receipts/r2-g7-human-test-authorization.json", "description": "Explicit reversible public test-play deployment authorization; no Main, final release, rights, hardware, or contest acceptance"}
       ],
       "rollback_condition": "Human Reject, missing rights attestation, unavailable anonymous URL, or failed primary interaction",
       "status": "pending"

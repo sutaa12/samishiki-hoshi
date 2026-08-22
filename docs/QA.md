@@ -9,7 +9,7 @@
 | G2 Playable journey | production build plus desktop/mobile browser flows | archived WIP only; not a release claim under the revised graphics source |
 | G3 Accessibility and presentation | settings/input/audio/end-card/focus/reference-gallery checks | archived WIP only; contracts are inputs to R2 |
 | G4 Independent acceptance | isolated artifact review; S0–S2 = 0 | automated combined scope accepted at `2741af5` / reviewed evidence `ba38e66`; human visual/play remains separate |
-| G5 Public release | anonymous HTTPS smoke interaction and version receipt | frozen; Sites v1 exists but must not be deployed |
+| G5 Public release | anonymous HTTPS smoke interaction and version receipt | public human-test deployment authorized; final release acceptance remains pending |
 
 ## R2 graphics rebaseline gates
 
@@ -22,7 +22,7 @@
 | R2-G4 Slice B | sunset forest/city High + fallback | passed in exact Hero R33 implementation `e1b101b`, reviewed evidence `0c869ab`; independent technical, artifact, and visual review S0=0, S1=0, S2=0, S3=0 |
 | R2-G5 Slice C | human debris/alien/Twinkle High + fallback | passed in exact Hero R33 implementation `e1b101b`, reviewed evidence `0c869ab`; independent technical, artifact, and visual review S0=0, S1=0, S2=0, S3=0 |
 | R2-G6 Parity and acceptance | 180s hash, 1,000 seeds, restart resources, performance, license, blind review | passed for exact implementation `2741af5` and reviewed evidence `ba38e66`; reference hardware, human visual/play, and rights remain pending |
-| R2-G7 Human integration | explicit `Merge` / `Partial Merge` / `Reject` | `HUMAN_PENDING`; decision packet: `docs/HUMAN_ACCEPTANCE_R2_G7.md` |
+| R2-G7 Human integration | explicit `Merge` / `Partial Merge` / `Reject` | public human-test URL authorized; integration, visual/play acceptance, and rights remain `HUMAN_PENDING`; decision packet: `docs/HUMAN_ACCEPTANCE_R2_G7.md` |
 
 ## Performance targets
 

@@ -4,6 +4,11 @@ This packet is the resume point for the Human Acceptance Owner. It does not
 record acceptance by itself and does not authorize Main integration, Sites
 deployment, or contest submission.
 
+The Human Acceptance Owner subsequently authorized a reversible public Sites
+deployment for test play. That authorization changes only test distribution;
+the integration, visual/play acceptance, rights, hardware, and contest gates
+below remain undecided.
+
 ## Candidate identity
 
 - Automated implementation: `2741af51e277bdaa76ac97ee8b207bbfb1683cee`
