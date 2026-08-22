@@ -13,6 +13,13 @@ function gfxSpikePort(value: string | undefined): number {
 const explicitDevPort = process.env.GFX_SPIKE_PORT !== undefined;
 const devPort = gfxSpikePort(process.env.GFX_SPIKE_PORT);
 const devUrl = `http://localhost:${devPort}`;
+const jsonReportPath = process.env.PLAYWRIGHT_JSON_OUTPUT_NAME
+  ?? ".quality-gates/playwright-report.json";
+const angleBackend = process.env.GFX_PLAYWRIGHT_ANGLE
+  ?? (process.platform === "darwin" ? "metal" : "swiftshader");
+if (angleBackend !== "metal" && angleBackend !== "swiftshader") {
+  throw new Error("GFX_PLAYWRIGHT_ANGLE must be metal or swiftshader.");
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -20,14 +27,21 @@ export default defineConfig({
   expect: { timeout: 8_000 },
   fullyParallel: false,
   workers: 1,
-  reporter: [["line"], ["json", { outputFile: ".quality-gates/playwright-report.json" }]],
+  reporter: [["line"], ["json", { outputFile: jsonReportPath }]],
   outputDir: ".quality-gates/playwright-output",
   use: {
     baseURL: devUrl,
     headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    launchOptions: { args: ["--use-gl=angle", "--use-angle=swiftshader"] },
+    launchOptions: {
+      args: [
+        "--enable-unsafe-webgpu",
+        "--ignore-gpu-blocklist",
+        "--use-gl=angle",
+        `--use-angle=${angleBackend}`,
+      ],
+    },
   },
   webServer: {
     command: `npm run dev -- --port ${devPort}`,

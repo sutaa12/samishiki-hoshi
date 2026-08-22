@@ -22,11 +22,15 @@ import {
   hashJourney,
   stepJourney,
 } from "@/src/game/simulation";
+import type { ThreeBackendRequest } from "@/src/gfx/v2/backend/backend-adapter";
+import type { GfxFoundationSnapshot } from "@/src/gfx/v2/integration/foundation-runtime";
 import {
-  createLonelyStarWorld,
-  type LonelyStarWorld,
-  type WorldMetrics,
-} from "@/src/game/world";
+  createProductionJourneyRuntime,
+  type ProductionGfxRuntime,
+} from "@/src/gfx/v2/integration/production-journey-runtime";
+import { RuntimeCleanupTombstone } from "@/src/gfx/v2/integration/runtime-cleanup-tombstone";
+import { projectJourneyState } from "@/src/gfx/v2/project-journey";
+import { GFX_TELEMETRY_MINIMUM_PERCENTILE_SAMPLES } from "@/src/gfx/v2/telemetry";
 import {
   createJourneyAudio,
   type JourneyAudio,
@@ -34,8 +38,9 @@ import {
 
 const FIXED_STEP = 1 / 60;
 const DEFAULT_SEED = 20_260_818;
-const FRAME_METRIC_WARMUP_MS = 900;
-const FRAME_METRIC_MIN_SAMPLES = 24;
+
+const productionRuntimeCleanupOwner = new RuntimeCleanupTombstone<ProductionGfxRuntime>();
+let productionRuntimeLifecycleTail: Promise<void> = Promise.resolve();
 
 type Settings = {
   reducedMotion: boolean;
@@ -57,9 +62,33 @@ type HudSnapshot = {
   p95FrameMs: number;
   frameSampleCount: number;
   frameMetricsReady: boolean;
-  metrics: WorldMetrics | null;
+  metrics: ProductionRendererMetrics | null;
   x: number;
   y: number;
+};
+
+type ProductionRendererMetrics = {
+  actualBackend: string | null;
+  requestedBackend: string;
+  planDigest: string;
+  generation: number;
+  quality: QualityLevel;
+  drawCalls: number;
+  triangles: number;
+  storyTime: number;
+  positionX: number;
+  positionY: number;
+  velocityX: number;
+  velocityY: number;
+  pulseCount: number;
+  answerAt: number | null;
+  programs: number;
+  geometries: number;
+  gpuOwners: number;
+  logicalOwners: number;
+  poolSlots: number;
+  resizeListenerActive: boolean;
+  subscribers: number;
 };
 
 const INITIAL_SETTINGS: Settings = {
@@ -73,7 +102,7 @@ const INITIAL_SETTINGS: Settings = {
 
 function makeSnapshot(
   state: JourneyState,
-  metrics: WorldMetrics | null = null,
+  metrics: ProductionRendererMetrics | null = null,
   p95FrameMs = 0,
   frameSampleCount = 0,
 ): HudSnapshot {
@@ -88,17 +117,54 @@ function makeSnapshot(
     hash: hashJourney(state),
     p95FrameMs,
     frameSampleCount,
-    frameMetricsReady: frameSampleCount >= FRAME_METRIC_MIN_SAMPLES,
+    frameMetricsReady: frameSampleCount >= GFX_TELEMETRY_MINIMUM_PERCENTILE_SAMPLES,
     metrics,
     x: state.position.x,
     y: state.position.y,
   };
 }
 
-function percentile95(samples: readonly number[]): number {
-  if (samples.length === 0) return 0;
-  const sorted = [...samples].sort((left, right) => left - right);
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] ?? 0;
+function qualityFromFoundation(id: GfxFoundationSnapshot["quality"]["id"]): QualityLevel {
+  if (id.startsWith("high")) return "high";
+  if (id.startsWith("balanced")) return "balanced";
+  return "low";
+}
+
+function rendererEvidence(runtime: ProductionGfxRuntime): {
+  metrics: ProductionRendererMetrics;
+  p95FrameMs: number;
+  frameSampleCount: number;
+} {
+  const snapshot = runtime.getSnapshot();
+  const journey = runtime.getJourneySnapshot();
+  const latest = snapshot.telemetry.latestFrame?.renderer;
+  return {
+    metrics: {
+      actualBackend: snapshot.backendFacts.actualApi,
+      requestedBackend: snapshot.backendFacts.requestedApi,
+      planDigest: snapshot.planDigest,
+      generation: snapshot.generation,
+      quality: qualityFromFoundation(snapshot.quality.id),
+      drawCalls: latest?.drawCalls ?? 0,
+      triangles: latest?.triangles ?? 0,
+      storyTime: journey.storyTime,
+      positionX: journey.position.x,
+      positionY: journey.position.y,
+      velocityX: journey.velocity.x,
+      velocityY: journey.velocity.y,
+      pulseCount: journey.pulses.length,
+      answerAt: journey.answerAt,
+      programs: snapshot.backendLifecycle.resources.programs,
+      geometries: snapshot.backendLifecycle.resources.geometries,
+      gpuOwners: snapshot.chunks.gpuOwnedCount,
+      logicalOwners: snapshot.logicalResources.owners,
+      poolSlots: snapshot.uploader.poolSlots,
+      resizeListenerActive: snapshot.runtime.resizeListenerActive,
+      subscribers: snapshot.runtime.subscribers,
+    },
+    p95FrameMs: Number((snapshot.telemetry.frameIntervalMs.p95 ?? 0).toFixed(2)),
+    frameSampleCount: snapshot.telemetry.frameIntervalMs.sampleCount,
+  };
 }
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -112,7 +178,7 @@ export function GameClient() {
   const settingsPanelRef = useRef<HTMLElement>(null);
   const settingsCloseButtonRef = useRef<HTMLButtonElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
-  const worldRef = useRef<LonelyStarWorld | null>(null);
+  const rendererRef = useRef<ProductionGfxRuntime | null>(null);
   const audioRef = useRef<JourneyAudio | null>(null);
   const seedRef = useRef(DEFAULT_SEED);
   const stateRef = useRef<JourneyState>(createJourneyState({ seed: DEFAULT_SEED }));
@@ -123,8 +189,8 @@ export function GameClient() {
   const keysRef = useRef(new Set<string>());
   const pointerRef = useRef({ x: 0, y: -0.72, active: false });
   const lastAutoPulseRef = useRef(-10);
-  const frameSamplesRef = useRef<number[]>([]);
   const lastUiUpdateRef = useRef(0);
+  const qaRestartCheckpointRef = useRef(0);
 
   const [settings, setSettings] = useState<Settings>(INITIAL_SETTINGS);
   const [snapshot, setSnapshot] = useState<HudSnapshot>(() =>
@@ -132,9 +198,11 @@ export function GameClient() {
   );
   const [runSeed, setRunSeed] = useState(DEFAULT_SEED);
   const [started, setStarted] = useState(false);
+  const [restartCount, setRestartCount] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasMoved, setHasMoved] = useState(false);
-  const [webglError, setWebglError] = useState<string | null>(null);
+  const [rendererReady, setRendererReady] = useState(false);
+  const [rendererError, setRendererError] = useState<string | null>(null);
   const [qaMode, setQaMode] = useState(false);
 
   useEffect(() => {
@@ -148,17 +216,16 @@ export function GameClient() {
 
   useEffect(() => {
     settingsRef.current = settings;
-    worldRef.current?.setOptions({
-      quality: settings.quality,
-      accessibility: {
-        reducedMotion: settings.reducedMotion,
-        highContrast: settings.highContrast,
-        wideFlow: settings.wideFlow,
-        colorIndependentCues: true,
-      },
-    });
     audioRef.current?.setMuted(settings.muted);
   }, [settings]);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    void renderer.setQuality(settings.quality).catch((error: unknown) => {
+      setRendererError(error instanceof Error ? error.message : "描画品質を変更できませんでした。");
+    });
+  }, [settings.quality]);
 
   useEffect(() => {
     settingsOpenRef.current = settingsOpen;
@@ -233,20 +300,35 @@ export function GameClient() {
   }, [settingsOpen]);
 
   const begin = useCallback(() => {
-    if (startedRef.current || webglError) return;
+    if (startedRef.current || rendererError || !rendererReady) return;
     startedRef.current = true;
     setStarted(true);
     audioRef.current?.start().catch(() => undefined);
-  }, [webglError]);
+  }, [rendererError, rendererReady]);
 
   const restart = useCallback(() => {
-    stateRef.current = createJourneyState({ seed: seedRef.current });
+    const initial = createJourneyState({ seed: seedRef.current });
+    stateRef.current = qaRestartCheckpointRef.current > 0
+      ? advanceJourneyTo(initial, qaRestartCheckpointRef.current)
+      : initial;
     pendingPulseRef.current = false;
     pointerRef.current = { x: 0, y: -0.72, active: false };
     lastAutoPulseRef.current = -10;
-    frameSamplesRef.current = [];
     setHasMoved(false);
-    setSnapshot(makeSnapshot(stateRef.current, worldRef.current?.metrics ?? null));
+    setRestartCount((count) => count + 1);
+    const renderer = rendererRef.current;
+    if (renderer) {
+      renderer.update(projectJourneyState(stateRef.current));
+      const evidence = rendererEvidence(renderer);
+      setSnapshot(makeSnapshot(
+        stateRef.current,
+        evidence.metrics,
+        evidence.p95FrameMs,
+        evidence.frameSampleCount,
+      ));
+    } else {
+      setSnapshot(makeSnapshot(stateRef.current));
+    }
     startedRef.current = true;
     setStarted(true);
     audioRef.current?.start().catch(() => undefined);
@@ -255,6 +337,7 @@ export function GameClient() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    let cancelled = false;
 
     const params = new URLSearchParams(window.location.search);
     const requestedSeed = Number(params.get("seed"));
@@ -267,6 +350,9 @@ export function GameClient() {
       : null;
     if (qaQuality) {
       settingsRef.current = { ...settingsRef.current, quality: qaQuality };
+      queueMicrotask(() => {
+        if (!cancelled) setSettings((current) => ({ ...current, quality: qaQuality }));
+      });
     }
     const requestedSpeed = Number(params.get("speed"));
     const speed = isQa && Number.isFinite(requestedSpeed)
@@ -278,44 +364,25 @@ export function GameClient() {
     const checkpoint = isQa && Number.isFinite(requestedCheckpoint)
       ? Math.max(0, Math.min(179.9, requestedCheckpoint))
       : 0;
+    qaRestartCheckpointRef.current = checkpoint;
     stateRef.current = advanceJourneyTo(createJourneyState({ seed }), checkpoint);
     setSnapshot(makeSnapshot(stateRef.current));
     setQaMode(isQa);
+    setRendererReady(false);
+    setRendererError(null);
 
-    let world: LonelyStarWorld;
-    try {
-      world = createLonelyStarWorld({
-        canvas,
-        seed,
-        quality: settingsRef.current.quality,
-        accessibility: {
-          reducedMotion: settingsRef.current.reducedMotion,
-          highContrast: settingsRef.current.highContrast,
-          wideFlow: settingsRef.current.wideFlow,
-          colorIndependentCues: true,
-        },
-      });
-      worldRef.current = world;
-      audioRef.current = createJourneyAudio({ muted: settingsRef.current.muted });
-    } catch (error) {
-      setWebglError(error instanceof Error ? error.message : "WebGLを開始できませんでした。");
-      return;
-    }
-
-    const resize = () => worldRef.current?.resize(window.innerWidth, window.innerHeight);
-    resize();
-    window.addEventListener("resize", resize);
-
+    const backendRequest: ThreeBackendRequest = isQa && params.get("backend") === "webgl2"
+      ? "forced-webgl2"
+      : "webgpu-preferred";
     let raf = 0;
     let lastRealTime = performance.now();
     let accumulator = 0;
     let wasFinished = false;
-    const frameMetricWarmupUntil = performance.now() + FRAME_METRIC_WARMUP_MS;
-    let frameMetricGenerationStarted = false;
+    let listenersAttached = false;
 
     const frame = (now: number) => {
-      const world = worldRef.current;
-      if (!world) return;
+      const renderer = rendererRef.current;
+      if (!renderer || cancelled) return;
       const realDelta = Math.min(0.05, Math.max(0, (now - lastRealTime) / 1000));
       lastRealTime = now;
 
@@ -361,70 +428,96 @@ export function GameClient() {
       const state = stateRef.current;
       const phase = phaseAt(state.time);
       audioRef.current?.update(phase, state.time);
-      const renderStartedAt = performance.now();
-      world.update(
-        {
-          storyTime: state.time,
-          phase,
-          shot: shotAt(state.time).id,
-          position: state.position,
-          pulseCount: state.pulses.length,
-          answerAt: state.answerAt,
-          finished: state.finished,
-        },
-        now / 1000,
-      );
-      const renderDurationMs = performance.now() - renderStartedAt;
-
-      if (!frameMetricGenerationStarted) {
-        if (now >= frameMetricWarmupUntil) {
-          // The frame crossing the fixed warmup boundary still contains work
-          // performed before the boundary (notably first-use shader compile).
-          // Start the steady-state generation on the following RAF instead.
-          frameMetricGenerationStarted = true;
-          frameSamplesRef.current = [];
-        }
-      } else if (!document.hidden) {
-        // Do not filter slow steady-state frames: every sample after the fixed
-        // startup window contributes to the published P95.
-        frameSamplesRef.current.push(renderDurationMs);
-        if (frameSamplesRef.current.length > 600) frameSamplesRef.current.shift();
+      try {
+        renderer.update(projectJourneyState(state));
+      } catch (error: unknown) {
+        setRendererError(error instanceof Error ? error.message : "Production rendererの更新に失敗しました。");
+        setRendererReady(false);
+        return;
       }
       const finishedChanged = state.finished !== wasFinished;
       wasFinished = state.finished;
       if (now - lastUiUpdateRef.current >= 120 || finishedChanged) {
         lastUiUpdateRef.current = now;
-        const p95 = percentile95(frameSamplesRef.current);
+        const evidence = rendererEvidence(renderer);
         setSnapshot(
           makeSnapshot(
             state,
-            world.metrics,
-            Number(p95.toFixed(2)),
-            frameSamplesRef.current.length,
+            evidence.metrics,
+            evidence.p95FrameMs,
+            evidence.frameSampleCount,
           ),
         );
       }
       raf = requestAnimationFrame(frame);
     };
-
-    raf = requestAnimationFrame(frame);
     const clearHeldInput = () => {
       keysRef.current.clear();
       pointerRef.current.active = false;
       lastRealTime = performance.now();
       accumulator = 0;
     };
-    window.addEventListener("blur", clearHeldInput);
-    document.addEventListener("visibilitychange", clearHeldInput);
+
+    const initialize = async () => {
+      const operation = productionRuntimeLifecycleTail
+        .catch(() => undefined)
+        .then(async () => {
+          await productionRuntimeCleanupOwner.drain();
+          const runtime = await createProductionJourneyRuntime({
+            canvas,
+            request: backendRequest,
+            qa: isQa,
+            generation: 1,
+            quality: settingsRef.current.quality,
+            initialSnapshot: projectJourneyState(stateRef.current),
+          });
+          if (cancelled) {
+            await productionRuntimeCleanupOwner.dispose(runtime);
+            return null;
+          }
+          return runtime;
+        });
+      productionRuntimeLifecycleTail = operation.then(() => undefined, () => undefined);
+      const runtime = await operation;
+      if (!runtime || cancelled) return;
+      rendererRef.current = runtime;
+      audioRef.current = createJourneyAudio({ muted: settingsRef.current.muted });
+      const evidence = rendererEvidence(runtime);
+      setSnapshot(makeSnapshot(
+        stateRef.current,
+        evidence.metrics,
+        evidence.p95FrameMs,
+        evidence.frameSampleCount,
+      ));
+      setRendererReady(true);
+      window.addEventListener("blur", clearHeldInput);
+      document.addEventListener("visibilitychange", clearHeldInput);
+      listenersAttached = true;
+      raf = requestAnimationFrame(frame);
+    };
+
+    void initialize().catch((error: unknown) => {
+      if (cancelled) return;
+      setRendererError(error instanceof Error ? error.message : "Production rendererを開始できませんでした。");
+      setRendererReady(false);
+    });
 
     return () => {
+      cancelled = true;
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("blur", clearHeldInput);
-      document.removeEventListener("visibilitychange", clearHeldInput);
-      world.dispose();
+      if (listenersAttached) {
+        window.removeEventListener("blur", clearHeldInput);
+        document.removeEventListener("visibilitychange", clearHeldInput);
+      }
+      const runtime = rendererRef.current;
+      rendererRef.current = null;
+      if (runtime) {
+        const disposal = productionRuntimeLifecycleTail
+          .catch(() => undefined)
+          .then(() => productionRuntimeCleanupOwner.dispose(runtime));
+        productionRuntimeLifecycleTail = disposal.then(() => undefined, () => undefined);
+      }
       audioRef.current?.dispose();
-      worldRef.current = null;
       audioRef.current = null;
     };
   }, []);
@@ -524,8 +617,12 @@ export function GameClient() {
     : snapshot.time >= 161
       ? "revealed"
       : "hidden";
-  const assistiveStatus = !started
-    ? "旅を始める準備ができました。EnterまたはSpaceでも開始できます。"
+  const assistiveStatus = rendererError
+    ? "光景を描画できませんでした。再読み込みしてください。"
+    : !rendererReady
+      ? "光景を準備しています。"
+      : !started
+        ? "旅を始める準備ができました。EnterまたはSpaceでも開始できます。"
     : settingsOpen
       ? "旅の設定を開きました。Tabで項目を移動し、Escapeで旅へ戻れます。"
       : snapshot.finished
@@ -552,12 +649,34 @@ export function GameClient() {
       data-shot={snapshot.shot}
       data-story-time={snapshot.time.toFixed(2)}
       data-pulses={snapshot.pulses}
+      data-gameplay-hash={snapshot.hash}
       data-position-x={snapshot.x.toFixed(5)}
       data-position-y={snapshot.y.toFixed(5)}
       data-finished={snapshot.finished ? "true" : "false"}
       data-answer-at={snapshot.answerAt === null ? "" : snapshot.answerAt.toFixed(2)}
       data-alien-state={alienState}
-      data-webgl={webglError ? "false" : "true"}
+      data-webgl={rendererReady ? "true" : "false"}
+      data-renderer-status={rendererError ? "error" : rendererReady ? "ready" : "initializing"}
+      data-actual-backend={snapshot.metrics?.actualBackend?.toLowerCase() ?? "pending"}
+      data-requested-backend={snapshot.metrics?.requestedBackend.toLowerCase() ?? "pending"}
+      data-render-quality={snapshot.metrics?.quality ?? settings.quality}
+      data-render-plan-digest={snapshot.metrics?.planDigest ?? "pending"}
+      data-render-generation={snapshot.metrics?.generation ?? 0}
+      data-render-story-time={snapshot.metrics?.storyTime.toFixed(2) ?? ""}
+      data-render-position-x={snapshot.metrics?.positionX.toFixed(5) ?? ""}
+      data-render-position-y={snapshot.metrics?.positionY.toFixed(5) ?? ""}
+      data-render-velocity-x={snapshot.metrics?.velocityX.toFixed(5) ?? ""}
+      data-render-velocity-y={snapshot.metrics?.velocityY.toFixed(5) ?? ""}
+      data-render-pulses={snapshot.metrics?.pulseCount ?? 0}
+      data-render-answer-at={snapshot.metrics?.answerAt?.toFixed(2) ?? ""}
+      data-render-programs={snapshot.metrics?.programs ?? 0}
+      data-render-geometries={snapshot.metrics?.geometries ?? 0}
+      data-render-gpu-owners={snapshot.metrics?.gpuOwners ?? 0}
+      data-render-logical-owners={snapshot.metrics?.logicalOwners ?? 0}
+      data-render-pool-slots={snapshot.metrics?.poolSlots ?? 0}
+      data-render-resize-listener={snapshot.metrics?.resizeListenerActive ? "true" : "false"}
+      data-render-subscribers={snapshot.metrics?.subscribers ?? 0}
+      data-restarts={restartCount}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={(event) => {
@@ -568,12 +687,12 @@ export function GameClient() {
       <div ref={gameContentRef} className="game-content">
         <canvas ref={canvasRef} className="world-canvas" aria-label="海から宇宙へ続く手続き生成の世界" />
 
-      {!started && !webglError && (
+      {!started && !rendererError && (
         <section className="start-screen" aria-label="旅を始める">
           <div className="start-mark" aria-hidden="true"><span /></div>
           <p className="start-tagline">ひとりの光を、流れの先へ</p>
-          <button className="primary-button" type="button" onClick={begin}>
-            旅をはじめる
+          <button className="primary-button" type="button" disabled={!rendererReady} onClick={begin}>
+            {rendererReady ? "旅をはじめる" : "光景を準備しています"}
           </button>
           <p className="start-controls">
             <span>移動：MOUSE · TOUCH · WASD · 矢印</span>
@@ -582,17 +701,17 @@ export function GameClient() {
         </section>
       )}
 
-      {webglError && (
+      {rendererError && (
         <section className="fallback-panel" role="alert">
           <div className="start-mark" aria-hidden="true"><span /></div>
           <h1>光を描けませんでした</h1>
-          <p>{webglError}</p>
-          <p>WebGL対応ブラウザで再読み込みしてください。</p>
+          <p>{rendererError}</p>
+          <p>WebGPUまたはWebGL2対応ブラウザで再読み込みしてください。</p>
           <button className="primary-button" type="button" onClick={() => window.location.reload()}>再読み込み</button>
         </section>
       )}
 
-      {started && !webglError && (
+      {started && rendererReady && !rendererError && (
         <>
           {!showFormalTitle && (
             <>
@@ -662,9 +781,16 @@ export function GameClient() {
             data-p95-frame-ms={snapshot.p95FrameMs.toFixed(2)}
             data-frame-samples={snapshot.frameSampleCount}
             data-frame-metrics-ready={snapshot.frameMetricsReady}
-            data-frame-warmup-ms={FRAME_METRIC_WARMUP_MS}
-            data-frame-metric="main-thread-render-duration"
+            data-frame-warmup-ms={0}
+            data-frame-metric="gfx-v2-raf-interval"
             data-quality={snapshot.metrics?.quality ?? settings.quality}
+            data-actual-backend={snapshot.metrics?.actualBackend?.toLowerCase() ?? "pending"}
+            data-requested-backend={snapshot.metrics?.requestedBackend.toLowerCase() ?? "pending"}
+            data-plan-digest={snapshot.metrics?.planDigest ?? "pending"}
+            data-render-story-time={snapshot.metrics?.storyTime.toFixed(2) ?? ""}
+            data-render-position-x={snapshot.metrics?.positionX.toFixed(5) ?? ""}
+            data-render-position-y={snapshot.metrics?.positionY.toFixed(5) ?? ""}
+            data-render-pulses={snapshot.metrics?.pulseCount ?? 0}
           >
             {snapshot.time.toFixed(2)}s · {snapshot.shot} · P95 {snapshot.p95FrameMs.toFixed(2)}ms · {snapshot.metrics?.drawCalls ?? 0} calls
           </output>

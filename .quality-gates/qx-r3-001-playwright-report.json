@@ -1,0 +1,216 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.6.0/bin/node",
+      "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-001/node_modules/.bin/playwright",
+      "test",
+      "tests/e2e/production-v2.spec.ts",
+      "--project=desktop-chromium"
+    ],
+    "configFile": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-001/playwright.config.ts",
+    "rootDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-001/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-001/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop-chromium",
+        "name": "desktop-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-001/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-001/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-001/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": ".quality-gates/qx-r3-001-playwright-report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 3221",
+      "url": "http://localhost:3221",
+      "reuseExistingServer": false,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "production-v2.spec.ts",
+      "file": "production-v2.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "public root uses the forced WebGL2 v2 runtime and latches live game state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5517,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T06:55:16.584Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-62f130e6dd54d6d7aa10",
+          "file": "production-v2.spec.ts",
+          "line": 55,
+          "column": 1
+        },
+        {
+          "title": "public root prefers actual host-Metal WebGPU without changing the checkpoint hash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3277,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T06:55:22.221Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-b86b4d7769a0c3b7f1c8",
+          "file": "production-v2.spec.ts",
+          "line": 93,
+          "column": 1
+        },
+        {
+          "title": "ten same-star restarts keep the production renderer ownership plateau",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4292,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T06:55:25.504Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "qx-r3-001-ten-restart-plateau",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJjeWNsZSI6IDEsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiAyLAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogMywKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDQsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiA1LAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogNiwKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDcsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiA4LAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogOSwKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDEwLAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0KXQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-b38537f34e820b278165",
+          "file": "production-v2.spec.ts",
+          "line": 114,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-22T06:55:09.854Z",
+    "duration": 20041.193,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

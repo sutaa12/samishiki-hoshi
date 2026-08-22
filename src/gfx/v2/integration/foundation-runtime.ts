@@ -287,6 +287,31 @@ function renderExperienceSnapshotAt(
   return renderSnapshotAt(plan, storyTime, HERO_C_REVIEW_PULSES, 166.400_001);
 }
 
+function assertProductionSnapshot(
+  plan: Readonly<WorldPlan>,
+  snapshot: Readonly<JourneyRenderSnapshot>,
+): Readonly<JourneyRenderSnapshot> {
+  if (snapshot.seed !== Number(plan.worldSeed)) {
+    throw new RangeError(
+      `Production snapshot seed ${snapshot.seed} does not match the initialized world ${String(plan.worldSeed)}.`,
+    );
+  }
+  if (!Number.isFinite(snapshot.storyTime) || snapshot.storyTime < 0 || snapshot.storyTime > 180) {
+    throw new RangeError("Production story time must be finite and within the 180 second journey.");
+  }
+  const storyTimeMs = Math.round(snapshot.storyTime * 1000);
+  const chunk = plan.chunks.find((candidate) => (
+    storyTimeMs >= candidate.storyNode.startMs
+    && (storyTimeMs < candidate.storyNode.endMs || candidate.id === "S24")
+  ));
+  if (!chunk || chunk.id !== snapshot.shotId || chunk.storyNode.phase !== snapshot.phase) {
+    throw new RangeError(
+      `Production snapshot ${snapshot.shotId}/${snapshot.phase} does not match the world plan at ${snapshot.storyTime}.`,
+    );
+  }
+  return snapshot;
+}
+
 function sceneSnapshot(scene: Scene) {
   let objects = 0;
   let meshes = 0;
@@ -327,8 +352,10 @@ export interface GfxFoundationSnapshot {
 export interface GfxFoundationRuntime {
   getSnapshot(): Readonly<GfxFoundationSnapshot>;
   subscribe(listener: () => void): Unsubscribe;
+  update(snapshot: Readonly<JourneyRenderSnapshot>): void;
   seek(chunkId: StoryChunkId): void;
   seekTime(storyTime: number): void;
+  resize(width: number, height: number): Promise<void>;
   setQuality(id: FoundationQualityId): Promise<void>;
   dispose(): Promise<Readonly<GfxFoundationSnapshot>>;
   diagnostics: ThreeBackendAdapter["diagnostics"];
@@ -347,6 +374,7 @@ async function performGfxFoundationConstruction(options: {
   readonly generation: number;
   readonly experience: GfxFoundationExperience;
   readonly initialStoryTime?: number;
+  readonly initialSnapshot?: Readonly<JourneyRenderSnapshot>;
 }, admission: FoundationConstructionAdmission<FoundationConstructionCleanupOwner>): Promise<GfxFoundationRuntime> {
   let sceneOwner: Scene | null = null;
   let pipelineOwner: ProductionLinearHdrPipeline | null = null;
@@ -534,7 +562,7 @@ async function performGfxFoundationConstruction(options: {
 
   try {
     const plan = generateWorldPlan(createWorldGenerationContext({
-      worldSeed: 20_260_818,
+      worldSeed: options.initialSnapshot?.seed ?? 20_260_818,
       generatorVersion: WORLD_GENERATOR_VERSION,
     }));
     const planDigest = digestWorldPlan(plan);
@@ -691,13 +719,15 @@ async function performGfxFoundationConstruction(options: {
       notify();
     });
 
-    const initialSnapshot = options.experience === "foundation"
-      ? renderSnapshot(plan, INITIAL_CHUNK)
-      : renderExperienceSnapshotAt(
-        plan,
-        options.initialStoryTime ?? defaultMarkerFor(options.experience),
-        options.experience,
-      );
+    const initialSnapshot = options.initialSnapshot
+      ? assertProductionSnapshot(plan, options.initialSnapshot)
+      : options.experience === "foundation"
+        ? renderSnapshot(plan, INITIAL_CHUNK)
+        : renderExperienceSnapshotAt(
+          plan,
+          options.initialStoryTime ?? defaultMarkerFor(options.experience),
+          options.experience,
+        );
     await host.initialize(initialSnapshot, initialViewport);
     assertFoundationHostReady(host, "initialization");
     resizeBinding.attach();
@@ -708,6 +738,7 @@ async function performGfxFoundationConstruction(options: {
     }
     assertFoundationHostReady(host, "viewport reconciliation");
     constructionComplete = true;
+    let previousProductionSnapshot = options.initialSnapshot ?? null;
     const runtime: GfxFoundationRuntime = {
       getSnapshot,
       subscribe(listener) {
@@ -716,6 +747,16 @@ async function performGfxFoundationConstruction(options: {
         }
         listeners.add(listener);
         return () => listeners.delete(listener);
+      },
+      update(snapshot) {
+        const next = assertProductionSnapshot(plan, snapshot);
+        const discontinuity = previousProductionSnapshot !== null
+          && next.storyTime < previousProductionSnapshot.storyTime
+          ? "restart-or-qa-seek" as const
+          : undefined;
+        host.setSnapshot(next, discontinuity);
+        previousProductionSnapshot = next;
+        notify();
       },
       seek(chunkId) {
         host.setSnapshot(renderSnapshot(plan, chunkId), "restart-or-qa-seek");
@@ -726,6 +767,19 @@ async function performGfxFoundationConstruction(options: {
           renderExperienceSnapshotAt(plan, storyTime, options.experience),
           "restart-or-qa-seek",
         );
+        notify();
+      },
+      async resize(width, height) {
+        if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+          throw new RangeError("Foundation viewport dimensions must be positive finite numbers.");
+        }
+        const quality = qualityProvider.getProfile();
+        await host.resize(Object.freeze({
+          width: Math.max(1, Math.round(width)),
+          height: Math.max(1, Math.round(height)),
+          pixelRatio: Math.min(window.devicePixelRatio || 1, quality.pixelRatio),
+        }));
+        resizeCalls += 1;
         notify();
       },
       async setQuality(id) {
@@ -768,6 +822,7 @@ export function createGfxFoundationRuntime(options: {
   readonly generation: number;
   readonly experience?: GfxFoundationExperience;
   readonly initialStoryTime?: number;
+  readonly initialSnapshot?: Readonly<JourneyRenderSnapshot>;
 }): Promise<GfxFoundationRuntime> {
   return foundationConstructionAdmission.run((admission) => (
     performGfxFoundationConstruction({
