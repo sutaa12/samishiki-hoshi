@@ -89,11 +89,12 @@
         {"kind": "historical", "artifact": ".quality-gates/reviews/qx-r3-005-n7-reject.json", "description": "Rejected N7 independent review and four mandatory remediation findings"},
         {"kind": "historical", "artifact": ".quality-gates/receipts/qx-r3-005-n8-review-ready.json", "description": "Rejected N8 candidate binding"},
         {"kind": "historical", "artifact": ".quality-gates/reviews/qx-r3-005-n8-reject.json", "description": "Rejected N8 independent review and phase-audio partial-construction lifecycle finding"},
-        {"kind": "candidate", "artifact": ".quality-gates/receipts/qx-r3-005-n9-review-ready.json", "description": "Exact N9 implementation, fail-closed lifecycle tests, build, browser, density, channel-consumption, and boundary binding awaiting independent review"},
+        {"kind": "accepted", "artifact": ".quality-gates/receipts/qx-r3-005-n9-review-ready.json", "description": "Accepted exact N9 implementation, fail-closed lifecycle tests, build, browser, density, channel-consumption, and boundary binding"},
+        {"kind": "accepted", "artifact": ".quality-gates/reviews/qx-r3-005-n9-accept.json", "description": "Independent N9 artifact acceptance with zero S0-S3 findings"},
         {"kind": "artifact", "artifact": "docs/evidence/QX-R3-005.md", "description": "Human-readable QX-R3-005 results, diagnostic boundary, separate gates, and rollback"}
       ],
       "rollback_condition": "Any S0-S2 finding, deterministic drift, camera discontinuity, missing blend overlap, runtime compile growth, invalid frame, or chunk residency gap",
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": "R2-G7",
