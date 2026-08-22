@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-005",
+  "candidate_id": "N7",
+  "verdict": "REJECT",
+  "reviewed_at": "2026-08-22T23:06:01+09:00",
+  "reviewer": "fresh independent SolMax artifact reviewer",
+  "implementation_commit": "6354357120e92de7d29b8f5b1fd181aade97b5c7",
+  "implementation_tree": "1ea751833045a3a3caad21f1aab40b7e688c73b0",
+  "evidence_commit": "b44a67b6587e96b4148fce490ab3aa1f85b0ed13",
+  "severity": {"S0": 0, "S1": 3, "S2": 1, "S3": 0},
+  "findings": [
+    {
+      "severity": "S1",
+      "id": "N7-BLEND-PROGRESS-DISCONTINUITY",
+      "detail": "blend01 returned 1 at the transition-window end and reset to 0 on the following frame, violating the predeclared continuity delta.",
+      "evidence": ["src/gfx/v2/integration/phase-director.ts:203", "tests/gfx-v2/rail-camera-phase-director.test.ts:123", "docs/decisions/QX-R3-005-contract.md:58"]
+    },
+    {
+      "severity": "S1",
+      "id": "N7-UNCONSUMED-PHASE-CHANNELS",
+      "detail": "Exposure, material, particle, and audio-layer values were computed but not consumed by the production presentation; audio still used a discrete phase ramp.",
+      "evidence": ["src/gfx/v2/integration/foundation-runtime.ts:392", "app/game-client.tsx:586", "src/game/audio.ts:48"]
+    },
+    {
+      "severity": "S1",
+      "id": "N7-DRAW-CALL-ASSERTION-WEAKENED",
+      "detail": "The inherited cumulative drawCalls <= 600 assertion was replaced by an effective 635-845 ceiling instead of being retained alongside a normalized assertion.",
+      "evidence": ["tests/e2e/journey.spec.ts:100", "tests/e2e/journey.spec.ts:127", "docs/decisions/QX-R3-005-contract.md:66"]
+    },
+    {
+      "severity": "S2",
+      "id": "N7-BACKEND-PROGRAM-DELTA-UNMEASURED",
+      "detail": "The boundary trace measured runtime compile delta but did not capture and assert the backend program-count delta required by the contract.",
+      "evidence": ["tests/e2e/rail-camera-phase-continuity.spec.ts:203", ".quality-gates/receipts/qx-r3-005-review-ready.json:38", "docs/decisions/QX-R3-005-contract.md:54"]
+    }
+  ],
+  "verified_evidence": {
+    "manifest": "403/403 entries matched implementation blobs, modes, and sizes",
+    "manifest_sha256": "c5d5a943c531fd421640d58be5c4e221885a2d9ff456fa257560c737ca59a7c5",
+    "build_archive": "8187904 bytes / 128 entries / zero unsafe, link, or AppleDouble entries",
+    "build_archive_sha256": "f4b7517719aa0022e6b27cf66f793a739da2aecdfbe2ec534d4028960fb84e8e",
+    "browser_report": "15 passed / 1 project skip / 0 unexpected / 0 flaky",
+    "boundary_trace": "120 unique frames; black 0; monochrome 0; still 0; read errors 0; compile delta 0; camera jump 0.006863; residency misses 0",
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": "42 files / 750 tests passed"
+  },
+  "separate_gates": {
+    "qx_r3_005_automated_artifact": "REJECT",
+    "main_integration": "PENDING",
+    "public_sites_deployment": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  }
+}
