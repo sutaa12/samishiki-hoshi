@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-001",
+  "status": "review_ready",
+  "recorded_at": "2026-08-22T16:01:05+09:00",
+  "implementation": {
+    "branch": "codex/qx-r3-001-production-v2",
+    "base_commit": "35ce76f856ecb065fdbd03bd9779eedce1699813",
+    "commit": "940e38e205272e6a1bf5361722969abc2e3e3f53",
+    "tree": "459880150ddffe6a3a72ad7b4b0559bc38307fe5",
+    "file_manifest": ".quality-gates/qx-r3-001-940e38e-files.sha256"
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "archive": ".quality-gates/qx-r3-001-940e38e-dist.tar",
+    "archive_sha256": "1c9e67f671e42585f749fd916d4a2b6347269ded5b8692881ec0eea48586d80c",
+    "archive_bytes": 8221184,
+    "archive_entries": 128,
+    "bundle_warning": "One or more minified chunks exceed 500 kB; this remains a disclosed optimization item, not reference-hardware acceptance."
+  },
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": {
+      "files_passed": 38,
+      "tests_passed": 719,
+      "failed": 0
+    },
+    "production_build": "passed",
+    "production_browser_report": ".quality-gates/qx-r3-001-playwright-report.json",
+    "production_browser_report_sha256": "fb0b02aff8afe4793ca67f17e7f3da8fbd4bf3ddc0f02b55a8cffaef9879cce2",
+    "production_browser": {
+      "expected": 3,
+      "unexpected": 0,
+      "flaky": 0,
+      "forced_webgl2_actual": "webgl2",
+      "preferred_webgpu_actual": "webgpu",
+      "checkpoint_hash_both_backends": "f8b1e67c",
+      "world_plan_digest": "world-plan-v1:75d93cbb8e0580cd",
+      "restart_cycles": 10,
+      "restart_plateau": {
+        "programs": 21,
+        "geometries": 3,
+        "gpu_owners": 2,
+        "logical_owners": 2,
+        "pool_slots": 4,
+        "resize_listener_active": true,
+        "subscribers": 0
+      }
+    },
+    "journey_browser_report": ".quality-gates/qx-r3-001-journey-report.json",
+    "journey_browser_report_sha256": "48b696d5a90258d6c34a9bc0b3b7f25770d08e9cdb639702b0ee8b9a59c8d6c8",
+    "journey_browser": {
+      "passed": 8,
+      "skipped_by_project": 6,
+      "failed": 0,
+      "performance_samples": 18,
+      "maximum_local_p95_frame_ms": 10.3,
+      "minimum_percentile_sample_count": 124
+    }
+  },
+  "criteria": {
+    "public_root_updates_v2_from_live_game_state_every_frame": true,
+    "production_import_graph_excludes_src_game_world_ts": true,
+    "actual_backend_and_quality_are_observable": true,
+    "backend_selection_does_not_change_gameplay_hash": true,
+    "ten_restarts_do_not_grow_renderer_owners": true
+  },
+  "separate_gates": {
+    "independent_review": "PENDING",
+    "main_integration": "PENDING",
+    "public_deployment_of_this_source": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  },
+  "rollback": {
+    "branch_base": "35ce76f856ecb065fdbd03bd9779eedce1699813",
+    "main_remains": "6c010ee228ace28e655ceeba764513806505b03e",
+    "public_sites_version_remains": 2,
+    "condition": "Any production import of src/game/world.ts, backend/hash divergence, renderer ownership growth, runtime error, or failed independent review blocks QX-R3-002 and returns this branch to its base."
+  }
+}

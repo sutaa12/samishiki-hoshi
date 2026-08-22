@@ -61,6 +61,22 @@
       "status": "passed"
     },
     {
+      "id": "QX-R3-001",
+      "name": "Public root production v2 renderer connection",
+      "criteria": [
+        "The public root sends live journey snapshots to src/gfx/v2 every frame",
+        "The production import graph excludes src/game/world.ts",
+        "Actual WebGPU and forced-WebGL2 backends are observable without gameplay-hash drift",
+        "Ten same-star restarts retain one constant renderer ownership plateau"
+      ],
+      "evidence": [
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/qx-r3-001-review-ready.json", "description": "Exact implementation, build, unit, browser, parity, and restart binding awaiting review"},
+        {"kind": "artifact", "artifact": "docs/evidence/QX-R3-001.md", "description": "Human-readable QX-R3-001 scope, results, limitations, and stop line"}
+      ],
+      "rollback_condition": "Any legacy production import, backend/hash divergence, renderer ownership growth, runtime error, or failed review",
+      "status": "pending"
+    },
+    {
       "id": "R2-G7",
       "name": "Human integration and public release",
       "criteria": [

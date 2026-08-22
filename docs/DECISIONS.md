@@ -344,6 +344,27 @@ binding and version-1 rollback target are recorded in
 does not change the still-pending integration, full human acceptance, rights,
 hardware, final release, or contest gates.
 
+## D-026 — QX-R3-001 connects real journey state through one production v2 owner
+
+The production root now owns one `ProductionGfxRuntime`, built on the accepted
+v2 Foundation runtime. It passes the real projected journey snapshot every
+animation frame and delegates quality, resize, telemetry, and disposal to that
+single renderer owner. Production no longer imports or constructs
+`src/game/world.ts`; the legacy renderer remains historical comparison code.
+
+Backend choice is presentation-only. Forced WebGL2 and preferred host-Metal
+WebGPU must report their actual APIs while retaining the same gameplay hash for
+the same seed and timestamped state. QA restart checkpoints are permitted only
+on localhost to exercise lifecycle ownership; normal same-star restart still
+starts at zero. The 10-cycle plateau is a connection acceptance condition.
+
+This decision does not accept final visuals or relax performance targets. The
+old canvas draw-call ceiling is not reused as a v2 hardware target; the journey
+E2E keeps a 600-call connection-regression ceiling while the stricter published
+targets and `HARDWARE_PENDING` gate remain unchanged. QX-R3-002 and later visual
+work remain stopped until QX-R3-001 review is resolved. Main, the existing Sites
+v2 deployment, human, rights, hardware, and contest gates remain unchanged.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

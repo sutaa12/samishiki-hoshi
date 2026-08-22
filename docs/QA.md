@@ -114,6 +114,27 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
   rights, reference hardware, final release, and contest submission remain
   pending.
 
+## 2026-08-22 QX-R3-001 review-ready checkpoint
+
+- Isolated implementation `940e38e205272e6a1bf5361722969abc2e3e3f53`
+  connects `/` to the v2 production/Foundation runtime and removes
+  `src/game/world.ts` from the production import graph.
+- Complete verification passes typecheck, lint, 38/38 Vitest files and 719/719
+  tests, plus the production build. The build still reports the disclosed
+  >500kB initial-chunk advisory.
+- Fresh host-Metal browser evidence passes 3/3: actual forced WebGL2, actual
+  WebGPU, identical checkpoint gameplay hash `f8b1e67c`, live state latch, and
+  ten restart cycles with constant resource ownership.
+- Existing journey regression passes 8 checks with 6 expected project skips
+  and zero failures. Across 18 local phase/quality/project samples, P95 is at
+  most 10.3ms with at least 124 percentile samples. This is local laboratory
+  evidence; reference-device acceptance remains `HARDWARE_PENDING`.
+- Exact bindings: `docs/evidence/QX-R3-001.md` and
+  `.quality-gates/receipts/qx-r3-001-review-ready.json`.
+- Status is `review_ready`, not release accepted. Independent review, Main,
+  deployment of this source, human play, rights, reference hardware, and
+  contest submission remain pending. QX-R3-002 is not started.
+
 ## Release record
 
 - GitHub: https://github.com/sutaa12/samishiki-hoshi (public, main)
