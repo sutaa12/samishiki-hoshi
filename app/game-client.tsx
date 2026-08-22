@@ -26,6 +26,7 @@ import type { ThreeBackendRequest } from "@/src/gfx/v2/backend/backend-adapter";
 import type { GfxFoundationSnapshot } from "@/src/gfx/v2/integration/foundation-runtime";
 import {
   createProductionJourneyRuntime,
+  type ProductionPresentationPreferences,
   type ProductionGfxRuntime,
 } from "@/src/gfx/v2/integration/production-journey-runtime";
 import { RuntimeCleanupTombstone } from "@/src/gfx/v2/integration/runtime-cleanup-tombstone";
@@ -73,6 +74,9 @@ type ProductionRendererMetrics = {
   planDigest: string;
   generation: number;
   quality: QualityLevel;
+  profileId: GfxFoundationSnapshot["quality"]["id"];
+  reducedMotion: boolean;
+  highContrast: boolean;
   drawCalls: number;
   triangles: number;
   storyTime: number;
@@ -137,6 +141,7 @@ function rendererEvidence(runtime: ProductionGfxRuntime): {
 } {
   const snapshot = runtime.getSnapshot();
   const journey = runtime.getJourneySnapshot();
+  const presentation = runtime.getPresentation();
   const latest = snapshot.telemetry.latestFrame?.renderer;
   return {
     metrics: {
@@ -145,6 +150,9 @@ function rendererEvidence(runtime: ProductionGfxRuntime): {
       planDigest: snapshot.planDigest,
       generation: snapshot.generation,
       quality: qualityFromFoundation(snapshot.quality.id),
+      profileId: snapshot.quality.id,
+      reducedMotion: presentation.reducedMotion,
+      highContrast: presentation.highContrast,
       drawCalls: latest?.drawCalls ?? 0,
       triangles: latest?.triangles ?? 0,
       storyTime: journey.storyTime,
@@ -222,10 +230,24 @@ export function GameClient() {
   useEffect(() => {
     const renderer = rendererRef.current;
     if (!renderer) return;
-    void renderer.setQuality(settings.quality).catch((error: unknown) => {
-      setRendererError(error instanceof Error ? error.message : "描画品質を変更できませんでした。");
+    const presentation: ProductionPresentationPreferences = Object.freeze({
+      quality: settings.quality,
+      reducedMotion: settings.reducedMotion,
+      highContrast: settings.highContrast,
+      colorIndependentCues: true,
     });
-  }, [settings.quality]);
+    void renderer.configurePresentation(presentation).then(() => {
+      const evidence = rendererEvidence(renderer);
+      setSnapshot(makeSnapshot(
+        stateRef.current,
+        evidence.metrics,
+        evidence.p95FrameMs,
+        evidence.frameSampleCount,
+      ));
+    }).catch((error: unknown) => {
+      setRendererError(error instanceof Error ? error.message : "描画設定を変更できませんでした。");
+    });
+  }, [settings.highContrast, settings.quality, settings.reducedMotion]);
 
   useEffect(() => {
     settingsOpenRef.current = settingsOpen;
@@ -468,7 +490,12 @@ export function GameClient() {
             request: backendRequest,
             qa: isQa,
             generation: 1,
-            quality: settingsRef.current.quality,
+            presentation: Object.freeze({
+              quality: settingsRef.current.quality,
+              reducedMotion: settingsRef.current.reducedMotion,
+              highContrast: settingsRef.current.highContrast,
+              colorIndependentCues: true,
+            }),
             initialSnapshot: projectJourneyState(stateRef.current),
           });
           if (cancelled) {
@@ -660,6 +687,9 @@ export function GameClient() {
       data-actual-backend={snapshot.metrics?.actualBackend?.toLowerCase() ?? "pending"}
       data-requested-backend={snapshot.metrics?.requestedBackend.toLowerCase() ?? "pending"}
       data-render-quality={snapshot.metrics?.quality ?? settings.quality}
+      data-render-profile={snapshot.metrics?.profileId ?? "pending"}
+      data-render-motion={snapshot.metrics?.reducedMotion ? "reduced" : "full"}
+      data-render-contrast={snapshot.metrics?.highContrast ? "high" : "standard"}
       data-render-plan-digest={snapshot.metrics?.planDigest ?? "pending"}
       data-render-generation={snapshot.metrics?.generation ?? 0}
       data-render-story-time={snapshot.metrics?.storyTime.toFixed(2) ?? ""}

@@ -31,11 +31,14 @@ async function expectGameAndRendererMatch(page: Page): Promise<void> {
       shell.getAttribute("data-render-position-y"),
       shell.getAttribute("data-pulses"),
       shell.getAttribute("data-render-pulses"),
+      shell.getAttribute("data-answer-at"),
+      shell.getAttribute("data-render-answer-at"),
     ]);
     return values[0] === values[1]
       && values[2] === values[3]
       && values[4] === values[5]
-      && values[6] === values[7];
+      && values[6] === values[7]
+      && values[8] === values[9];
   }).toBe(true);
 }
 
@@ -81,9 +84,38 @@ test("public root uses the forced WebGL2 v2 runtime and latches live game state"
     await expectGameAndRendererMatch(page);
 
     await page.getByRole("button", { name: "設定を開く" }).click();
+    await page.getByLabel("動きを抑える").check();
+    await page.getByLabel("高コントラスト").check();
     await page.getByLabel("描画品質").selectOption("low");
     await page.getByRole("button", { name: "旅へ戻る" }).click();
     await expect(shell).toHaveAttribute("data-render-quality", "low");
+    await expect(shell).toHaveAttribute("data-render-profile", "low-static");
+    await expect(shell).toHaveAttribute("data-render-motion", "reduced");
+    await expect(shell).toHaveAttribute("data-render-contrast", "high");
+    await expect(page.locator("canvas")).toHaveAttribute("data-render-motion", "reduced");
+    await expect(page.locator("canvas")).toHaveAttribute("data-render-contrast", "high");
+    await expect.poll(async () => page.locator("canvas").evaluate((canvas) => getComputedStyle(canvas).filter))
+      .toContain("contrast(1.2)");
+    expect(errors).toEqual([]);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("public root latches the real answer state into the production renderer", async ({ browser: fixtureBrowser }, testInfo) => {
+  void fixtureBrowser;
+  test.skip(testInfo.project.name !== "desktop-chromium", "single desktop answer-state gate");
+  test.setTimeout(90_000);
+  const browser = await launchHostMetalBrowser();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    const errors = captureRuntimeErrors(page);
+    await page.goto(new URL("/?qa=1&backend=webgl2&seed=20260818&at=166.4", productionBaseUrl(testInfo)).toString());
+    const shell = await waitForProductionRenderer(page);
+    await page.getByRole("button", { name: "旅をはじめる" }).click();
+    await page.keyboard.press("Space");
+    await expect.poll(async () => shell.getAttribute("data-answer-at")).not.toBe("");
+    await expectGameAndRendererMatch(page);
     expect(errors).toEqual([]);
   } finally {
     await browser.close();

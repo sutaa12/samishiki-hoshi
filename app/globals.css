@@ -603,6 +603,14 @@ input:focus-visible {
   border-color: rgba(255, 255, 255, 0.72);
 }
 
+.game-shell.is-reduced-motion *,
+.game-shell.is-reduced-motion *::before,
+.game-shell.is-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
 @keyframes veil-in {
   from { opacity: 0; }
   to { opacity: 1; }

@@ -15,16 +15,34 @@ const PRODUCTION_QUALITY_IDS: Readonly<Record<QualityLevel, FoundationQualityId>
   high: "high-temporal",
 });
 
-export function productionQualityId(quality: QualityLevel): FoundationQualityId {
-  return PRODUCTION_QUALITY_IDS[quality];
+const PRODUCTION_REDUCED_MOTION_QUALITY_IDS: Readonly<Record<QualityLevel, FoundationQualityId>> = Object.freeze({
+  low: "low-static",
+  balanced: "balanced-static",
+  high: "high-static",
+});
+
+export interface ProductionPresentationPreferences {
+  readonly quality: QualityLevel;
+  readonly reducedMotion: boolean;
+  readonly highContrast: boolean;
+  readonly colorIndependentCues: true;
+}
+
+export function productionQualityId(
+  quality: QualityLevel,
+  reducedMotion = false,
+): FoundationQualityId {
+  return (reducedMotion ? PRODUCTION_REDUCED_MOTION_QUALITY_IDS : PRODUCTION_QUALITY_IDS)[quality];
 }
 
 export interface ProductionGfxRuntime {
   update(snapshot: Readonly<JourneyRenderSnapshot>): void;
   setQuality(quality: QualityLevel): Promise<void>;
+  configurePresentation(preferences: Readonly<ProductionPresentationPreferences>): Promise<void>;
   resize(width: number, height: number): Promise<void>;
   getSnapshot(): Readonly<GfxFoundationSnapshot>;
   getJourneySnapshot(): Readonly<JourneyRenderSnapshot>;
+  getPresentation(): Readonly<ProductionPresentationPreferences>;
   getTelemetry(): Readonly<GfxPerformanceTelemetrySnapshot>;
   subscribe(listener: () => void): Unsubscribe;
   dispose(): Promise<Readonly<GfxFoundationSnapshot>>;
@@ -33,14 +51,25 @@ export interface ProductionGfxRuntime {
 
 class ProductionJourneyRuntime implements ProductionGfxRuntime {
   readonly #foundation: GfxFoundationRuntime;
+  readonly #canvas: HTMLCanvasElement;
+  readonly #initialCanvasFilter: string;
   #journey: Readonly<JourneyRenderSnapshot>;
+  #presentation: Readonly<ProductionPresentationPreferences>;
+  #presentationTail: Promise<void> = Promise.resolve();
+  #disposed = false;
 
   constructor(
     foundation: GfxFoundationRuntime,
+    canvas: HTMLCanvasElement,
     initialSnapshot: Readonly<JourneyRenderSnapshot>,
+    initialPresentation: Readonly<ProductionPresentationPreferences>,
   ) {
     this.#foundation = foundation;
+    this.#canvas = canvas;
+    this.#initialCanvasFilter = canvas.style.filter;
     this.#journey = copyJourneySnapshot(initialSnapshot);
+    this.#presentation = copyPresentationPreferences(initialPresentation);
+    this.#applyCanvasPresentation(this.#presentation);
   }
 
   get diagnostics(): ThreeBackendAdapter["diagnostics"] {
@@ -54,7 +83,21 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
   }
 
   setQuality(quality: QualityLevel): Promise<void> {
-    return this.#foundation.setQuality(productionQualityId(quality));
+    return this.configurePresentation(Object.freeze({ ...this.#presentation, quality }));
+  }
+
+  configurePresentation(
+    preferences: Readonly<ProductionPresentationPreferences>,
+  ): Promise<void> {
+    const next = copyPresentationPreferences(preferences);
+    const operation = this.#presentationTail.then(async () => {
+      if (this.#disposed) throw new Error("Cannot configure a disposed Production renderer.");
+      await this.#foundation.setQuality(productionQualityId(next.quality, next.reducedMotion));
+      this.#presentation = next;
+      this.#applyCanvasPresentation(next);
+    });
+    this.#presentationTail = operation.catch(() => undefined);
+    return operation;
   }
 
   resize(width: number, height: number): Promise<void> {
@@ -69,6 +112,10 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
     return this.#journey;
   }
 
+  getPresentation(): Readonly<ProductionPresentationPreferences> {
+    return this.#presentation;
+  }
+
   getTelemetry(): Readonly<GfxPerformanceTelemetrySnapshot> {
     return this.#foundation.getSnapshot().telemetry;
   }
@@ -77,9 +124,36 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
     return this.#foundation.subscribe(listener);
   }
 
-  dispose(): Promise<Readonly<GfxFoundationSnapshot>> {
+  async dispose(): Promise<Readonly<GfxFoundationSnapshot>> {
+    this.#disposed = true;
+    await this.#presentationTail.catch(() => undefined);
+    this.#canvas.style.filter = this.#initialCanvasFilter;
+    delete this.#canvas.dataset.renderContrast;
+    delete this.#canvas.dataset.renderMotion;
     return this.#foundation.dispose();
   }
+
+  #applyCanvasPresentation(preferences: Readonly<ProductionPresentationPreferences>): void {
+    const accessibilityFilter = preferences.highContrast
+      ? "contrast(1.2) saturate(0.92)"
+      : "";
+    this.#canvas.style.filter = [this.#initialCanvasFilter, accessibilityFilter]
+      .filter(Boolean)
+      .join(" ");
+    this.#canvas.dataset.renderContrast = preferences.highContrast ? "high" : "standard";
+    this.#canvas.dataset.renderMotion = preferences.reducedMotion ? "reduced" : "full";
+  }
+}
+
+function copyPresentationPreferences(
+  preferences: Readonly<ProductionPresentationPreferences>,
+): Readonly<ProductionPresentationPreferences> {
+  return Object.freeze({
+    quality: preferences.quality,
+    reducedMotion: Boolean(preferences.reducedMotion),
+    highContrast: Boolean(preferences.highContrast),
+    colorIndependentCues: true,
+  });
 }
 
 function copyJourneySnapshot(
@@ -103,7 +177,7 @@ export async function createProductionJourneyRuntime(options: {
   readonly request: ThreeBackendRequest;
   readonly qa: boolean;
   readonly generation: number;
-  readonly quality: QualityLevel;
+  readonly presentation: Readonly<ProductionPresentationPreferences>;
   readonly initialSnapshot: Readonly<JourneyRenderSnapshot>;
 }): Promise<ProductionGfxRuntime> {
   const foundation = await createGfxFoundationRuntime({
@@ -115,8 +189,14 @@ export async function createProductionJourneyRuntime(options: {
     initialSnapshot: options.initialSnapshot,
   });
   try {
-    await foundation.setQuality(productionQualityId(options.quality));
-    return new ProductionJourneyRuntime(foundation, options.initialSnapshot);
+    const presentation = copyPresentationPreferences(options.presentation);
+    await foundation.setQuality(productionQualityId(presentation.quality, presentation.reducedMotion));
+    return new ProductionJourneyRuntime(
+      foundation,
+      options.canvas,
+      options.initialSnapshot,
+      presentation,
+    );
   } catch (error: unknown) {
     try {
       await foundation.dispose();

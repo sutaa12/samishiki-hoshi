@@ -8,6 +8,9 @@ describe("QX-R3-001 production journey boundary", () => {
     expect(productionQualityId("low")).toBe("low-static");
     expect(productionQualityId("balanced")).toBe("balanced-temporal");
     expect(productionQualityId("high")).toBe("high-temporal");
+    expect(productionQualityId("low", true)).toBe("low-static");
+    expect(productionQualityId("balanced", true)).toBe("balanced-static");
+    expect(productionQualityId("high", true)).toBe("high-static");
   });
 
   it("projects the live seed, time, movement, pulse ledger, and answer state without changing gameplay", () => {
