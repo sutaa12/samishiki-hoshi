@@ -155,9 +155,14 @@ export interface OceanHeroFeatureSnapshot {
     readonly id: string;
     readonly kind: "gate" | "obstacle" | "life-node";
     readonly position: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
+    readonly presentationPosition: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
     readonly cue: string;
+    readonly silhouetteRadius: number;
   }>[];
+  readonly protagonistPosition: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
+  readonly protagonistSilhouetteRadius: number;
   readonly markerIds: readonly string[];
+  readonly visibleEncounterIds: readonly string[];
   readonly materialFamilyAudit: Readonly<{
     readonly natural: number;
     readonly concrete: number;
@@ -1159,9 +1164,16 @@ export class OceanHeroFeature implements RenderFeature {
     readonly id: string;
     readonly kind: "gate" | "obstacle" | "life-node";
     readonly position: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
+    readonly presentationPosition: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
     readonly cue: string;
+    readonly silhouetteRadius: number;
   }>[] = Object.freeze([]);
   #productionMarkerIds: readonly string[] = Object.freeze([]);
+  readonly #productionEncounterGroups: Array<Readonly<{
+    id: string;
+    distanceMm: number;
+    group: Group;
+  }>> = [];
   #productionEncounterCounts: Readonly<{ readonly gate: number; readonly obstacle: number; readonly lifeNode: number }> = Object.freeze({ gate: 0, obstacle: 0, lifeNode: 0 });
   #materialFamilyAudit: Readonly<{
     readonly natural: number;
@@ -2060,6 +2072,13 @@ export class OceanHeroFeature implements RenderFeature {
     this.#waterlineRoot.visible = this.#storyTime >= 34 && this.#storyTime <= 42;
     this.#naturalRoot.visible = this.#storyTime < 42;
     if (this.#productionRoot) this.#productionRoot.visible = this.#storyTime < WATERLINE_SECONDS;
+    if (this.#mode === "production") {
+      const presentationDistanceMm = this.#storyTime * 10_000;
+      for (const encounter of this.#productionEncounterGroups) {
+        const offsetMm = encounter.distanceMm - presentationDistanceMm;
+        encounter.group.visible = offsetMm >= -25_000 && offsetMm <= 65_000;
+      }
+    }
     this.#protagonistRoot.visible = this.#storyTime <= 44;
     // The production route exposes the canonical WorldPlan life nodes, never
     // the original isolated-route demonstration target.
@@ -2213,7 +2232,16 @@ export class OceanHeroFeature implements RenderFeature {
       whitePointKelvin: WHITE_POINT_KELVIN,
       encounterCounts: this.#productionEncounterCounts,
       encounterInventory: this.#productionEncounterInventory,
+      protagonistPosition: Object.freeze({
+        x: this.#protagonistRoot.position.x,
+        y: this.#protagonistRoot.position.y,
+        z: this.#protagonistRoot.position.z,
+      }),
+      protagonistSilhouetteRadius: 0.18,
       markerIds: this.#productionMarkerIds,
+      visibleEncounterIds: Object.freeze(this.#productionEncounterGroups
+        .filter((entry) => entry.group.visible)
+        .map((entry) => entry.id)),
       materialFamilyAudit: this.#materialFamilyAudit,
       materialSignatures: this.#materialSignatures,
       nonEmissiveBasicMaterialCount: this.#nonEmissiveBasicMaterialCount(),
@@ -2365,7 +2393,9 @@ export class OceanHeroFeature implements RenderFeature {
       id: string;
       kind: "gate" | "obstacle" | "life-node";
       position: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
+      presentationPosition: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
       cue: string;
+      silhouetteRadius: number;
     }>> = [];
     let gates = 0;
     let obstacles = 0;
@@ -2377,10 +2407,19 @@ export class OceanHeroFeature implements RenderFeature {
         y: encounter.worldPoint.y * RAIL_SCENE_SCALE,
         z: encounter.worldPoint.z * RAIL_SCENE_SCALE,
       });
+      const obstaclePresentationOffset = encounter.kind === "obstacle"
+        ? (encounter.safeRouteOffsetMm.x >= 0 ? -0.16 : 0.16)
+        : 0;
+      const presentationPosition = Object.freeze({
+        x: position.x + obstaclePresentationOffset,
+        y: position.y,
+        z: position.z,
+      });
       const group = new Group();
       group.name = `hero-a:production:encounter:${encounter.kind}:${encounter.id}`;
-      group.position.set(position.x, position.y, position.z);
+      group.position.set(presentationPosition.x, presentationPosition.y, presentationPosition.z);
       let cue = "";
+      let silhouetteRadius = 0;
       if (encounter.kind === "gate") {
         const frame = new Mesh(gateGeometry, coral);
         frame.name = `hero-a:production:gate-pass-frame:${encounter.id}`;
@@ -2393,6 +2432,7 @@ export class OceanHeroFeature implements RenderFeature {
         }
         gates += 1;
         cue = "open-pass-ring-four-ticks";
+        silhouetteRadius = 0.38;
       } else if (encounter.kind === "obstacle") {
         const spire = new Mesh(obstacleGeometry, concrete);
         spire.name = `hero-a:production:obstacle-solid-spire:${encounter.id}`;
@@ -2407,6 +2447,7 @@ export class OceanHeroFeature implements RenderFeature {
         }
         obstacles += 1;
         cue = "solid-spire-safe-side-three-posts";
+        silhouetteRadius = 0.42;
       } else {
         const bud = new Mesh(nodeGeometry, coral);
         bud.name = `hero-a:production:life-node-organic-bud:${encounter.id}`;
@@ -2421,9 +2462,22 @@ export class OceanHeroFeature implements RenderFeature {
         }
         nodes += 1;
         cue = "organic-bud-three-growth-rings";
+        silhouetteRadius = 0.31;
       }
-      inventory.push(Object.freeze({ id: encounter.id, kind: encounter.kind, position, cue }));
+      inventory.push(Object.freeze({
+        id: encounter.id,
+        kind: encounter.kind,
+        position,
+        presentationPosition,
+        cue,
+        silhouetteRadius,
+      }));
       productionRoot.add(group);
+      this.#productionEncounterGroups.push(Object.freeze({
+        id: encounter.id,
+        distanceMm: encounter.distanceMm,
+        group,
+      }));
     }
     this.#productionEncounterInventory = Object.freeze(inventory);
     this.#productionMarkerIds = Object.freeze(inventory.map((entry) => entry.id));

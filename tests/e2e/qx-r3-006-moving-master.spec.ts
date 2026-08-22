@@ -1,4 +1,5 @@
-import { chromium, expect, test, type Browser, type Page } from "@playwright/test";
+import { chromium, expect, test, type Browser, type Locator, type Page } from "@playwright/test";
+import { PerspectiveCamera, Vector3 } from "three";
 
 const MASTER_VIEWPORT = Object.freeze({ width: 1_920, height: 1_080 });
 const LIFE_MARKERS = Object.freeze([
@@ -42,6 +43,92 @@ async function waitForMaster(page: Page) {
   await expect(shell).toHaveAttribute("data-renderer-status", "ready", { timeout: 120_000 });
   await expect(shell).toHaveAttribute("data-render-life-master-mode", "production");
   return shell;
+}
+
+type ProjectedForm = Readonly<{
+  id: string;
+  kind: "player" | "gate" | "obstacle" | "life-node";
+  cue: string;
+  xPx: number;
+  yPx: number;
+  depth: number;
+  radiusPx: number;
+}>;
+
+async function projectedForms(shell: Locator): Promise<readonly ProjectedForm[]> {
+  const raw = await shell.evaluate((element) => ({
+    fov: Number(element.getAttribute("data-render-camera-fov")),
+    position: [
+      Number(element.getAttribute("data-render-camera-position-x")),
+      Number(element.getAttribute("data-render-camera-position-y")),
+      Number(element.getAttribute("data-render-camera-position-z")),
+    ] as const,
+    target: [
+      Number(element.getAttribute("data-render-camera-target-x")),
+      Number(element.getAttribute("data-render-camera-target-y")),
+      Number(element.getAttribute("data-render-camera-target-z")),
+    ] as const,
+    protagonist: {
+      x: Number(element.getAttribute("data-render-life-master-protagonist-x")),
+      y: Number(element.getAttribute("data-render-life-master-protagonist-y")),
+      z: Number(element.getAttribute("data-render-life-master-protagonist-z")),
+      radius: Number(element.getAttribute("data-render-life-master-protagonist-radius")),
+    },
+    encounters: element.getAttribute("data-render-life-master-encounters") ?? "[]",
+    visibleEncounterIds: (element.getAttribute("data-render-life-master-visible-encounters") ?? "")
+      .split(",")
+      .filter(Boolean),
+  }));
+  const camera = new PerspectiveCamera(raw.fov, MASTER_VIEWPORT.width / MASTER_VIEWPORT.height, 0.05, 100);
+  camera.position.set(...raw.position);
+  camera.lookAt(new Vector3(...raw.target));
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+  const encounters = JSON.parse(raw.encounters) as Array<{
+    id: string;
+    kind: "gate" | "obstacle" | "life-node";
+    cue: string;
+    silhouetteRadius: number;
+    position: { x: number; y: number; z: number };
+    presentationPosition: { x: number; y: number; z: number };
+  }>;
+  const forms = [
+    {
+      id: "player",
+      kind: "player" as const,
+      cue: "living-droplet-envelope-core-fins",
+      silhouetteRadius: raw.protagonist.radius,
+      position: raw.protagonist,
+    },
+    ...encounters.filter((encounter) => raw.visibleEncounterIds.includes(encounter.id)),
+  ].map((form) => (
+    form.kind === "player"
+      ? form
+      : { ...form, position: form.presentationPosition }
+  ));
+  return forms.map((form) => {
+    const center = new Vector3(form.position.x, form.position.y, form.position.z);
+    const ndc = center.clone().project(camera);
+    const localRadius = new Vector3(form.silhouetteRadius, 0, 0)
+      .applyQuaternion(camera.quaternion);
+    const edge = center.clone().add(localRadius).project(camera);
+    return Object.freeze({
+      id: form.id,
+      kind: form.kind,
+      cue: form.cue,
+      xPx: (ndc.x * 0.5 + 0.5) * MASTER_VIEWPORT.width,
+      yPx: (-ndc.y * 0.5 + 0.5) * MASTER_VIEWPORT.height,
+      depth: ndc.z,
+      radiusPx: Math.hypot(
+        (edge.x - ndc.x) * MASTER_VIEWPORT.width * 0.5,
+        (edge.y - ndc.y) * MASTER_VIEWPORT.height * 0.5,
+      ),
+    });
+  }).filter((form) => (
+    form.depth >= -1 && form.depth <= 1
+    && form.xPx >= 0 && form.xPx <= MASTER_VIEWPORT.width
+    && form.yPx >= 0 && form.yPx <= MASTER_VIEWPORT.height
+  ));
 }
 
 test("QX-R3-006 records a 1920x1080 12-second public moving master with real input", async ({ browser: fixtureBrowser }, testInfo) => {
@@ -110,6 +197,14 @@ test("QX-R3-006 records a 1920x1080 12-second public moving master with real inp
     await expect(shell).toHaveAttribute("data-steer-learned", "true");
     await expect(shell).toHaveAttribute("data-pulse-learned", "true");
     await expect(shell).toHaveAttribute("data-gameplay-event", "obstacle-near-miss");
+    const gameplayLedger = JSON.parse(
+      (await shell.getAttribute("data-gameplay-event-ledger")) ?? "[]",
+    ) as Array<{ kind: string }>;
+    const seedLedger = JSON.parse(
+      (await shell.getAttribute("data-twinkle-seed-ledger")) ?? "[]",
+    ) as Array<{ id: number }>;
+    expect(gameplayLedger.map((event) => event.kind)).toContain("node-perfect");
+    expect(seedLedger).toHaveLength(1);
     await expect(shell).toHaveAttribute("data-render-life-master-runtime-allocations", "0");
     expect(Number(await shell.getAttribute("data-render-programs"))).toBe(startPrograms);
 
@@ -141,7 +236,7 @@ test("QX-R3-006 High WebGPU and forced WebGL2 keep one camera, world, and hash",
       const page = await browser.newPage({ viewport: MASTER_VIEWPORT });
       const errors = captureRuntimeErrors(page);
       await page.goto(new URL(
-        `/?qa=1&backend=${backend}&quality=high&seed=20260818&at=18&speed=1`,
+        `/?qa=1&backend=${backend}&quality=high&seed=20260818&at=18&replay=qx-r3-006`,
         baseUrl(testInfo),
       ).toString());
       const shell = await waitForMaster(page);
@@ -158,6 +253,11 @@ test("QX-R3-006 High WebGPU and forced WebGL2 keep one camera, world, and hash",
         targetZ: element.getAttribute("data-render-camera-target-z"),
         markers: element.getAttribute("data-render-life-master-marker-ids"),
         humanVisible: element.getAttribute("data-render-life-master-human-visible"),
+        encounterInventory: element.getAttribute("data-render-life-master-encounters"),
+        replayId: element.getAttribute("data-qa-replay-id"),
+        inputLedger: element.getAttribute("data-qa-replay-input-ledger"),
+        gameplayLedger: element.getAttribute("data-gameplay-event-ledger"),
+        seedLedger: element.getAttribute("data-twinkle-seed-ledger"),
       })));
       expect(errors).toEqual([]);
       await page.close();
@@ -176,8 +276,18 @@ test("QX-R3-006 High WebGPU and forced WebGL2 keep one camera, world, and hash",
       targetZ: entry.targetZ,
       markers: entry.markers,
       humanVisible: entry.humanVisible,
+      encounterInventory: entry.encounterInventory,
+      replayId: entry.replayId,
+      inputLedger: entry.inputLedger,
+      gameplayLedger: entry.gameplayLedger,
+      seedLedger: entry.seedLedger,
     });
     expect(comparable(results[0]!)).toEqual(comparable(results[1]!));
+    expect(results[0]?.replayId).toBe("qx-r3-006");
+    expect(JSON.parse(results[0]?.inputLedger ?? "[]")).toHaveLength(25);
+    expect((JSON.parse(results[0]?.gameplayLedger ?? "[]") as Array<{ kind: string }>)
+      .map((event) => event.kind)).toContain("node-perfect");
+    expect(JSON.parse(results[0]?.seedLedger ?? "[]")).toHaveLength(1);
     await testInfo.attach("qx-r3-006-high-webgpu-webgl2-parity", {
       body: Buffer.from(JSON.stringify(results, null, 2)),
       contentType: "application/json",
@@ -192,20 +302,54 @@ test("QX-R3-006 forms remain present with fog and CSS particles disabled", async
   test.setTimeout(150_000);
   const errors = captureRuntimeErrors(page);
   await page.setViewportSize(MASTER_VIEWPORT);
-  await page.goto(new URL(
-    "/?qa=1&backend=webgl2&quality=high&seed=20260818&at=18&speed=1&forms=1",
-    baseUrl(testInfo),
-  ).toString());
-  const shell = await waitForMaster(page);
-  await expect(shell).toHaveAttribute("data-render-forms-only", "true");
-  await expect(shell).toHaveAttribute("data-render-scene-fog-active", "false");
-  await expect(page.getByTestId("phase-particle-layer")).toBeHidden();
-  await expect(shell).toHaveAttribute("data-render-life-master-gates", "5");
-  await expect(shell).toHaveAttribute("data-render-life-master-obstacles", "3");
-  await expect(shell).toHaveAttribute("data-render-life-master-nodes", "3");
-  await expect(shell).toHaveAttribute("data-render-life-master-human-visible", "true");
+  const seenKinds = new Set<string>();
+  const projectionEvidence: Array<Readonly<{ time: number; visible: readonly ProjectedForm[] }>> = [];
+  for (const time of [6, 10, 14, 18]) {
+    await page.goto(new URL(
+      `/?qa=1&backend=webgl2&quality=high&seed=20260818&at=${time}&speed=1&forms=1`,
+      baseUrl(testInfo),
+    ).toString());
+    const shell = await waitForMaster(page);
+    await expect(shell).toHaveAttribute("data-render-forms-only", "true");
+    await expect(shell).toHaveAttribute("data-render-scene-fog-active", "false");
+    await expect(page.getByTestId("phase-particle-layer")).toBeHidden();
+    await expect(shell).toHaveAttribute("data-render-life-master-gates", "5");
+    await expect(shell).toHaveAttribute("data-render-life-master-obstacles", "3");
+    await expect(shell).toHaveAttribute("data-render-life-master-nodes", "3");
+    await expect(shell).toHaveAttribute(
+      "data-render-life-master-human-visible",
+      time >= 18 ? "true" : "false",
+    );
+    const visible = await projectedForms(shell);
+    const player = visible.find((form) => form.kind === "player");
+    expect(player, `player projection at ${time}s`).toBeDefined();
+    expect(player?.radiusPx, `player screen radius at ${time}s`).toBeGreaterThanOrEqual(12);
+    const encounters = visible.filter((form) => form.kind !== "player");
+    expect(encounters.length, `visible encounter count at ${time}s`).toBeGreaterThan(0);
+    for (const encounter of encounters) {
+      expect(encounter.cue.length, `${encounter.id} colour-independent cue`).toBeGreaterThan(0);
+      expect(encounter.radiusPx, `${encounter.id} screen radius`).toBeGreaterThanOrEqual(12);
+      seenKinds.add(encounter.kind);
+    }
+    for (let left = 0; left < encounters.length; left += 1) {
+      for (let right = left + 1; right < encounters.length; right += 1) {
+        const a = encounters[left]!;
+        const b = encounters[right]!;
+        expect(
+          Math.hypot(a.xPx - b.xPx, a.yPx - b.yPx),
+          `${a.id}/${b.id} projected separation at ${time}s`,
+        ).toBeGreaterThanOrEqual(48);
+      }
+    }
+    projectionEvidence.push(Object.freeze({ time, visible }));
+  }
+  expect([...seenKinds].sort()).toEqual(["gate", "life-node", "obstacle"]);
   const screenshot = testInfo.outputPath("qx-r3-006-forms-only.png");
   await page.screenshot({ path: screenshot });
   await testInfo.attach("qx-r3-006-forms-only", { path: screenshot, contentType: "image/png" });
+  await testInfo.attach("qx-r3-006-projected-form-separation", {
+    body: Buffer.from(JSON.stringify(projectionEvidence, null, 2)),
+    contentType: "application/json",
+  });
   expect(errors).toEqual([]);
 });

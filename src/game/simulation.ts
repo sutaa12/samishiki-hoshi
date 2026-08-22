@@ -359,6 +359,35 @@ export function advanceJourneyTo(
   return next;
 }
 
+/** Replays one immutable timestamped input ledger to an exact checkpoint. */
+export function replayJourneyTo(
+  inputs: readonly TimedInput[],
+  targetTime: number,
+  options: SimulationOptions = {},
+): RailFlightState {
+  const target = Math.max(0, Math.min(JOURNEY_SECONDS, targetTime));
+  const encounters = options.encounters ?? railEncountersForSeed(options.seed ?? 1);
+  const ordered = [...inputs]
+    .filter((input) => Number.isFinite(input.at) && input.at >= 0 && input.at <= target)
+    .sort((left, right) => left.at - right.at);
+  let state = createJourneyState(options);
+  let inputIndex = 0;
+  let held: NormalizedInput = { moveX: 0, moveY: 0 };
+  while (!state.finished && state.time < target) {
+    const nextInput = ordered[inputIndex];
+    const boundary = Math.min(state.time + STEP_SECONDS, nextInput?.at ?? target, target);
+    if (boundary > state.time) state = stepJourney(state, held, boundary - state.time, encounters);
+    while (ordered[inputIndex] && Math.abs(ordered[inputIndex]!.at - state.time) < 1e-8) {
+      const event = ordered[inputIndex]!;
+      const normalized = normalizeInput(event);
+      held = { moveX: normalized.moveX, moveY: normalized.moveY, pulse: false };
+      if (event.pulse) state = latchActiveEncounter(resolvePulse(state, encounters), encounters);
+      inputIndex += 1;
+    }
+  }
+  return state;
+}
+
 /** Replays timestamped edge inputs on the canonical 60 Hz clock. */
 export function simulateJourney(inputs: readonly TimedInput[] = [], options: SimulationOptions = {}): RailFlightState {
   const encounters = options.encounters ?? railEncountersForSeed(options.seed ?? 1);

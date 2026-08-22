@@ -14,12 +14,14 @@ import {
   shotAt,
   type JourneyPhase,
   type QualityLevel,
+  type TimedInput,
 } from "@/src/game/model";
 import type { RailFlightState } from "@/src/game/rail-flight-state";
 import {
   createJourneyState,
   advanceJourneyTo,
   hashJourney,
+  replayJourneyTo,
   stepJourney,
 } from "@/src/game/simulation";
 import type { ThreeBackendRequest } from "@/src/gfx/v2/backend/backend-adapter";
@@ -49,6 +51,17 @@ import type { PointerGestureSample } from "@/src/game/input/pointer-gesture";
 
 const FIXED_STEP = 1 / 60;
 const DEFAULT_SEED = 20_260_818;
+const QX_R3_006_REPLAY_INPUTS: readonly TimedInput[] = (() => {
+  const inputs: TimedInput[] = [];
+  for (let second = 4; second < 16; second += 1) {
+    inputs.push(Object.freeze({ at: second, moveX: 0, moveY: -1 }));
+    inputs.push(Object.freeze({ at: second + 0.3, moveX: 0, moveY: 0 }));
+  }
+  inputs.push(Object.freeze({ at: 5.5, moveX: 0, moveY: 0, pulse: true }));
+  inputs.sort((left, right) => left.at - right.at);
+  return Object.freeze(inputs);
+})();
+const QX_R3_006_REPLAY_LEDGER = JSON.stringify(QX_R3_006_REPLAY_INPUTS);
 
 const productionRuntimeCleanupOwner = new RuntimeCleanupTombstone<ProductionGfxRuntime>();
 let productionRuntimeLifecycleTail: Promise<void> = Promise.resolve();
@@ -90,6 +103,8 @@ type HudSnapshot = {
   activeEncounterDistanceMm: number | null;
   lastGameplayEvent: string | null;
   gameplayEventCount: number;
+  gameplayEventLedger: string;
+  twinkleSeedLedger: string;
   steerLearned: boolean;
   pulseLearned: boolean;
 };
@@ -162,6 +177,12 @@ type ProductionRendererMetrics = {
   lifeMasterObstacleCount: number;
   lifeMasterNodeCount: number;
   lifeMasterMarkerIds: string;
+  lifeMasterVisibleEncounterIds: string;
+  lifeMasterEncounterInventory: string;
+  lifeMasterProtagonistX: number;
+  lifeMasterProtagonistY: number;
+  lifeMasterProtagonistZ: number;
+  lifeMasterProtagonistRadius: number;
   lifeMasterHumanArtifactsVisible: boolean;
   lifeMasterNonEmissiveBasicMaterials: number;
   lifeMasterAllocationsAfterInitialize: number;
@@ -221,6 +242,8 @@ function makeSnapshot(
     activeEncounterDistanceMm: state.activeEncounterDistanceMm,
     lastGameplayEvent: state.gameplayEvents.at(-1)?.kind ?? null,
     gameplayEventCount: state.gameplayEvents.length,
+    gameplayEventLedger: JSON.stringify(state.gameplayEvents),
+    twinkleSeedLedger: JSON.stringify(state.pulses),
     steerLearned: state.gameplayEvents.some((event) => event.kind === "gate-pass"),
     pulseLearned: state.gameplayEvents.some(
       (event) => event.kind === "node-perfect" || event.kind === "node-good",
@@ -312,6 +335,12 @@ function rendererEvidence(runtime: ProductionGfxRuntime): {
       lifeMasterObstacleCount: snapshot.heroA?.encounterCounts.obstacle ?? 0,
       lifeMasterNodeCount: snapshot.heroA?.encounterCounts.lifeNode ?? 0,
       lifeMasterMarkerIds: snapshot.heroA?.markerIds.join(",") ?? "",
+      lifeMasterVisibleEncounterIds: snapshot.heroA?.visibleEncounterIds.join(",") ?? "",
+      lifeMasterEncounterInventory: JSON.stringify(snapshot.heroA?.encounterInventory ?? []),
+      lifeMasterProtagonistX: snapshot.heroA?.protagonistPosition.x ?? 0,
+      lifeMasterProtagonistY: snapshot.heroA?.protagonistPosition.y ?? 0,
+      lifeMasterProtagonistZ: snapshot.heroA?.protagonistPosition.z ?? 0,
+      lifeMasterProtagonistRadius: snapshot.heroA?.protagonistSilhouetteRadius ?? 0,
       lifeMasterHumanArtifactsVisible: snapshot.heroA?.humanArtifactsVisible ?? false,
       lifeMasterNonEmissiveBasicMaterials: snapshot.heroA?.nonEmissiveBasicMaterialCount ?? -1,
       lifeMasterAllocationsAfterInitialize: snapshot.heroA?.allocationsAfterInitialize ?? -1,
@@ -387,6 +416,7 @@ export function GameClient() {
   const lastAutoPulseRef = useRef(-10);
   const lastUiUpdateRef = useRef(0);
   const qaRestartCheckpointRef = useRef(0);
+  const qaReplayInputsRef = useRef<readonly TimedInput[] | null>(null);
 
   const [settings, setSettings] = useState<Settings>(INITIAL_SETTINGS);
   const [snapshot, setSnapshot] = useState<HudSnapshot>(() =>
@@ -401,6 +431,7 @@ export function GameClient() {
   const [rendererReady, setRendererReady] = useState(false);
   const [rendererError, setRendererError] = useState<string | null>(null);
   const [qaMode, setQaMode] = useState(false);
+  const [qaReplayId, setQaReplayId] = useState("");
   const [formsOnlyMode, setFormsOnlyMode] = useState(false);
 
   const syncInputStatus = useCallback(() => {
@@ -538,7 +569,13 @@ export function GameClient() {
 
   const restart = useCallback(() => {
     const initial = createJourneyState({ seed: seedRef.current });
-    stateRef.current = qaRestartCheckpointRef.current > 0
+    stateRef.current = qaReplayInputsRef.current
+      ? replayJourneyTo(
+        qaReplayInputsRef.current,
+        qaRestartCheckpointRef.current,
+        { seed: seedRef.current },
+      )
+      : qaRestartCheckpointRef.current > 0
       ? advanceJourneyTo(initial, qaRestartCheckpointRef.current)
       : initial;
     inputRouterRef.current.reset();
@@ -608,10 +645,17 @@ export function GameClient() {
     const checkpoint = isQa && Number.isFinite(requestedCheckpoint)
       ? Math.max(0, Math.min(179.9, requestedCheckpoint))
       : 0;
-    qaRestartCheckpointRef.current = checkpoint;
-    stateRef.current = advanceJourneyTo(createJourneyState({ seed }), checkpoint);
+    const replayId = isQa && params.get("replay") === "qx-r3-006" ? "qx-r3-006" : "";
+    const replayInputs = replayId ? QX_R3_006_REPLAY_INPUTS : null;
+    const replayCheckpoint = replayInputs && checkpoint === 0 ? 18 : checkpoint;
+    qaReplayInputsRef.current = replayInputs;
+    qaRestartCheckpointRef.current = replayCheckpoint;
+    stateRef.current = replayInputs
+      ? replayJourneyTo(replayInputs, replayCheckpoint, { seed })
+      : advanceJourneyTo(createJourneyState({ seed }), checkpoint);
     setSnapshot(makeSnapshot(stateRef.current));
     setQaMode(isQa);
+    setQaReplayId(replayId);
     setFormsOnlyMode(formsOnly);
     setRendererReady(false);
     setRendererError(null);
@@ -978,6 +1022,10 @@ export function GameClient() {
       data-active-encounter-distance-mm={snapshot.activeEncounterDistanceMm ?? ""}
       data-gameplay-event={snapshot.lastGameplayEvent ?? ""}
       data-gameplay-events={snapshot.gameplayEventCount}
+      data-gameplay-event-ledger={snapshot.gameplayEventLedger}
+      data-twinkle-seed-ledger={snapshot.twinkleSeedLedger}
+      data-qa-replay-id={qaReplayId}
+      data-qa-replay-input-ledger={qaReplayId ? QX_R3_006_REPLAY_LEDGER : "[]"}
       data-input-held-keys={inputStatus.heldKeyCount}
       data-input-pointer-active={inputStatus.pointerActive ? "true" : "false"}
       data-input-pointer-id={inputStatus.activePointerId ?? ""}
@@ -1058,6 +1106,12 @@ export function GameClient() {
       data-render-life-master-obstacles={snapshot.metrics?.lifeMasterObstacleCount ?? 0}
       data-render-life-master-nodes={snapshot.metrics?.lifeMasterNodeCount ?? 0}
       data-render-life-master-marker-ids={snapshot.metrics?.lifeMasterMarkerIds ?? ""}
+      data-render-life-master-visible-encounters={snapshot.metrics?.lifeMasterVisibleEncounterIds ?? ""}
+      data-render-life-master-encounters={snapshot.metrics?.lifeMasterEncounterInventory ?? "[]"}
+      data-render-life-master-protagonist-x={snapshot.metrics?.lifeMasterProtagonistX.toFixed(6) ?? ""}
+      data-render-life-master-protagonist-y={snapshot.metrics?.lifeMasterProtagonistY.toFixed(6) ?? ""}
+      data-render-life-master-protagonist-z={snapshot.metrics?.lifeMasterProtagonistZ.toFixed(6) ?? ""}
+      data-render-life-master-protagonist-radius={snapshot.metrics?.lifeMasterProtagonistRadius.toFixed(6) ?? ""}
       data-render-life-master-human-visible={snapshot.metrics?.lifeMasterHumanArtifactsVisible ? "true" : "false"}
       data-render-life-master-non-emissive-basic={snapshot.metrics?.lifeMasterNonEmissiveBasicMaterials ?? -1}
       data-render-life-master-runtime-allocations={snapshot.metrics?.lifeMasterAllocationsAfterInitialize ?? -1}

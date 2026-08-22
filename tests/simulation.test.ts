@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { JOURNEY_SECONDS, PHASE_WINDOWS, SHOT_TABLE, phaseAt, shotAt } from "../src/game/model";
 import { generateRoute } from "../src/game/procedural";
-import { advanceJourneyTo, createJourneyState, hashJourney, simulateJourney, stepJourney, validateSeedProperties } from "../src/game/simulation";
+import { advanceJourneyTo, createJourneyState, hashJourney, replayJourneyTo, simulateJourney, stepJourney, validateSeedProperties } from "../src/game/simulation";
 
 describe("authored journey score", () => {
   it("contains a contiguous 24-shot, 180-second score", () => {
@@ -68,6 +68,21 @@ describe("deterministic simulation", () => {
     expect(shotAt(state.time).id).toBe("S18");
     expect(Math.abs(state.position.x)).toBeLessThan(0.72);
     expect(Math.abs(state.position.y)).toBeLessThan(0.72);
+  });
+
+  it("replays one timestamped input ledger to an exact deterministic checkpoint", () => {
+    const replayInputs: Array<{ at: number; moveX: number; moveY: number; pulse?: boolean }> = [];
+    for (let second = 4; second < 16; second += 1) {
+      replayInputs.push({ at: second, moveX: 0, moveY: -1 });
+      replayInputs.push({ at: second + 0.3, moveX: 0, moveY: 0 });
+    }
+    replayInputs.push({ at: 5.5, moveX: 0, moveY: 0, pulse: true });
+    const first = replayJourneyTo(replayInputs, 18, { seed: 20_260_818 });
+    const second = replayJourneyTo(replayInputs, 18, { seed: 20_260_818 });
+    expect(first.time).toBe(18);
+    expect(hashJourney(first)).toBe(hashJourney(second));
+    expect(first.pulses).toHaveLength(1);
+    expect(first.gameplayEvents.map((event) => event.kind)).toContain("node-perfect");
   });
 });
 
