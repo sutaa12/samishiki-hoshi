@@ -365,6 +365,15 @@ targets and `HARDWARE_PENDING` gate remain unchanged. QX-R3-002 and later visual
 work remain stopped until QX-R3-001 review is resolved. Main, the existing Sites
 v2 deployment, human, rights, hardware, and contest gates remain unchanged.
 
+Blind review A7 rejected the initial implementation because reduced motion and
+high contrast did not reach the renderer and the source receipt covered only a
+focused file list. Implementation `aef8878` resolves those S2 findings by using
+static temporal profiles, applying a presentation-only contrast filter to the
+canvas, and binding all 333 tracked files. It also tests a non-null ANSWER latch.
+The ten restart cycles remain explicitly scoped to state reset on one mounted
+renderer; they are not evidence for ten renderer remounts. Promotion still
+requires a fresh blind review with no open S0/S1/S2.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

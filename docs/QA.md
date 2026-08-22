@@ -114,24 +114,32 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
   rights, reference hardware, final release, and contest submission remain
   pending.
 
-## 2026-08-22 QX-R3-001 review-ready checkpoint
+## 2026-08-22 QX-R3-001 remediation checkpoint
 
-- Isolated implementation `940e38e205272e6a1bf5361722969abc2e3e3f53`
+- Isolated implementation `aef88784556a171746ca862d4c930d4bc35ef824`
   connects `/` to the v2 production/Foundation runtime and removes
   `src/game/world.ts` from the production import graph.
 - Complete verification passes typecheck, lint, 38/38 Vitest files and 719/719
   tests, plus the production build. The build still reports the disclosed
   >500kB initial-chunk advisory.
-- Fresh host-Metal browser evidence passes 3/3: actual forced WebGL2, actual
+- Fresh host-Metal browser evidence passes 4/4: actual forced WebGL2, actual
   WebGPU, identical checkpoint gameplay hash `f8b1e67c`, live state latch, and
-  ten restart cycles with constant resource ownership.
+  ten state-restart cycles with constant resource ownership. The additional
+  gate proves a non-null ANSWER latch, a static reduced-motion renderer profile,
+  and high-contrast projection into the canvas world.
 - Existing journey regression passes 8 checks with 6 expected project skips
   and zero failures. Across 18 local phase/quality/project samples, P95 is at
   most 10.3ms with at least 124 percentile samples. This is local laboratory
   evidence; reference-device acceptance remains `HARDWARE_PENDING`.
+- All 333 tracked files at the implementation commit are individually SHA-256
+  bound; the canonical manifest SHA-256 is
+  `aff8f8ca8580f3226c5216cc2482eeaf8e50d7f8bbe8467d29c7a6b82ae4a980`.
+- Blind review A7 rejected the previous source with S2=3 and S3=2. The reject
+  receipt is preserved; all S2 findings are remediated, while the disclosed S3
+  remount limitation remains. Fresh independent review is pending.
 - Exact bindings: `docs/evidence/QX-R3-001.md` and
   `.quality-gates/receipts/qx-r3-001-review-ready.json`.
-- Status is `review_ready`, not release accepted. Independent review, Main,
+- Status is `review_ready_after_remediation`, not release accepted. Fresh independent review, Main,
   deployment of this source, human play, rights, reference hardware, and
   contest submission remain pending. QX-R3-002 is not started.
 

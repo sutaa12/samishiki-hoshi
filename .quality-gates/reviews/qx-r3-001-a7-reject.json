@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "qx-r3-001-a7-blind-review-2026-08-22",
+  "mode": "isolated-artifact-and-source-blind",
+  "candidateLabel": "A7",
+  "reviewer": "qx_r3_001_blind_review",
+  "reviewedEvidenceHead": "f9aeee0c431edb128fdbb262da34e6630aa44139",
+  "implementationCommit": "940e38e205272e6a1bf5361722969abc2e3e3f53",
+  "implementationTree": "459880150ddffe6a3a72ad7b4b0559bc38307fe5",
+  "buildSha256": "1c9e67f671e42585f749fd916d4a2b6347269ded5b8692881ec0eea48586d80c",
+  "verdict": "REJECT",
+  "scores": {
+    "correctnessAndDeterminism": 4,
+    "architectureAndImportBoundary": 4,
+    "LifecycleAndOwnership": 3,
+    "accessibilityAndInput": 2,
+    "evidenceAndReproducibility": 2
+  },
+  "severityCounts": {"S0": 0, "S1": 0, "S2": 3, "S3": 2},
+  "findings": [
+    {"id": "A7-ACCESS-REDUCED-MOTION", "severity": "S2", "status": "remediated_in_aef8878", "observation": "Reduced motion was only stored as a setting and class; the production renderer did not consume it."},
+    {"id": "A7-ACCESS-HIGH-CONTRAST", "severity": "S2", "status": "remediated_in_aef8878", "observation": "High contrast affected UI styling but did not project into the canvas world."},
+    {"id": "A7-EVIDENCE-SOURCE-BINDING", "severity": "S2", "status": "remediated_in_aef8878", "observation": "The receipt bound only a focused ten-file manifest rather than the complete tracked source tree."},
+    {"id": "A7-EVIDENCE-ANSWER-ASSERTION", "severity": "S3", "status": "remediated_in_aef8878", "observation": "The browser state helper did not actually compare game and renderer answerAt values."},
+    {"id": "A7-LIFECYCLE-REMOUNT", "severity": "S3", "status": "disclosed_limit", "observation": "The ten restart checkpoint resets state on one renderer; it does not remount the renderer ten times."}
+  ],
+  "reviewerChecks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "focusedVitest": "4 files / 30 tests passed",
+    "focusedFileManifest": "10 / 10 hashes matched",
+    "buildArchive": "hash and 128 tar entries matched",
+    "browserRerun": "not_run_by_reviewer"
+  },
+  "rollback": "QX-R3-002, Main, and Sites remained blocked. The implementation was remediated on the isolated QX-R3-001 branch.",
+  "externalGatesUnchanged": ["HUMAN_PENDING_PLAY_VISUAL", "HUMAN_PENDING_RIGHTS", "HARDWARE_PENDING", "HUMAN_PENDING_MAIN", "HUMAN_PENDING_SITES", "HUMAN_PENDING_CONTEST"]
+}
