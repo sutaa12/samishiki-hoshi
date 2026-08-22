@@ -418,7 +418,12 @@ function sceneSnapshot(scene: Scene) {
     if (object !== scene) objects += 1;
     if ("isMesh" in object && object.isMesh === true) meshes += 1;
   });
-  return Object.freeze({ objects, meshes, children: scene.children.length });
+  return Object.freeze({
+    objects,
+    meshes,
+    children: scene.children.length,
+    fogActive: scene.fog !== null,
+  });
 }
 
 export interface GfxFoundationSnapshot {
@@ -435,7 +440,7 @@ export interface GfxFoundationSnapshot {
   readonly telemetry: Readonly<GfxPerformanceTelemetrySnapshot>;
   readonly quality: Readonly<{ id: FoundationQualityId; subscribers: number }>;
   readonly frameLoop: Readonly<{ running: boolean; starts: number; stops: number; ticks: number }>;
-  readonly scene: Readonly<{ objects: number; meshes: number; children: number }>;
+  readonly scene: Readonly<{ objects: number; meshes: number; children: number; fogActive: boolean }>;
   readonly railCamera: Readonly<RailCameraSnapshot>;
   readonly phaseDirector: Readonly<PhaseDirectorSnapshot>;
   readonly continuity: Readonly<LifeEarthContinuitySnapshot>;
@@ -491,6 +496,8 @@ async function performGfxFoundationConstruction(options: {
   readonly initialSnapshot?: Readonly<JourneyRenderSnapshot>;
   readonly initialRailSnapshot?: Readonly<RailRenderSnapshot>;
   readonly reducedMotion?: boolean;
+  readonly productionLifeMaster?: boolean;
+  readonly formsOnly?: boolean;
 }, admission: FoundationConstructionAdmission<FoundationConstructionCleanupOwner>): Promise<GfxFoundationRuntime> {
   let sceneOwner: Scene | null = null;
   let pipelineOwner: ProductionLinearHdrPipeline | null = null;
@@ -709,7 +716,7 @@ async function performGfxFoundationConstruction(options: {
     const background = new Color(0x020611);
     scene.background = background;
     const fog = new FogExp2(0x020611, 0.02);
-    if (ownsJourneyPresentation) scene.fog = fog;
+    if (ownsJourneyPresentation && !options.formsOnly) scene.fog = fog;
     const ambient = new AmbientLight(0xffffff, 1);
     ambient.name = "gfx005:phase-ambient";
     scene.add(ambient);
@@ -742,6 +749,9 @@ async function performGfxFoundationConstruction(options: {
     const uploader = uploaderOwner = new ProductionThreeChunkUploader(scene, materials, {
       presentRuntimeObjects: options.experience === "foundation",
       chunkAnchors: createChunkSceneAnchors(plan),
+      suppressedRuntimeChunkIds: options.productionLifeMaster
+        ? ["S01", "S02", "S03", "S04", "S05", "S06"]
+        : undefined,
     });
     const qualityProvider = qualityOwner = new FoundationQualityProvider();
     const initialViewport = viewportFor(options.canvas, qualityProvider.getProfile());
@@ -850,8 +860,10 @@ async function performGfxFoundationConstruction(options: {
     });
     const innerWorld = new WorldChunkRenderFeature(manager, persistentPass);
     const pooledWorld = new PooledWorldChunkFeature(innerWorld, uploader);
-    const oceanHero = options.experience === "hero-a"
-      ? new OceanHeroFeature(scene, camera, plan)
+    const oceanHero = options.experience === "hero-a" || options.productionLifeMaster
+      ? new OceanHeroFeature(scene, camera, plan, {
+        mode: options.productionLifeMaster ? "production" : "isolated",
+      })
       : null;
     const forestCityHero = options.experience === "hero-b"
       ? new ForestCityHeroFeature(scene, camera, plan)
@@ -1080,6 +1092,10 @@ export function createGfxFoundationRuntime(options: {
   readonly initialSnapshot?: Readonly<JourneyRenderSnapshot>;
   readonly initialRailSnapshot?: Readonly<RailRenderSnapshot>;
   readonly reducedMotion?: boolean;
+  /** Attach the LIFE master art without transferring camera or environment ownership. */
+  readonly productionLifeMaster?: boolean;
+  /** QA-only proof that authored forms survive without scene fog. */
+  readonly formsOnly?: boolean;
 }): Promise<GfxFoundationRuntime> {
   return foundationConstructionAdmission.run((admission) => (
     performGfxFoundationConstruction({

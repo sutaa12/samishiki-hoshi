@@ -25,6 +25,11 @@ export interface ProductionThreeChunkUploaderOptions {
   readonly presentRuntimeObjects?: boolean;
   /** Renderer-space Flow midpoint anchors copied from the canonical WorldPlan. */
   readonly chunkAnchors?: Readonly<Partial<Record<StoryChunkId, Readonly<RailScenePointSnapshot>>>>;
+  /**
+   * Chunks whose fixed-pool lifecycle remains active but whose generic box
+   * presentation is replaced by an authored production slice.
+   */
+  readonly suppressedRuntimeChunkIds?: readonly StoryChunkId[];
 }
 
 export interface ThreeChunkSlotSnapshot {
@@ -32,6 +37,7 @@ export interface ThreeChunkSlotSnapshot {
   readonly state: PoolSlotState;
   readonly chunkId: StoryChunkId | null;
   readonly active: boolean;
+  readonly presented: boolean;
   readonly position: Readonly<RailScenePointSnapshot>;
 }
 
@@ -234,6 +240,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
   readonly #scene: Scene;
   readonly #materials: TslMaterialLibrary;
   readonly #presentRuntimeObjects: boolean;
+  readonly #suppressedRuntimeChunkIds: ReadonlySet<StoryChunkId>;
   readonly #chunkAnchors: Readonly<Partial<Record<StoryChunkId, Readonly<RailScenePointSnapshot>>>>;
   readonly #counters: Counters = {
     createdJobs: 0,
@@ -257,6 +264,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
     this.#scene = scene;
     this.#materials = materials;
     this.#presentRuntimeObjects = options.presentRuntimeObjects ?? true;
+    this.#suppressedRuntimeChunkIds = new Set(options.suppressedRuntimeChunkIds ?? []);
     const anchors: Partial<Record<StoryChunkId, Readonly<RailScenePointSnapshot>>> = {};
     for (const chunkId of STORY_CHUNK_IDS) {
       const anchor = options.chunkAnchors?.[chunkId];
@@ -361,7 +369,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
     this.#assertSlotOwner(slot, ownerId, "activate");
     if (slot.state !== "lease" || slot.active === active) return;
     if (active) {
-      slot.group.visible = this.#presentRuntimeObjects;
+      slot.group.visible = this.#slotPresented(slot);
       this.#scene.add(slot.group);
       this.#counters.activeLeases += 1;
     } else {
@@ -437,6 +445,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
       state: slot.state,
       chunkId: slot.chunkId,
       active: slot.active,
+      presented: slot.active && this.#slotPresented(slot),
       position: Object.freeze({
         x: slot.group.position.x,
         y: slot.group.position.y,
@@ -467,5 +476,11 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
     if (this.#disposed || slot.ownerId !== ownerId) {
       throw new Error(`Cannot ${operation} a Three chunk slot owned by another operation.`);
     }
+  }
+
+  #slotPresented(slot: Readonly<PoolSlot>): boolean {
+    return this.#presentRuntimeObjects
+      && slot.chunkId !== null
+      && !this.#suppressedRuntimeChunkIds.has(slot.chunkId);
   }
 }

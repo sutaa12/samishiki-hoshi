@@ -223,6 +223,7 @@ export async function createProductionJourneyRuntime(options: {
   readonly presentation: Readonly<ProductionPresentationPreferences>;
   readonly initialSnapshot: Readonly<JourneyRenderSnapshot>;
   readonly initialRailSnapshot: Readonly<RailRenderSnapshot>;
+  readonly formsOnly?: boolean;
 }): Promise<ProductionGfxRuntime> {
   const foundation = await createGfxFoundationRuntime({
     canvas: options.canvas,
@@ -233,6 +234,8 @@ export async function createProductionJourneyRuntime(options: {
     initialSnapshot: options.initialSnapshot,
     initialRailSnapshot: options.initialRailSnapshot,
     reducedMotion: options.presentation.reducedMotion,
+    productionLifeMaster: true,
+    formsOnly: options.formsOnly,
   });
   try {
     const presentation = copyPresentationPreferences(options.presentation);

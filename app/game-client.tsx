@@ -154,6 +154,18 @@ type ProductionRendererMetrics = {
   poolSlots: number;
   resizeListenerActive: boolean;
   subscribers: number;
+  lifeMasterMode: string;
+  lifeMasterCameraOwned: boolean;
+  lifeMasterEnvironmentOwned: boolean;
+  lifeMasterWhitePointKelvin: number;
+  lifeMasterGateCount: number;
+  lifeMasterObstacleCount: number;
+  lifeMasterNodeCount: number;
+  lifeMasterMarkerIds: string;
+  lifeMasterHumanArtifactsVisible: boolean;
+  lifeMasterNonEmissiveBasicMaterials: number;
+  lifeMasterAllocationsAfterInitialize: number;
+  sceneFogActive: boolean;
 };
 
 const INITIAL_SETTINGS: Settings = {
@@ -292,6 +304,18 @@ function rendererEvidence(runtime: ProductionGfxRuntime): {
       poolSlots: snapshot.uploader.poolSlots,
       resizeListenerActive: snapshot.runtime.resizeListenerActive,
       subscribers: snapshot.runtime.subscribers,
+      lifeMasterMode: snapshot.heroA?.mode ?? "missing",
+      lifeMasterCameraOwned: snapshot.heroA?.cameraOwned ?? true,
+      lifeMasterEnvironmentOwned: snapshot.heroA?.environmentOwned ?? true,
+      lifeMasterWhitePointKelvin: snapshot.heroA?.whitePointKelvin ?? 0,
+      lifeMasterGateCount: snapshot.heroA?.encounterCounts.gate ?? 0,
+      lifeMasterObstacleCount: snapshot.heroA?.encounterCounts.obstacle ?? 0,
+      lifeMasterNodeCount: snapshot.heroA?.encounterCounts.lifeNode ?? 0,
+      lifeMasterMarkerIds: snapshot.heroA?.markerIds.join(",") ?? "",
+      lifeMasterHumanArtifactsVisible: snapshot.heroA?.humanArtifactsVisible ?? false,
+      lifeMasterNonEmissiveBasicMaterials: snapshot.heroA?.nonEmissiveBasicMaterialCount ?? -1,
+      lifeMasterAllocationsAfterInitialize: snapshot.heroA?.allocationsAfterInitialize ?? -1,
+      sceneFogActive: snapshot.scene.fogActive,
     },
     p95FrameMs: Number((snapshot.telemetry.frameIntervalMs.p95 ?? 0).toFixed(2)),
     frameSampleCount: snapshot.telemetry.frameIntervalMs.sampleCount,
@@ -377,6 +401,7 @@ export function GameClient() {
   const [rendererReady, setRendererReady] = useState(false);
   const [rendererError, setRendererError] = useState<string | null>(null);
   const [qaMode, setQaMode] = useState(false);
+  const [formsOnlyMode, setFormsOnlyMode] = useState(false);
 
   const syncInputStatus = useCallback(() => {
     const next = inputRouterRef.current.status();
@@ -562,6 +587,7 @@ export function GameClient() {
     const seed = Number.isFinite(requestedSeed) ? requestedSeed >>> 0 : DEFAULT_SEED;
     const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
     const isQa = localHost && params.get("qa") === "1";
+    const formsOnly = isQa && params.get("forms") === "1";
     const qualityParam = params.get("quality");
     const qaQuality: QualityLevel | null = isQa && (qualityParam === "low" || qualityParam === "balanced" || qualityParam === "high")
       ? qualityParam
@@ -586,6 +612,7 @@ export function GameClient() {
     stateRef.current = advanceJourneyTo(createJourneyState({ seed }), checkpoint);
     setSnapshot(makeSnapshot(stateRef.current));
     setQaMode(isQa);
+    setFormsOnlyMode(formsOnly);
     setRendererReady(false);
     setRendererError(null);
 
@@ -719,6 +746,7 @@ export function GameClient() {
             }),
             initialSnapshot: projectJourneyState(stateRef.current),
             initialRailSnapshot: projectRailFlightState(stateRef.current),
+            formsOnly,
           });
           if (cancelled) {
             await productionRuntimeCleanupOwner.dispose(runtime);
@@ -1022,6 +1050,19 @@ export function GameClient() {
       data-render-pool-slots={snapshot.metrics?.poolSlots ?? 0}
       data-render-resize-listener={snapshot.metrics?.resizeListenerActive ? "true" : "false"}
       data-render-subscribers={snapshot.metrics?.subscribers ?? 0}
+      data-render-life-master-mode={snapshot.metrics?.lifeMasterMode ?? "pending"}
+      data-render-life-master-camera-owned={snapshot.metrics?.lifeMasterCameraOwned ? "true" : "false"}
+      data-render-life-master-environment-owned={snapshot.metrics?.lifeMasterEnvironmentOwned ? "true" : "false"}
+      data-render-life-master-white-point-k={snapshot.metrics?.lifeMasterWhitePointKelvin ?? 0}
+      data-render-life-master-gates={snapshot.metrics?.lifeMasterGateCount ?? 0}
+      data-render-life-master-obstacles={snapshot.metrics?.lifeMasterObstacleCount ?? 0}
+      data-render-life-master-nodes={snapshot.metrics?.lifeMasterNodeCount ?? 0}
+      data-render-life-master-marker-ids={snapshot.metrics?.lifeMasterMarkerIds ?? ""}
+      data-render-life-master-human-visible={snapshot.metrics?.lifeMasterHumanArtifactsVisible ? "true" : "false"}
+      data-render-life-master-non-emissive-basic={snapshot.metrics?.lifeMasterNonEmissiveBasicMaterials ?? -1}
+      data-render-life-master-runtime-allocations={snapshot.metrics?.lifeMasterAllocationsAfterInitialize ?? -1}
+      data-render-forms-only={formsOnlyMode ? "true" : "false"}
+      data-render-scene-fog-active={snapshot.metrics?.sceneFogActive ? "true" : "false"}
       data-restarts={restartCount}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -1034,6 +1075,7 @@ export function GameClient() {
           ref={particleLayerRef}
           className="phase-particle-layer"
           data-testid="phase-particle-layer"
+          style={formsOnlyMode ? { display: "none" } : undefined}
           aria-hidden="true"
         />
 

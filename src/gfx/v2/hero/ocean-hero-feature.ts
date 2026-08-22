@@ -52,6 +52,19 @@ const HUMAN_REVEAL_SECONDS = 18;
 const WATERLINE_SECONDS = 36;
 const DEFAULT_MARKER_SECONDS = 12;
 const TAU = Math.PI * 2;
+const RAIL_SCENE_SCALE = 1 / 10_000;
+const WHITE_POINT_KELVIN = 6_500;
+
+export type OceanHeroMode = "isolated" | "production";
+
+/**
+ * `isolated` retains the Hero A review route's self-contained camera and
+ * environment. `production` is deliberately a guest of the journey runtime:
+ * it reads the shared rail camera but never writes camera or scene ambience.
+ */
+export interface OceanHeroFeatureOptions {
+  readonly mode?: OceanHeroMode;
+}
 
 type HeroLifecycle = "new" | "ready" | "disposing" | "disposed" | "failed";
 
@@ -133,6 +146,32 @@ export interface OceanHeroFeatureSnapshot {
   readonly ownedTextures: number;
   readonly ownedObjects: number;
   readonly allocationsAfterInitialize: number;
+  readonly mode: OceanHeroMode;
+  readonly cameraOwned: boolean;
+  readonly environmentOwned: boolean;
+  readonly whitePointKelvin: number;
+  readonly encounterCounts: Readonly<{ readonly gate: number; readonly obstacle: number; readonly lifeNode: number }>;
+  readonly encounterInventory: readonly Readonly<{
+    readonly id: string;
+    readonly kind: "gate" | "obstacle" | "life-node";
+    readonly position: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
+    readonly cue: string;
+  }>[];
+  readonly markerIds: readonly string[];
+  readonly materialFamilyAudit: Readonly<{
+    readonly natural: number;
+    readonly concrete: number;
+    readonly paintedMetal: number;
+    readonly glass: number;
+    readonly emissiveAdditive: number;
+  }>;
+  readonly materialSignatures: Readonly<{
+    readonly natural: string;
+    readonly concrete: string;
+    readonly paintedMetal: string;
+    readonly glass: string;
+  }>;
+  readonly nonEmissiveBasicMaterialCount: number;
 }
 
 interface DeterministicRandom {
@@ -1083,8 +1122,10 @@ export class OceanHeroFeature implements RenderFeature {
   readonly id = "hero-slice-a-ocean";
   readonly #scene: Scene;
   readonly #camera: PerspectiveCamera;
+  readonly #mode: OceanHeroMode;
   readonly #root = new Group();
   readonly #naturalRoot = new Group();
+  readonly #productionRoot: Group | null;
   readonly #vehicleRoot = new Group();
   readonly #waterlineRoot = new Group();
   readonly #protagonistRoot = new Group();
@@ -1108,6 +1149,33 @@ export class OceanHeroFeature implements RenderFeature {
   readonly #hemisphere: HemisphereLight;
   readonly #sun: DirectionalLight;
   readonly #coreLight: PointLight;
+  #protagonistLeftFin: Mesh | null = null;
+  #protagonistRightFin: Mesh | null = null;
+  #pulseWave: Mesh | null = null;
+  readonly #cameraForward: Vector3 | null;
+  readonly #cameraRight: Vector3 | null;
+  readonly #cameraUp: Vector3 | null;
+  #productionEncounterInventory: readonly Readonly<{
+    readonly id: string;
+    readonly kind: "gate" | "obstacle" | "life-node";
+    readonly position: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
+    readonly cue: string;
+  }>[] = Object.freeze([]);
+  #productionMarkerIds: readonly string[] = Object.freeze([]);
+  #productionEncounterCounts: Readonly<{ readonly gate: number; readonly obstacle: number; readonly lifeNode: number }> = Object.freeze({ gate: 0, obstacle: 0, lifeNode: 0 });
+  #materialFamilyAudit: Readonly<{
+    readonly natural: number;
+    readonly concrete: number;
+    readonly paintedMetal: number;
+    readonly glass: number;
+    readonly emissiveAdditive: number;
+  }> = Object.freeze({ natural: 0, concrete: 0, paintedMetal: 0, glass: 0, emissiveAdditive: 0 });
+  #materialSignatures: Readonly<{
+    readonly natural: string;
+    readonly concrete: string;
+    readonly paintedMetal: string;
+    readonly glass: string;
+  }> = Object.freeze({ natural: "", concrete: "", paintedMetal: "", glass: "" });
   readonly #backgroundColor = new Color(0x041d2c);
   readonly #underwaterFog = new FogExp2(0x0a3547, 0.034);
   #state: HeroLifecycle = "new";
@@ -1122,13 +1190,25 @@ export class OceanHeroFeature implements RenderFeature {
   #rectangularWindowCells = 0;
   #railSegments = 0;
 
-  constructor(scene: Scene, camera: PerspectiveCamera, plan: Readonly<WorldPlan>) {
+  constructor(
+    scene: Scene,
+    camera: PerspectiveCamera,
+    plan: Readonly<WorldPlan>,
+    options: Readonly<OceanHeroFeatureOptions> = {},
+  ) {
     this.#scene = scene;
     this.#camera = camera;
+    this.#mode = options.mode ?? "isolated";
+    this.#productionRoot = this.#mode === "production" ? new Group() : null;
+    this.#cameraForward = this.#mode === "production" ? new Vector3() : null;
+    this.#cameraRight = this.#mode === "production" ? new Vector3() : null;
+    this.#cameraUp = this.#mode === "production" ? new Vector3() : null;
     this.#originalBackground = scene.background;
     this.#originalFog = scene.fog;
-    this.#scene.background = this.#backgroundColor;
-    this.#scene.fog = this.#underwaterFog;
+    if (this.#mode === "isolated") {
+      this.#scene.background = this.#backgroundColor;
+      this.#scene.fog = this.#underwaterFog;
+    }
     const opening = plan.chunks.find((chunk) => chunk.id === "S03");
     const seed = opening?.environment.ecology.seedFingerprint ?? Number(plan.worldSeed);
     const random = randomFrom(seed);
@@ -1189,14 +1269,16 @@ export class OceanHeroFeature implements RenderFeature {
 
     this.#root.name = "hero-a:ocean-root";
     this.#naturalRoot.name = "hero-a:natural-world";
+    if (this.#productionRoot) this.#productionRoot.name = "hero-a:production-rail-world";
     this.#vehicleRoot.name = "hero-a:submerged-vehicle";
     this.#waterlineRoot.name = "hero-a:waterline-transition";
     this.#protagonistRoot.name = "hero-a:life-droplet";
     this.#pulseRoot.name = "hero-a:pulse-target";
     this.#flowRoot.name = "hero-a:flow-guide";
     this.#causticsRoot.name = "hero-a:caustics";
+    this.#root.add(this.#naturalRoot);
+    if (this.#productionRoot) this.#root.add(this.#productionRoot);
     this.#root.add(
-      this.#naturalRoot,
       this.#vehicleRoot,
       this.#waterlineRoot,
       this.#protagonistRoot,
@@ -1216,7 +1298,8 @@ export class OceanHeroFeature implements RenderFeature {
     this.#coreLight = new PointLight(0xffdda0, 2.25, 5.5, 1.7);
     this.#coreLight.name = "hero-a:living-core-light";
     this.#protagonistRoot.add(this.#coreLight);
-    this.#scene.add(this.#ambient, this.#hemisphere, this.#sun);
+    if (this.#mode === "production") this.#coreLight.visible = false;
+    if (this.#mode === "isolated") this.#scene.add(this.#ambient, this.#hemisphere, this.#sun);
 
     const terrain = this.#ownMaterial(standardMaterial(0x466d61, 0.9));
     const sand = this.#ownMaterial(standardMaterial(0x788c7a, 0.86));
@@ -1225,11 +1308,19 @@ export class OceanHeroFeature implements RenderFeature {
     seafloor.map = reefSurface.map;
     seafloor.bumpMap = reefSurface.bumpMap;
     seafloor.bumpScale = 0.22;
-    const waterColumn = this.#ownMaterial(new MeshBasicNodeMaterial());
-    waterColumn.color.setHex(0xffffff);
+    const waterColumn = this.#mode === "production"
+      ? this.#ownMaterial(physicalMaterial(0x164c5d, 1, 0.82, 1.333))
+      : this.#ownMaterial(new MeshBasicNodeMaterial());
+    if (this.#mode === "production") waterColumn.name = "hero-a:natural-water-column-physical";
+    waterColumn.color.setHex(this.#mode === "production" ? 0x164c5d : 0xffffff);
     waterColumn.vertexColors = true;
     waterColumn.side = BackSide;
-    waterColumn.toneMapped = false;
+    if (this.#mode === "production") {
+      waterColumn.transparent = false;
+      waterColumn.depthWrite = true;
+    } else {
+      waterColumn.toneMapped = false;
+    }
     const coralRose = this.#ownMaterial(standardMaterial(0x8d4d59, 0.72));
     const coralGold = this.#ownMaterial(standardMaterial(0x9f7948, 0.74));
     const coralLilac = this.#ownMaterial(standardMaterial(0x625982, 0.7));
@@ -1266,6 +1357,10 @@ export class OceanHeroFeature implements RenderFeature {
     kelpMaterial.bumpMap = organicHeightTexture;
     kelpMaterial.bumpScale = 0.025;
     kelpMaterial.side = DoubleSide;
+    if (this.#mode === "production") {
+      kelpMaterial.emissive.setHex(0x031b12);
+      kelpMaterial.emissiveIntensity = 0.24;
+    }
     fishSilver.map = fishScaleSurface.map;
     fishSilver.bumpMap = fishScaleSurface.bumpMap;
     fishSilver.bumpScale = 0.026;
@@ -1285,13 +1380,38 @@ export class OceanHeroFeature implements RenderFeature {
     fishSilver.side = DoubleSide;
     fishCoral.side = DoubleSide;
     fishGold.side = DoubleSide;
-    const vehicleMetal = this.#ownMaterial(standardMaterial(0x273a42, 0.67, 0.62));
-    const vehiclePanel = this.#ownMaterial(standardMaterial(0x42565b, 0.82, 0.18));
+    const vehicleMetal = this.#ownMaterial(this.#mode === "production"
+      ? standardMaterial(0x45636b, 0.67, 0.42)
+      : standardMaterial(0x273a42, 0.67, 0.62));
+    const vehiclePanel = this.#ownMaterial(this.#mode === "production"
+      ? standardMaterial(0x637b7e, 0.8, 0.14)
+      : standardMaterial(0x42565b, 0.82, 0.18));
+    const concrete = this.#mode === "production"
+      ? this.#ownMaterial(standardMaterial(0x68736f, 0.91, 0.02))
+      : terrain;
     const darkSeat = this.#ownMaterial(standardMaterial(0x6a7770, 0.91, 0.06));
     darkSeat.emissive.setHex(0x07100e);
     darkSeat.emissiveIntensity = 0.16;
-    const interiorVoid = this.#ownMaterial(standardMaterial(0x071116, 0.98, 0.04));
+    const interiorVoid = this.#ownMaterial(this.#mode === "production"
+      ? standardMaterial(0x10242a, 0.96, 0.04)
+      : standardMaterial(0x071116, 0.98, 0.04));
     const vehicleGlass = this.#ownMaterial(physicalMaterial(0x4a92a0, 0.28, 0.16, 1.45));
+    if (this.#mode === "production") {
+      vehicleMetal.name = "hero-a:painted-metal-weathered";
+      vehiclePanel.name = "hero-a:painted-metal-panel";
+      concrete.name = "hero-a:concrete-encounter-base";
+      vehicleGlass.name = "hero-a:glass-vehicle-window";
+      concrete.emissive.setHex(0x0c211d);
+      concrete.emissiveIntensity = 0.22;
+      vehicleMetal.emissive.setHex(0x071418);
+      vehicleMetal.emissiveIntensity = 0.16;
+      vehiclePanel.emissive.setHex(0x0a1a1d);
+      vehiclePanel.emissiveIntensity = 0.18;
+      interiorVoid.emissive.setHex(0x061218);
+      interiorVoid.emissiveIntensity = 0.18;
+      vehicleGlass.emissive.setHex(0x06232a);
+      vehicleGlass.emissiveIntensity = 0.24;
+    }
     terrain.map = reefSurface.map;
     terrain.bumpMap = reefSurface.bumpMap;
     terrain.bumpScale = 0.18;
@@ -1304,6 +1424,13 @@ export class OceanHeroFeature implements RenderFeature {
     vehiclePanel.map = corrosionTexture;
     vehiclePanel.bumpMap = corrosionHeightTexture;
     vehiclePanel.bumpScale = 0.06;
+    if (this.#mode === "production") {
+      concrete.map = corrosionTexture;
+      concrete.bumpMap = corrosionHeightTexture;
+      concrete.bumpScale = 0.045;
+      vehicleGlass.bumpMap = corrosionHeightTexture;
+      vehicleGlass.bumpScale = 0.012;
+    }
     const waterMaterial = this.#ownMaterial(physicalMaterial(0x6fbfc7, 0.24, 0.18, 1.333));
     const surfaceSheenMaterial = this.#ownMaterial(additiveMaterial(0xb9f7f4, 0.028));
     const bubbleMaterial = this.#ownMaterial(physicalMaterial(0xa5f5ff, 0.28, 0.08, 1.333));
@@ -1315,6 +1442,14 @@ export class OceanHeroFeature implements RenderFeature {
     const coreMaterial = this.#ownMaterial(additiveMaterial(0xfff5ce, 0.98));
     const envelopeMaterial = this.#ownMaterial(physicalMaterial(0xa9f1f1, 0.52, 0.12, 1.333));
     const pulseMaterial = this.#ownMaterial(additiveMaterial(0x9fffe7, 0.34));
+    if (this.#mode === "production") {
+      surfaceSheenMaterial.name = "hero-a:emissive-additive-surface-sheen";
+      causticMaterial.name = "hero-a:emissive-additive-caustics";
+      shaftMaterial.name = "hero-a:emissive-additive-light-shafts";
+      hazeMaterial.name = "hero-a:emissive-additive-haze";
+      coreMaterial.name = "hero-a:emissive-additive-living-core";
+      pulseMaterial.name = "hero-a:emissive-additive-pulse";
+    }
     vehicleGlass.thickness = 0.16;
     vehicleGlass.clearcoat = 1;
     waterMaterial.thickness = 0.62;
@@ -1863,6 +1998,29 @@ export class OceanHeroFeature implements RenderFeature {
       kelpMaterial,
       coralRose,
     );
+    if (this.#mode === "production") {
+      this.#buildProductionRailWorld(plan, terrain, kelpMaterial, coralGold, concrete);
+      // The production rail reaches scene z=8--10 after the reveal. Keep the
+      // rectilinear vehicle on that corridor, not in the isolated tableau.
+      this.#vehicleRoot.position.set(-1.15, -0.74, 8.65);
+      this.#vehicleRoot.rotation.y = -0.18;
+      this.#vehicleRoot.scale.setScalar(0.3);
+    }
+    if (this.#mode === "production") {
+      this.#materialFamilyAudit = Object.freeze({
+        natural: 8,
+        concrete: 1,
+        paintedMetal: 2,
+        glass: 1,
+        emissiveAdditive: 6,
+      });
+      this.#materialSignatures = Object.freeze({
+        natural: "MeshStandardNodeMaterial roughness=0.90 bump=reef-surface",
+        concrete: "MeshStandardNodeMaterial roughness=0.91 bump=linear-height",
+        paintedMetal: "MeshStandardNodeMaterial roughness=0.67 metalness=0.42 bump=linear-height",
+        glass: "MeshPhysicalNodeMaterial roughness=0.16 ior=1.45 bump=linear-height",
+      });
+    }
     this.#captureHumanArtifactObjects();
     this.#setHumanArtifactsVisible(false);
     this.#buildWaterline(bubbleMaterial);
@@ -1872,7 +2030,7 @@ export class OceanHeroFeature implements RenderFeature {
     // 12-second state so the warm-up canvas cannot disclose it before update.
     this.#waterlineRoot.visible = true;
     this.#protagonistRoot.visible = true;
-    this.#pulseRoot.visible = true;
+    this.#pulseRoot.visible = this.#mode === "isolated";
     this.#flowRoot.visible = true;
     this.#initializedAllocations = this.#geometries.length + this.#materials.length + this.#textures.length;
   }
@@ -1897,13 +2055,15 @@ export class OceanHeroFeature implements RenderFeature {
     if (this.#state !== "ready") return;
     this.#storyTime = finiteStoryTime(frame.storyTime);
     this.#shotId = frame.shotId;
-    const underwater = this.#storyTime < WATERLINE_SECONDS + 1.4;
     const revealVehicle = this.#storyTime >= HUMAN_REVEAL_SECONDS && this.#storyTime < WATERLINE_SECONDS;
     this.#setHumanArtifactsVisible(revealVehicle);
     this.#waterlineRoot.visible = this.#storyTime >= 34 && this.#storyTime <= 42;
     this.#naturalRoot.visible = this.#storyTime < 42;
+    if (this.#productionRoot) this.#productionRoot.visible = this.#storyTime < WATERLINE_SECONDS;
     this.#protagonistRoot.visible = this.#storyTime <= 44;
-    this.#pulseRoot.visible = this.#storyTime >= 8 && this.#storyTime < 18;
+    // The production route exposes the canonical WorldPlan life nodes, never
+    // the original isolated-route demonstration target.
+    this.#pulseRoot.visible = this.#mode === "isolated" && this.#storyTime >= 8 && this.#storyTime < 18;
     this.#flowRoot.visible = this.#storyTime < 42;
 
     const motionTime = clock.elapsedSeconds;
@@ -1916,21 +2076,24 @@ export class OceanHeroFeature implements RenderFeature {
     this.#causticsRoot.rotation.y = Math.sin(motionTime * 0.11) * 0.08;
 
     const transition = Math.max(0, Math.min(1, (this.#storyTime - 34.5) / 3.5));
-    if (underwater) {
-      const deep = 1 - Math.max(0, Math.min(1, this.#storyTime / 38));
-      this.#backgroundColor.setRGB(
-        0.008 + transition * 0.052,
-        0.07 + deep * 0.026 + transition * 0.17,
-        0.12 + deep * 0.042 + transition * 0.23,
-      );
-      this.#underwaterFog.color.setHex(transition > 0.45 ? 0x20596a : 0x0a3547);
-      this.#underwaterFog.density = 0.034 - transition * 0.012;
-    } else {
-      this.#backgroundColor.setHex(0x87c9d5);
-      this.#underwaterFog.color.setHex(0x8bcbd0);
-      this.#underwaterFog.density = 0.008;
+    if (this.#mode === "isolated") {
+      const underwater = this.#storyTime < WATERLINE_SECONDS + 1.4;
+      if (underwater) {
+        const deep = 1 - Math.max(0, Math.min(1, this.#storyTime / 38));
+        this.#backgroundColor.setRGB(
+          0.008 + transition * 0.052,
+          0.07 + deep * 0.026 + transition * 0.17,
+          0.12 + deep * 0.042 + transition * 0.23,
+        );
+        this.#underwaterFog.color.setHex(transition > 0.45 ? 0x20596a : 0x0a3547);
+        this.#underwaterFog.density = 0.034 - transition * 0.012;
+      } else {
+        this.#backgroundColor.setHex(0x87c9d5);
+        this.#underwaterFog.color.setHex(0x8bcbd0);
+        this.#underwaterFog.density = 0.008;
+      }
+      this.#cameraForStory(this.#storyTime, transition, frame.position.x, frame.position.y);
     }
-    this.#cameraForStory(this.#storyTime, transition, frame.position.x, frame.position.y);
     this.#applyDensity();
     if (revealVehicle) {
       for (const cluster of this.#coralClusters) {
@@ -1952,6 +2115,7 @@ export class OceanHeroFeature implements RenderFeature {
 
   resize(viewport: Readonly<RenderViewport>): void {
     if (this.#state === "disposed" || this.#state === "disposing") return;
+    if (this.#mode === "production") return;
     this.#camera.aspect = viewport.width / viewport.height;
     this.#camera.updateProjectionMatrix();
   }
@@ -1966,7 +2130,8 @@ export class OceanHeroFeature implements RenderFeature {
     this.#state = "disposing";
     const attempt = Promise.resolve().then(() => {
       const failures: unknown[] = [];
-      this.#scene.remove(this.#root, this.#ambient, this.#hemisphere, this.#sun);
+      this.#scene.remove(this.#root);
+      if (this.#mode === "isolated") this.#scene.remove(this.#ambient, this.#hemisphere, this.#sun);
       this.#root.clear();
       for (const owned of this.#geometries) {
         if (owned.disposed) continue;
@@ -2003,8 +2168,10 @@ export class OceanHeroFeature implements RenderFeature {
           ? failures[0]
           : new AggregateError(failures, "Ocean Hero feature cleanup failed.");
       }
-      this.#scene.background = this.#originalBackground;
-      this.#scene.fog = this.#originalFog;
+      if (this.#mode === "isolated") {
+        this.#scene.background = this.#originalBackground;
+        this.#scene.fog = this.#originalFog;
+      }
       this.#state = "disposed";
     });
     const settled = attempt.catch((error: unknown) => {
@@ -2040,6 +2207,16 @@ export class OceanHeroFeature implements RenderFeature {
       ownedObjects: this.#ownedObjectCount(),
       allocationsAfterInitialize:
         this.#geometries.length + this.#materials.length + this.#textures.length - this.#initializedAllocations,
+      mode: this.#mode,
+      cameraOwned: this.#mode === "isolated",
+      environmentOwned: this.#mode === "isolated",
+      whitePointKelvin: WHITE_POINT_KELVIN,
+      encounterCounts: this.#productionEncounterCounts,
+      encounterInventory: this.#productionEncounterInventory,
+      markerIds: this.#productionMarkerIds,
+      materialFamilyAudit: this.#materialFamilyAudit,
+      materialSignatures: this.#materialSignatures,
+      nonEmissiveBasicMaterialCount: this.#nonEmissiveBasicMaterialCount(),
     });
   }
 
@@ -2126,6 +2303,133 @@ export class OceanHeroFeature implements RenderFeature {
     }
   }
 
+  /** Builds the fixed 0--36 s world-plan presentation without touching the
+   * rail camera. Every object is created here so update() is allocation-free. */
+  #buildProductionRailWorld(
+    plan: Readonly<WorldPlan>,
+    terrain: Material,
+    kelp: Material,
+    coral: Material,
+    concrete: Material,
+  ): void {
+    const productionRoot = this.#productionRoot;
+    if (!productionRoot) throw new Error("Production rail world requires production mode.");
+    const floorGeometry = this.#ownGeometry(new PlaneGeometry(7.6, 12.8, 18, 32));
+    const floor = new Mesh(floorGeometry, terrain);
+    floor.name = "hero-a:production:macro-seafloor";
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(-0.1, -1.55, 6.1);
+    productionRoot.add(floor);
+
+    const macroGeometry = this.#ownGeometry(organicRockGeometry(0x6a31_9951));
+    const mesoGeometry = this.#ownGeometry(organicRockGeometry(0x39f4_712b));
+    const kelpGeometry = this.#ownGeometry(new ConeGeometry(0.12, 1.15, 7, 1));
+    const microGeometry = this.#ownGeometry(new SphereGeometry(0.028, 7, 5));
+    // Fixed layers use the canonical world-space Z range and read as near,
+    // mid, and far parallax while the shared camera advances through them.
+    for (let index = 0; index < 20; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const rock = new Mesh(index % 3 === 0 ? macroGeometry : mesoGeometry, terrain);
+      rock.name = `hero-a:production:macro-reef:${index}`;
+      rock.position.set(side * (1.55 + (index % 4) * 0.4), -1.28 + (index % 3) * 0.12, 0.45 + index * 0.62);
+      setScale(rock, 0.42 + (index % 3) * 0.18, 0.55 + (index % 4) * 0.16, 0.56 + (index % 5) * 0.1);
+      productionRoot.add(rock);
+    }
+    for (let index = 0; index < 28; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const frond = new Mesh(kelpGeometry, index % 3 === 0 ? coral : kelp);
+      frond.name = `hero-a:production:meso-kelp:${index}`;
+      frond.position.set(side * (0.9 + (index % 5) * 0.34), -1.05, 0.3 + index * 0.44);
+      frond.rotation.z = side * (0.18 + (index % 3) * 0.07);
+      setScale(frond, 0.7 + (index % 4) * 0.14, 0.8 + (index % 3) * 0.22, 0.7 + (index % 2) * 0.16);
+      productionRoot.add(frond);
+    }
+    for (let index = 0; index < 72; index += 1) {
+      const particle = new Mesh(microGeometry, coral);
+      particle.name = `hero-a:production:micro-life:${index}`;
+      particle.position.set(
+        ((index * 37) % 31) / 10 - 1.5,
+        -0.9 + ((index * 17) % 11) / 16,
+        0.25 + ((index * 19) % 121) / 10,
+      );
+      productionRoot.add(particle);
+    }
+
+    const gateGeometry = this.#ownGeometry(new TorusGeometry(0.32, 0.04, 8, 28));
+    const gateCueGeometry = this.#ownGeometry(new BoxGeometry(0.065, 0.12, 0.06));
+    const obstacleGeometry = this.#ownGeometry(new ConeGeometry(0.2, 0.78, 7, 2));
+    const safeCueGeometry = this.#ownGeometry(new BoxGeometry(0.06, 0.34, 0.06));
+    const nodeGeometry = this.#ownGeometry(new IcosahedronGeometry(0.18, 2));
+    const nodeCueGeometry = this.#ownGeometry(new TorusGeometry(0.24, 0.026, 7, 18));
+    const inventory: Array<Readonly<{
+      id: string;
+      kind: "gate" | "obstacle" | "life-node";
+      position: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
+      cue: string;
+    }>> = [];
+    let gates = 0;
+    let obstacles = 0;
+    let nodes = 0;
+    for (const encounter of plan.encounters) {
+      if (encounter.distanceMm >= 360_000) continue;
+      const position = Object.freeze({
+        x: encounter.worldPoint.x * RAIL_SCENE_SCALE,
+        y: encounter.worldPoint.y * RAIL_SCENE_SCALE,
+        z: encounter.worldPoint.z * RAIL_SCENE_SCALE,
+      });
+      const group = new Group();
+      group.name = `hero-a:production:encounter:${encounter.kind}:${encounter.id}`;
+      group.position.set(position.x, position.y, position.z);
+      let cue = "";
+      if (encounter.kind === "gate") {
+        const frame = new Mesh(gateGeometry, coral);
+        frame.name = `hero-a:production:gate-pass-frame:${encounter.id}`;
+        group.add(frame);
+        for (let cueIndex = 0; cueIndex < 4; cueIndex += 1) {
+          const tick = new Mesh(gateCueGeometry, concrete);
+          tick.name = `hero-a:production:gate-pass-tick:${encounter.id}:${cueIndex}`;
+          tick.position.set((cueIndex - 1.5) * 0.14, cueIndex % 2 === 0 ? 0.37 : -0.37, 0);
+          group.add(tick);
+        }
+        gates += 1;
+        cue = "open-pass-ring-four-ticks";
+      } else if (encounter.kind === "obstacle") {
+        const spire = new Mesh(obstacleGeometry, concrete);
+        spire.name = `hero-a:production:obstacle-solid-spire:${encounter.id}`;
+        spire.position.y = -0.1;
+        group.add(spire);
+        const safeSide = encounter.safeRouteOffsetMm.x >= 0 ? -1 : 1;
+        for (let cueIndex = 0; cueIndex < 3; cueIndex += 1) {
+          const marker = new Mesh(safeCueGeometry, coral);
+          marker.name = `hero-a:production:obstacle-safe-side:${encounter.id}:${cueIndex}`;
+          marker.position.set(safeSide * (0.36 + cueIndex * 0.09), -0.12 + cueIndex * 0.16, 0);
+          group.add(marker);
+        }
+        obstacles += 1;
+        cue = "solid-spire-safe-side-three-posts";
+      } else {
+        const bud = new Mesh(nodeGeometry, coral);
+        bud.name = `hero-a:production:life-node-organic-bud:${encounter.id}`;
+        group.add(bud);
+        for (let cueIndex = 0; cueIndex < 3; cueIndex += 1) {
+          const leaf = new Mesh(nodeCueGeometry, coral);
+          leaf.name = `hero-a:production:life-node-organic-ring:${encounter.id}:${cueIndex}`;
+          leaf.rotation.x = Math.PI / 2;
+          leaf.rotation.z = cueIndex * Math.PI / 3;
+          leaf.scale.setScalar(0.72 + cueIndex * 0.12);
+          group.add(leaf);
+        }
+        nodes += 1;
+        cue = "organic-bud-three-growth-rings";
+      }
+      inventory.push(Object.freeze({ id: encounter.id, kind: encounter.kind, position, cue }));
+      productionRoot.add(group);
+    }
+    this.#productionEncounterInventory = Object.freeze(inventory);
+    this.#productionMarkerIds = Object.freeze(inventory.map((entry) => entry.id));
+    this.#productionEncounterCounts = Object.freeze({ gate: gates, obstacle: obstacles, lifeNode: nodes });
+  }
+
   #buildProtagonist(envelope: Material, core: Material): void {
     const envelopeGeometry = this.#ownGeometry(livingDropletGeometry());
     const envelopeMesh = new Mesh(envelopeGeometry, envelope);
@@ -2153,6 +2457,8 @@ export class OceanHeroFeature implements RenderFeature {
     tail.rotation.z = Math.PI;
     setScale(tail, 0.68, 1, 0.52);
     this.#protagonistRoot.add(envelopeMesh, coreMesh, leftFin, rightFin, tail);
+    this.#protagonistLeftFin = leftFin;
+    this.#protagonistRightFin = rightFin;
     this.#protagonistRoot.position.set(0.2, 0.1, 2.25);
   }
 
@@ -2162,6 +2468,7 @@ export class OceanHeroFeature implements RenderFeature {
     ring.name = "hero-a:pulse-wave";
     ring.rotation.x = Math.PI / 2;
     this.#pulseRoot.add(ring);
+    this.#pulseWave = ring;
     const targetGeometry = this.#ownGeometry(new IcosahedronGeometry(0.48, 2));
     const bud = new Mesh(targetGeometry, coralGold);
     bud.name = "hero-a:pulse-living-target";
@@ -2307,6 +2614,10 @@ export class OceanHeroFeature implements RenderFeature {
   }
 
   #animateWater(time: number): void {
+    // The production slice keeps its shared rail-owned water presentation
+    // static here; regenerating normals every frame is both unnecessary and a
+    // ready-state CPU/compile hazard. The isolated review route retains waves.
+    if (this.#mode === "production") return;
     const positions = this.#waterGeometry.attributes.position;
     for (let index = 0; index < positions.count; index += 1) {
       const offset = index * 3;
@@ -2364,6 +2675,23 @@ export class OceanHeroFeature implements RenderFeature {
   }
 
   #animateProtagonist(frame: Readonly<JourneyRenderSnapshot>, time: number): void {
+    if (this.#mode === "production") {
+      const forward = this.#cameraForward;
+      const right = this.#cameraRight;
+      const up = this.#cameraUp;
+      if (!forward || !right || !up) throw new Error("Production camera vectors are unavailable.");
+      this.#camera.getWorldDirection(forward);
+      up.copy(this.#camera.up).normalize();
+      right.crossVectors(forward, up).normalize();
+      this.#protagonistRoot.position.copy(this.#camera.position)
+        .addScaledVector(forward, 1.95)
+        .addScaledVector(right, frame.position.x * 0.08)
+        .addScaledVector(up, frame.position.y * 0.08 + 0.06);
+      this.#protagonistRoot.rotation.set(0, 0, Math.sin(time * 0.62) * 0.08);
+      if (this.#protagonistLeftFin) this.#protagonistLeftFin.rotation.y = Math.sin(time * 2.1) * 0.22;
+      if (this.#protagonistRightFin) this.#protagonistRightFin.rotation.y = -Math.sin(time * 2.1) * 0.22;
+      return;
+    }
     const reveal = Math.max(0, Math.min(1, (this.#storyTime - 18) / 5));
     const surface = Math.max(0, Math.min(1, (this.#storyTime - 34) / 3.5));
     this.#protagonistRoot.position.set(
@@ -2372,13 +2700,12 @@ export class OceanHeroFeature implements RenderFeature {
       1.8 + Math.cos(time * 0.31) * 0.08,
     );
     this.#protagonistRoot.rotation.z = Math.sin(time * 0.62) * 0.08;
-    const fins = this.#protagonistRoot.children.filter((child) => child.name.includes("-fin"));
-    if (fins[0]) fins[0].rotation.y = Math.sin(time * 2.1) * 0.22;
-    if (fins[1]) fins[1].rotation.y = -Math.sin(time * 2.1) * 0.22;
+    if (this.#protagonistLeftFin) this.#protagonistLeftFin.rotation.y = Math.sin(time * 2.1) * 0.22;
+    if (this.#protagonistRightFin) this.#protagonistRightFin.rotation.y = -Math.sin(time * 2.1) * 0.22;
   }
 
   #animatePulse(time: number): void {
-    const ring = this.#pulseRoot.children.find((child) => child.name === "hero-a:pulse-wave");
+    const ring = this.#pulseWave;
     if (!ring) return;
     const cycle = (time * 0.34) % 1;
     const scale = 0.58 + cycle * 1.18;
@@ -2412,5 +2739,14 @@ export class OceanHeroFeature implements RenderFeature {
       if (object !== this.#root) count += 1;
     });
     return this.#state === "disposed" ? 0 : count + 3;
+  }
+
+  #nonEmissiveBasicMaterialCount(): number {
+    let count = 0;
+    for (const owned of this.#materials) {
+      if (owned.material instanceof MeshBasicNodeMaterial
+        && !owned.material.name.startsWith("hero-a:emissive-additive-")) count += 1;
+    }
+    return count;
   }
 }

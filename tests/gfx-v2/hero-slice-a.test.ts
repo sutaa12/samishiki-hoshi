@@ -1,5 +1,6 @@
 import {
   Color,
+  FogExp2,
   InstancedMesh,
   Mesh,
   MeshPhysicalNodeMaterial,
@@ -81,6 +82,20 @@ function harness() {
   const camera = new PerspectiveCamera(48, 1, 0.1, 80);
   const feature = new OceanHeroFeature(scene, camera, world);
   return { world, scene, camera, feature, originalBackground };
+}
+
+function productionHarness() {
+  const world = plan();
+  const scene = new Scene();
+  const originalBackground = new Color(0x102030);
+  const originalFog = new FogExp2(0x304050, 0.021);
+  scene.background = originalBackground;
+  scene.fog = originalFog;
+  const camera = new PerspectiveCamera(60, 1, 0.1, 80);
+  camera.position.set(0.25, -0.72, 0.4);
+  camera.lookAt(0.1, -0.78, 2.4);
+  const feature = new OceanHeroFeature(scene, camera, world, { mode: "production" });
+  return { world, scene, camera, feature, originalBackground, originalFog };
 }
 
 function humanArtifactObjects(scene: Scene): readonly Object3D[] {
@@ -526,5 +541,56 @@ describe("R2-G3 Hero Slice A ocean realization", () => {
     });
     expect(scene.getObjectByName("hero-a:ocean-root")).toBeUndefined();
     expect(scene.background).toBe(originalBackground);
+  });
+
+  it("keeps production camera and environment ownership with the journey while exposing canonical LIFE encounters", async () => {
+    const { world, scene, camera, feature, originalBackground, originalFog } = productionHarness();
+    const before = camera.position.clone();
+    await feature.initialize({} as FeatureInitContext);
+    feature.update(frame(world, 12), CLOCK);
+    const snapshot = feature.snapshot();
+
+    expect(scene.background).toBe(originalBackground);
+    expect(scene.fog).toBe(originalFog);
+    expect(camera.position).toEqual(before);
+    expect(snapshot).toMatchObject({
+      mode: "production",
+      cameraOwned: false,
+      environmentOwned: false,
+      whitePointKelvin: 6500,
+      encounterCounts: { gate: 5, obstacle: 3, lifeNode: 3 },
+      materialFamilyAudit: { natural: 8, concrete: 1, paintedMetal: 2, glass: 1, emissiveAdditive: 6 },
+      nonEmissiveBasicMaterialCount: 0,
+      pulseTargetVisible: false,
+      allocationsAfterInitialize: 0,
+    });
+    expect(snapshot.encounterInventory).toHaveLength(11);
+    for (const encounter of world.encounters.filter((candidate) => candidate.distanceMm < 360_000)) {
+      const item = snapshot.encounterInventory.find((candidate) => candidate.id === encounter.id);
+      expect(item?.kind).toBe(encounter.kind);
+      expect(item?.position.x).toBeCloseTo(encounter.worldPoint.x / 10_000, 8);
+      expect(item?.position.y).toBeCloseTo(encounter.worldPoint.y / 10_000, 8);
+      expect(item?.position.z).toBeCloseTo(encounter.worldPoint.z / 10_000, 8);
+    }
+    expect(scene.getObjectByName("hero-a:production:encounter:gate:gate-tutorial")).toBeDefined();
+    expect(scene.getObjectByName("hero-a:production:obstacle-solid-spire:obstacle-life-01")).toBeDefined();
+    expect(scene.getObjectByName("hero-a:production:life-node-organic-bud:life-node-tutorial")).toBeDefined();
+
+    await feature.dispose();
+    expect(scene.background).toBe(originalBackground);
+    expect(scene.fog).toBe(originalFog);
+  });
+
+  it("keeps every production vehicle descendant absent before 18 seconds and restores the exact reveal on seek", async () => {
+    const { world, scene, feature } = productionHarness();
+    await feature.initialize({} as FeatureInitContext);
+    feature.update(frame(world, 17.999), CLOCK);
+    expect(feature.snapshot().humanArtifactsVisible).toBe(false);
+    expectHumanArtifactsVisible(scene, false);
+    feature.update(frame(world, 18), CLOCK);
+    expect(feature.snapshot().humanArtifactsVisible).toBe(true);
+    expectHumanArtifactsVisible(scene, true);
+    feature.update(frame(world, 12), CLOCK);
+    expectHumanArtifactsVisible(scene, false);
   });
 });

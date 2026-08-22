@@ -289,6 +289,32 @@ describe("ProductionThreeChunkUploader", () => {
     });
   });
 
+  it("suppresses only authored replacement chunks while retaining their pool leases", async () => {
+    const scene = new Scene();
+    const materials = new StubMaterialLibrary();
+    const uploader = new ProductionThreeChunkUploader(scene, materials, {
+      presentRuntimeObjects: true,
+      suppressedRuntimeChunkIds: ["S08"],
+    });
+
+    uploader.initializePool();
+    uploader.beginRuntime();
+    const { result } = finishJob(uploader);
+    if (result.kind !== "complete") throw new Error("Expected a completed suppressed lease.");
+    result.lease.setActive?.(true);
+
+    expect(scene.children).toHaveLength(1);
+    expect(scene.children[0]?.visible).toBe(false);
+    expect(uploader.snapshot().chunkSlots.find((slot) => slot.chunkId === "S08")).toMatchObject({
+      active: true,
+      presented: false,
+    });
+    expect(uploader.snapshot().activeChunkIds).toEqual(["S08"]);
+
+    await result.lease.dispose();
+    await uploader.dispose();
+  });
+
   it("uses only the validated closed material-family inventory", () => {
     expect(PAYLOAD.manifest.materialFamilies.every((family) => (
       WORLD_MATERIAL_FAMILIES.includes(family)
