@@ -1,0 +1,147 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.6.0/bin/node",
+      "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/node_modules/.bin/playwright",
+      "test",
+      "--reporter=json",
+      "tests/e2e/qx-r3-006-moving-master.spec.ts:300",
+      "--project=desktop-chromium"
+    ],
+    "configFile": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/playwright.config.ts",
+    "rootDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop-chromium",
+        "name": "desktop-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 3000",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "qx-r3-006-moving-master.spec.ts",
+      "file": "qx-r3-006-moving-master.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "QX-R3-006 forms remain present with fog and CSS particles disabled",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 150000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 44669,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T17:16:10.318Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "qx-r3-006-forms-only",
+                      "contentType": "image/png",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/.quality-gates/playwright-output/qx-r3-006-moving-master-QX-791df--and-CSS-particles-disabled-desktop-chromium/attachments/qx-r3-006-forms-only-367c5a0a7337107c7f151052f3e3ff387d5ce31d.png"
+                    },
+                    {
+                      "name": "qx-r3-006-projected-form-separation",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJ0aW1lIjogNiwKICAgICJ2aXNpYmxlIjogWwogICAgICB7CiAgICAgICAgImlkIjogInBsYXllciIsCiAgICAgICAgImtpbmQiOiAicGxheWVyIiwKICAgICAgICAiY3VlIjogImxpdmluZy1kcm9wbGV0LWVudmVsb3BlLWNvcmUtZmlucyIsCiAgICAgICAgInhQeCI6IDk0OC4xNTY1NDM1NDgxLAogICAgICAgICJ5UHgiOiA1MjUuNzI4MjcyMDEzMzg5NSwKICAgICAgICAiZGVwdGgiOiAwLjk0OTUxODk4NTI0OTgyNTksCiAgICAgICAgInJhZGl1c1B4IjogODYuNjI4NTQyOTAyMDQ0NzMKICAgICAgfSwKICAgICAgewogICAgICAgICJpZCI6ICJsaWZlLW5vZGUtdHV0b3JpYWwiLAogICAgICAgICJraW5kIjogImxpZmUtbm9kZSIsCiAgICAgICAgImN1ZSI6ICJvcmdhbmljLWJ1ZC10aHJlZS1ncm93dGgtcmluZ3MiLAogICAgICAgICJ4UHgiOiA4NzUuOTIxODM3ODI1MTY0NiwKICAgICAgICAieVB4IjogOTE0LjcwMTU2MzY3MTUwMzMsCiAgICAgICAgImRlcHRoIjogMC43NzE4MjAyMzc3NDcwNDYxLAogICAgICAgICJyYWRpdXNQeCI6IDY2NC4xNjUxNjI4MzcyMTc0CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiaWQiOiAiZ2F0ZS10dXRvcmlhbCIsCiAgICAgICAgImtpbmQiOiAiZ2F0ZSIsCiAgICAgICAgImN1ZSI6ICJvcGVuLXBhc3MtcmluZy1mb3VyLXRpY2tzIiwKICAgICAgICAieFB4IjogOTY5LjIwMTEyOTU3Nzg5NzIsCiAgICAgICAgInlQeCI6IDUxMy42NTM4MTEwOTMzNjE1LAogICAgICAgICJkZXB0aCI6IDAuOTMwMTk3MjM0NTc5MDM1MiwKICAgICAgICAicmFkaXVzUHgiOiAyNTEuNTIwODk1OTg5NzQ5NDUKICAgICAgfSwKICAgICAgewogICAgICAgICJpZCI6ICJnYXRlLWxpZmUtMDIiLAogICAgICAgICJraW5kIjogImdhdGUiLAogICAgICAgICJjdWUiOiAib3Blbi1wYXNzLXJpbmctZm91ci10aWNrcyIsCiAgICAgICAgInhQeCI6IDkzMS4wMTk3MDAzNTUwODI4LAogICAgICAgICJ5UHgiOiA0MzQuMjQ5NDUxOTU3ODExLAogICAgICAgICJkZXB0aCI6IDAuOTU1NDE2NTIwMzIzMjc0MiwKICAgICAgICAicmFkaXVzUHgiOiAxNjEuOTMyMTI3OTIyNDgwMTYKICAgICAgfQogICAgXQogIH0sCiAgewogICAgInRpbWUiOiAxMCwKICAgICJ2aXNpYmxlIjogWwogICAgICB7CiAgICAgICAgImlkIjogInBsYXllciIsCiAgICAgICAgImtpbmQiOiAicGxheWVyIiwKICAgICAgICAiY3VlIjogImxpdmluZy1kcm9wbGV0LWVudmVsb3BlLWNvcmUtZmlucyIsCiAgICAgICAgInhQeCI6IDk1NC40MzIwOTU4NjgzNTU2LAogICAgICAgICJ5UHgiOiA1MTEuNTgxMjc0MzI1NzYzNSwKICAgICAgICAiZGVwdGgiOiAwLjk0OTIwMTEwMDI1OSwKICAgICAgICAicmFkaXVzUHgiOiA4Ny4xNjM0NTE2NjYyMDA0NAogICAgICB9LAogICAgICB7CiAgICAgICAgImlkIjogImdhdGUtbGlmZS0wMiIsCiAgICAgICAgImtpbmQiOiAiZ2F0ZSIsCiAgICAgICAgImN1ZSI6ICJvcGVuLXBhc3MtcmluZy1mb3VyLXRpY2tzIiwKICAgICAgICAieFB4IjogOTAxLjQ5MzUyMzA2NTE5MTMsCiAgICAgICAgInlQeCI6IDUwNy43NzU1OTc5NTczMzUsCiAgICAgICAgImRlcHRoIjogMC45MDAyNzQxOTQ5MjkzNDI1LAogICAgICAgICJyYWRpdXNQeCI6IDM1Ny44MTkyMzc5MTA3MzAxCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiaWQiOiAib2JzdGFjbGUtbGlmZS0wMSIsCiAgICAgICAgImtpbmQiOiAib2JzdGFjbGUiLAogICAgICAgICJjdWUiOiAic29saWQtc3BpcmUtc2FmZS1zaWRlLXRocmVlLXBvc3RzIiwKICAgICAgICAieFB4IjogMTA5My43OTM3Nzk1MTI5MTQ2LAogICAgICAgICJ5UHgiOiA0NTAuODAxMDg1NTU4ODg3NTYsCiAgICAgICAgImRlcHRoIjogMC45Mjc1MjQyMDg2NjUyNTQzLAogICAgICAgICJyYWRpdXNQeCI6IDI4OC40OTE5NTM4MjQ4Njk1CiAgICAgIH0KICAgIF0KICB9LAogIHsKICAgICJ0aW1lIjogMTQsCiAgICAidmlzaWJsZSI6IFsKICAgICAgewogICAgICAgICJpZCI6ICJwbGF5ZXIiLAogICAgICAgICJraW5kIjogInBsYXllciIsCiAgICAgICAgImN1ZSI6ICJsaXZpbmctZHJvcGxldC1lbnZlbG9wZS1jb3JlLWZpbnMiLAogICAgICAgICJ4UHgiOiA5NTkuOTQyNzcyMTkzNzU2MiwKICAgICAgICAieVB4IjogNTA0LjQ0MzQzMDEzOTQ3NTIsCiAgICAgICAgImRlcHRoIjogMC45NDg5OTE1NTcxMzkxNTIzLAogICAgICAgICJyYWRpdXNQeCI6IDg3LjUxNjA1MjMwNjQwMDQ4CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiaWQiOiAib2JzdGFjbGUtbGlmZS0wMSIsCiAgICAgICAgImtpbmQiOiAib2JzdGFjbGUiLAogICAgICAgICJjdWUiOiAic29saWQtc3BpcmUtc2FmZS1zaWRlLXRocmVlLXBvc3RzIiwKICAgICAgICAieFB4IjogMTI3Mi42MzEwMjcxODgwMDQzLAogICAgICAgICJ5UHgiOiA3MDkuODM4ODUzNTk5ODcxNSwKICAgICAgICAiZGVwdGgiOiAwLjg0NDg4MDcyOTM1NDU5NjgsCiAgICAgICAgInJhZGl1c1B4IjogNjEyLjk3NzI4NTExOTQ4ODEKICAgICAgfSwKICAgICAgewogICAgICAgICJpZCI6ICJnYXRlLWxpZmUtMDMiLAogICAgICAgICJraW5kIjogImdhdGUiLAogICAgICAgICJjdWUiOiAib3Blbi1wYXNzLXJpbmctZm91ci10aWNrcyIsCiAgICAgICAgInhQeCI6IDEwMDQuMTQ1OTU3ODYzNzczMywKICAgICAgICAieVB4IjogNDQyLjMxMzY0NTg5MDI0MzIsCiAgICAgICAgImRlcHRoIjogMC45MzE1MjAwNDIyMjMwODk1LAogICAgICAgICJyYWRpdXNQeCI6IDI0Ni44MjE3NjU3OTE0MzEzCiAgICAgIH0KICAgIF0KICB9LAogIHsKICAgICJ0aW1lIjogMTgsCiAgICAidmlzaWJsZSI6IFsKICAgICAgewogICAgICAgICJpZCI6ICJwbGF5ZXIiLAogICAgICAgICJraW5kIjogInBsYXllciIsCiAgICAgICAgImN1ZSI6ICJsaXZpbmctZHJvcGxldC1lbnZlbG9wZS1jb3JlLWZpbnMiLAogICAgICAgICJ4UHgiOiA5NTcuODEwNjkyOTAzODcwOSwKICAgICAgICAieVB4IjogNTAzLjMyOTQ2NDI5MzA2ODMsCiAgICAgICAgImRlcHRoIjogMC45NDkwNDQ4OTMxOTA4Nzk5LAogICAgICAgICJyYWRpdXNQeCI6IDg3LjQyNjMwMzExMzAxOTI3CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiaWQiOiAiZ2F0ZS1saWZlLTAzIiwKICAgICAgICAia2luZCI6ICJnYXRlIiwKICAgICAgICAiY3VlIjogIm9wZW4tcGFzcy1yaW5nLWZvdXItdGlja3MiLAogICAgICAgICJ4UHgiOiA5NjkuMjkxODM3NzU4MzMwMSwKICAgICAgICAieVB4IjogNzM0LjI2MTIzOTI5NzQ0NzcsCiAgICAgICAgImRlcHRoIjogMC44NTIzNDMxMDMxMjg0MjQyLAogICAgICAgICJyYWRpdXNQeCI6IDUyOC4wODkyMjUzMzY2OTc4CiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiaWQiOiAib2JzdGFjbGUtbGlmZS0wMiIsCiAgICAgICAgImtpbmQiOiAib2JzdGFjbGUiLAogICAgICAgICJjdWUiOiAic29saWQtc3BpcmUtc2FmZS1zaWRlLXRocmVlLXBvc3RzIiwKICAgICAgICAieFB4IjogODgxLjYwNjAxMDE5ODA5MTIsCiAgICAgICAgInlQeCI6IDM5NS44NDcxMzU3NTA1NzA5LAogICAgICAgICJkZXB0aCI6IDAuOTQ5MDg1Mzk4NjgxODY5NywKICAgICAgICAicmFkaXVzUHgiOiAyMDMuODM1NjY5NDU3MzA4MTEKICAgICAgfSwKICAgICAgewogICAgICAgICJpZCI6ICJsaWZlLW5vZGUtbGlmZS0wMiIsCiAgICAgICAgImtpbmQiOiAibGlmZS1ub2RlIiwKICAgICAgICAiY3VlIjogIm9yZ2FuaWMtYnVkLXRocmVlLWdyb3d0aC1yaW5ncyIsCiAgICAgICAgInhQeCI6IDk4Ni42Njk5ODk1NjMzNDAzLAogICAgICAgICJ5UHgiOiAzNDEuMzk2NzM2Mzk2MjU1OSwKICAgICAgICAiZGVwdGgiOiAwLjk2MjAzNjc3MzI0MzY2NDMsCiAgICAgICAgInJhZGl1c1B4IjogMTEyLjkxNzAxMDQzMjUzMzIzCiAgICAgIH0KICAgIF0KICB9Cl0="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "990a127363bee21c8fe0-8d4c1276bf45f23ae421",
+          "file": "qx-r3-006-moving-master.spec.ts",
+          "line": 300,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-22T17:16:09.792Z",
+    "duration": 45371.912,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

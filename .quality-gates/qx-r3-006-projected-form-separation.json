@@ -1,0 +1,148 @@
+[
+  {
+    "time": 6,
+    "visible": [
+      {
+        "id": "player",
+        "kind": "player",
+        "cue": "living-droplet-envelope-core-fins",
+        "xPx": 948.1565435481,
+        "yPx": 525.7282720133895,
+        "depth": 0.9495189852498259,
+        "radiusPx": 86.62854290204473
+      },
+      {
+        "id": "life-node-tutorial",
+        "kind": "life-node",
+        "cue": "organic-bud-three-growth-rings",
+        "xPx": 875.9218378251646,
+        "yPx": 914.7015636715033,
+        "depth": 0.7718202377470461,
+        "radiusPx": 664.1651628372174
+      },
+      {
+        "id": "gate-tutorial",
+        "kind": "gate",
+        "cue": "open-pass-ring-four-ticks",
+        "xPx": 969.2011295778972,
+        "yPx": 513.6538110933615,
+        "depth": 0.9301972345790352,
+        "radiusPx": 251.52089598974945
+      },
+      {
+        "id": "gate-life-02",
+        "kind": "gate",
+        "cue": "open-pass-ring-four-ticks",
+        "xPx": 931.0197003550828,
+        "yPx": 434.249451957811,
+        "depth": 0.9554165203232742,
+        "radiusPx": 161.93212792248016
+      }
+    ]
+  },
+  {
+    "time": 10,
+    "visible": [
+      {
+        "id": "player",
+        "kind": "player",
+        "cue": "living-droplet-envelope-core-fins",
+        "xPx": 954.4320958683556,
+        "yPx": 511.5812743257635,
+        "depth": 0.949201100259,
+        "radiusPx": 87.16345166620044
+      },
+      {
+        "id": "gate-life-02",
+        "kind": "gate",
+        "cue": "open-pass-ring-four-ticks",
+        "xPx": 901.4935230651913,
+        "yPx": 507.775597957335,
+        "depth": 0.9002741949293425,
+        "radiusPx": 357.8192379107301
+      },
+      {
+        "id": "obstacle-life-01",
+        "kind": "obstacle",
+        "cue": "solid-spire-safe-side-three-posts",
+        "xPx": 1093.7937795129146,
+        "yPx": 450.80108555888756,
+        "depth": 0.9275242086652543,
+        "radiusPx": 288.4919538248695
+      }
+    ]
+  },
+  {
+    "time": 14,
+    "visible": [
+      {
+        "id": "player",
+        "kind": "player",
+        "cue": "living-droplet-envelope-core-fins",
+        "xPx": 959.9427721937562,
+        "yPx": 504.4434301394752,
+        "depth": 0.9489915571391523,
+        "radiusPx": 87.51605230640048
+      },
+      {
+        "id": "obstacle-life-01",
+        "kind": "obstacle",
+        "cue": "solid-spire-safe-side-three-posts",
+        "xPx": 1272.6310271880043,
+        "yPx": 709.8388535998715,
+        "depth": 0.8448807293545968,
+        "radiusPx": 612.9772851194881
+      },
+      {
+        "id": "gate-life-03",
+        "kind": "gate",
+        "cue": "open-pass-ring-four-ticks",
+        "xPx": 1004.1459578637733,
+        "yPx": 442.3136458902432,
+        "depth": 0.9315200422230895,
+        "radiusPx": 246.8217657914313
+      }
+    ]
+  },
+  {
+    "time": 18,
+    "visible": [
+      {
+        "id": "player",
+        "kind": "player",
+        "cue": "living-droplet-envelope-core-fins",
+        "xPx": 957.8106929038709,
+        "yPx": 503.3294642930683,
+        "depth": 0.9490448931908799,
+        "radiusPx": 87.42630311301927
+      },
+      {
+        "id": "gate-life-03",
+        "kind": "gate",
+        "cue": "open-pass-ring-four-ticks",
+        "xPx": 969.2918377583301,
+        "yPx": 734.2612392974477,
+        "depth": 0.8523431031284242,
+        "radiusPx": 528.0892253366978
+      },
+      {
+        "id": "obstacle-life-02",
+        "kind": "obstacle",
+        "cue": "solid-spire-safe-side-three-posts",
+        "xPx": 881.6060101980912,
+        "yPx": 395.8471357505709,
+        "depth": 0.9490853986818697,
+        "radiusPx": 203.83566945730811
+      },
+      {
+        "id": "life-node-life-02",
+        "kind": "life-node",
+        "cue": "organic-bud-three-growth-rings",
+        "xPx": 986.6699895633403,
+        "yPx": 341.3967363962559,
+        "depth": 0.9620367732436643,
+        "radiusPx": 112.91701043253323
+      }
+    ]
+  }
+]

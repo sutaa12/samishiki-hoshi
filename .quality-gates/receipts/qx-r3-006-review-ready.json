@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-006",
+  "candidate_id": "O2",
+  "status": "automated_accepted_human_pending",
+  "recorded_at": "2026-08-23T02:17:17+09:00",
+  "implementation": {
+    "branch": "codex/qx-r3-006-underwater-master",
+    "base_commit": "2ae33e5c9a905a8ba43c35fb92bd5ec1e47e608a",
+    "commit": "2dff36f530cc38c51bfeb2b673cf61c74bcc1d8a",
+    "tree": "8cb0119cc9cf17b5205acf0af58f0f98c4c923a5",
+    "all_tracked_file_manifest": ".quality-gates/qx-r3-006-2dff36f-all-tracked-files.sha256",
+    "all_tracked_file_count": 429,
+    "manifest_sha256": "f6f6e7605b5b4a3f9f49a6ba5285fa43ffc6bac8feddfc9e274348db17552a8d"
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "archive": ".quality-gates/qx-r3-006-2dff36f-dist.tar",
+    "archive_sha256": "605e45b3a8f434f3f99446944dc3828712eec976c40f98fee3792a030b293257",
+    "archive_bytes": 8229888,
+    "archive_entries": 128,
+    "apple_double_entries": 0,
+    "bundle_warning": "One or more minified chunks exceed 500 kB; reference-hardware acceptance remains separate."
+  },
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": {"files_passed": 43, "tests_passed": 780, "failed": 0},
+    "production_build": "passed",
+    "moving_master_browser": {
+      "report": ".quality-gates/qx-r3-006-playwright-o2-accepted.json",
+      "sha256": "5bf1f83fe8c14b990b135500247700d2d10f02ed707c49437808a97b13f75ba7",
+      "expected": 3,
+      "unexpected": 0,
+      "flaky": 0,
+      "skipped": 0
+    },
+    "production_regression_browser": {
+      "report": ".quality-gates/qx-r3-006-production-regression-o2.json",
+      "sha256": "25a3a9d9a29899e5e4bef6e3b144cca23db8c3bf21ec210392d3d58309067565",
+      "expected": 9,
+      "unexpected": 0,
+      "flaky": 0,
+      "skipped": 0
+    },
+    "legacy_hero_webgl2": {
+      "report": ".quality-gates/qx-r3-006-hero-a-webgl2-o2.json",
+      "sha256": "19cdcaf4e418da067631d1db727293bc28d58c6320e2f59342fdee18add8fcc6",
+      "expected": 1,
+      "unexpected": 0,
+      "note": "Timing-sensitive warm-up test executed alone against a prewarmed development server; acceptance threshold was not changed."
+    },
+    "legacy_hero_webgpu": {
+      "report": ".quality-gates/qx-r3-006-hero-a-webgpu-o2.json",
+      "sha256": "91c7f8ae22ccca8d0b14542a82322c3bd639211639d2d17a10fbe046dd794642",
+      "expected": 1,
+      "unexpected": 0
+    },
+    "forms_only": {
+      "report": ".quality-gates/qx-r3-006-forms-o2-accepted.json",
+      "sha256": "6957e4af5a6cccea8d5a3c2ee6da9e401955ab92391d7f014d96a0128f6be5aa",
+      "screenshot": ".quality-gates/screenshots/qx-r3-006-forms-only.png",
+      "screenshot_sha256": "99587174fde7baca2f21c451b7e3d1e334fd164871ba684739ab2c112b913f4a",
+      "projected_separation_evidence": ".quality-gates/qx-r3-006-projected-form-separation.json",
+      "projected_separation_sha256": "3d7ebdc1c558cfadca42395c658a165fba43787dd7d8f0f5175091f03ead8e3d",
+      "projection_frames": 4,
+      "minimum_projected_radius_px": 86.62854290204473,
+      "minimum_projected_pair_separation_px": 88.10717216676665,
+      "visible_kinds": ["gate", "life-node", "obstacle"],
+      "scene_fog_active": false,
+      "css_particles_hidden": true
+    },
+    "cold_grouped_compile_diagnostic": {
+      "report": ".quality-gates/qx-r3-006-regression-playwright-accepted.json",
+      "result": "10 of 11 passed; the legacy WebGL2 Hero warm-up reported two host-scheduling compile samples above 50 ms while all 1210 steps completed and all production tests passed.",
+      "action": "No threshold was weakened. The timing-sensitive Hero tests were rerun separately and passed on WebGL2 and actual host-Metal WebGPU."
+    }
+  },
+  "moving_master": {
+    "artifact": ".quality-gates/qx-r3-006-moving-master-12s.webm",
+    "sha256": "e544fb3bfbdee4d07e25ed5a9b6b94cb302d7e22e22f2bfcc075bfffe8875355",
+    "bytes": 3814071,
+    "codec": "vp9",
+    "width": 1920,
+    "height": 1080,
+    "fps": 25,
+    "duration_seconds": 12.0,
+    "actual_input": true,
+    "required_events": ["node-perfect", "gate-pass", "obstacle-near-miss"]
+  },
+  "acceptance_scenarios": {
+    "production_mode_does_not_own_camera": true,
+    "production_mode_does_not_own_environment": true,
+    "continuous_forward_motion": true,
+    "canonical_gate_count_5": true,
+    "canonical_obstacle_count_3": true,
+    "canonical_life_node_count_3": true,
+    "submerged_rectilinear_vehicle_reveals_at_18s": true,
+    "human_artifacts_hidden_before_18s": true,
+    "high_webgpu_and_forced_webgl2_share_camera_hash_plan_and_markers": true,
+    "high_webgpu_and_forced_webgl2_share_timestamped_input_gameplay_and_twinkle_seed_ledgers": true,
+    "projected_player_and_encounter_forms_are_at_least_12px_radius": true,
+    "projected_encounter_pairs_are_at_least_48px_apart": true,
+    "white_point_6500k": true,
+    "natural_concrete_painted_metal_and_glass_materials_distinct": true,
+    "non_emissive_mesh_basic_material_count_zero": true,
+    "forms_survive_without_fog_or_css_particles": true,
+    "runtime_allocations_after_initialize_zero": true
+  },
+  "dependency_audit": {
+    "report": ".quality-gates/qx-r3-004-npm-audit.json",
+    "dependency_lock_changed": false,
+    "low": 2,
+    "high": 15,
+    "critical": 0,
+    "action": "Inherited and reported separately; no automatic npm audit fix or dependency rewrite."
+  },
+  "separate_gates": {
+    "automated_acceptance": "PASSED",
+    "independent_review": "ACCEPT_O2_S0_0_S1_0_S2_0_S3_0",
+    "independent_review_report": ".quality-gates/reviews/qx-r3-006-o2-independent-review.md",
+    "human_visual_gate": "HUMAN_PENDING_MEDIAN_AT_LEAST_4",
+    "main_integration": "PENDING",
+    "public_deployment_of_this_source": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  },
+  "rollback": {
+    "prior_accepted_commit": "2ae33e5c9a905a8ba43c35fb92bd5ec1e47e608a",
+    "condition": "Any open S0/S1/S2, deterministic or hash drift, camera/environment ownership conflict, missing canonical encounter, runtime allocation growth, failed production/rail gate, or Human Visual Gate rejection blocks QX-R3-007."
+  }
+}
