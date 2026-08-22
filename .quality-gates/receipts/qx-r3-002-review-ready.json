@@ -87,7 +87,10 @@
     "action": "reported separately; no automatic npm audit fix or dependency rewrite"
   },
   "separate_gates": {
-    "independent_review": "F6_REJECT_REMEDIATED_AWAITING_FRESH_REVIEW",
+    "independent_review": "ACCEPT_H2",
+    "accepted_review": ".quality-gates/reviews/qx-r3-002-h2-accept.json",
+    "accepted_scores": [4, 4, 4, 3, 4],
+    "accepted_severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
     "prior_reviews": [
       ".quality-gates/reviews/qx-r3-002-c3-reject.json",
       ".quality-gates/reviews/qx-r3-002-d8-reject.json",

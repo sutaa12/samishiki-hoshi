@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "qx-r3-002-h2-fresh-acceptance-2026-08-22",
+  "mode": "isolated-artifact-and-source-blind",
+  "candidateLabel": "H2",
+  "reviewer": "qx_r3_002_h2_acceptance",
+  "reviewedEvidenceHead": "e471f345ce9f3aeb14b448e45d5246cfaa0a50bc",
+  "implementationCommit": "1bf0bd08f2a4d91b515946c903ec95d7479270b5",
+  "implementationTree": "a05248843980e279edc98aba3fd70a1b469432f0",
+  "verdict": "ACCEPT",
+  "scores": {
+    "correctnessAndDeterminism": 4,
+    "taskSemantics": 4,
+    "architecture": 4,
+    "accessibilityAndInput": 3,
+    "evidenceAndReproducibility": 4
+  },
+  "severityCounts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
+  "bindings": {
+    "manifest": "361/361 unique paths matched bytes, modes, and sizes",
+    "manifestSha256": "95489f9e97d8c2eea5b38aafecc2e32626f13ca76ca6047a09e9550b8985389c",
+    "buildSha256": "078696fb72286b61244251011e165eb3c17cb4584799d4a316c2273c4d7193d6",
+    "build": "8108544 bytes, 128 entries, zero AppleDouble",
+    "receiptArtifacts": "all browser, video, checkpoint, and audit hashes matched"
+  },
+  "independentChecks": {
+    "focusedTests": "2 files / 22 tests passed",
+    "cooldownMatrix": "0.699, 0.699999, and 0.699999999 rejected; 0.700000000 and later accepted",
+    "timestampEdge": "resolved at reached boundary with no extra simulation step",
+    "slowdownPartition": "long request and canonical 60Hz hashes matched while active and after recovery; 5.125s distance 48325mm",
+    "endpoint3d": "151mm overshoot produced Gate miss and Obstacle near miss",
+    "semantics": "empty pulse no Seed, no automatic Answer, valid ANSWER node, next-Gate-only assist, no game-over",
+    "qualityParity": "Low and High states equal with immutable ledgers and hash bf0f2593",
+    "accessibilityInput": "pointer, touch, keyboard, focus, reduced motion, high contrast, auto-give, wide flow, mute, mobile, compact coverage present"
+  },
+  "scope": "QX-R3-002 only",
+  "downstream": "QX-R3-003 may proceed from the accepted evidence head after this acceptance record is committed.",
+  "externalGatesUnchanged": ["HUMAN_PENDING_PLAY_VISUAL", "HUMAN_PENDING_RIGHTS", "HARDWARE_PENDING", "HUMAN_PENDING_MAIN", "HUMAN_PENDING_SITES", "HUMAN_PENDING_CONTEST"]
+}
