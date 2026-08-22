@@ -879,7 +879,7 @@ export function GameClient() {
             </header>
             <Toggle label="動きを抑える" hint="カメラと視差を穏やかにします" checked={settings.reducedMotion} onChange={(value) => setSettings((current) => ({ ...current, reducedMotion: value }))} />
             <Toggle label="高コントラスト" hint="光と輪郭の差を強めます" checked={settings.highContrast} onChange={(value) => setSettings((current) => ({ ...current, highContrast: value }))} />
-            <Toggle label="生命を自動でわたす" hint="約4秒ごとに波紋を放ちます" checked={settings.autoGive} onChange={(value) => setSettings((current) => ({ ...current, autoGive: value }))} />
+            <Toggle label="生命を自動でわたす" hint="生命の結節点へ近づくと自動で光をわたします" checked={settings.autoGive} onChange={(value) => setSettings((current) => ({ ...current, autoGive: value }))} />
             <Toggle label="広い流れ" hint="少ない操作で進路へ寄れます" checked={settings.wideFlow} onChange={(value) => setSettings((current) => ({ ...current, wideFlow: value }))} />
             <Toggle label="音を消す" hint="無音でも最後まで遊べます" checked={settings.muted} onChange={(value) => setSettings((current) => ({ ...current, muted: value }))} />
             <label className="quality-field" htmlFor="quality-level">

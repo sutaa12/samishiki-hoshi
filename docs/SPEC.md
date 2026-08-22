@@ -19,7 +19,7 @@ Status: graphics rebaseline R2, isolated implementation on 2026-08-18 JST. Canon
 | EARTH | 36–88 | River, forest, animals, and a warm reclaimed city crossed by recurring human motifs. |
 | ASCENT | 88–130 | Rectilinear observatory, wings, clouds, aurora, and a clearly living Earth. |
 | SOLITUDE | 130–161 | Color-rich deep space and negative space; rectilinear human spacecraft debris and one amber beacon. S20 (155–161) adds only three faint, incomplete peripheral arcs—never the full ship or central void. |
-| ANSWER | 161–171 | Unknown ship: three phase-shifted curved ribbon shells around a central void. The response window opens at 166s; auto-answer at 168.5s prevents a stall. |
+| ANSWER | 161–171 | Unknown ship: three phase-shifted curved ribbon shells around a central void. The response window opens at 166s; only a valid player or opt-in auto-give Life Node pulse creates the Answer. |
 | TWINKLE | 171–180 | Turn toward Earth; few lights become tens, then countless living lights; formal Japanese title appears only at 178–180s. |
 
 The runtime exposes the exact 24 authored shot boundaries from 0–3 through 178–180 seconds. Production timing is never shortened by quality settings. A localhost-only test query may accelerate wall-clock playback while retaining story time.
@@ -39,7 +39,7 @@ The runtime exposes the exact 24 authored shot boundaries from 0–3 through 178
 ## Simulation and generation
 
 - The run seed is explicit and stable. Random values come only from a deterministic generator.
-- Each pulse appends one immutable `TwinkleSeed` containing sequence, story time, phase, normalized position, local biome, and deterministic signature.
+- Each valid Life Node pulse appends one immutable `TwinkleSeed` containing sequence, story time, phase, normalized position, local biome, and deterministic signature. Empty-space and cooldown pulses append none.
 - Same seed plus same timestamped input stream yields the same ledger and final hash on every quality tier.
 - Independent named seed streams derive from world seed, system name, chunk id, and generator version so a parameter change in one system cannot perturb another system's random sequence.
 - Renderer-independent world data owns Story nodes, safe corridor, at most two flow branches, terrain/hydrology, ecology, atmosphere, space, and Twinkle semantics. Renderer features consume this data but cannot write simulation state.

@@ -16,6 +16,8 @@ export interface CorridorOffsetMm {
 export interface RailFlightState extends JourneyState {
   readonly score: number;
   readonly distanceMm: number;
+  /** Fractional millimetres carried across slices; distanceMm remains canonical. */
+  readonly distanceRemainderMm: number;
   readonly forwardSpeedMmPerSecond: number;
   readonly corridorOffset: CorridorOffsetMm;
   readonly lifeChain: number;
@@ -51,6 +53,7 @@ export function initialRailFlightFields(position: Readonly<{ x: number; y: numbe
   return {
     score: 0,
     distanceMm: 0,
+    distanceRemainderMm: 0,
     forwardSpeedMmPerSecond: RAIL_FORWARD_SPEED_MM_PER_SECOND,
     corridorOffset: corridorOffsetFromPosition(position),
     lifeChain: 0,

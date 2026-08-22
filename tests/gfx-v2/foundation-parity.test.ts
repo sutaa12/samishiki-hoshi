@@ -49,7 +49,7 @@ describe("GFX-002 frozen replay fixture", () => {
       })
     ));
     const baseline = results[0]!;
-    expect(baseline.journeyHash).toBe("4001f261");
+    expect(baseline.journeyHash).toBe("b2d4f032");
     for (const result of results) {
       expect(result.journeyHash, `${result.backend}/${result.quality}`).toBe(baseline.journeyHash);
       expect(result.ledger, `${result.backend}/${result.quality}`).toEqual(baseline.ledger);
@@ -67,8 +67,8 @@ describe("GFX-002 frozen replay fixture", () => {
     const low = simulateJourney(REPLAY, { seed: 778, quality: "low" });
     const high = simulateJourney(REPLAY, { seed: 778, quality: "high" });
 
-    expect(hashJourney(low)).toBe("4001f261");
-    expect(hashJourney(high)).toBe("4001f261");
+    expect(hashJourney(low)).toBe("b2d4f032");
+    expect(hashJourney(high)).toBe("b2d4f032");
     expect(projectJourneyState(low)).toEqual(projectJourneyState(high));
   });
 
@@ -88,6 +88,6 @@ describe("GFX-002 frozen replay fixture", () => {
       finished: true,
     });
     expect(hashJourney(state)).toBe(before);
-    expect(before).toBe("4001f261");
+    expect(before).toBe("b2d4f032");
   });
 });

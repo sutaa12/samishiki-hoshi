@@ -22,7 +22,7 @@ describe("QX-R3-002 deterministic rail flight", () => {
   it("advances distance without input while score and Twinkle Seed stay at zero", () => {
     const state = simulateJourney([], { seed: 91 });
 
-    expect(state.distanceMm).toBeGreaterThan(1_700_000);
+    expect(state.distanceMm).toBe(1_800_000);
     expect(state.score).toBe(0);
     expect(state.pulses).toEqual([]);
     expect(state.answerAt).toBeNull();
@@ -65,6 +65,51 @@ describe("QX-R3-002 deterministic rail flight", () => {
     const recovered = advanceJourneyTo(hit, 1.2, {}, [obstacle]);
     expect(recovered.forwardSpeedMmPerSecond).toBe(RAIL_FORWARD_SPEED_MM_PER_SECOND);
     expect(recovered.slowdownRemainingMs).toBe(0);
+  });
+
+  it("includes fixed-step longitudinal overshoot in Gate and Obstacle 3D outcomes", () => {
+    const base = createJourneyState({ seed: 8 });
+    const before = {
+      ...base,
+      distanceMm: 835,
+      distanceRemainderMm: 0,
+      position: { x: 0, y: 0 },
+      corridorOffset: { x: 0, y: 0 },
+    };
+    const gate: Readonly<RailEncounter> = {
+      id: "thin-gate",
+      kind: "gate",
+      distanceMm: 850,
+      center: { x: 0, y: 0 },
+      radiusMm: 100,
+    };
+    const obstacle: Readonly<RailEncounter> = {
+      id: "thin-obstacle",
+      kind: "obstacle",
+      distanceMm: 850,
+      center: { x: 0, y: 0 },
+      hitRadiusMm: 100,
+      nearMissRadiusMm: 200,
+    };
+
+    const gateResult = stepJourney(before, {}, 1 / 60, [gate]);
+    const obstacleResult = stepJourney(before, {}, 1 / 60, [obstacle]);
+    expect(gateResult.distanceMm - gate.distanceMm).toBeGreaterThan(100);
+    expect(gateResult.gameplayEvents.at(-1)?.kind).toBe("gate-miss");
+    expect(obstacleResult.gameplayEvents.at(-1)?.kind).toBe("obstacle-near-miss");
+  });
+
+  it("carries fractional millimetres so distance is invariant to slice partitioning", () => {
+    let fixed = createJourneyState({ seed: 2 });
+    for (let frame = 0; frame < 60; frame += 1) {
+      fixed = stepJourney(fixed, {}, 1 / 60, []);
+    }
+    const unsplit = stepJourney(createJourneyState({ seed: 2 }), {}, 1, []);
+
+    expect(fixed.distanceMm).toBe(10_000);
+    expect(unsplit.distanceMm).toBe(10_000);
+    expect(fixed.distanceMm).toBe(unsplit.distanceMm);
+    expect(fixed.distanceRemainderMm).toBeCloseTo(unsplit.distanceRemainderMm, 8);
   });
 
   it("creates a Seed only for a nearby Life Node and enforces the 0.7-second cooldown", () => {

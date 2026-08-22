@@ -14,7 +14,6 @@ import {
   crossedEncounterPlane,
   distanceToEncounter3dMm,
   gateRadiusMm,
-  radialDistanceMm,
   type GateEncounter,
   type LifeNodeEncounter,
   type ObstacleEncounter,
@@ -114,7 +113,7 @@ function applyMiss(state: RailFlightState): RailFlightState {
 }
 
 function resolveGate(state: RailFlightState, gate: Readonly<GateEncounter>): RailFlightState {
-  const passed = radialDistanceMm(state.corridorOffset, gate.center)
+  const passed = distanceToEncounter3dMm(state.distanceMm, state.corridorOffset, gate)
     <= gateRadiusMm(gate, state.assistNextGate);
   if (passed) {
     return emit({
@@ -138,19 +137,19 @@ function resolveGate(state: RailFlightState, gate: Readonly<GateEncounter>): Rai
 }
 
 function resolveObstacle(state: RailFlightState, obstacle: Readonly<ObstacleEncounter>): RailFlightState {
-  const radial = radialDistanceMm(state.corridorOffset, obstacle.center);
+  const proximity3d = distanceToEncounter3dMm(state.distanceMm, state.corridorOffset, obstacle);
   const resolved = {
     ...state,
     resolvedEncounterIds: appendId(state.resolvedEncounterIds, obstacle.id),
   };
-  if (radial <= obstacle.hitRadiusMm) {
+  if (proximity3d <= obstacle.hitRadiusMm) {
     return applyMiss(emit({
       ...resolved,
       forwardSpeedMmPerSecond: RAIL_HIT_SPEED_MM_PER_SECOND,
       slowdownRemainingMs: RAIL_HIT_SLOWDOWN_MS,
     }, "obstacle-hit", obstacle.id, 0));
   }
-  if (radial <= obstacle.nearMissRadiusMm) {
+  if (proximity3d <= obstacle.nearMissRadiusMm) {
     return emit({
       ...resolved,
       score: state.score + 25,
@@ -262,7 +261,17 @@ export function stepJourney(
   });
   const elapsedMs = Math.round(dt * 1_000);
   const previousDistanceMm = state.distanceMm;
-  const distanceMm = previousDistanceMm + Math.max(0, Math.round(state.forwardSpeedMmPerSecond * dt));
+  const exactTravelMm = state.distanceRemainderMm + state.forwardSpeedMmPerSecond * dt;
+  let wholeTravelMm = Math.floor(exactTravelMm + 1e-9);
+  let distanceRemainderMm = exactTravelMm - wholeTravelMm;
+  if (distanceRemainderMm >= 1 - 1e-6) {
+    wholeTravelMm += 1;
+    distanceRemainderMm = 0;
+  } else if (distanceRemainderMm < 0 && distanceRemainderMm > -1e-6) {
+    distanceRemainderMm = 0;
+  }
+  distanceRemainderMm = Number(distanceRemainderMm.toFixed(12));
+  const distanceMm = previousDistanceMm + Math.max(0, wholeTravelMm);
   const slowdownRemainingMs = Math.max(0, state.slowdownRemainingMs - elapsedMs);
   const nextTime = Math.min(JOURNEY_SECONDS, state.time + dt);
   let next: RailFlightState = {
@@ -271,6 +280,7 @@ export function stepJourney(
     velocity,
     position,
     distanceMm,
+    distanceRemainderMm,
     corridorOffset: corridorOffsetFromPosition(position),
     pulseCooldownRemainingMs: Math.max(0, state.pulseCooldownRemainingMs - elapsedMs),
     slowdownRemainingMs,
@@ -344,7 +354,7 @@ export function hashJourney(state: RailFlightState): string {
     answerAt: state.answerAt === null ? null : Number(state.answerAt.toFixed(6)),
     finished: state.finished,
     pulses: state.pulses.map((pulse) => [pulse.id, pulse.journeyTime, pulse.x, pulse.y, pulse.phase, pulse.value]),
-    rail: [state.score, state.distanceMm, state.forwardSpeedMmPerSecond, state.corridorOffset.x, state.corridorOffset.y, state.lifeChain, state.flowPurity, state.mistakes, state.consecutiveMisses, state.assistLevel, state.assistNextGate ? 1 : 0, state.pulseCooldownRemainingMs, state.slowdownRemainingMs, state.activeEncounterId, state.activeEncounterKind, state.activeEncounterDistanceMm],
+    rail: [state.score, state.distanceMm, Number(state.distanceRemainderMm.toFixed(9)), state.forwardSpeedMmPerSecond, state.corridorOffset.x, state.corridorOffset.y, state.lifeChain, state.flowPurity, state.mistakes, state.consecutiveMisses, state.assistLevel, state.assistNextGate ? 1 : 0, state.pulseCooldownRemainingMs, state.slowdownRemainingMs, state.activeEncounterId, state.activeEncounterKind, state.activeEncounterDistanceMm],
     outcomes: [state.passedEncounterIds, state.activatedEncounterIds, state.missedEncounterIds, state.resolvedEncounterIds],
     events: state.gameplayEvents.map((event) => [event.id, event.kind, event.encounterId, event.journeyTime, event.distanceMm, event.phase, event.scoreDelta]),
   });
