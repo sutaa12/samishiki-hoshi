@@ -15,7 +15,7 @@ import { IncrementalChunkUploadQueue } from "../../src/gfx/v2/chunks/upload-queu
 import { makeChunkGenerationToken } from "../../src/gfx/v2/chunks/worker-client";
 import type { GfxOperationalEventInput } from "../../src/gfx/v2/telemetry";
 
-const PLAN_DIGEST = "world-plan-v1:75d93cbb8e0580cd";
+const PLAN_DIGEST = "world-plan-v1:c7ed4025456222e2";
 const PROFILE: Readonly<RenderQualityProfile> = Object.freeze({
   tier: "high",
   pixelRatio: 1,

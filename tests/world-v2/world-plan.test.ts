@@ -374,9 +374,9 @@ describe("GFX-003 canonical world plan", () => {
       sha256: createHash("sha256").update(bytes).digest("hex"),
       byteLength: bytes.byteLength,
     }).toEqual({
-      customDigest: "world-plan-v1:75d93cbb8e0580cd",
-      sha256: "4f91cb8393ed54478aa8388600f0329155e0d114fc93b5835305ee9ed7d1642c",
-      byteLength: 48_271,
+      customDigest: "world-plan-v1:c7ed4025456222e2",
+      sha256: "d12f0d3ba4072d483cb8bf05a18eeac25e640bc78abc3f0d5dcd41c97c3eb441",
+      byteLength: 53_536,
     });
   });
 });

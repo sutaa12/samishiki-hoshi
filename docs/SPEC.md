@@ -46,6 +46,16 @@ The runtime exposes the exact 24 authored shot boundaries from 0–3 through 178
 - Same seed plus same timestamped input stream yields the same ledger and final hash on every quality tier.
 - Independent named seed streams derive from world seed, system name, chunk id, and generator version so a parameter change in one system cannot perturb another system's random sequence.
 - Renderer-independent world data owns Story nodes, safe corridor, at most two flow branches, terrain/hydrology, ecology, atmosphere, space, and Twinkle semantics. Renderer features consume this data but cannot write simulation state.
+- WorldPlan owns one distance-sorted, renderer-neutral encounter ledger. Before
+  36 seconds it contains exactly five Gates (one tutorial plus four seeded),
+  three Obstacles, and three Life Nodes. The tutorial Gate and first Life Node,
+  including their 3D Flow anchors, are identical for every world seed; later
+  placement and radii use the named `encounters/placement` stream.
+- Each encounter has one Descriptor containing collision and visible-ring
+  radii. Gameplay and High/Fallback debug realization project that same data;
+  quality never selects or mutates an encounter. Every Obstacle records an
+  in-bounds safe-route offset with at least 200mm clearance beyond its visible
+  ring, and every Gate/Life Node center remains reachable on the route plane.
 - Runtime keeps at most forward-two/current-one/behind-one chunks active, generates off-thread where practical, uploads in bounded slices, batches or instances repeated forms, and disposes inactive resources.
 - WebGPU and forced-WebGL2 may use different algorithms or densities, but must preserve gameplay, safe corridor, story silhouettes, collision, flow decisions, Twinkle ledger, and hashes.
 - Pulse feedback awakens nearby coral, moss, grass, birds, or microbes. It never powers a human machine.

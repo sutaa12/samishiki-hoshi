@@ -30,6 +30,7 @@ const ROOT_KEYS = Object.freeze([
   "generatorVersion",
   "seedContract",
   "chunks",
+  "encounters",
   "authoredBranches",
   "hydrology",
   "twinklePolicy",
@@ -551,6 +552,105 @@ export function validateWorldPlan(input: unknown): Readonly<WorldPlanValidationR
     const lastStory = isRecord(lastChunk) && isRecord(lastChunk.storyNode) ? lastChunk.storyNode : undefined;
     if (firstStory?.startMs !== 0 || lastStory?.endMs !== JOURNEY_SECONDS * 1000) {
       add("TIMELINE_DURATION", "$.chunks", "Timeline must cover exactly 0 through 180000 milliseconds.");
+    }
+
+    const rawEncounters = Array.isArray(value.encounters) ? value.encounters : [];
+    if (!Array.isArray(value.encounters)) {
+      add("INVALID_STRUCTURE", "$.encounters", "encounters must be an array.");
+    }
+    const encounterIds = new Set<string>();
+    const gateAndNodeEntries: Array<{
+      index: number;
+      id: string;
+      distanceMm: number;
+      x: number;
+      y: number;
+      visibleRingMm: number;
+    }> = [];
+    let previousEncounterDistance = -1;
+    for (const [index, rawEncounter] of rawEncounters.entries()) {
+      const path = `$.encounters[${index}]`;
+      if (!isRecord(rawEncounter) || typeof rawEncounter.id !== "string"
+        || !["gate", "obstacle", "life-node"].includes(String(rawEncounter.kind))
+        || !(STORY_CHUNK_IDS as readonly string[]).includes(String(rawEncounter.chunkId))
+        || !isSafeInteger(rawEncounter.distanceMm) || rawEncounter.distanceMm < 0
+        || !isSafeInteger(rawEncounter.flowPositionPermille)
+        || rawEncounter.flowPositionPermille < 0 || rawEncounter.flowPositionPermille > 1_000
+        || !isPoint(rawEncounter.worldPoint)
+        || !isSafeInteger(rawEncounter.previewDistanceMm)
+        || !isRecord(rawEncounter.centerOffsetMm)
+        || !isSafeInteger(rawEncounter.centerOffsetMm.x) || !isSafeInteger(rawEncounter.centerOffsetMm.y)
+        || !isRecord(rawEncounter.radii)
+        || !isSafeInteger(rawEncounter.radii.collisionMm) || rawEncounter.radii.collisionMm <= 0
+        || !isSafeInteger(rawEncounter.radii.visibleRingMm)
+        || rawEncounter.radii.visibleRingMm < rawEncounter.radii.collisionMm
+        || !["tutorial", "story"].includes(String(rawEncounter.authoredRole))) {
+        add("ENCOUNTER_CONTRACT_MISMATCH", path, "Encounter descriptor shape or integer bounds are invalid.");
+        continue;
+      }
+      if (encounterIds.has(rawEncounter.id)) {
+        add("ENCOUNTER_CONTRACT_MISMATCH", `${path}.id`, "Encounter ids must be unique.");
+      }
+      encounterIds.add(rawEncounter.id);
+      if (rawEncounter.distanceMm <= previousEncounterDistance) {
+        add("ENCOUNTER_CONTRACT_MISMATCH", `${path}.distanceMm`, "Encounter distances must be strictly increasing.");
+      }
+      previousEncounterDistance = rawEncounter.distanceMm;
+      if (rawEncounter.distanceMm < 30_000 || rawEncounter.previewDistanceMm < 12_000
+        || rawEncounter.previewDistanceMm > 24_000) {
+        add("ENCOUNTER_PREVIEW_INVALID", path, "Encounter must spawn beyond the near plane and within the 12-24m preview contract.");
+      }
+      const x = rawEncounter.centerOffsetMm.x;
+      const y = rawEncounter.centerOffsetMm.y;
+      if (rawEncounter.kind === "obstacle") {
+        const safe = rawEncounter.safeRouteOffsetMm;
+        if (!isRecord(safe) || !isSafeInteger(safe.x) || !isSafeInteger(safe.y)
+          || Math.abs(safe.x) > 940 || Math.abs(safe.y) > 940
+          || Math.hypot(safe.x - x, safe.y - y) <= rawEncounter.radii.visibleRingMm + 200) {
+          add("ENCOUNTER_UNREACHABLE", `${path}.safeRouteOffsetMm`, "Obstacle requires an in-bounds route with 200mm visible-ring clearance.");
+        }
+      } else {
+        if (Math.abs(x) > 940 || Math.abs(y) > 940) {
+          add("ENCOUNTER_UNREACHABLE", `${path}.centerOffsetMm`, "Gate and Life Node centers must be reachable on the playable route plane.");
+        }
+        gateAndNodeEntries.push({
+          index,
+          id: rawEncounter.id,
+          distanceMm: rawEncounter.distanceMm,
+          x,
+          y,
+          visibleRingMm: rawEncounter.radii.visibleRingMm,
+        });
+      }
+    }
+    const earlyEncounters = rawEncounters.filter((entry) => isRecord(entry)
+      && isSafeInteger(entry.distanceMm) && entry.distanceMm < 360_000);
+    const earlyCount = (kind: string): number => earlyEncounters.filter((entry) => entry.kind === kind).length;
+    if (earlyCount("gate") !== 5 || earlyCount("obstacle") !== 3 || earlyCount("life-node") !== 3) {
+      add("ENCOUNTER_COUNT_MISMATCH", "$.encounters", "The first 36 seconds require exactly 5 Gates, 3 Obstacles, and 3 Life Nodes.");
+    }
+    const tutorialGates = rawEncounters.filter((entry) => isRecord(entry)
+      && entry.kind === "gate" && entry.authoredRole === "tutorial");
+    const tutorialNodes = rawEncounters.filter((entry) => isRecord(entry)
+      && entry.kind === "life-node" && entry.authoredRole === "tutorial");
+    if (tutorialGates.length !== 1 || tutorialNodes.length !== 1) {
+      add("ENCOUNTER_COUNT_MISMATCH", "$.encounters", "Exactly one tutorial Gate and one tutorial Life Node are required.");
+    }
+    for (let leftIndex = 0; leftIndex < gateAndNodeEntries.length; leftIndex += 1) {
+      const left = gateAndNodeEntries[leftIndex];
+      if (!left) continue;
+      for (let rightIndex = leftIndex + 1; rightIndex < gateAndNodeEntries.length; rightIndex += 1) {
+        const right = gateAndNodeEntries[rightIndex];
+        if (!right) continue;
+        const distance = Math.hypot(
+          left.distanceMm - right.distanceMm,
+          left.x - right.x,
+          left.y - right.y,
+        );
+        if (distance <= left.visibleRingMm + right.visibleRingMm) {
+          add("ENCOUNTER_OVERLAP", `$.encounters[${right.index}]`, `${left.id} and ${right.id} visible volumes overlap.`);
+        }
+      }
     }
 
     const rawBranches = Array.isArray(value.authoredBranches) ? value.authoredBranches : [];

@@ -86,3 +86,5 @@ export {
 } from "./worker-protocol";
 export type { ExpectedChunkPayload, ExpectedChunkWorkerReply } from "./worker-protocol";
 export { WorldChunkRenderFeature } from "./world-chunk-feature";
+export { projectEncounterDebugMarkers } from "./encounter-debug";
+export type { EncounterDebugMarker, EncounterDebugQuality } from "./encounter-debug";

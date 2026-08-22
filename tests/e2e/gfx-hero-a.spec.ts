@@ -1,6 +1,6 @@
 import { chromium, expect, test, type Page } from "@playwright/test";
 
-const HERO_PLAN_DIGEST = "world-plan-v1:75d93cbb8e0580cd";
+const HERO_PLAN_DIGEST = "world-plan-v1:c7ed4025456222e2";
 
 interface HeroSnapshot {
   readonly planDigest: string;

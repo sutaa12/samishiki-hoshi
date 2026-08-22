@@ -1,7 +1,7 @@
 import { chromium, expect, test, type Browser, type Page } from "@playwright/test";
 
-const PLAN_DIGEST = "world-plan-v1:75d93cbb8e0580cd";
-const CHECKPOINT_HASH = "3a862d37";
+const PLAN_DIGEST = "world-plan-v1:c7ed4025456222e2";
+const CHECKPOINT_HASH = "fce10451";
 
 function captureRuntimeErrors(page: Page): string[] {
   const errors: string[] = [];

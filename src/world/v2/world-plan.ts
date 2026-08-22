@@ -11,6 +11,7 @@ import {
   type WorldAlienPresence,
   type WorldChunkPlan,
   type WorldEcologyDescriptor,
+  type WorldEncounterPlan,
   type WorldFloraDescriptor,
   type WorldFlowBranchPlan,
   type WorldFlowSegmentPlan,
@@ -57,6 +58,23 @@ interface FlowContribution {
   readonly corridorRadiiByChunk: Readonly<Record<StoryChunkId, number>>;
 }
 
+interface EncounterSeed {
+  readonly id: string;
+  readonly kind: WorldEncounterPlan["kind"];
+  readonly distanceMm: number;
+  readonly authoredRole: "tutorial" | "story";
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly collisionMm: number;
+  readonly visibleRingMm: number;
+  readonly safeRouteX?: number;
+  readonly safeRouteY?: number;
+}
+
+interface EncounterContribution {
+  readonly seeds: readonly EncounterSeed[];
+}
+
 interface HydrologyContribution {
   readonly hydrology: WorldHydrologyPlan;
 }
@@ -86,6 +104,7 @@ type ChunkDescriptorRecord<T> = Readonly<Record<StoryChunkId, Readonly<T>>>;
 interface PlanContributions {
   readonly story: StoryContribution;
   readonly flow: FlowContribution;
+  readonly encounters: EncounterContribution;
   readonly terrain: ChunkDescriptorRecord<WorldTerrainDescriptor>;
   readonly hydrology: HydrologyContribution;
   readonly water: ChunkDescriptorRecord<WorldWaterDescriptor>;
@@ -97,6 +116,27 @@ interface PlanContributions {
   readonly "alien-ship": AlienContribution;
   readonly twinkle: TwinkleContribution;
 }
+
+const ENCOUNTER_DISTANCE_SCHEDULE = Object.freeze([
+  { id: "life-node-tutorial", kind: "life-node", distanceMm: 55_000, authoredRole: "tutorial" },
+  { id: "gate-tutorial", kind: "gate", distanceMm: 80_000, authoredRole: "tutorial" },
+  { id: "gate-life-02", kind: "gate", distanceMm: 120_000, authoredRole: "story" },
+  { id: "obstacle-life-01", kind: "obstacle", distanceMm: 140_000, authoredRole: "story" },
+  { id: "gate-life-03", kind: "gate", distanceMm: 180_000, authoredRole: "story" },
+  { id: "obstacle-life-02", kind: "obstacle", distanceMm: 220_000, authoredRole: "story" },
+  { id: "life-node-life-02", kind: "life-node", distanceMm: 240_000, authoredRole: "story" },
+  { id: "gate-life-04", kind: "gate", distanceMm: 260_000, authoredRole: "story" },
+  { id: "obstacle-life-03", kind: "obstacle", distanceMm: 300_000, authoredRole: "story" },
+  { id: "gate-life-05", kind: "gate", distanceMm: 320_000, authoredRole: "story" },
+  { id: "life-node-life-03", kind: "life-node", distanceMm: 345_000, authoredRole: "story" },
+  { id: "life-node-earth-01", kind: "life-node", distanceMm: 390_000, authoredRole: "story" },
+  { id: "life-node-earth-02", kind: "life-node", distanceMm: 484_000, authoredRole: "story" },
+  { id: "life-node-ascent-01", kind: "life-node", distanceMm: 880_000, authoredRole: "story" },
+  { id: "life-node-solitude-01", kind: "life-node", distanceMm: 1_300_000, authoredRole: "story" },
+  { id: "life-node-answer-01", kind: "life-node", distanceMm: 1_610_000, authoredRole: "story" },
+  { id: "life-node-answer-02", kind: "life-node", distanceMm: 1_664_000, authoredRole: "story" },
+  { id: "life-node-twinkle-01", kind: "life-node", distanceMm: 1_710_000, authoredRole: "story" },
+] as const);
 
 function copyPoint(point: WorldPointMm): WorldPointMm {
   return { x: point.x, y: point.y, z: point.z };
@@ -129,6 +169,7 @@ function buildStoryContribution(chunkOrder: readonly StoryChunkId[]): StoryContr
 }
 
 function flowBoundaryPoint(registry: Readonly<SeedStreamRegistry>, index: number): WorldPointMm {
+  if (index === 2) return { x: 0, y: -10_000, z: 40_000 };
   const chunkId = storyChunkIdAt(Math.min(index, STORY_CHUNK_IDS.length - 1));
   const stream = registry.stream("flow", chunkId, "corridor");
   return {
@@ -149,11 +190,14 @@ function buildFlowContribution(
     const start = flowBoundaryPoint(registry, index);
     const end = flowBoundaryPoint(registry, index + 1);
     const stream = registry.stream("flow", chunkId, "corridor");
-    const middle: WorldPointMm = {
-      x: Math.trunc((start.x + end.x) / 2) + stream.integerAt(100, -240, 240),
-      y: Math.trunc((start.y + end.y) / 2) + stream.integerAt(101, -120, 120),
-      z: Math.trunc((start.z + end.z) / 2),
-    };
+    const tutorialAnchorChunk = chunkId === "S02";
+    const middle: WorldPointMm = tutorialAnchorChunk
+      ? { x: 0, y: -11_500 + index * 1_000, z: index * 20_000 + 10_000 }
+      : {
+          x: Math.trunc((start.x + end.x) / 2) + stream.integerAt(100, -240, 240),
+          y: Math.trunc((start.y + end.y) / 2) + stream.integerAt(101, -120, 120),
+          z: Math.trunc((start.z + end.z) / 2),
+        };
     segmentsByChunk[chunkId] = {
       id: `flow:${chunkId}`,
       chunkId,
@@ -182,6 +226,118 @@ function buildFlowContribution(
     };
   });
   return { segmentsByChunk, branches, corridorRadiiByChunk };
+}
+
+function storyChunkForDistance(distanceMm: number): StoryChunkId {
+  const timeMs = Math.trunc(distanceMm / 10);
+  for (const chunkId of STORY_CHUNK_IDS) {
+    const shot = storyScoreEntry(chunkId);
+    if (timeMs >= shot.start * 1000 && timeMs < shot.end * 1000) return chunkId;
+  }
+  return "S24";
+}
+
+function buildEncounterContribution(registry: Readonly<SeedStreamRegistry>): EncounterContribution {
+  const seeds = ENCOUNTER_DISTANCE_SCHEDULE.map((entry, index): EncounterSeed => {
+    if (entry.authoredRole === "tutorial") {
+      return entry.kind === "gate"
+        ? { ...entry, centerX: 0, centerY: -700, collisionMm: 450, visibleRingMm: 900 }
+        : { ...entry, centerX: 0, centerY: -700, collisionMm: 2_500, visibleRingMm: 10_000 };
+    }
+    const chunkId = storyChunkForDistance(entry.distanceMm);
+    const stream = registry.stream("encounters", chunkId, "placement");
+    const cursor = index * 8;
+    if (entry.kind === "gate") {
+      return {
+        ...entry,
+        centerX: stream.integerAt(cursor, -600, 600),
+        centerY: stream.integerAt(cursor + 1, -800, 200),
+        collisionMm: stream.integerAt(cursor + 2, 320, 420),
+        visibleRingMm: stream.integerAt(cursor + 3, 850, 1_100),
+      };
+    }
+    if (entry.kind === "obstacle") {
+      const side = stream.uint32At(cursor) % 2 === 0 ? -1 : 1;
+      const centerX = side * stream.integerAt(cursor + 1, 500, 700);
+      const centerY = stream.integerAt(cursor + 2, -600, 200);
+      return {
+        ...entry,
+        centerX,
+        centerY,
+        collisionMm: stream.integerAt(cursor + 3, 240, 320),
+        visibleRingMm: stream.integerAt(cursor + 4, 500, 650),
+        safeRouteX: -side * 900,
+        safeRouteY: centerY,
+      };
+    }
+    return {
+      ...entry,
+      centerX: stream.integerAt(cursor, -300, 300),
+      centerY: stream.integerAt(cursor + 1, -900, 100),
+      collisionMm: stream.integerAt(cursor + 2, 2_200, 2_800),
+      visibleRingMm: stream.integerAt(cursor + 3, 9_500, 10_500),
+    };
+  });
+  return { seeds };
+}
+
+function interpolatePoint(start: WorldPointMm, end: WorldPointMm, permille: number): WorldPointMm {
+  const scale = 1_000;
+  return {
+    x: Math.round((start.x * (scale - permille) + end.x * permille) / scale),
+    y: Math.round((start.y * (scale - permille) + end.y * permille) / scale),
+    z: Math.round((start.z * (scale - permille) + end.z * permille) / scale),
+  };
+}
+
+function encounterWorldPoint(
+  segment: Readonly<WorldFlowSegmentPlan>,
+  flowPositionPermille: number,
+  centerX: number,
+  centerY: number,
+): WorldPointMm {
+  const [start, middle, end] = segment.points;
+  if (!start || !middle || !end) throw new Error(`Flow segment ${segment.id} requires three points.`);
+  const centerline = flowPositionPermille <= 500
+    ? interpolatePoint(start, middle, flowPositionPermille * 2)
+    : interpolatePoint(middle, end, (flowPositionPermille - 500) * 2);
+  return { x: centerline.x + centerX, y: centerline.y + centerY, z: centerline.z };
+}
+
+function realizeEncounters(
+  contribution: Readonly<EncounterContribution>,
+  story: Readonly<StoryContribution>,
+  flow: Readonly<FlowContribution>,
+): readonly WorldEncounterPlan[] {
+  return contribution.seeds.map((seed): WorldEncounterPlan => {
+    const chunkId = storyChunkForDistance(seed.distanceMm);
+    const node = story.nodesByChunk[chunkId];
+    const segment = flow.segmentsByChunk[chunkId];
+    if (!node || !segment) throw new Error(`Encounter ${seed.id} cannot resolve ${chunkId}.`);
+    const timeMs = Math.trunc(seed.distanceMm / 10);
+    const durationMs = node.endMs - node.startMs;
+    const flowPositionPermille = Math.max(0, Math.min(1_000,
+      Math.round(((timeMs - node.startMs) * 1_000) / durationMs),
+    ));
+    const base = {
+      id: seed.id,
+      kind: seed.kind,
+      chunkId,
+      distanceMm: seed.distanceMm,
+      flowPositionPermille,
+      centerOffsetMm: { x: seed.centerX, y: seed.centerY },
+      worldPoint: encounterWorldPoint(segment, flowPositionPermille, seed.centerX, seed.centerY),
+      previewDistanceMm: 18_000,
+      radii: { collisionMm: seed.collisionMm, visibleRingMm: seed.visibleRingMm },
+      authoredRole: seed.authoredRole,
+    } as const;
+    if (seed.kind === "gate") return { ...base, kind: "gate" };
+    if (seed.kind === "life-node") return { ...base, kind: "life-node" };
+    if (seed.safeRouteX === undefined || seed.safeRouteY === undefined) {
+      throw new Error(`Obstacle ${seed.id} is missing its safe route.`);
+    }
+    return { ...base, kind: "obstacle", safeRouteOffsetMm: { x: seed.safeRouteX, y: seed.safeRouteY } };
+  });
 }
 
 function buildHydrologyContribution(registry: Readonly<SeedStreamRegistry>): HydrologyContribution {
@@ -375,6 +531,7 @@ export function generateWorldPlan(
   const generators: Readonly<Record<WorldPlanGeneratorSystem, () => unknown>> = {
     story: () => buildStoryContribution(chunkOrder),
     flow: () => buildFlowContribution(registry, chunkOrder),
+    encounters: () => buildEncounterContribution(registry),
     terrain: () => buildTerrainDescriptors(registry, chunkOrder),
     hydrology: () => buildHydrologyContribution(registry),
     water: () => buildWaterDescriptors(registry, chunkOrder),
@@ -390,6 +547,7 @@ export function generateWorldPlan(
 
   const story = contributions.get("story") as PlanContributions["story"] | undefined;
   const flow = contributions.get("flow") as PlanContributions["flow"] | undefined;
+  const encounters = contributions.get("encounters") as PlanContributions["encounters"] | undefined;
   const terrain = contributions.get("terrain") as PlanContributions["terrain"] | undefined;
   const hydrology = contributions.get("hydrology") as PlanContributions["hydrology"] | undefined;
   const water = contributions.get("water") as PlanContributions["water"] | undefined;
@@ -400,7 +558,7 @@ export function generateWorldPlan(
   const civilization = contributions.get("civilization") as PlanContributions["civilization"] | undefined;
   const alien = contributions.get("alien-ship") as PlanContributions["alien-ship"] | undefined;
   const twinkle = contributions.get("twinkle") as PlanContributions["twinkle"] | undefined;
-  if (!story || !flow || !terrain || !hydrology || !water || !flora || !ecology
+  if (!story || !flow || !encounters || !terrain || !hydrology || !water || !flora || !ecology
     || !atmosphere || !space || !civilization || !alien || !twinkle) {
     throw new Error("World-plan generation did not produce every required contribution.");
   }
@@ -468,6 +626,7 @@ export function generateWorldPlan(
       tupleFields: ["worldSeed", "systemName", "shotChunk", "generatorVersion", "ownedSubstream"],
     },
     chunks,
+    encounters: [...realizeEncounters(encounters, story, flow)],
     authoredBranches: [...flow.branches],
     hydrology: hydrology.hydrology,
     twinklePolicy: twinkle.policy,

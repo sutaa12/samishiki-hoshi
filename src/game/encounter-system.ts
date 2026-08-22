@@ -1,4 +1,7 @@
 import type { CorridorOffsetMm } from "./rail-flight-state";
+import { createWorldGenerationContext } from "../world/v2/seed-streams";
+import type { WorldEncounterPlan, WorldPlan } from "../world/v2/contracts";
+import { generateWorldPlan } from "../world/v2/world-plan";
 
 export type RailEncounter = GateEncounter | ObstacleEncounter | LifeNodeEncounter;
 
@@ -33,29 +36,54 @@ function freezeEncounter<T extends RailEncounter>(encounter: T): Readonly<T> {
   }) as Readonly<T>;
 }
 
-/** R3 graybox encounters. R3-004 will replace this list with WorldPlan output. */
-export const DEFAULT_RAIL_ENCOUNTERS: readonly Readonly<RailEncounter>[] = Object.freeze([
-  freezeEncounter({ id: "node-start", kind: "life-node", distanceMm: 0, center: { x: 0, y: 0 }, perfectRadiusMm: 2_500, goodRadiusMm: 10_000 }),
-  freezeEncounter({ id: "node-replay-01128", kind: "life-node", distanceMm: 11_284, center: { x: 0, y: 0 }, perfectRadiusMm: 2_500, goodRadiusMm: 10_000 }),
-  freezeEncounter({ id: "node-replay-05", kind: "life-node", distanceMm: 50_000, center: { x: 0, y: 0 }, perfectRadiusMm: 2_500, goodRadiusMm: 10_000 }),
-  freezeEncounter({ id: "gate-life-01", kind: "gate", distanceMm: 80_000, center: { x: 700, y: 420 }, radiusMm: 340 }),
-  freezeEncounter({ id: "obstacle-life-01", kind: "obstacle", distanceMm: 140_000, center: { x: 1_800, y: 1_800 }, hitRadiusMm: 260, nearMissRadiusMm: 520 }),
-  freezeEncounter({ id: "gate-life-02", kind: "gate", distanceMm: 180_000, center: { x: -720, y: 340 }, radiusMm: 340 }),
-  freezeEncounter({ id: "node-replay-24", kind: "life-node", distanceMm: 240_000, center: { x: 0, y: 0 }, perfectRadiusMm: 2_500, goodRadiusMm: 10_000 }),
-  freezeEncounter({ id: "obstacle-life-02", kind: "obstacle", distanceMm: 280_000, center: { x: -1_800, y: 1_800 }, hitRadiusMm: 260, nearMissRadiusMm: 520 }),
-  freezeEncounter({ id: "gate-life-03", kind: "gate", distanceMm: 320_000, center: { x: 680, y: -360 }, radiusMm: 340 }),
-  freezeEncounter({ id: "node-phase-36", kind: "life-node", distanceMm: 360_000, center: { x: 0, y: 0 }, perfectRadiusMm: 2_500, goodRadiusMm: 10_000 }),
-  freezeEncounter({ id: "node-replay-39", kind: "life-node", distanceMm: 390_000, center: { x: 0, y: 0 }, perfectRadiusMm: 2_500, goodRadiusMm: 10_000 }),
-  freezeEncounter({ id: "node-production-484", kind: "life-node", distanceMm: 484_000, center: { x: 0, y: 0 }, perfectRadiusMm: 2_500, goodRadiusMm: 10_000 }),
-  ...[880_000, 1_300_000, 1_610_000, 1_664_000, 1_710_000].map((distanceMm, index) => freezeEncounter({
-    id: `node-phase-${index + 1}`,
-    kind: "life-node" as const,
-    distanceMm,
-    center: { x: 0, y: 0 },
-    perfectRadiusMm: 2_500,
-    goodRadiusMm: 10_000,
-  })),
-].sort((left, right) => left.distanceMm - right.distanceMm || left.id.localeCompare(right.id)));
+function railEncounterFromWorld(descriptor: Readonly<WorldEncounterPlan>): Readonly<RailEncounter> {
+  const common = {
+    id: descriptor.id,
+    kind: descriptor.kind,
+    distanceMm: descriptor.distanceMm,
+    center: descriptor.centerOffsetMm,
+  } as const;
+  if (descriptor.kind === "gate") {
+    return freezeEncounter({ ...common, kind: "gate", radiusMm: descriptor.radii.collisionMm });
+  }
+  if (descriptor.kind === "obstacle") {
+    return freezeEncounter({
+      ...common,
+      kind: "obstacle",
+      hitRadiusMm: descriptor.radii.collisionMm,
+      nearMissRadiusMm: descriptor.radii.visibleRingMm,
+    });
+  }
+  return freezeEncounter({
+    ...common,
+    kind: "life-node",
+    perfectRadiusMm: descriptor.radii.collisionMm,
+    goodRadiusMm: descriptor.radii.visibleRingMm,
+  });
+}
+
+export function railEncountersFromWorldPlan(
+  plan: Readonly<WorldPlan>,
+): readonly Readonly<RailEncounter>[] {
+  return Object.freeze(plan.encounters.map(railEncounterFromWorld));
+}
+
+const ENCOUNTER_CACHE = new Map<number, readonly Readonly<RailEncounter>[]>();
+
+export function railEncountersForSeed(seed: number): readonly Readonly<RailEncounter>[] {
+  const canonicalSeed = seed >>> 0;
+  const cached = ENCOUNTER_CACHE.get(canonicalSeed);
+  if (cached) return cached;
+  const encounters = railEncountersFromWorldPlan(generateWorldPlan(
+    createWorldGenerationContext({ worldSeed: canonicalSeed }),
+  ));
+  if (ENCOUNTER_CACHE.size >= 32) ENCOUNTER_CACHE.delete(ENCOUNTER_CACHE.keys().next().value ?? canonicalSeed);
+  ENCOUNTER_CACHE.set(canonicalSeed, encounters);
+  return encounters;
+}
+
+/** Canonical seed-one compatibility fixture, generated from WorldPlan. */
+export const DEFAULT_RAIL_ENCOUNTERS = railEncountersForSeed(1);
 
 export function crossedEncounterPlane(previousDistanceMm: number, nextDistanceMm: number, encounterDistanceMm: number): boolean {
   return previousDistanceMm < encounterDistanceMm && nextDistanceMm >= encounterDistanceMm;

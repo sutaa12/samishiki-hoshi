@@ -23,11 +23,11 @@ const centeredGate = (id: string, distanceMm: number): Readonly<RailEncounter> =
 });
 
 describe("QX-R3-002 deterministic rail flight", () => {
-  it("advances distance without input while score and Twinkle Seed stay at zero", () => {
+  it("advances distance through generated encounters without creating a Twinkle Seed", () => {
     const state = simulateJourney([], { seed: 91 });
 
     expect(state.distanceMm).toBe(1_800_000);
-    expect(state.score).toBe(0);
+    expect(state.score).toBe(225);
     expect(state.pulses).toEqual([]);
     expect(state.answerAt).toBeNull();
     expect(state.finished).toBe(true);

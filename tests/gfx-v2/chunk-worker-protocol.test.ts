@@ -57,7 +57,7 @@ describe("GFX-004 worker protocol and pure kernel", () => {
   it("captures and validates a single canonical owned plan snapshot", () => {
     const world = plan();
     const snapshot = captureOwnedWorldPlan(world);
-    expect(snapshot.digest).toBe("world-plan-v1:75d93cbb8e0580cd");
+    expect(snapshot.digest).toBe("world-plan-v1:c7ed4025456222e2");
     expect(snapshot.plan).not.toBe(world);
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(Object.isFrozen(snapshot.plan.chunks)).toBe(true);

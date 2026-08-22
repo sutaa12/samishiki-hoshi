@@ -14,6 +14,7 @@ import { assertDeepFrozen } from "./test-helpers";
 const OWNED_SUBSTREAM = Object.freeze({
   story: "node",
   flow: "corridor",
+  encounters: "placement",
   terrain: "heightfield",
   hydrology: "graph",
   water: "surface",
@@ -46,6 +47,7 @@ describe("GFX-003 named counter seed streams", () => {
     expect(WORLD_PLAN_GENERATOR_SYSTEMS).toEqual([
       "story",
       "flow",
+      "encounters",
       "terrain",
       "hydrology",
       "water",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { phaseAt, type TwinkleSeed } from "../../src/game/model";
+import type { RailEncounter } from "../../src/game/encounter-system";
 import { hashJourney, simulateJourney } from "../../src/game/simulation";
 import {
   createSeedStreamRegistry,
@@ -54,9 +55,17 @@ describe("GFX-003 Twinkle semantic projection", () => {
   });
 
   it("normalizes a real simulation signed-zero position only in the owned semantic copy", () => {
+    const signedZeroNode = (id: string, distanceMm: number): Readonly<RailEncounter> => ({
+      id,
+      kind: "life-node",
+      distanceMm,
+      center: { x: 0, y: 0 },
+      perfectRadiusMm: 20_000,
+      goodRadiusMm: 20_000,
+    });
     const state = simulateJourney([
       { at: 0.000_001, moveX: 0, moveY: 0, pulse: true },
-    ], { seed: 0 });
+    ], { seed: 0, encounters: [signedZeroNode("signed-zero-x", 0)] });
     const source = state.pulses[0];
     if (!source) throw new Error("Expected the seed-zero pulse near story time zero.");
     const beforeHash = hashJourney(state);
@@ -84,7 +93,7 @@ describe("GFX-003 Twinkle semantic projection", () => {
     const yState = simulateJourney([
       { at: 0, moveX: 0, moveY: 1 },
       { at: 1.128_398_376_332_195_6, moveX: 0, moveY: 1, pulse: true },
-    ], { seed: 0 });
+    ], { seed: 0, encounters: [signedZeroNode("signed-zero-y", 11_284)] });
     const ySource = yState.pulses[0];
     if (!ySource) throw new Error("Expected a legal simulation pulse with signed-zero y.");
     const yHash = hashJourney(yState);
@@ -188,7 +197,17 @@ describe("GFX-003 Twinkle semantic projection", () => {
     for (const boundary of cases) {
       const state = simulateJourney([
         { at: boundary.at, moveX: 0, moveY: 0, pulse: true },
-      ], { seed: 0 });
+      ], {
+        seed: 0,
+        encounters: [{
+          id: `boundary-${boundary.journeyTime}`,
+          kind: "life-node",
+          distanceMm: Math.round(boundary.at * 10_000),
+          center: { x: 0, y: 0 },
+          perfectRadiusMm: 20_000,
+          goodRadiusMm: 20_000,
+        }],
+      });
       const source = state.pulses[0];
       if (!source) throw new Error(`Expected a pulse near ${boundary.journeyTime}s.`);
       const beforeHash = hashJourney(state);

@@ -20,6 +20,7 @@ export const WORLD_GENERATOR_VERSION = "gfx003-world-plan-v1";
 const OWNED_SUBSTREAMS: Readonly<Record<RegisteredSeedSystem, readonly string[]>> = deepFreeze({
   story: ["node"],
   flow: ["corridor", "branches"],
+  encounters: ["placement"],
   terrain: ["heightfield"],
   hydrology: ["graph"],
   water: ["surface"],

@@ -1,13 +1,13 @@
 import { chromium, expect, test, type Page, type Worker } from "@playwright/test";
 import type { StoryChunkId } from "../../src/world/v2";
 
-const FOUNDATION_PLAN_DIGEST = "world-plan-v1:75d93cbb8e0580cd";
+const FOUNDATION_PLAN_DIGEST = "world-plan-v1:c7ed4025456222e2";
 const INITIAL_CHUNK_IDS = Object.freeze(["S07", "S08", "S09", "S10"] as const);
 const INITIAL_CHUNK_DIGESTS = Object.freeze({
-  S07: "chunk-payload-v1:e7837c38fc5babe8",
-  S08: "chunk-payload-v1:93460b22f054e880",
-  S09: "chunk-payload-v1:954d37f91ff79283",
-  S10: "chunk-payload-v1:9ba7999780ef5119",
+  S07: "chunk-payload-v1:66e965def3d882a2",
+  S08: "chunk-payload-v1:5716815df9e23bff",
+  S09: "chunk-payload-v1:9e304d9279998e12",
+  S10: "chunk-payload-v1:66144472dd4dca1a",
 }) satisfies Readonly<Record<(typeof INITIAL_CHUNK_IDS)[number], string>>;
 const WEBGL2_COMPILE_PHASE_COUNTS = Object.freeze({
   "runtime-object": 56,

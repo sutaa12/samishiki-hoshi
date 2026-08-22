@@ -9,11 +9,11 @@ import {
   phaseAt,
 } from "./model";
 import {
-  DEFAULT_RAIL_ENCOUNTERS,
   activeEncounterAt,
   crossedEncounterPlane,
   distanceToEncounter3dMm,
   gateRadiusMm,
+  railEncountersForSeed,
   type GateEncounter,
   type LifeNodeEncounter,
   type ObstacleEncounter,
@@ -40,7 +40,7 @@ export interface SimulationOptions {
   seed?: number;
   /** Accepted for render callers, deliberately excluded from all state and hashes. */
   quality?: QualityLevel;
-  /** Explicit graybox encounters; R3-004 will provide WorldPlan-derived data. */
+  /** Optional test override; production derives canonical encounters from the WorldPlan seed. */
   encounters?: readonly Readonly<RailEncounter>[];
 }
 
@@ -265,7 +265,7 @@ function stepJourneySlice(
   state: RailFlightState,
   rawInput: Partial<NormalizedInput> = {},
   seconds = STEP_SECONDS,
-  encounters: readonly Readonly<RailEncounter>[] = DEFAULT_RAIL_ENCOUNTERS,
+  encounters: readonly Readonly<RailEncounter>[] = railEncountersForSeed(state.seed),
 ): RailFlightState {
   if (state.finished || !Number.isFinite(seconds) || seconds <= 0) return state;
   const dt = Math.min(seconds, JOURNEY_SECONDS - state.time);
@@ -330,7 +330,7 @@ export function stepJourney(
   state: RailFlightState,
   rawInput: Partial<NormalizedInput> = {},
   seconds = STEP_SECONDS,
-  encounters: readonly Readonly<RailEncounter>[] = DEFAULT_RAIL_ENCOUNTERS,
+  encounters: readonly Readonly<RailEncounter>[] = railEncountersForSeed(state.seed),
 ): RailFlightState {
   if (state.finished || !Number.isFinite(seconds) || seconds <= 0) return state;
   const targetTime = Math.min(JOURNEY_SECONDS, state.time + seconds);
@@ -349,7 +349,7 @@ export function advanceJourneyTo(
   state: RailFlightState,
   targetTime: number,
   input: Partial<NormalizedInput> = {},
-  encounters: readonly Readonly<RailEncounter>[] = DEFAULT_RAIL_ENCOUNTERS,
+  encounters: readonly Readonly<RailEncounter>[] = railEncountersForSeed(state.seed),
 ): RailFlightState {
   const target = Math.max(state.time, Math.min(JOURNEY_SECONDS, targetTime));
   let next = state;
@@ -361,7 +361,7 @@ export function advanceJourneyTo(
 
 /** Replays timestamped edge inputs on the canonical 60 Hz clock. */
 export function simulateJourney(inputs: readonly TimedInput[] = [], options: SimulationOptions = {}): RailFlightState {
-  const encounters = options.encounters ?? DEFAULT_RAIL_ENCOUNTERS;
+  const encounters = options.encounters ?? railEncountersForSeed(options.seed ?? 1);
   const ordered = [...inputs]
     .filter((input) => Number.isFinite(input.at) && input.at >= 0 && input.at <= JOURNEY_SECONDS)
     .sort((left, right) => left.at - right.at);

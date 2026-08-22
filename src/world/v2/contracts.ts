@@ -32,6 +32,7 @@ export type StoryChunkId = (typeof STORY_CHUNK_IDS)[number];
 export const REGISTERED_SEED_SYSTEMS = Object.freeze([
   "story",
   "flow",
+  "encounters",
   "terrain",
   "hydrology",
   "water",
@@ -49,6 +50,7 @@ export type RegisteredSeedSystem = (typeof REGISTERED_SEED_SYSTEMS)[number];
 export const WORLD_PLAN_GENERATOR_SYSTEMS = Object.freeze([
   "story",
   "flow",
+  "encounters",
   "terrain",
   "hydrology",
   "water",
@@ -160,6 +162,46 @@ export interface WorldFlowBranchPlan {
   readonly branchPoint: WorldPointMm;
   readonly mergePoint: WorldPointMm;
 }
+
+export type WorldEncounterKind = "gate" | "obstacle" | "life-node";
+
+export interface WorldEncounterRadiiPlan {
+  /** Gameplay collision/perfect radius. */
+  readonly collisionMm: number;
+  /** Renderer-visible ring and gameplay near/good radius from the same descriptor. */
+  readonly visibleRingMm: number;
+}
+
+export interface WorldEncounterBasePlan {
+  readonly id: string;
+  readonly kind: WorldEncounterKind;
+  readonly chunkId: StoryChunkId;
+  readonly distanceMm: number;
+  readonly flowPositionPermille: number;
+  readonly centerOffsetMm: Readonly<{ readonly x: number; readonly y: number }>;
+  readonly worldPoint: WorldPointMm;
+  readonly previewDistanceMm: number;
+  readonly radii: WorldEncounterRadiiPlan;
+  readonly authoredRole: "tutorial" | "story";
+}
+
+export interface WorldGateEncounterPlan extends WorldEncounterBasePlan {
+  readonly kind: "gate";
+}
+
+export interface WorldObstacleEncounterPlan extends WorldEncounterBasePlan {
+  readonly kind: "obstacle";
+  readonly safeRouteOffsetMm: Readonly<{ readonly x: number; readonly y: number }>;
+}
+
+export interface WorldLifeNodeEncounterPlan extends WorldEncounterBasePlan {
+  readonly kind: "life-node";
+}
+
+export type WorldEncounterPlan =
+  | WorldGateEncounterPlan
+  | WorldObstacleEncounterPlan
+  | WorldLifeNodeEncounterPlan;
 
 export interface WorldHydrologyNodePlan {
   readonly id: string;
@@ -353,6 +395,7 @@ export interface WorldPlan {
   readonly generatorVersion: string;
   readonly seedContract: WorldSeedContract;
   readonly chunks: readonly WorldChunkPlan[];
+  readonly encounters: readonly WorldEncounterPlan[];
   readonly authoredBranches: readonly WorldFlowBranchPlan[];
   readonly hydrology: WorldHydrologyPlan;
   readonly twinklePolicy: WorldTwinklePolicy;
@@ -380,6 +423,11 @@ export type WorldPlanIssueCode =
   | "TIMELINE_DURATION"
   | "PHASE_MISMATCH"
   | "STORY_NODE_MISMATCH"
+  | "ENCOUNTER_CONTRACT_MISMATCH"
+  | "ENCOUNTER_COUNT_MISMATCH"
+  | "ENCOUNTER_OVERLAP"
+  | "ENCOUNTER_UNREACHABLE"
+  | "ENCOUNTER_PREVIEW_INVALID"
   | "SAFE_CORRIDOR_DISCONNECTED"
   | "SAFE_CORRIDOR_BLOCKED"
   | "FLOW_BRANCH_LIMIT"

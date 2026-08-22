@@ -202,6 +202,36 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
   learning, and restart cleanup. QX-R3-004 may branch from the acceptance
   record once committed; all external gates remain unchanged.
 
+## 2026-08-22 QX-R3-004 WorldPlan encounter checkpoint
+
+- Seed `20260818` canonical WorldPlan digest is
+  `world-plan-v1:c7ed4025456222e2`; canonical bytes SHA-256 are
+  `d12f0d3ba4072d483cb8bf05a18eeac25e640bc78abc3f0d5dcd41c97c3eb441`
+  across 53,536 bytes.
+- `rtk npm run verify` passes typecheck, lint, 41/41 Vitest files,
+  743/743 tests, and the production Vinext build.
+- The QX-R3-004 property gate independently validates 1,000 seeds, exact
+  first-36-second counts, fixed tutorial Descriptor equality, safe-route
+  clearance, non-overlap, preview distance, near-plane exclusion, common radii,
+  and High/Fallback parity.
+- The first complete 72-case Playwright diagnostic ran 29 pass, 35 intentional
+  project skips, and 8 failures. Four were stale QX-R3-004 expected values
+  (two chunk-payload comparisons and two 48-second gameplay hashes) and are now
+  re-bound. The remaining four are local Graphics laboratory budgets: three
+  atomic compile warmups exceeded 50ms without compile failure and one LIFE
+  sample recorded 605 draw calls against the provisional 600 connection
+  ceiling. These do not satisfy reference-hardware acceptance.
+- After rebinding, the focused Foundation + Production + Rail desktop gate ran
+  9 pass / 1 fail. Production, plan digest, replay hash, node pulse, normal
+  no-answer, auto-give, worker payload identities, and WebGPU path passed; the
+  sole failure was the reproduced 50ms compile-warmup laboratory budget.
+- A production build served at `http://localhost:43160/?seed=20260818` was
+  started, clicked, and pulsed in the in-app browser. It reported the exact
+  canonical plan digest above and one `node-perfect` event.
+- Main and public Sites remain unchanged. This checkpoint is not independent
+  acceptance and does not complete human, rights, reference-hardware, release,
+  or contest gates.
+
 ## Release record
 
 - GitHub: https://github.com/sutaa12/samishiki-hoshi (public, main)

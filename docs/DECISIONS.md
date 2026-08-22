@@ -435,6 +435,37 @@ remediated implementation `4689a4e3` with all five dimensions at 4/4 and no
 open finding. This accepts QX-R3-003 only and authorizes QX-R3-004 to start from
 the committed acceptance record; it does not change any external gate.
 
+## D-029 — WorldPlan is the sole encounter Descriptor owner
+
+QX-R3-004 replaces the temporary rail graybox list with a canonical WorldPlan
+encounter ledger. Rail distance remains the gameplay clock from D-027, while
+the authored story score maps each encounter to a 3D Flow Segment and chunk.
+The simulation derives its default Gate, Obstacle, and Life Node inputs from
+the run seed's WorldPlan; explicit arrays remain only as deterministic test
+overrides.
+
+The first 36 seconds contain exactly one fixed Tutorial Gate plus four seeded
+Gates, three seeded Obstacles, and one fixed plus two seeded Life Nodes. The
+fixed Life Node uses the seed-independent S02 Flow midpoint and the fixed Gate
+uses the seed-independent S02/S03 boundary, so their complete Descriptors—not
+only rail distances—are equal across seeds. Later centers and radii use the
+named `encounters/placement` stream without perturbing any existing named
+system.
+
+Collision/perfect radius and visible-ring/near/good radius are paired in one
+renderer-neutral Descriptor. Both the rail projection and High/Fallback debug
+marker projection consume that pair. Obstacles declare a passable route;
+validation rejects blocked, out-of-bounds, overlapping, near-plane, unreadable,
+or non-canonical descriptors. The existing two authored Flow branches remain
+the only branches and both merge back into the story route.
+
+This decision changes the reviewed seed-20260818 WorldPlan digest and replay
+hash, so all lower pinned tests are re-bound to the new canonical values. It
+does not retroactively alter accepted GFX-003 evidence, which remains a
+historical receipt for its exact earlier source. Main, Sites, human, rights,
+reference hardware, and contest gates remain unchanged until QX-R3-004 receives
+fresh independent acceptance.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

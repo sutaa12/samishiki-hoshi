@@ -1,7 +1,7 @@
 import { chromium, expect, test, type Page } from "@playwright/test";
 import type { GfxFoundationSnapshot } from "../../src/gfx/v2/integration/foundation-runtime";
 
-const HERO_PLAN_DIGEST = "world-plan-v1:75d93cbb8e0580cd";
+const HERO_PLAN_DIGEST = "world-plan-v1:c7ed4025456222e2";
 
 type HeroSnapshot = Readonly<GfxFoundationSnapshot>;
 
