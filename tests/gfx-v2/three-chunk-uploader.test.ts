@@ -11,6 +11,7 @@ import type {
   RenderQualityProfile,
   RenderServiceInitializationContext,
 } from "../../src/gfx/v2/contracts";
+import { createChunkSceneAnchors } from "../../src/gfx/v2/camera";
 import {
   IncrementalChunkUploadQueue,
   generateChunkPayload,
@@ -187,6 +188,39 @@ describe("ProductionThreeChunkUploader", () => {
     });
     await uploader.dispose();
     expect(uploader.snapshot()).toMatchObject({ ownedGeometries: 0, ownedObjects: 0 });
+  });
+
+  it("places an active GPU slot at its canonical WorldPlan Flow anchor", async () => {
+    const scene = new Scene();
+    const materials = new StubMaterialLibrary();
+    const anchors = createChunkSceneAnchors(PLAN);
+    const uploader = new ProductionThreeChunkUploader(scene, materials, {
+      chunkAnchors: anchors,
+    });
+    uploader.initializePool();
+    uploader.beginRuntime();
+
+    const { result } = finishJob(uploader);
+    if (result.kind !== "complete") throw new Error("Expected a completed anchored upload lease.");
+    result.lease.setActive?.(true);
+
+    expect(scene.children).toHaveLength(1);
+    expect(scene.children[0]?.position.toArray()).toEqual([
+      anchors.S08.x,
+      anchors.S08.y,
+      anchors.S08.z,
+    ]);
+    const snapshot = uploader.snapshot();
+    expect(snapshot.activeChunkIds).toEqual(["S08"]);
+    expect(snapshot.chunkSlots.find((slot) => slot.chunkId === "S08")).toMatchObject({
+      state: "lease",
+      chunkId: "S08",
+      active: true,
+      position: anchors.S08,
+    });
+
+    await result.lease.dispose();
+    await uploader.dispose();
   });
 
   it("cancels partial allocation exactly once without claiming library materials", async () => {

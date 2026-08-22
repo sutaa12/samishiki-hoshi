@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { productionQualityId } from "../../src/gfx/v2/integration/production-journey-runtime";
-import { projectJourneyState } from "../../src/gfx/v2/project-journey";
+import { projectJourneyState, projectRailFlightState } from "../../src/gfx/v2/project-journey";
 import { advanceJourneyTo, createJourneyState, hashJourney, stepJourney } from "../../src/game/simulation";
 
 describe("QX-R3-001 production journey boundary", () => {
@@ -19,6 +19,7 @@ describe("QX-R3-001 production journey boundary", () => {
     const pulsed = stepJourney(moved, { pulse: true }, 1 / 60);
     const before = hashJourney(pulsed);
     const projected = projectJourneyState(pulsed);
+    const rail = projectRailFlightState(pulsed);
 
     expect(projected).toMatchObject({
       seed: 20_260_818,
@@ -35,6 +36,20 @@ describe("QX-R3-001 production journey boundary", () => {
     expect(projected.position).not.toBe(pulsed.position);
     expect(projected.velocity).not.toBe(pulsed.velocity);
     expect(projected.pulses).not.toBe(pulsed.pulses);
+    expect(rail).toEqual({
+      distanceMm: pulsed.distanceMm,
+      forwardSpeedMmPerSecond: pulsed.forwardSpeedMmPerSecond,
+      corridorOffset: pulsed.corridorOffset,
+    });
+    expect(rail.corridorOffset).not.toBe(pulsed.corridorOffset);
+    expect(Object.isFrozen(rail)).toBe(true);
+    expect(Object.isFrozen(rail.corridorOffset)).toBe(true);
+    const normalizedZero = projectRailFlightState({
+      ...pulsed,
+      corridorOffset: { x: -0, y: -0 },
+    });
+    expect(Object.is(normalizedZero.corridorOffset.x, -0)).toBe(false);
+    expect(Object.is(normalizedZero.corridorOffset.y, -0)).toBe(false);
     expect(hashJourney(pulsed)).toBe(before);
   });
 });

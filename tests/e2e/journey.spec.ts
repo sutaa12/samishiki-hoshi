@@ -97,11 +97,12 @@ test("all six phases keep visual density inside automated safety ceilings", asyn
   // per-frame inventory is larger than the retired canvas renderer. This is
   // a connection-regression guard, not a replacement for the stricter target
   // budgets and reference-hardware gate documented in GFX_REBASELINE_PLAN.
-  const productionConnectionDrawCeiling = 600;
+  const productionConnectionDrawCallsPerSampleCeiling = 5;
   const samples: Array<{
     quality: QualityLevel;
     phase: JourneyPhase;
     drawCalls: number;
+    drawCallsPerSample: number;
     triangles: number;
     p95FrameMs: number;
     frameSamples: number;
@@ -123,10 +124,14 @@ test("all six phases keep visual density inside automated safety ceilings", asyn
       const p95FrameMs = Number(await metrics.getAttribute("data-p95-frame-ms"));
       const frameSamples = Number(await metrics.getAttribute("data-frame-samples"));
       const warmupMs = Number(await metrics.getAttribute("data-frame-warmup-ms"));
+      const drawCallsPerSample = frameSamples > 0
+        ? drawCalls / frameSamples
+        : Number.POSITIVE_INFINITY;
       samples.push({
         quality,
         phase: checkpoint.phase,
         drawCalls,
+        drawCallsPerSample,
         triangles,
         p95FrameMs,
         frameSamples,
@@ -134,7 +139,10 @@ test("all six phases keep visual density inside automated safety ceilings", asyn
       });
       const sampleLabel = `${testInfo.project.name}/${quality}/${checkpoint.phase}`;
       expect.soft(drawCalls, `${sampleLabel} draw calls`).toBeGreaterThan(0);
-      expect.soft(drawCalls, `${sampleLabel} connection draw-call ceiling`).toBeLessThanOrEqual(productionConnectionDrawCeiling);
+      expect.soft(
+        drawCallsPerSample,
+        `${sampleLabel} connection draw calls per sampled frame`,
+      ).toBeLessThanOrEqual(productionConnectionDrawCallsPerSampleCeiling);
       expect.soft(triangles, `${sampleLabel} triangles`).toBeGreaterThan(0);
       expect.soft(triangles, `${sampleLabel} triangle ceiling`).toBeLessThanOrEqual(250_000);
       expect.soft(frameSamples, `${sampleLabel} steady sample count`).toBeGreaterThanOrEqual(120);

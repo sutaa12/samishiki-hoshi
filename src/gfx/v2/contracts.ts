@@ -25,6 +25,21 @@ export interface RenderPositionSnapshot {
   readonly y: number;
 }
 
+/**
+ * Renderer-only copy of the canonical on-rails scalars. It is intentionally
+ * separate from JourneyRenderSnapshot so RenderHost's accepted gameplay
+ * boundary remains unchanged while production presentation can consume the
+ * real deterministic rail distance and corridor offset.
+ */
+export interface RailRenderSnapshot {
+  readonly distanceMm: number;
+  readonly forwardSpeedMmPerSecond: number;
+  readonly corridorOffset: Readonly<{
+    readonly x: number;
+    readonly y: number;
+  }>;
+}
+
 export interface RenderTwinkleSeedSnapshot {
   readonly id: number;
   readonly journeyTime: number;

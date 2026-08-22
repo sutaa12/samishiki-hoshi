@@ -334,7 +334,7 @@ test.describe("GFX-004/GFX-005/GFX-006 real browser foundation", () => {
     expect(initial.pipeline.warmedProfileIds).toHaveLength(3);
     expect(initial.pipeline.programCountAtReady).not.toBeNull();
     expect(initial.backendLifecycle.resources.geometries).toBeGreaterThanOrEqual(1);
-    expect(initial.scene).toMatchObject({ meshes: 28, children: 5 });
+    expect(initial.scene).toMatchObject({ meshes: 28, children: 6 });
     expect(initial.frameLoop.running).toBe(true);
 
     const steady = await waitForSnapshot(page, (value) => (

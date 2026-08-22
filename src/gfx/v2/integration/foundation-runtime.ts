@@ -1,4 +1,15 @@
-import { AmbientLight, Color, PerspectiveCamera, Scene } from "three/webgpu";
+import {
+  AmbientLight,
+  Color,
+  DirectionalLight,
+  FogExp2,
+  PerspectiveCamera,
+  Scene,
+} from "three/webgpu";
+import {
+  CORRIDOR_SCALE_MM,
+  RAIL_FORWARD_SPEED_MM_PER_SECOND,
+} from "../../../game/rail-flight-state";
 import { createThreeBackend } from "../backend/create-backend";
 import type {
   ThreeBackendAdapter,
@@ -40,6 +51,7 @@ import {
 } from "../contract-lab";
 import type {
   JourneyRenderSnapshot,
+  RailRenderSnapshot,
   RenderEventObserver,
   RenderFrameLoop,
   RenderHostEvent,
@@ -50,6 +62,12 @@ import type {
   RenderViewport,
   Unsubscribe,
 } from "../contracts";
+import {
+  createChunkSceneAnchors,
+  createRailCameraSnapshot,
+  RAIL_CAMERA_FOV_DEGREES,
+  type RailCameraSnapshot,
+} from "../camera";
 import { RenderHost, createBrowserRenderWarmupScheduler } from "../render-host";
 import {
   RollingGfxPerformanceTelemetry,
@@ -57,6 +75,7 @@ import {
 } from "../telemetry";
 import {
   WORLD_GENERATOR_VERSION,
+  STORY_CHUNK_IDS,
   createWorldGenerationContext,
   digestWorldPlan,
   generateWorldPlan,
@@ -72,6 +91,14 @@ import {
 } from "./foundation-construction-owner";
 import { PooledWorldChunkFeature } from "./pooled-world-chunk-feature";
 import { ProductionThreeChunkUploader, type ThreeChunkUploaderSnapshot } from "./three-chunk-uploader";
+import {
+  LIFE_EARTH_TRACE_END_SECONDS,
+  LIFE_EARTH_TRACE_START_SECONDS,
+  LifeEarthContinuityTrace,
+  phaseDirectorSnapshotAt,
+  type LifeEarthContinuitySnapshot,
+  type PhaseDirectorSnapshot,
+} from "./phase-director";
 
 export type FoundationQualityId =
   | "high-temporal"
@@ -312,6 +339,78 @@ function assertProductionSnapshot(
   return snapshot;
 }
 
+function copyRailRenderSnapshot(
+  snapshot: Readonly<RailRenderSnapshot>,
+): Readonly<RailRenderSnapshot> {
+  for (const [label, value] of [
+    ["distance", snapshot.distanceMm],
+    ["forward speed", snapshot.forwardSpeedMmPerSecond],
+    ["corridor x", snapshot.corridorOffset.x],
+    ["corridor y", snapshot.corridorOffset.y],
+  ] as const) {
+    if (!Number.isSafeInteger(value)) {
+      throw new RangeError(`Production rail ${label} must be a safe integer.`);
+    }
+  }
+  if (snapshot.distanceMm < 0 || snapshot.forwardSpeedMmPerSecond < 0) {
+    throw new RangeError("Production rail distance and speed must be non-negative.");
+  }
+  return Object.freeze({
+    distanceMm: snapshot.distanceMm === 0 ? 0 : snapshot.distanceMm,
+    forwardSpeedMmPerSecond: snapshot.forwardSpeedMmPerSecond === 0
+      ? 0
+      : snapshot.forwardSpeedMmPerSecond,
+    corridorOffset: Object.freeze({
+      x: snapshot.corridorOffset.x === 0 ? 0 : snapshot.corridorOffset.x,
+      y: snapshot.corridorOffset.y === 0 ? 0 : snapshot.corridorOffset.y,
+    }),
+  });
+}
+
+function inferredRailSnapshot(
+  snapshot: Readonly<JourneyRenderSnapshot>,
+): Readonly<RailRenderSnapshot> {
+  return Object.freeze({
+    distanceMm: Math.round(snapshot.storyTime * RAIL_FORWARD_SPEED_MM_PER_SECOND),
+    forwardSpeedMmPerSecond: RAIL_FORWARD_SPEED_MM_PER_SECOND,
+    corridorOffset: Object.freeze({
+      x: Math.round(snapshot.position.x * CORRIDOR_SCALE_MM),
+      y: Math.round(snapshot.position.y * CORRIDOR_SCALE_MM),
+    }),
+  });
+}
+
+function applyRailCamera(
+  camera: PerspectiveCamera,
+  snapshot: Readonly<RailCameraSnapshot>,
+): void {
+  camera.position.set(snapshot.position.x, snapshot.position.y, snapshot.position.z);
+  camera.up.set(snapshot.up.x, snapshot.up.y, snapshot.up.z);
+  camera.lookAt(snapshot.target.x, snapshot.target.y, snapshot.target.z);
+}
+
+function applyPhaseDirector(
+  background: Color,
+  fog: FogExp2,
+  ambient: AmbientLight,
+  sun: DirectionalLight,
+  snapshot: Readonly<PhaseDirectorSnapshot>,
+): void {
+  const channels = snapshot.channels;
+  background.setRGB(channels.background.r, channels.background.g, channels.background.b);
+  fog.color.setRGB(channels.fog.color.r, channels.fog.color.g, channels.fog.color.b);
+  fog.density = channels.fog.density;
+  ambient.color.setRGB(channels.ambient.color.r, channels.ambient.color.g, channels.ambient.color.b);
+  ambient.intensity = channels.ambient.intensity;
+  sun.color.setRGB(channels.sun.color.r, channels.sun.color.g, channels.sun.color.b);
+  sun.intensity = channels.sun.intensity;
+  sun.position.set(
+    channels.sun.direction.x * 12,
+    channels.sun.direction.y * 12,
+    channels.sun.direction.z * 12,
+  );
+}
+
 function sceneSnapshot(scene: Scene) {
   let objects = 0;
   let meshes = 0;
@@ -337,6 +436,17 @@ export interface GfxFoundationSnapshot {
   readonly quality: Readonly<{ id: FoundationQualityId; subscribers: number }>;
   readonly frameLoop: Readonly<{ running: boolean; starts: number; stops: number; ticks: number }>;
   readonly scene: Readonly<{ objects: number; meshes: number; children: number }>;
+  readonly railCamera: Readonly<RailCameraSnapshot>;
+  readonly phaseDirector: Readonly<PhaseDirectorSnapshot>;
+  readonly continuity: Readonly<LifeEarthContinuitySnapshot>;
+  readonly chunkResidency: Readonly<{
+    currentChunkId: StoryChunkId;
+    cameraChunkId: StoryChunkId;
+    nextChunkId: StoryChunkId | null;
+    currentReady: boolean;
+    cameraReady: boolean;
+    nextReady: boolean;
+  }>;
   readonly heroA: Readonly<OceanHeroFeatureSnapshot> | null;
   readonly heroB: Readonly<ForestCityHeroFeatureSnapshot> | null;
   readonly heroC: Readonly<SpaceTwinkleHeroFeatureSnapshot> | null;
@@ -352,11 +462,12 @@ export interface GfxFoundationSnapshot {
 export interface GfxFoundationRuntime {
   getSnapshot(): Readonly<GfxFoundationSnapshot>;
   subscribe(listener: () => void): Unsubscribe;
-  update(snapshot: Readonly<JourneyRenderSnapshot>): void;
+  update(snapshot: Readonly<JourneyRenderSnapshot>, rail?: Readonly<RailRenderSnapshot>): void;
   seek(chunkId: StoryChunkId): void;
   seekTime(storyTime: number): void;
   resize(width: number, height: number): Promise<void>;
   setQuality(id: FoundationQualityId): Promise<void>;
+  setReducedMotion(reducedMotion: boolean): void;
   dispose(): Promise<Readonly<GfxFoundationSnapshot>>;
   diagnostics: ThreeBackendAdapter["diagnostics"];
 }
@@ -375,6 +486,8 @@ async function performGfxFoundationConstruction(options: {
   readonly experience: GfxFoundationExperience;
   readonly initialStoryTime?: number;
   readonly initialSnapshot?: Readonly<JourneyRenderSnapshot>;
+  readonly initialRailSnapshot?: Readonly<RailRenderSnapshot>;
+  readonly reducedMotion?: boolean;
 }, admission: FoundationConstructionAdmission<FoundationConstructionCleanupOwner>): Promise<GfxFoundationRuntime> {
   let sceneOwner: Scene | null = null;
   let pipelineOwner: ProductionLinearHdrPipeline | null = null;
@@ -566,12 +679,53 @@ async function performGfxFoundationConstruction(options: {
       generatorVersion: WORLD_GENERATOR_VERSION,
     }));
     const planDigest = digestWorldPlan(plan);
+    const initialSnapshot = options.initialSnapshot
+      ? assertProductionSnapshot(plan, options.initialSnapshot)
+      : options.experience === "foundation"
+        ? renderSnapshot(plan, INITIAL_CHUNK)
+        : renderExperienceSnapshotAt(
+          plan,
+          options.initialStoryTime ?? defaultMarkerFor(options.experience),
+          options.experience,
+        );
+    let currentJourneySnapshot = initialSnapshot;
+    let currentRailSnapshot = copyRailRenderSnapshot(
+      options.initialRailSnapshot ?? inferredRailSnapshot(initialSnapshot),
+    );
+    let reducedMotion = Boolean(options.reducedMotion);
+    let railCameraSnapshot = createRailCameraSnapshot({
+      plan,
+      storyTime: currentJourneySnapshot.storyTime,
+      rail: currentRailSnapshot,
+      reducedMotion,
+    });
+    let phaseDirectorSnapshot = phaseDirectorSnapshotAt(currentJourneySnapshot.storyTime);
+    const continuityTrace = new LifeEarthContinuityTrace();
+    const ownsJourneyPresentation = options.experience === "foundation";
     const scene = sceneOwner = new Scene();
-    scene.background = new Color(0x020611);
-    scene.add(new AmbientLight(0xffffff, 1));
-    const camera = new PerspectiveCamera(48, 1, 0.1, 80);
-    camera.position.set(0, 0.2, 12);
-    camera.lookAt(0, 0, 0);
+    const background = new Color(0x020611);
+    scene.background = background;
+    const fog = new FogExp2(0x020611, 0.02);
+    if (ownsJourneyPresentation) scene.fog = fog;
+    const ambient = new AmbientLight(0xffffff, 1);
+    ambient.name = "gfx005:phase-ambient";
+    scene.add(ambient);
+    const sun = new DirectionalLight(0xffffff, 1);
+    sun.name = "gfx005:phase-sun";
+    if (ownsJourneyPresentation) scene.add(sun);
+    const camera = new PerspectiveCamera(
+      ownsJourneyPresentation ? RAIL_CAMERA_FOV_DEGREES : 48,
+      1,
+      0.1,
+      80,
+    );
+    if (ownsJourneyPresentation) {
+      applyRailCamera(camera, railCameraSnapshot);
+      applyPhaseDirector(background, fog, ambient, sun, phaseDirectorSnapshot);
+    } else {
+      camera.position.set(0, 0.2, 12);
+      camera.lookAt(0, 0, 0);
+    }
 
     const pipeline = pipelineOwner = new ProductionLinearHdrPipeline({ temporalHistoryWeight: 0.1 });
     const materials = materialsOwner = new ProductionTslMaterialLibrary();
@@ -584,9 +738,15 @@ async function performGfxFoundationConstruction(options: {
     const resources = resourcesOwner = new LogicalChunkResourceRegistry();
     const uploader = uploaderOwner = new ProductionThreeChunkUploader(scene, materials, {
       presentRuntimeObjects: options.experience === "foundation",
+      chunkAnchors: createChunkSceneAnchors(plan),
     });
     const qualityProvider = qualityOwner = new FoundationQualityProvider();
     const initialViewport = viewportFor(options.canvas, qualityProvider.getProfile());
+    const applyCameraViewport = (viewport: Readonly<RenderViewport>) => {
+      camera.aspect = viewport.width / viewport.height;
+      camera.updateProjectionMatrix();
+    };
+    applyCameraViewport(initialViewport);
     worker = createBrowserWorldChunkWorker();
     backend = await createThreeBackend({
       canvas: options.canvas,
@@ -606,6 +766,73 @@ async function performGfxFoundationConstruction(options: {
       now: monotonicNow,
       telemetry,
     });
+    const chunkResidencySnapshot = (
+      chunks: Readonly<ChunkRuntimeSnapshot> = manager.snapshot(),
+    ) => {
+      const currentChunkId = currentJourneySnapshot.shotId as StoryChunkId;
+      const currentIndex = STORY_CHUNK_IDS.indexOf(currentChunkId);
+      const nextChunkId = STORY_CHUNK_IDS[currentIndex + 1] ?? null;
+      const active = new Set(chunks.activeChunkIds);
+      return Object.freeze({
+        currentChunkId,
+        cameraChunkId: railCameraSnapshot.flowChunkId,
+        nextChunkId,
+        currentReady: active.has(currentChunkId),
+        cameraReady: active.has(railCameraSnapshot.flowChunkId),
+        nextReady: nextChunkId === null || active.has(nextChunkId),
+      });
+    };
+    const updateJourneyPresentation = (
+      journey: Readonly<JourneyRenderSnapshot>,
+      rail: Readonly<RailRenderSnapshot>,
+      observeContinuity: boolean,
+    ) => {
+      const previousJourneySnapshot = currentJourneySnapshot;
+      const previousRailSnapshot = currentRailSnapshot;
+      const previousRailCameraSnapshot = railCameraSnapshot;
+      const previousPhaseDirectorSnapshot = phaseDirectorSnapshot;
+      const cameraChanged = journey.storyTime !== previousJourneySnapshot.storyTime
+        || rail.distanceMm !== previousRailSnapshot.distanceMm
+        || rail.forwardSpeedMmPerSecond !== previousRailSnapshot.forwardSpeedMmPerSecond
+        || rail.corridorOffset.x !== previousRailSnapshot.corridorOffset.x
+        || rail.corridorOffset.y !== previousRailSnapshot.corridorOffset.y
+        || reducedMotion !== previousRailCameraSnapshot.reducedMotion;
+      currentJourneySnapshot = journey;
+      currentRailSnapshot = rail;
+      if (cameraChanged) {
+        railCameraSnapshot = createRailCameraSnapshot({
+          plan,
+          storyTime: journey.storyTime,
+          rail,
+          reducedMotion,
+        });
+      }
+      if (journey.storyTime !== previousJourneySnapshot.storyTime) {
+        phaseDirectorSnapshot = phaseDirectorSnapshotAt(journey.storyTime);
+      }
+      if (ownsJourneyPresentation) {
+        if (cameraChanged) applyRailCamera(camera, railCameraSnapshot);
+        if (phaseDirectorSnapshot.channels !== previousPhaseDirectorSnapshot.channels) {
+          applyPhaseDirector(background, fog, ambient, sun, phaseDirectorSnapshot);
+        }
+      }
+      if (
+        !observeContinuity
+        || !ownsJourneyPresentation
+        || journey.storyTime < LIFE_EARTH_TRACE_START_SECONDS
+        || journey.storyTime > LIFE_EARTH_TRACE_END_SECONDS + 1e-6
+      ) return;
+      const residency = chunkResidencySnapshot();
+      continuityTrace.observe({
+        storyTime: journey.storyTime,
+        cameraPosition: railCameraSnapshot.position,
+        backgroundColor: phaseDirectorSnapshot.channels.background,
+        runtimeCompileEvents: telemetry.snapshot().eventTotals.compile,
+        currentChunkReady: residency.currentReady,
+        cameraChunkReady: residency.cameraReady,
+        nextChunkReadyBeforeBoundary: residency.nextReady,
+      });
+    };
     const persistentPass = Object.freeze({
       name: "gfx-foundation-world",
       kind: "linear-hdr-world",
@@ -659,36 +886,45 @@ async function performGfxFoundationConstruction(options: {
     const onResize = () => {
       if (host.state !== "ready") return;
       resizeCalls += 1;
-      void host.resize(viewportFor(options.canvas, qualityProvider.getProfile())).then(notify).catch(() => undefined);
+      const viewport = viewportFor(options.canvas, qualityProvider.getProfile());
+      applyCameraViewport(viewport);
+      void host.resize(viewport).then(notify).catch(() => undefined);
     };
     const resizeBinding = resizeBindingOwner = createGfxContractResizeBinding(window, onResize);
     const detachResize = () => resizeBinding.detach();
-    const getSnapshot = (): Readonly<GfxFoundationSnapshot> => Object.freeze({
-      generation: options.generation,
-      planDigest,
-      host: host.getSnapshot(),
-      backendFacts: backend!.facts,
-      backendLifecycle: backend!.snapshotLifecycle(),
-      pipeline: pipeline.snapshot(),
-      materials: materials.snapshot(),
-      chunks: manager.snapshot(),
-      uploader: uploader.snapshot(),
-      logicalResources: resources.snapshotEvidence(),
-      telemetry: telemetry.snapshot(),
-      quality: qualityProvider.snapshot(),
-      frameLoop: frameLoop.snapshot(),
-      scene: sceneSnapshot(scene),
-      heroA: oceanHero?.snapshot() ?? null,
-      heroB: forestCityHero?.snapshot() ?? null,
-      heroC: spaceTwinkleHero?.snapshot() ?? null,
-      runtime: Object.freeze({
-        resizeListenerActive: resizeBinding.active,
-        resizeCalls,
-        subscribers: listeners.size,
-        disposeCalls,
-      }),
-      observedEvents: Object.freeze(observedEvents.slice()),
-    });
+    const getSnapshot = (): Readonly<GfxFoundationSnapshot> => {
+      const chunks = manager.snapshot();
+      return Object.freeze({
+        generation: options.generation,
+        planDigest,
+        host: host.getSnapshot(),
+        backendFacts: backend!.facts,
+        backendLifecycle: backend!.snapshotLifecycle(),
+        pipeline: pipeline.snapshot(),
+        materials: materials.snapshot(),
+        chunks,
+        uploader: uploader.snapshot(),
+        logicalResources: resources.snapshotEvidence(),
+        telemetry: telemetry.snapshot(),
+        quality: qualityProvider.snapshot(),
+        frameLoop: frameLoop.snapshot(),
+        scene: sceneSnapshot(scene),
+        railCamera: railCameraSnapshot,
+        phaseDirector: phaseDirectorSnapshot,
+        continuity: continuityTrace.snapshot(),
+        chunkResidency: chunkResidencySnapshot(chunks),
+        heroA: oceanHero?.snapshot() ?? null,
+        heroB: forestCityHero?.snapshot() ?? null,
+        heroC: spaceTwinkleHero?.snapshot() ?? null,
+        runtime: Object.freeze({
+          resizeListenerActive: resizeBinding.active,
+          resizeCalls,
+          subscribers: listeners.size,
+          disposeCalls,
+        }),
+        observedEvents: Object.freeze(observedEvents.slice()),
+      });
+    };
 
     const disposal = createStableGfxContractOperation(async () => {
       disposeCalls += 1;
@@ -719,26 +955,18 @@ async function performGfxFoundationConstruction(options: {
       notify();
     });
 
-    const initialSnapshot = options.initialSnapshot
-      ? assertProductionSnapshot(plan, options.initialSnapshot)
-      : options.experience === "foundation"
-        ? renderSnapshot(plan, INITIAL_CHUNK)
-        : renderExperienceSnapshotAt(
-          plan,
-          options.initialStoryTime ?? defaultMarkerFor(options.experience),
-          options.experience,
-        );
     await host.initialize(initialSnapshot, initialViewport);
     assertFoundationHostReady(host, "initialization");
     resizeBinding.attach();
     assertFoundationHostReady(host, "resize listener binding");
     const currentViewport = viewportFor(options.canvas, qualityProvider.getProfile());
+    applyCameraViewport(currentViewport);
     if (await reconcileGfxContractViewport(initialViewport, currentViewport, (viewport) => host.resize(viewport))) {
       resizeCalls += 1;
     }
     assertFoundationHostReady(host, "viewport reconciliation");
     constructionComplete = true;
-    let previousProductionSnapshot = options.initialSnapshot ?? null;
+    let previousProductionSnapshot: Readonly<JourneyRenderSnapshot> | null = initialSnapshot;
     const runtime: GfxFoundationRuntime = {
       getSnapshot,
       subscribe(listener) {
@@ -748,25 +976,30 @@ async function performGfxFoundationConstruction(options: {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
-      update(snapshot) {
+      update(snapshot, rail) {
         const next = assertProductionSnapshot(plan, snapshot);
+        const nextRail = copyRailRenderSnapshot(rail ?? inferredRailSnapshot(next));
         const discontinuity = previousProductionSnapshot !== null
           && next.storyTime < previousProductionSnapshot.storyTime
           ? "restart-or-qa-seek" as const
           : undefined;
+        updateJourneyPresentation(next, nextRail, true);
         host.setSnapshot(next, discontinuity);
         previousProductionSnapshot = next;
         notify();
       },
       seek(chunkId) {
-        host.setSnapshot(renderSnapshot(plan, chunkId), "restart-or-qa-seek");
+        const next = renderSnapshot(plan, chunkId);
+        updateJourneyPresentation(next, inferredRailSnapshot(next), false);
+        host.setSnapshot(next, "restart-or-qa-seek");
+        previousProductionSnapshot = next;
         notify();
       },
       seekTime(storyTime) {
-        host.setSnapshot(
-          renderExperienceSnapshotAt(plan, storyTime, options.experience),
-          "restart-or-qa-seek",
-        );
+        const next = renderExperienceSnapshotAt(plan, storyTime, options.experience);
+        updateJourneyPresentation(next, inferredRailSnapshot(next), false);
+        host.setSnapshot(next, "restart-or-qa-seek");
+        previousProductionSnapshot = next;
         notify();
       },
       async resize(width, height) {
@@ -774,19 +1007,28 @@ async function performGfxFoundationConstruction(options: {
           throw new RangeError("Foundation viewport dimensions must be positive finite numbers.");
         }
         const quality = qualityProvider.getProfile();
-        await host.resize(Object.freeze({
+        const viewport = Object.freeze({
           width: Math.max(1, Math.round(width)),
           height: Math.max(1, Math.round(height)),
           pixelRatio: Math.min(window.devicePixelRatio || 1, quality.pixelRatio),
-        }));
+        });
+        applyCameraViewport(viewport);
+        await host.resize(viewport);
         resizeCalls += 1;
         notify();
       },
       async setQuality(id) {
         const next = qualityProvider.profile(id);
         await host.setQuality(next);
-        await host.resize(viewportFor(options.canvas, next));
+        const viewport = viewportFor(options.canvas, next);
+        applyCameraViewport(viewport);
+        await host.resize(viewport);
         qualityProvider.commit(id);
+        notify();
+      },
+      setReducedMotion(nextReducedMotion) {
+        reducedMotion = Boolean(nextReducedMotion);
+        updateJourneyPresentation(currentJourneySnapshot, currentRailSnapshot, false);
         notify();
       },
       dispose: disposal.run,
@@ -823,6 +1065,8 @@ export function createGfxFoundationRuntime(options: {
   readonly experience?: GfxFoundationExperience;
   readonly initialStoryTime?: number;
   readonly initialSnapshot?: Readonly<JourneyRenderSnapshot>;
+  readonly initialRailSnapshot?: Readonly<RailRenderSnapshot>;
+  readonly reducedMotion?: boolean;
 }): Promise<GfxFoundationRuntime> {
   return foundationConstructionAdmission.run((admission) => (
     performGfxFoundationConstruction({

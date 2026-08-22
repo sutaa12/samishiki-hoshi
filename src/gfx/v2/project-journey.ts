@@ -3,7 +3,8 @@ import {
   shotAt,
   type JourneyState,
 } from "../../game/model";
-import type { JourneyRenderSnapshot } from "./contracts";
+import type { RailFlightState } from "../../game/rail-flight-state";
+import type { JourneyRenderSnapshot, RailRenderSnapshot } from "./contracts";
 
 /**
  * Creates the only game-to-renderer projection used by the production v2
@@ -30,4 +31,20 @@ export function projectJourneyState(state: Readonly<JourneyState>): JourneyRende
     answerAt: state.answerAt,
     finished: state.finished,
   };
+}
+
+/** Copies only canonical rail presentation scalars; no renderer preference enters this projection. */
+export function projectRailFlightState(
+  state: Readonly<RailFlightState>,
+): Readonly<RailRenderSnapshot> {
+  return Object.freeze({
+    distanceMm: state.distanceMm === 0 ? 0 : state.distanceMm,
+    forwardSpeedMmPerSecond: state.forwardSpeedMmPerSecond === 0
+      ? 0
+      : state.forwardSpeedMmPerSecond,
+    corridorOffset: Object.freeze({
+      x: state.corridorOffset.x === 0 ? 0 : state.corridorOffset.x,
+      y: state.corridorOffset.y === 0 ? 0 : state.corridorOffset.y,
+    }),
+  });
 }

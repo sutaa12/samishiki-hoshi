@@ -30,7 +30,7 @@ import {
   type ProductionGfxRuntime,
 } from "@/src/gfx/v2/integration/production-journey-runtime";
 import { RuntimeCleanupTombstone } from "@/src/gfx/v2/integration/runtime-cleanup-tombstone";
-import { projectJourneyState } from "@/src/gfx/v2/project-journey";
+import { projectJourneyState, projectRailFlightState } from "@/src/gfx/v2/project-journey";
 import { GFX_TELEMETRY_MINIMUM_PERCENTILE_SAMPLES } from "@/src/gfx/v2/telemetry";
 import {
   createJourneyAudio,
@@ -103,6 +103,37 @@ type ProductionRendererMetrics = {
   positionY: number;
   velocityX: number;
   velocityY: number;
+  cameraFovDegrees: number;
+  cameraPositionX: number;
+  cameraPositionY: number;
+  cameraPositionZ: number;
+  cameraTargetX: number;
+  cameraTargetY: number;
+  cameraTargetZ: number;
+  cameraFlowChunkId: string;
+  cameraLookAheadSeconds: number;
+  phaseFrom: JourneyPhase;
+  phaseTo: JourneyPhase;
+  phaseBlend: number;
+  exposureParameter: number;
+  materialParameter: number;
+  particleParameter: number;
+  audioLayerParameter: number;
+  continuityComplete: boolean;
+  continuityPassed: boolean | null;
+  continuitySamples: number;
+  continuityBlackFrames: number;
+  continuityMonochromeFrames: number;
+  continuityRuntimeCompileDelta: number;
+  continuityMaxCameraJump: number;
+  continuityStillFrameRatio: number;
+  continuityCurrentChunkMissingFrames: number;
+  continuityCameraChunkMissingFrames: number;
+  continuityNextChunkMissingFrames: number;
+  currentChunkReady: boolean;
+  cameraChunkReady: boolean;
+  nextChunkReady: boolean;
+  runtimeCompileEvents: number;
   pulseCount: number;
   answerAt: number | null;
   programs: number;
@@ -202,6 +233,37 @@ function rendererEvidence(runtime: ProductionGfxRuntime): {
       positionY: journey.position.y,
       velocityX: journey.velocity.x,
       velocityY: journey.velocity.y,
+      cameraFovDegrees: snapshot.railCamera.fovDegrees,
+      cameraPositionX: snapshot.railCamera.position.x,
+      cameraPositionY: snapshot.railCamera.position.y,
+      cameraPositionZ: snapshot.railCamera.position.z,
+      cameraTargetX: snapshot.railCamera.target.x,
+      cameraTargetY: snapshot.railCamera.target.y,
+      cameraTargetZ: snapshot.railCamera.target.z,
+      cameraFlowChunkId: snapshot.railCamera.flowChunkId,
+      cameraLookAheadSeconds: snapshot.railCamera.lookAheadSeconds,
+      phaseFrom: snapshot.phaseDirector.fromPhase,
+      phaseTo: snapshot.phaseDirector.toPhase,
+      phaseBlend: snapshot.phaseDirector.blend01,
+      exposureParameter: snapshot.phaseDirector.channels.exposure,
+      materialParameter: snapshot.phaseDirector.channels.material,
+      particleParameter: snapshot.phaseDirector.channels.particle,
+      audioLayerParameter: snapshot.phaseDirector.channels.audioLayer,
+      continuityComplete: snapshot.continuity.complete,
+      continuityPassed: snapshot.continuity.passed,
+      continuitySamples: snapshot.continuity.sampleFrames,
+      continuityBlackFrames: snapshot.continuity.blackFrames,
+      continuityMonochromeFrames: snapshot.continuity.monochromeFrames,
+      continuityRuntimeCompileDelta: snapshot.continuity.runtimeCompileDelta,
+      continuityMaxCameraJump: snapshot.continuity.maxCameraJumpSceneUnits,
+      continuityStillFrameRatio: snapshot.continuity.stillFrameRatio,
+      continuityCurrentChunkMissingFrames: snapshot.continuity.currentChunkMissingFrames,
+      continuityCameraChunkMissingFrames: snapshot.continuity.cameraChunkMissingFrames,
+      continuityNextChunkMissingFrames: snapshot.continuity.nextChunkMissingFramesBeforeBoundary,
+      currentChunkReady: snapshot.chunkResidency.currentReady,
+      cameraChunkReady: snapshot.chunkResidency.cameraReady,
+      nextChunkReady: snapshot.chunkResidency.nextReady,
+      runtimeCompileEvents: snapshot.telemetry.eventTotals.compile,
       pulseCount: journey.pulses.length,
       answerAt: journey.answerAt,
       programs: snapshot.backendLifecycle.resources.programs,
@@ -410,7 +472,10 @@ export function GameClient() {
     setRestartCount((count) => count + 1);
     const renderer = rendererRef.current;
     if (renderer) {
-      renderer.update(projectJourneyState(stateRef.current));
+      renderer.update(
+        projectJourneyState(stateRef.current),
+        projectRailFlightState(stateRef.current),
+      );
       const evidence = rendererEvidence(renderer);
       setSnapshot(makeSnapshot(
         stateRef.current,
@@ -448,7 +513,7 @@ export function GameClient() {
     }
     const requestedSpeed = Number(params.get("speed"));
     const speed = isQa && Number.isFinite(requestedSpeed)
-      ? Math.max(1, Math.min(60, requestedSpeed))
+      ? Math.max(0.1, Math.min(60, requestedSpeed))
       : 1;
     seedRef.current = seed;
     setRunSeed(seed);
@@ -522,7 +587,7 @@ export function GameClient() {
       const phase = phaseAt(state.time);
       audioRef.current?.update(phase, state.time);
       try {
-        renderer.update(projectJourneyState(state));
+        renderer.update(projectJourneyState(state), projectRailFlightState(state));
       } catch (error: unknown) {
         setRendererError(error instanceof Error ? error.message : "Production rendererの更新に失敗しました。");
         setRendererReady(false);
@@ -568,6 +633,7 @@ export function GameClient() {
               colorIndependentCues: true,
             }),
             initialSnapshot: projectJourneyState(stateRef.current),
+            initialRailSnapshot: projectRailFlightState(stateRef.current),
           });
           if (cancelled) {
             await productionRuntimeCleanupOwner.dispose(runtime);
@@ -803,6 +869,39 @@ export function GameClient() {
       data-render-position-y={snapshot.metrics?.positionY.toFixed(5) ?? ""}
       data-render-velocity-x={snapshot.metrics?.velocityX.toFixed(5) ?? ""}
       data-render-velocity-y={snapshot.metrics?.velocityY.toFixed(5) ?? ""}
+      data-render-camera-fov={snapshot.metrics?.cameraFovDegrees.toFixed(2) ?? ""}
+      data-render-camera-position-x={snapshot.metrics?.cameraPositionX.toFixed(6) ?? ""}
+      data-render-camera-position-y={snapshot.metrics?.cameraPositionY.toFixed(6) ?? ""}
+      data-render-camera-position-z={snapshot.metrics?.cameraPositionZ.toFixed(6) ?? ""}
+      data-render-camera-target-x={snapshot.metrics?.cameraTargetX.toFixed(6) ?? ""}
+      data-render-camera-target-y={snapshot.metrics?.cameraTargetY.toFixed(6) ?? ""}
+      data-render-camera-target-z={snapshot.metrics?.cameraTargetZ.toFixed(6) ?? ""}
+      data-render-camera-flow-chunk={snapshot.metrics?.cameraFlowChunkId ?? ""}
+      data-render-camera-look-ahead={snapshot.metrics?.cameraLookAheadSeconds.toFixed(2) ?? ""}
+      data-render-phase-from={snapshot.metrics?.phaseFrom ?? ""}
+      data-render-phase-to={snapshot.metrics?.phaseTo ?? ""}
+      data-render-phase-blend={snapshot.metrics?.phaseBlend.toFixed(6) ?? ""}
+      data-render-exposure-parameter={snapshot.metrics?.exposureParameter.toFixed(6) ?? ""}
+      data-render-material-parameter={snapshot.metrics?.materialParameter.toFixed(6) ?? ""}
+      data-render-particle-parameter={snapshot.metrics?.particleParameter.toFixed(6) ?? ""}
+      data-render-audio-layer-parameter={snapshot.metrics?.audioLayerParameter.toFixed(6) ?? ""}
+      data-render-continuity-complete={snapshot.metrics?.continuityComplete ? "true" : "false"}
+      data-render-continuity-passed={snapshot.metrics?.continuityPassed === null
+        ? "pending"
+        : snapshot.metrics?.continuityPassed ? "true" : "false"}
+      data-render-continuity-samples={snapshot.metrics?.continuitySamples ?? 0}
+      data-render-continuity-black-frames={snapshot.metrics?.continuityBlackFrames ?? 0}
+      data-render-continuity-monochrome-frames={snapshot.metrics?.continuityMonochromeFrames ?? 0}
+      data-render-continuity-runtime-compile-delta={snapshot.metrics?.continuityRuntimeCompileDelta ?? 0}
+      data-render-continuity-max-camera-jump={snapshot.metrics?.continuityMaxCameraJump.toFixed(6) ?? ""}
+      data-render-continuity-still-ratio={snapshot.metrics?.continuityStillFrameRatio.toFixed(6) ?? ""}
+      data-render-continuity-current-chunk-missing={snapshot.metrics?.continuityCurrentChunkMissingFrames ?? 0}
+      data-render-continuity-camera-chunk-missing={snapshot.metrics?.continuityCameraChunkMissingFrames ?? 0}
+      data-render-continuity-next-chunk-missing={snapshot.metrics?.continuityNextChunkMissingFrames ?? 0}
+      data-render-current-chunk-ready={snapshot.metrics?.currentChunkReady ? "true" : "false"}
+      data-render-camera-chunk-ready={snapshot.metrics?.cameraChunkReady ? "true" : "false"}
+      data-render-next-chunk-ready={snapshot.metrics?.nextChunkReady ? "true" : "false"}
+      data-render-runtime-compile-events={snapshot.metrics?.runtimeCompileEvents ?? 0}
       data-render-pulses={snapshot.metrics?.pulseCount ?? 0}
       data-render-answer-at={snapshot.metrics?.answerAt?.toFixed(2) ?? ""}
       data-render-programs={snapshot.metrics?.programs ?? 0}

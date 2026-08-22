@@ -1,6 +1,6 @@
 import type { QualityLevel } from "../../../game/model";
 import type { ThreeBackendAdapter, ThreeBackendRequest } from "../backend/backend-adapter";
-import type { JourneyRenderSnapshot, Unsubscribe } from "../contracts";
+import type { JourneyRenderSnapshot, RailRenderSnapshot, Unsubscribe } from "../contracts";
 import type { GfxPerformanceTelemetrySnapshot } from "../telemetry";
 import {
   createGfxFoundationRuntime,
@@ -36,12 +36,13 @@ export function productionQualityId(
 }
 
 export interface ProductionGfxRuntime {
-  update(snapshot: Readonly<JourneyRenderSnapshot>): void;
+  update(snapshot: Readonly<JourneyRenderSnapshot>, rail: Readonly<RailRenderSnapshot>): void;
   setQuality(quality: QualityLevel): Promise<void>;
   configurePresentation(preferences: Readonly<ProductionPresentationPreferences>): Promise<void>;
   resize(width: number, height: number): Promise<void>;
   getSnapshot(): Readonly<GfxFoundationSnapshot>;
   getJourneySnapshot(): Readonly<JourneyRenderSnapshot>;
+  getRailSnapshot(): Readonly<RailRenderSnapshot>;
   getPresentation(): Readonly<ProductionPresentationPreferences>;
   getTelemetry(): Readonly<GfxPerformanceTelemetrySnapshot>;
   subscribe(listener: () => void): Unsubscribe;
@@ -54,6 +55,7 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
   readonly #canvas: HTMLCanvasElement;
   readonly #initialCanvasFilter: string;
   #journey: Readonly<JourneyRenderSnapshot>;
+  #rail: Readonly<RailRenderSnapshot>;
   #presentation: Readonly<ProductionPresentationPreferences>;
   #presentationTail: Promise<void> = Promise.resolve();
   #disposed = false;
@@ -62,13 +64,16 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
     foundation: GfxFoundationRuntime,
     canvas: HTMLCanvasElement,
     initialSnapshot: Readonly<JourneyRenderSnapshot>,
+    initialRailSnapshot: Readonly<RailRenderSnapshot>,
     initialPresentation: Readonly<ProductionPresentationPreferences>,
   ) {
     this.#foundation = foundation;
     this.#canvas = canvas;
     this.#initialCanvasFilter = canvas.style.filter;
     this.#journey = copyJourneySnapshot(initialSnapshot);
+    this.#rail = copyRailSnapshot(initialRailSnapshot);
     this.#presentation = copyPresentationPreferences(initialPresentation);
+    this.#applyJourneyDataset();
     this.#applyCanvasPresentation(this.#presentation);
   }
 
@@ -76,10 +81,13 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
     return this.#foundation.diagnostics;
   }
 
-  update(snapshot: Readonly<JourneyRenderSnapshot>): void {
+  update(snapshot: Readonly<JourneyRenderSnapshot>, rail: Readonly<RailRenderSnapshot>): void {
     const next = copyJourneySnapshot(snapshot);
-    this.#foundation.update(next);
+    const nextRail = copyRailSnapshot(rail);
+    this.#foundation.update(next, nextRail);
     this.#journey = next;
+    this.#rail = nextRail;
+    this.#applyJourneyDataset();
   }
 
   setQuality(quality: QualityLevel): Promise<void> {
@@ -93,6 +101,7 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
     const operation = this.#presentationTail.then(async () => {
       if (this.#disposed) throw new Error("Cannot configure a disposed Production renderer.");
       await this.#foundation.setQuality(productionQualityId(next.quality, next.reducedMotion));
+      this.#foundation.setReducedMotion(next.reducedMotion);
       this.#presentation = next;
       this.#applyCanvasPresentation(next);
     });
@@ -110,6 +119,10 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
 
   getJourneySnapshot(): Readonly<JourneyRenderSnapshot> {
     return this.#journey;
+  }
+
+  getRailSnapshot(): Readonly<RailRenderSnapshot> {
+    return this.#rail;
   }
 
   getPresentation(): Readonly<ProductionPresentationPreferences> {
@@ -130,6 +143,8 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
     this.#canvas.style.filter = this.#initialCanvasFilter;
     delete this.#canvas.dataset.renderContrast;
     delete this.#canvas.dataset.renderMotion;
+    delete this.#canvas.dataset.renderStoryTimeExact;
+    delete this.#canvas.dataset.renderDistanceMm;
     return this.#foundation.dispose();
   }
 
@@ -142,6 +157,11 @@ class ProductionJourneyRuntime implements ProductionGfxRuntime {
       .join(" ");
     this.#canvas.dataset.renderContrast = preferences.highContrast ? "high" : "standard";
     this.#canvas.dataset.renderMotion = preferences.reducedMotion ? "reduced" : "full";
+  }
+
+  #applyJourneyDataset(): void {
+    this.#canvas.dataset.renderStoryTimeExact = this.#journey.storyTime.toFixed(6);
+    this.#canvas.dataset.renderDistanceMm = String(this.#rail.distanceMm);
   }
 }
 
@@ -172,6 +192,21 @@ function copyJourneySnapshot(
   });
 }
 
+function copyRailSnapshot(
+  snapshot: Readonly<RailRenderSnapshot>,
+): Readonly<RailRenderSnapshot> {
+  return Object.freeze({
+    distanceMm: snapshot.distanceMm === 0 ? 0 : snapshot.distanceMm,
+    forwardSpeedMmPerSecond: snapshot.forwardSpeedMmPerSecond === 0
+      ? 0
+      : snapshot.forwardSpeedMmPerSecond,
+    corridorOffset: Object.freeze({
+      x: snapshot.corridorOffset.x === 0 ? 0 : snapshot.corridorOffset.x,
+      y: snapshot.corridorOffset.y === 0 ? 0 : snapshot.corridorOffset.y,
+    }),
+  });
+}
+
 export async function createProductionJourneyRuntime(options: {
   readonly canvas: HTMLCanvasElement;
   readonly request: ThreeBackendRequest;
@@ -179,6 +214,7 @@ export async function createProductionJourneyRuntime(options: {
   readonly generation: number;
   readonly presentation: Readonly<ProductionPresentationPreferences>;
   readonly initialSnapshot: Readonly<JourneyRenderSnapshot>;
+  readonly initialRailSnapshot: Readonly<RailRenderSnapshot>;
 }): Promise<ProductionGfxRuntime> {
   const foundation = await createGfxFoundationRuntime({
     canvas: options.canvas,
@@ -187,6 +223,8 @@ export async function createProductionJourneyRuntime(options: {
     generation: options.generation,
     experience: "foundation",
     initialSnapshot: options.initialSnapshot,
+    initialRailSnapshot: options.initialRailSnapshot,
+    reducedMotion: options.presentation.reducedMotion,
   });
   try {
     const presentation = copyPresentationPreferences(options.presentation);
@@ -195,6 +233,7 @@ export async function createProductionJourneyRuntime(options: {
       foundation,
       options.canvas,
       options.initialSnapshot,
+      options.initialRailSnapshot,
       presentation,
     );
   } catch (error: unknown) {

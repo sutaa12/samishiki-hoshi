@@ -1,4 +1,5 @@
 import { BoxGeometry, Group, Mesh, Scene } from "three/webgpu";
+import type { RailScenePointSnapshot } from "../camera";
 import type { RenderLogicalResourceOwnership, RenderQualityProfile, VisualClock } from "../contracts";
 import {
   chunkOwnerId,
@@ -10,7 +11,11 @@ import {
   type GeneratedChunkPayload,
 } from "../chunks";
 import type { TslMaterialLibrary } from "../materials";
-import { WORLD_MATERIAL_FAMILIES } from "../../../world/v2";
+import {
+  STORY_CHUNK_IDS,
+  WORLD_MATERIAL_FAMILIES,
+  type StoryChunkId,
+} from "../../../world/v2";
 
 const UINT32_SCALE = 1 / 0x1_0000_0000;
 export const PRODUCTION_CHUNK_GPU_SLOTS = 4;
@@ -18,6 +23,16 @@ export const PRODUCTION_CHUNK_GPU_SLOTS = 4;
 export interface ProductionThreeChunkUploaderOptions {
   /** Keep lifecycle ownership active while a dedicated Hero feature supplies art. */
   readonly presentRuntimeObjects?: boolean;
+  /** Renderer-space Flow midpoint anchors copied from the canonical WorldPlan. */
+  readonly chunkAnchors?: Readonly<Partial<Record<StoryChunkId, Readonly<RailScenePointSnapshot>>>>;
+}
+
+export interface ThreeChunkSlotSnapshot {
+  readonly slotId: number;
+  readonly state: PoolSlotState;
+  readonly chunkId: StoryChunkId | null;
+  readonly active: boolean;
+  readonly position: Readonly<RailScenePointSnapshot>;
 }
 
 export interface ThreeChunkUploaderSnapshot {
@@ -33,6 +48,8 @@ export interface ThreeChunkUploaderSnapshot {
   readonly activeLeases: number;
   readonly ownedGeometries: number;
   readonly ownedObjects: number;
+  readonly activeChunkIds: readonly StoryChunkId[];
+  readonly chunkSlots: readonly Readonly<ThreeChunkSlotSnapshot>[];
 }
 
 interface Counters {
@@ -51,6 +68,7 @@ interface PoolSlot {
   readonly meshes: readonly Mesh[];
   state: PoolSlotState;
   ownerId: string | null;
+  chunkId: StoryChunkId | null;
   active: boolean;
 }
 
@@ -216,6 +234,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
   readonly #scene: Scene;
   readonly #materials: TslMaterialLibrary;
   readonly #presentRuntimeObjects: boolean;
+  readonly #chunkAnchors: Readonly<Partial<Record<StoryChunkId, Readonly<RailScenePointSnapshot>>>>;
   readonly #counters: Counters = {
     createdJobs: 0,
     cancelledJobs: 0,
@@ -238,6 +257,16 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
     this.#scene = scene;
     this.#materials = materials;
     this.#presentRuntimeObjects = options.presentRuntimeObjects ?? true;
+    const anchors: Partial<Record<StoryChunkId, Readonly<RailScenePointSnapshot>>> = {};
+    for (const chunkId of STORY_CHUNK_IDS) {
+      const anchor = options.chunkAnchors?.[chunkId];
+      if (!anchor) continue;
+      if (![anchor.x, anchor.y, anchor.z].every(Number.isFinite)) {
+        throw new RangeError(`Three chunk anchor ${chunkId} must be finite.`);
+      }
+      anchors[chunkId] = Object.freeze({ x: anchor.x, y: anchor.y, z: anchor.z });
+    }
+    this.#chunkAnchors = Object.freeze(anchors);
   }
 
   initializePool(): void {
@@ -263,6 +292,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
           meshes: Object.freeze(meshes),
           state: "prewarm",
           ownerId: null,
+          chunkId: null,
           active: true,
         };
         slots.push(slot);
@@ -319,6 +349,9 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
     if (!slot) throw new Error("The four prewarmed chunk GPU slots are occupied.");
     slot.state = "job";
     slot.ownerId = chunkOwnerId(token);
+    slot.chunkId = token.chunkId;
+    const anchor = this.#chunkAnchors[token.chunkId];
+    slot.group.position.set(anchor?.x ?? 0, anchor?.y ?? 0, anchor?.z ?? 0);
     slot.group.name = `gfx004:uploading:${token.chunkId}`;
     this.#counters.createdJobs += 1;
     return new ThreeChunkUploadJob(this, slot, payload, token).facade();
@@ -346,6 +379,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
     }
     slot.active = false;
     slot.ownerId = null;
+    slot.chunkId = null;
     slot.state = "free";
     slot.group.name = `gfx004:free:${slot.id}`;
     slot.group.visible = this.#presentRuntimeObjects;
@@ -382,6 +416,7 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
         slot.group.clear();
         slot.active = false;
         slot.ownerId = null;
+        slot.chunkId = null;
         slot.state = "free";
       }
       this.#geometry?.dispose();
@@ -397,6 +432,17 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
   }
 
   snapshot(): Readonly<ThreeChunkUploaderSnapshot> {
+    const chunkSlots = Object.freeze(this.#slots.map((slot) => Object.freeze({
+      slotId: slot.id,
+      state: slot.state,
+      chunkId: slot.chunkId,
+      active: slot.active,
+      position: Object.freeze({
+        x: slot.group.position.x,
+        y: slot.group.position.y,
+        z: slot.group.position.z,
+      }),
+    })));
     return Object.freeze({
       initialized: this.#initialized,
       runtimeStarted: this.#runtimeStarted,
@@ -410,6 +456,10 @@ export class ProductionThreeChunkUploader implements ChunkUploader {
       activeLeases: this.#counters.activeLeases,
       ownedGeometries: this.#geometry ? 1 : 0,
       ownedObjects: this.#slots.reduce((total, slot) => total + slot.meshes.length + 1, 0),
+      activeChunkIds: Object.freeze(chunkSlots
+        .filter((slot) => slot.state === "lease" && slot.active && slot.chunkId !== null)
+        .map((slot) => slot.chunkId!)),
+      chunkSlots,
     });
   }
 
