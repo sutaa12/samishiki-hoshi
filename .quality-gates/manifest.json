@@ -77,6 +77,22 @@
       "status": "pending"
     },
     {
+      "id": "QX-R3-005",
+      "name": "Continuous rail camera, resident chunk window, and phase blend",
+      "criteria": [
+        "The production camera follows canonical Flow state without feeding presentation into simulation or hashes",
+        "LIFE to EARTH records 120 actual frames with no black, monochrome, still, compile-growth, camera-jump, or residency failure",
+        "Reduced motion preserves forward travel and phase parameters blend across the centered eight-second window",
+        "Relevant production, journey, and rail browser gates pass with zero open S0-S2"
+      ],
+      "evidence": [
+        {"kind": "candidate", "artifact": ".quality-gates/receipts/qx-r3-005-review-ready.json", "description": "Exact implementation, build, unit, browser, and boundary binding awaiting independent review"},
+        {"kind": "artifact", "artifact": "docs/evidence/QX-R3-005.md", "description": "Human-readable QX-R3-005 results, diagnostic boundary, separate gates, and rollback"}
+      ],
+      "rollback_condition": "Any S0-S2 finding, deterministic drift, camera discontinuity, missing blend overlap, runtime compile growth, invalid frame, or chunk residency gap",
+      "status": "pending"
+    },
+    {
       "id": "R2-G7",
       "name": "Human integration and public release",
       "criteria": [
