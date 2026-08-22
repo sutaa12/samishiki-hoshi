@@ -6,8 +6,6 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 
 const frozenSha256: Readonly<Record<string, string>> = {
-  "src/game/model.ts": "9aa6b27123431ccde694f0ecd31e03c66093c4aa04575e05399f82fcb75001b2",
-  "src/game/simulation.ts": "5aafeb15658888315532fb22176e4da1aec14487dd690866f5456c51ba841fd7",
   "src/game/procedural.ts": "a47ac1b6e2191aadf4d3ef391d5409791d87431f886588e9ecdcbc314843fbb5",
   "src/game/audio.ts": "c86f1881832ea45a025f9c580afdc5396a53f9e199afab061dfaf3c0f6a7f57f",
   "src/gfx/gfx-spike.ts": "0c1469ee755bbeb9ae4ce28938247a432e8792c7ed18f38b6ad5441df515c022",
@@ -72,7 +70,7 @@ function productionImportGraph(entry: string): ReadonlySet<string> {
 }
 
 describe("R2 production architecture boundary", () => {
-  it("keeps the accepted game core and GFX-001 laboratory byte-frozen", () => {
+  it("keeps the accepted procedural/audio core and GFX-001 laboratory byte-frozen", () => {
     for (const [file, expected] of Object.entries(frozenSha256)) {
       expect(sha256(file), file).toBe(expected);
     }

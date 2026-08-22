@@ -13,9 +13,9 @@ import {
   phaseAt,
   shotAt,
   type JourneyPhase,
-  type JourneyState,
   type QualityLevel,
 } from "@/src/game/model";
+import type { RailFlightState } from "@/src/game/rail-flight-state";
 import {
   createJourneyState,
   advanceJourneyTo,
@@ -66,6 +66,15 @@ type HudSnapshot = {
   metrics: ProductionRendererMetrics | null;
   x: number;
   y: number;
+  score: number;
+  distanceMm: number;
+  forwardSpeedMmPerSecond: number;
+  lifeChain: number;
+  flowPurity: number;
+  mistakes: number;
+  assistLevel: number;
+  activeEncounterId: string | null;
+  lastGameplayEvent: string | null;
 };
 
 type ProductionRendererMetrics = {
@@ -105,7 +114,7 @@ const INITIAL_SETTINGS: Settings = {
 };
 
 function makeSnapshot(
-  state: JourneyState,
+  state: RailFlightState,
   metrics: ProductionRendererMetrics | null = null,
   p95FrameMs = 0,
   frameSampleCount = 0,
@@ -125,6 +134,15 @@ function makeSnapshot(
     metrics,
     x: state.position.x,
     y: state.position.y,
+    score: state.score,
+    distanceMm: state.distanceMm,
+    forwardSpeedMmPerSecond: state.forwardSpeedMmPerSecond,
+    lifeChain: state.lifeChain,
+    flowPurity: state.flowPurity,
+    mistakes: state.mistakes,
+    assistLevel: state.assistLevel,
+    activeEncounterId: state.activeEncounterId,
+    lastGameplayEvent: state.gameplayEvents.at(-1)?.kind ?? null,
   };
 }
 
@@ -189,7 +207,7 @@ export function GameClient() {
   const rendererRef = useRef<ProductionGfxRuntime | null>(null);
   const audioRef = useRef<JourneyAudio | null>(null);
   const seedRef = useRef(DEFAULT_SEED);
-  const stateRef = useRef<JourneyState>(createJourneyState({ seed: DEFAULT_SEED }));
+  const stateRef = useRef<RailFlightState>(createJourneyState({ seed: DEFAULT_SEED }));
   const settingsRef = useRef<Settings>(INITIAL_SETTINGS);
   const startedRef = useRef(false);
   const settingsOpenRef = useRef(false);
@@ -679,6 +697,15 @@ export function GameClient() {
       data-gameplay-hash={snapshot.hash}
       data-position-x={snapshot.x.toFixed(5)}
       data-position-y={snapshot.y.toFixed(5)}
+      data-score={snapshot.score}
+      data-distance-mm={snapshot.distanceMm}
+      data-forward-speed-mm-s={snapshot.forwardSpeedMmPerSecond}
+      data-life-chain={snapshot.lifeChain}
+      data-flow-purity={snapshot.flowPurity}
+      data-mistakes={snapshot.mistakes}
+      data-assist-level={snapshot.assistLevel}
+      data-active-encounter={snapshot.activeEncounterId ?? ""}
+      data-gameplay-event={snapshot.lastGameplayEvent ?? ""}
       data-finished={snapshot.finished ? "true" : "false"}
       data-answer-at={snapshot.answerAt === null ? "" : snapshot.answerAt.toFixed(2)}
       data-alien-state={alienState}
@@ -822,7 +849,7 @@ export function GameClient() {
             data-render-position-y={snapshot.metrics?.positionY.toFixed(5) ?? ""}
             data-render-pulses={snapshot.metrics?.pulseCount ?? 0}
           >
-            {snapshot.time.toFixed(2)}s · {snapshot.shot} · P95 {snapshot.p95FrameMs.toFixed(2)}ms · {snapshot.metrics?.drawCalls ?? 0} calls
+            {snapshot.time.toFixed(2)}s · {snapshot.shot} · DIST {(snapshot.distanceMm / 1_000).toFixed(1)}m · SCORE {snapshot.score} · CHAIN {snapshot.lifeChain} · {snapshot.lastGameplayEvent ?? "flow"} · P95 {snapshot.p95FrameMs.toFixed(2)}ms · {snapshot.metrics?.drawCalls ?? 0} calls
           </output>
         )}
       </div>

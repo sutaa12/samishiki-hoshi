@@ -18,6 +18,8 @@ describe("authored journey score", () => {
     expect(PHASE_WINDOWS).toEqual({ LIFE: [0, 36], EARTH: [36, 88], ASCENT: [88, 130], SOLITUDE: [130, 161], ANSWER: [161, 171], TWINKLE: [171, 180] });
     expect([phaseAt(0), phaseAt(36), phaseAt(88), phaseAt(130), phaseAt(161), phaseAt(171)]).toEqual(["LIFE", "EARTH", "ASCENT", "SOLITUDE", "ANSWER", "TWINKLE"]);
     expect(shotAt(180).id).toBe("S24");
+    expect(shotAt(2.999_999_999_999_994_2).id).toBe("S02");
+    expect(phaseAt(35.999_999_999_999_99)).toBe("EARTH");
   });
 });
 
@@ -43,9 +45,9 @@ describe("deterministic simulation", () => {
     expect(hashJourney(low)).toBe(hashJourney(high));
   });
 
-  it("automatically answers 2.5 seconds after the response window opens", () => {
+  it("does not create a normal-setting automatic answer", () => {
     const state = simulateJourney([], { seed: 3 });
-    expect(state.answerAt).toBe(168.5);
+    expect(state.answerAt).toBeNull();
   });
 
   it("does not reveal the formal title shot before 178 seconds", () => {

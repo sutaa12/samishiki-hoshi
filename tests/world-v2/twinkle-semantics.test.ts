@@ -176,13 +176,13 @@ describe("GFX-003 Twinkle semantic projection", () => {
     expect(semantics.map((entry) => entry.id)).toEqual(ledger.map((entry) => entry.id));
   });
 
-  it("resolves real rounded phase-boundary pulses to the immediately previous chunk only", () => {
+  it("resolves millisecond-rounded phase-boundary pulses to the canonical next chunk", () => {
     const cases = [
-      { at: 35.999_5, journeyTime: 36, phase: "LIFE", chunkId: "S06" },
-      { at: 87.999_5, journeyTime: 88, phase: "EARTH", chunkId: "S12" },
-      { at: 129.999_5, journeyTime: 130, phase: "ASCENT", chunkId: "S16" },
-      { at: 160.999_5, journeyTime: 161, phase: "SOLITUDE", chunkId: "S20" },
-      { at: 170.999_5, journeyTime: 171, phase: "ANSWER", chunkId: "S22" },
+      { at: 35.999_5, journeyTime: 36, phase: "EARTH", chunkId: "S07" },
+      { at: 87.999_5, journeyTime: 88, phase: "ASCENT", chunkId: "S13" },
+      { at: 129.999_5, journeyTime: 130, phase: "SOLITUDE", chunkId: "S17" },
+      { at: 160.999_5, journeyTime: 161, phase: "ANSWER", chunkId: "S21" },
+      { at: 170.999_5, journeyTime: 171, phase: "TWINKLE", chunkId: "S23" },
     ] as const;
 
     for (const boundary of cases) {

@@ -60,7 +60,7 @@ export const SHOT_TABLE: readonly TimelineShot[] = [
 export interface NormalizedInput {
   moveX: number;
   moveY: number;
-  /** A rising-edge input; one true value makes exactly one TwinkleSeed. */
+  /** Rising edge. It makes a TwinkleSeed only while a Life Node is in range. */
   pulse?: boolean;
 }
 
@@ -102,8 +102,14 @@ export const PHASE_WINDOWS: Readonly<Record<JourneyPhase, readonly [number, numb
   TWINKLE: [171, JOURNEY_SECONDS],
 };
 
+/** Keep authored boundaries identical to the v2 WorldPlan's integer-ms clock. */
+function authoredStoryTime(time: number): number {
+  const clamped = Math.max(0, Math.min(JOURNEY_SECONDS, time));
+  return Math.round(clamped * 1_000) / 1_000;
+}
+
 export function phaseAt(time: number): JourneyPhase {
-  const t = Math.max(0, Math.min(JOURNEY_SECONDS, time));
+  const t = authoredStoryTime(time);
   if (t < 36) return "LIFE";
   if (t < 88) return "EARTH";
   if (t < 130) return "ASCENT";
@@ -113,7 +119,7 @@ export function phaseAt(time: number): JourneyPhase {
 }
 
 export function shotAt(time: number): TimelineShot {
-  const t = Math.max(0, Math.min(JOURNEY_SECONDS, time));
+  const t = authoredStoryTime(time);
   return SHOT_TABLE.find((shot) => t >= shot.start && (t < shot.end || shot.id === "S24")) ?? SHOT_TABLE[23];
 }
 

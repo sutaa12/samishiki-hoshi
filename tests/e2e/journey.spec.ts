@@ -166,7 +166,7 @@ test("S20 keeps the unknown craft as a peripheral silhouette", async ({ page }, 
   expect(errors).toEqual([]);
 });
 
-test("final journey checkpoint reaches the exact title and automatic answer", async ({ page }, testInfo) => {
+test("final journey checkpoint reaches the exact title without an automatic answer", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "desktop acceptance");
   const errors = captureRuntimeErrors(page);
   // The simulation's full 180-second fixed-step path is covered by unit and
@@ -178,7 +178,7 @@ test("final journey checkpoint reaches the exact title and automatic answer", as
   await page.getByRole("button", { name: "旅をはじめる" }).click();
   await expect(shell).toHaveAttribute("data-finished", "true", { timeout: 12_000 });
   await expect(shell).toHaveAttribute("data-shot", "S24");
-  await expect(shell).toHaveAttribute("data-answer-at", "168.50");
+  await expect(shell).toHaveAttribute("data-answer-at", "");
   await expect(page.getByRole("heading", { name: "さみしき星のまたたきよ" })).toBeVisible();
   await expect(page.locator(".journey-progress, .corner-meta, .settings-button")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "同じ星を飛ぶ" })).toBeVisible();
