@@ -382,6 +382,28 @@ restart checks. QX-R3-001 is therefore accepted for its automated scope and
 QX-R3-002 may branch from its implementation commit; Main, Sites, human,
 rights, hardware, and contest gates remain unchanged.
 
+## D-027 — Rail distance owns encounters while story time owns the 180-second score
+
+QX-R3-002 adds `RailFlightState` without moving authored phase timing into the
+renderer or WorldPlan. Story time continues to determine LIFE through TWINKLE;
+integer `distanceMm` plus integer corridor offsets determine Gate, Obstacle, and
+Life Node proximity. All outcomes are one-shot immutable events and are included
+in the gameplay hash.
+
+Pulse attempts use a 700ms cooldown and create Twinkle Seeds only inside a Life
+Node's 3D range. Normal play no longer creates the 168.5-second automatic Answer.
+The accessibility auto-give option is retained and now waits for a valid nearby
+node instead of firing blindly. Three consecutive misses widen only the next
+Gate; no state can end the journey early.
+
+The R3 graybox encounter list is an explicit temporary fixture, not a level
+generator. QX-R3-004 owns deterministic WorldPlan encounter generation. The
+3-second recorder failure also established that authored phase/shot selection
+must use the same rounded integer-ms clock as WorldPlan validation.
+
+QX-R3-002 remains review-ready until independent acceptance. Main, Sites,
+human, rights, reference hardware, and contest gates are unchanged.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

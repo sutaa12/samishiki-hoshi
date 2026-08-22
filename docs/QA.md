@@ -143,7 +143,28 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
   `.quality-gates/receipts/qx-r3-001-review-ready.json`.
 - Status is `accepted_automated_scope`, not release accepted. Main,
   deployment of this source, human play, rights, reference hardware, and
-  contest submission remain pending. QX-R3-002 is not started.
+  contest submission remain pending. At this QX-R3-001 checkpoint QX-R3-002
+  had not started; its later status is recorded below.
+
+## 2026-08-22 QX-R3-002 review-ready checkpoint
+
+- Implementation `651d085861ca2ddf05fb850b7c447068d3e0c763` adds
+  integer-mm RailFlightState, deterministic Gate/Obstacle/Life Node outcomes,
+  immutable gameplay events, 700ms Pulse cooldown, node-only Seeds, three-miss
+  next-Gate assist, and no game over.
+- Normal automatic Answer is removed. Opt-in auto-give remains functional by
+  waiting until a Life Node is within valid 3D range.
+- Full verification passes 39/39 files, 726/726 tests, and production build.
+  Fresh browser results are Rail 4/4, Production 4/4, Journey 8 pass with 6
+  intentional project skips, and Graybox recorder 1/1.
+- The 34.44-second 1280×720 WebM and complete 344-file source manifest are
+  bound in `docs/evidence/QX-R3-002.md` and
+  `.quality-gates/receipts/qx-r3-002-review-ready.json`.
+- The recorder exposed and the implementation fixed a real 3-second boundary
+  mismatch by aligning authored phase/shot selection with WorldPlan integer-ms
+  semantics.
+- Status is `review_ready`. Independent review, QX-R3-003, Main, Sites, human,
+  rights, reference hardware, and contest gates remain pending.
 
 ## Release record
 

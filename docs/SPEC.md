@@ -52,7 +52,12 @@ The runtime exposes the exact 24 authored shot boundaries from 0–3 through 178
 
 - Reduced motion lowers camera sway, parallax amplitude, streak velocity, and transition displacement without changing phase time.
 - High contrast adds luminance separation and stronger silhouettes; color meaning is duplicated by shape and motion.
-- Auto-give periodically emits life pulses. Wide flow reduces steering pressure. Mute never blocks progress.
+- Auto-give waits for a nearby Life Node and emits a valid life pulse. Wide flow reduces steering pressure. Mute never blocks progress.
+- Rail flight advances automatically in integer millimetres. Gate, obstacle,
+  and Life Node outcomes use deterministic 3D rail/corridor distance and fire
+  once per encounter.
+- Pulse cooldown is 0.7 seconds. Empty-space pulses do not create Twinkle Seeds,
+  and normal play does not synthesize an automatic Answer.
 - UI controls are keyboard-focusable, have visible focus states, and remain usable at 320×568, 390×844, tablet, and desktop widths.
 - Audio starts only after user input and is synthesized with Web Audio. The experience remains fully understandable when muted.
 

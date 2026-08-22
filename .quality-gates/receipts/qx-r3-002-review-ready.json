@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-002",
+  "status": "review_ready",
+  "recorded_at": "2026-08-22T17:10:00+09:00",
+  "implementation": {
+    "branch": "codex/qx-r3-002-rail-flight-state",
+    "base_commit": "5b0650e1d9cdec2eef28291d6b830903e19b7751",
+    "commit": "651d085861ca2ddf05fb850b7c447068d3e0c763",
+    "tree": "0ae3da765cee4602d61b941a622347be1526f696",
+    "all_tracked_file_manifest": ".quality-gates/qx-r3-002-651d085-all-tracked-files.sha256",
+    "all_tracked_file_count": 344,
+    "manifest_sha256": "7e65d369443a272b9bba18c49f36d0124a3e423cf4496955ef1bba948ea79256"
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "archive": ".quality-gates/qx-r3-002-651d085-dist.tar",
+    "archive_sha256": "114a4b6a275b8a83d593f44f4a27aff6bed767a7eeda0a098fe5ef93e67ccdcb",
+    "archive_bytes": 8107520,
+    "archive_entries": 128,
+    "apple_double_entries": 0,
+    "bundle_warning": "One or more minified chunks exceed 500 kB; reference-hardware acceptance remains separate."
+  },
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": {"files_passed": 39, "tests_passed": 726, "failed": 0},
+    "production_build": "passed",
+    "rail_browser": {
+      "report": ".quality-gates/qx-r3-002-rail-playwright.json",
+      "sha256": "3097de24408140904735741fdced41d48dd5d59dcfa8b306487d59d32dee304d",
+      "expected": 4,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "production_browser": {
+      "report": ".quality-gates/qx-r3-002-production-playwright.json",
+      "sha256": "8ab36d5ead18ccb56cd4b41a3912f009108196e0681e1435570d15979ac660c1",
+      "expected": 4,
+      "unexpected": 0,
+      "flaky": 0,
+      "checkpoint_hash_both_backends": "2a15518f"
+    },
+    "journey_browser": {
+      "report": ".quality-gates/qx-r3-002-journey-playwright.json",
+      "sha256": "955a79c73ab06a49f73c9e2632c8dd010e212bab123c8ab8744868ff2a338766",
+      "passed": 8,
+      "skipped_by_project": 6,
+      "failed": 0
+    },
+    "graybox_video": {
+      "report": ".quality-gates/qx-r3-002-graybox-playwright.json",
+      "report_sha256": "0c8316e819ac2539da96122d52f17902212770767c6ac5b3853317108bc7c7ba",
+      "video": ".quality-gates/qx-r3-002-graybox-30s.webm",
+      "video_sha256": "f0453f686b91a3c4b218d1567155dc5a9fa63ea38dd7201905062cd298f1c7ad",
+      "duration_seconds": 34.44,
+      "bytes": 1067780,
+      "checkpoint_png": ".quality-gates/screenshots/qx-r3-002-graybox-20s.png",
+      "checkpoint_sha256": "bb00d23d59cc9b0d8241ac2e014977a220eca92bc508021a48db0bb9a45bce7f"
+    }
+  },
+  "acceptance_scenarios": {
+    "no_input_score_and_seed_stay_zero": true,
+    "gate_center_passes_once": true,
+    "gate_outside_misses_once": true,
+    "obstacle_hit_slows_then_recovers": true,
+    "only_nearby_life_node_creates_seed": true,
+    "pulse_cooldown_ms": 700,
+    "same_seed_and_timed_inputs_match_complete_hash": true,
+    "three_misses_widen_only_next_gate": true,
+    "normal_automatic_answer_removed": true,
+    "auto_give_waits_for_nearby_life_node": true,
+    "game_over_absent": true,
+    "millisecond_story_boundaries_match_world_plan": true
+  },
+  "dependency_audit": {
+    "report": ".quality-gates/qx-r3-002-npm-audit.json",
+    "sha256": "60dca32ceb1ccc97726399ea4da334e8e25bcc45584cabc504399f6d511da9c4",
+    "low": 2,
+    "high": 15,
+    "critical": 0,
+    "action": "reported separately; no automatic npm audit fix or dependency rewrite"
+  },
+  "separate_gates": {
+    "independent_review": "PENDING",
+    "world_plan_encounter_generation_qx_r3_004": "PENDING",
+    "main_integration": "PENDING",
+    "public_deployment_of_this_source": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  },
+  "rollback": {
+    "branch_base": "5b0650e1d9cdec2eef28291d6b830903e19b7751",
+    "main_remains": "6c010ee228ace28e655ceeba764513806505b03e",
+    "public_sites_version_remains": 2,
+    "condition": "Any open S0/S1/S2, nondeterministic event/hash, arbitrary-pulse Seed, automatic normal Answer, broken assistance, runtime boundary error, or regression blocks QX-R3-003."
+  }
+}
