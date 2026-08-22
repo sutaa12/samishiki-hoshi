@@ -70,7 +70,8 @@
       ],
       "evidence": [
         {"kind": "boundary", "artifact": "docs/HUMAN_ACCEPTANCE_R2_G7.md", "description": "Exact candidate identity, human review checklist, decision form, release authorization boundary, and rollback instructions"},
-        {"kind": "authorization", "artifact": ".quality-gates/receipts/r2-g7-human-test-authorization.json", "description": "Explicit reversible public test-play deployment authorization; no Main, final release, rights, hardware, or contest acceptance"}
+        {"kind": "authorization", "artifact": ".quality-gates/receipts/r2-g7-human-test-authorization.json", "description": "Explicit reversible public test-play deployment authorization; no Main, final release, rights, hardware, or contest acceptance"},
+        {"kind": "deployment", "artifact": ".quality-gates/receipts/r2-g7-public-human-test-deployment.json", "description": "Exact Sites v2, public URL, anonymous browser smoke, source equivalence, archive, and rollback receipt for human testing"}
       ],
       "rollback_condition": "Human Reject, missing rights attestation, unavailable anonymous URL, or failed primary interaction",
       "status": "pending"
@@ -81,7 +82,7 @@
     {"id":"R-HUMAN","description":"Contest consent, identity, rights attestation, Seoul attendance, and final submission require the responsible human","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Tracked as HUMAN_PENDING in docs/QA.md and Notion; not part of automated public deployment"}]},
     {"id":"R-HARDWARE","description":"Reference-device performance acceptance cannot be proven on the build host","severity":"S3","status":"accepted","evidence":[{"kind":"boundary","description":"Automated telemetry is collected; final reference hardware remains HARDWARE_PENDING"}]},
     {"id":"R-INDEPENDENT","description":"Current GFX-004/GFX-005/GFX-006, Hero R33, and combined R2-G6 automated scopes have exact independent source and artifact review","severity":"S3","status":"mitigated","evidence":[{"kind":"accepted","artifact":".quality-gates/receipts/r2-g6-current-review.json","description":"Exact current combined acceptance including preserved and adjudicated dissent"}]},
-    {"id":"R-INTEGRATION-RELEASE","description":"The v2 Hero presentation is intentionally not integrated into Main and Sites deployment is frozen until explicit human Merge, Partial Merge, or Reject","severity":"S3","status":"open","evidence":[{"kind":"boundary","description":"docs/SPEC.md, docs/GFX_FOUNDATION_DESIGN.md, and D-005 require the Human Acceptance Owner decision"}]}
+    {"id":"R-INTEGRATION-RELEASE","description":"The v2 Hero presentation is publicly deployed only as a reversible human-test candidate; Main integration and final release remain frozen until explicit human Merge, Partial Merge, or Reject","severity":"S3","status":"open","evidence":[{"kind":"deployment","artifact":".quality-gates/receipts/r2-g7-public-human-test-deployment.json","description":"Sites v2 is smoke-tested for human review while D-005 and final release gates remain open"}]}
   ],
   "project": "さみしき星のまたたきよ",
   "release": {
@@ -94,6 +95,13 @@
       "status": "pending"
     },
     "url": null
+  },
+  "human_test_deployment": {
+    "status": "available",
+    "url": "https://samishiki-hoshi-seoul.narinarinari.chatgpt.site",
+    "version_number": 2,
+    "receipt": ".quality-gates/receipts/r2-g7-public-human-test-deployment.json",
+    "final_release_accepted": false
   },
   "rollback": {
     "artifact": null,

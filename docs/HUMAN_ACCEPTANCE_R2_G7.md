@@ -1,13 +1,26 @@
 # R2-G7 human acceptance packet
 
 This packet is the resume point for the Human Acceptance Owner. It does not
-record acceptance by itself and does not authorize Main integration, Sites
-deployment, or contest submission.
+record acceptance by itself and does not authorize Main integration, final
+release acceptance, rights acceptance, or contest submission.
 
 The Human Acceptance Owner subsequently authorized a reversible public Sites
 deployment for test play. That authorization changes only test distribution;
 the integration, visual/play acceptance, rights, hardware, and contest gates
 below remain undecided.
+
+## Public human-test build
+
+- URL: <https://samishiki-hoshi-seoul.narinarinari.chatgpt.site>
+- Access: public and anonymous; no account or sign-in is required.
+- Sites version: 2
+- Browser smoke: passed for entry, start, W/ArrowRight steering inputs, Space
+  give-life input, and `✦ 000` to `✦ 001`; browser errors: 0.
+- Receipt: `.quality-gates/receipts/r2-g7-public-human-test-deployment.json`
+
+Controls are mouse/touch/WASD/arrows to steer and click/tap/Space to give life.
+Use the normal entry route for the full 180-second journey. This public URL is
+the test candidate, not a recorded human acceptance or final release decision.
 
 ## Candidate identity
 
@@ -45,7 +58,7 @@ and touch.
       keyboard focus, and color-independent cues remain usable.
 - [ ] The overall visual quality and pacing are acceptable for public release.
 
-For local human review, use the accepted worktree and start the existing app:
+For fallback local review, use the accepted worktree and start the existing app:
 
 ```bash
 cd /Users/snari/Documents/GitProject/LonelyStar-graphics-photoreal-megademo
@@ -85,12 +98,12 @@ delivery steps:
 
 1. Integrate the approved scope into Main.
 2. Re-run complete deterministic, accessibility, build, and browser regression.
-3. Package and deploy the exact validated build to the existing public Sites
-   project.
+3. Revalidate the public test candidate or package the approved integrated
+   source as a new exact Sites version.
 4. Verify anonymous reachability, shipped assets, runtime readiness, and one
-   real steer/pulse interaction.
-5. Bind the deployed version and URL to the accepted source/build hashes and
-   update repository and Notion release receipts.
+   real steer/pulse interaction again.
+5. Bind the approved deployed version and URL to the accepted source/build
+   hashes and update repository and Notion final-release receipts.
 
 ## Rollback
 

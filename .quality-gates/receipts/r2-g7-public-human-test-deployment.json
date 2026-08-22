@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "receipt_id": "r2-g7-public-human-test-deployment-2026-08-22",
+  "recorded_at": "2026-08-22T14:22:31+09:00",
+  "scope": "reversible public human-test deployment only",
+  "source": {
+    "graphics_branch": "graphics-photoreal-megademo",
+    "graphics_evidence_commit": "8a6c991d0ccb6f101b21cb35b93bb1483f8e49b3",
+    "accepted_implementation_commit": "2741af51e277bdaa76ac97ee8b207bbfb1683cee",
+    "accepted_implementation_tree": "42e3e57e03915bf75770156951f905cc4949ffc9",
+    "reviewed_evidence_commit": "ba38e664cf6245a45cfa4eeaf1002de8036e2045",
+    "deployment_source_commit": "b5d17a92d4aab8822b1cbfe92aa98c1ca9b1b0f5",
+    "deployment_source_tree": "796a528385f9478ea8771589dbc8fc10bce8001a",
+    "deployment_source_tracked_files": 165,
+    "runtime_source_mismatches": 0,
+    "public_source_branch_url": "https://github.com/sutaa12/samishiki-hoshi/tree/sites-human-test"
+  },
+  "build": {
+    "production_build": "passed",
+    "routes": [
+      "/",
+      "/gfx-contract",
+      "/gfx-foundation",
+      "/gfx-hero-a",
+      "/gfx-hero-b",
+      "/gfx-hero-c",
+      "/gfx-spike"
+    ],
+    "local_archive_sha256": "1ec293f9811b6861462c9c28c30b176bedad455d0a7c8cdbf5682c1941162641",
+    "archive_storage_content_hash": "sha256:ffd5073bf2987ca0b6260ab5928000820f58c99347746eb86915cdeb77deac58",
+    "archive_storage_size_bytes": 8755200,
+    "archive_storage_file_count": 110
+  },
+  "sites": {
+    "project_id": "appgprj_6a837fe8fec08191aeb514bf721a0634",
+    "access_mode": "public",
+    "version_id": "appgprj_6a837fe8fec08191aeb514bf721a0634~appgver_a183e64a4d4c81918c2e6660d3eb77fc",
+    "version_number": 2,
+    "deployment_id": "appgdep_6a89317781688191b26a619f40082cfc",
+    "provider_deployment_id": "site---6a837fe8fec08191aeb514bf721a0634",
+    "deployment_status": "succeeded",
+    "deployed_at": "2026-08-22T05:20:07.690952+00:00",
+    "public_url": "https://samishiki-hoshi-seoul.narinarinari.chatgpt.site"
+  },
+  "browser_smoke": {
+    "status": "passed",
+    "anonymous_entry": true,
+    "page_title": "さみしき星のまたたきよ｜TWINKLE, O LONELY STAR",
+    "start_control": "旅をはじめる",
+    "steer_inputs_exercised": [
+      "W",
+      "ArrowRight"
+    ],
+    "give_life_input": "Space",
+    "give_life_counter_before": "✦ 000",
+    "give_life_counter_after": "✦ 001",
+    "status_after_pulse": "生命の光を1回わたしました。移動操作も続けられます。",
+    "browser_error_count": 0
+  },
+  "rollback": {
+    "prior_version_id": "appgprj_6a837fe8fec08191aeb514bf721a0634~appgver_df7b149d36c88191bc71daa334ae9cbc",
+    "prior_version_number": 1,
+    "prior_source_commit": "6c010ee228ace28e655ceeba764513806505b03e"
+  },
+  "still_pending": [
+    "Human Acceptance Owner Merge, Partial Merge, or Reject decision",
+    "final human visual and full 180-second play acceptance",
+    "public-use and contest-rights acceptance",
+    "reference-hardware acceptance",
+    "Main integration and regression acceptance",
+    "contest submission"
+  ]
+}

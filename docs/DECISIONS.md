@@ -335,6 +335,15 @@ anonymous, must support a real steer and give-life interaction, and must remain
 bound to its exact Git source and Sites version. Any failed smoke gate or human
 stop request rolls back to the prior Sites version.
 
+The authorized deployment completed as public Sites version 2 at
+<https://samishiki-hoshi-seoul.narinarinari.chatgpt.site>. Anonymous browser
+smoke passed start, steering-input, and give-life paths with zero browser
+errors; the pulse advanced `✦ 000` to `✦ 001`. The exact source/archive/Sites
+binding and version-1 rollback target are recorded in
+`.quality-gates/receipts/r2-g7-public-human-test-deployment.json`. This fact
+does not change the still-pending integration, full human acceptance, rights,
+hardware, final release, or contest gates.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.
