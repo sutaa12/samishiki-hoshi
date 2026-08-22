@@ -104,12 +104,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4764,
+                  "duration": 5218,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:39:31.919Z",
+                  "startTime": "2026-08-22T09:06:45.510Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -138,12 +138,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 10867,
+                  "duration": 10915,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:39:36.792Z",
+                  "startTime": "2026-08-22T09:06:50.853Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -172,18 +172,18 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 40455,
+                  "duration": 40520,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:39:47.665Z",
+                  "startTime": "2026-08-22T09:07:01.773Z",
                   "annotations": [],
                   "attachments": [
                     {
                       "name": "visual-performance-samples",
                       "contentType": "application/json",
-                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNDY0LAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxMjUsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNTE1LAogICAgInRyaWFuZ2xlcyI6IDc0LAogICAgInA5NUZyYW1lTXMiOiAxMC4xLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQU5TV0VSIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogNTAsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJUV0lOS0xFIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogMzgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQ0LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogMzY0LAogICAgInRyaWFuZ2xlcyI6IDE1NywKICAgICJwOTVGcmFtZU1zIjogOS45LAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiAzOTQsCiAgICAidHJpYW5nbGVzIjogMTQ1LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIkFTQ0VOVCIsCiAgICAiZHJhd0NhbGxzIjogMzY0LAogICAgInRyaWFuZ2xlcyI6IDk3LAogICAgInA5NUZyYW1lTXMiOiAxMCwKICAgICJmcmFtZVNhbXBsZXMiOiAxNDIsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogMzY0LAogICAgInRyaWFuZ2xlcyI6IDczLAogICAgInA5NUZyYW1lTXMiOiA5LjksCiAgICAiZnJhbWVTYW1wbGVzIjogMTQyLAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiQU5TV0VSIiwKICAgICJkcmF3Q2FsbHMiOiAzNjQsCiAgICAidHJpYW5nbGVzIjogNDksCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQyLAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiVFdJTktMRSIsCiAgICAiZHJhd0NhbGxzIjogMzY0LAogICAgInRyaWFuZ2xlcyI6IDM3LAogICAgInA5NUZyYW1lTXMiOiA5LjgsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU5LAogICAgIndhcm11cE1zIjogMAogIH0KXQ=="
+                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNDY0LAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxMjUsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDc0LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQU5TV0VSIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogNTAsCiAgICAicDk1RnJhbWVNcyI6IDEwLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiVFdJTktMRSIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDM4LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1OSwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIkxJRkUiLAogICAgImRyYXdDYWxscyI6IDM5NCwKICAgICJ0cmlhbmdsZXMiOiAxNTcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiRUFSVEgiLAogICAgImRyYXdDYWxscyI6IDM2NCwKICAgICJ0cmlhbmdsZXMiOiAxNDUsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiAzNjQsCiAgICAidHJpYW5nbGVzIjogOTcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQyLAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiU09MSVRVREUiLAogICAgImRyYXdDYWxscyI6IDM5NCwKICAgICJ0cmlhbmdsZXMiOiA3MywKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJBTlNXRVIiLAogICAgImRyYXdDYWxscyI6IDM2NCwKICAgICJ0cmlhbmdsZXMiOiA0OSwKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxNDIsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJUV0lOS0xFIiwKICAgICJkcmF3Q2FsbHMiOiAzNjQsCiAgICAidHJpYW5nbGVzIjogMzcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQ0LAogICAgIndhcm11cE1zIjogMAogIH0KXQ=="
                     }
                   ]
                 }
@@ -212,12 +212,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3032,
+                  "duration": 3003,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:40:28.125Z",
+                  "startTime": "2026-08-22T09:07:42.299Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -246,12 +246,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4387,
+                  "duration": 4492,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:40:31.163Z",
+                  "startTime": "2026-08-22T09:07:45.308Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -290,12 +290,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 58,
+                  "duration": 66,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:40:35.556Z",
+                  "startTime": "2026-08-22T09:07:49.806Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -334,12 +334,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4339,
+                  "duration": 4421,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:40:35.619Z",
+                  "startTime": "2026-08-22T09:07:49.876Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -378,12 +378,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 134,
+                  "duration": 136,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:40:40.450Z",
+                  "startTime": "2026-08-22T09:07:54.815Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -432,12 +432,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 86,
+                  "duration": 87,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:40:40.691Z",
+                  "startTime": "2026-08-22T09:07:55.058Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -476,18 +476,18 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 20409,
+                  "duration": 20525,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:40:40.784Z",
+                  "startTime": "2026-08-22T09:07:55.152Z",
                   "annotations": [],
                   "attachments": [
                     {
                       "name": "visual-performance-samples",
                       "contentType": "application/json",
-                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNDg1LAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxMzIsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMC4xLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQyLAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNTE1LAogICAgInRyaWFuZ2xlcyI6IDc0LAogICAgInA5NUZyYW1lTXMiOiAxMC4xLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQU5TV0VSIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogNTAsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJUV0lOS0xFIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogMzgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQ0LAogICAgIndhcm11cE1zIjogMAogIH0KXQ=="
+                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNDgyLAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxMzEsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMCwKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkFTQ0VOVCIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDk4LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiU09MSVRVREUiLAogICAgImRyYXdDYWxscyI6IDU2MCwKICAgICJ0cmlhbmdsZXMiOiA3NCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkFOU1dFUiIsCiAgICAiZHJhd0NhbGxzIjogNTE1LAogICAgInRyaWFuZ2xlcyI6IDUwLAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiVFdJTktMRSIsCiAgICAiZHJhd0NhbGxzIjogNTE1LAogICAgInRyaWFuZ2xlcyI6IDM4LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE1OSwKICAgICJ3YXJtdXBNcyI6IDAKICB9Cl0="
                     }
                   ]
                 }
@@ -526,12 +526,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 80,
+                  "duration": 84,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:41:01.198Z",
+                  "startTime": "2026-08-22T09:08:15.683Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -580,12 +580,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 79,
+                  "duration": 89,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:41:01.284Z",
+                  "startTime": "2026-08-22T09:08:15.773Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -624,12 +624,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3347,
+                  "duration": 3142,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:41:01.368Z",
+                  "startTime": "2026-08-22T09:08:15.867Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -668,12 +668,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 84,
+                  "duration": 87,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T08:41:04.720Z",
+                  "startTime": "2026-08-22T09:08:19.015Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -701,8 +701,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-08-22T08:39:25.488Z",
-    "duration": 99425.172,
+    "startTime": "2026-08-22T09:06:39.068Z",
+    "duration": 100135.71800000001,
     "expected": 8,
     "skipped": 6,
     "unexpected": 0,

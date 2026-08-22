@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "qx-r3-002-d8-fresh-acceptance-2026-08-22",
+  "mode": "isolated-artifact-and-source-blind",
+  "candidateLabel": "D8",
+  "reviewer": "qx_r3_002_fresh_acceptance",
+  "reviewedEvidenceHead": "cd59cccf268015f06700da2f603ece4da3e23333",
+  "implementationCommit": "4658c1871b4df823aa29886cd3828a2bb2b17307",
+  "implementationTree": "8275b51fe13324956dcb359be32f8ac16f3033a4",
+  "verdict": "REJECT",
+  "scores": {
+    "correctnessAndDeterminism": 2,
+    "taskSemantics": 2,
+    "architecture": 3,
+    "accessibilityAndInput": 3,
+    "evidenceAndReproducibility": 2
+  },
+  "severityCounts": {"S0": 0, "S1": 1, "S2": 1, "S3": 0},
+  "findings": [
+    {
+      "id": "D8-SLOWDOWN-PARTITION-INVARIANCE",
+      "severity": "S1",
+      "status": "remediated_in_99f348c",
+      "observation": "From the same reachable slowdown state, one one-second slice ended at 7050 mm while sixty canonical slices ended at 9075 mm because slowdown expiry was applied only at the slice endpoint."
+    },
+    {
+      "id": "D8-COOLDOWN-EARLY-EXPIRY",
+      "severity": "S2",
+      "status": "remediated_in_99f348c",
+      "observation": "Rounding every elapsed slice to integer milliseconds let a second valid-node Pulse at 690 ms pass the nominal 700 ms cooldown and create a prohibited TwinkleSeed."
+    }
+  ],
+  "reviewerChecks": {
+    "completeTrackedManifest": "355/355 matched",
+    "allSuppliedArtifactHashes": "matched",
+    "buildArchive": "8107520 bytes, 128 entries, zero AppleDouble",
+    "focusedTests": "43/43 passed",
+    "fullVitest": "39 files / 728 tests passed",
+    "typecheckAndLint": "passed",
+    "otherTaskSemantics": "3D one-shot outcomes, node outcomes, Answer, assistance, no game-over, input and accessibility paths verified"
+  },
+  "rollback": "QX-R3-003, Main, and Sites remained blocked. Remediation continued only on the isolated QX-R3-002 branch.",
+  "externalGatesUnchanged": ["HUMAN_PENDING_PLAY_VISUAL", "HUMAN_PENDING_RIGHTS", "HARDWARE_PENDING", "HUMAN_PENDING_MAIN", "HUMAN_PENDING_SITES", "HUMAN_PENDING_CONTEST"]
+}
