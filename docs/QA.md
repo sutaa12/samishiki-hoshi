@@ -136,10 +136,12 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
   `aff8f8ca8580f3226c5216cc2482eeaf8e50d7f8bbe8467d29c7a6b82ae4a980`.
 - Blind review A7 rejected the previous source with S2=3 and S3=2. The reject
   receipt is preserved; all S2 findings are remediated, while the disclosed S3
-  remount limitation remains. Fresh independent review is pending.
+  remount limitation remains. Fresh blind candidate B4 accepted the task at
+  4/4/3/4/3 with S0=0, S1=0, S2=0, S3=2 after independently repeating the
+  complete source, full verify, browser, and preserved-build checks.
 - Exact bindings: `docs/evidence/QX-R3-001.md` and
   `.quality-gates/receipts/qx-r3-001-review-ready.json`.
-- Status is `review_ready_after_remediation`, not release accepted. Fresh independent review, Main,
+- Status is `accepted_automated_scope`, not release accepted. Main,
   deployment of this source, human play, rights, reference hardware, and
   contest submission remain pending. QX-R3-002 is not started.
 

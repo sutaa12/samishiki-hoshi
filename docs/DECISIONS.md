@@ -374,6 +374,14 @@ The ten restart cycles remain explicitly scoped to state reset on one mounted
 renderer; they are not evidence for ten renderer remounts. Promotion still
 requires a fresh blind review with no open S0/S1/S2.
 
+Fresh blind candidate B4 accepted implementation `aef8878` at 4/4/3/4/3 with
+S0=0, S1=0, S2=0, S3=2. The reviewer directly served the exact preserved build
+to close the development-server evidence gap and independently reproduced the
+complete-source, import, backend, determinism, accessibility, ANSWER, and
+restart checks. QX-R3-001 is therefore accepted for its automated scope and
+QX-R3-002 may branch from its implementation commit; Main, Sites, human,
+rights, hardware, and contest gates remain unchanged.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

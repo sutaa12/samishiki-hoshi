@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "qx-r3-001-b4-blind-review-2026-08-22",
+  "mode": "isolated-source-artifact-and-preserved-build-blind",
+  "candidateLabel": "B4",
+  "reviewer": "qx_r3_001_fresh_blind_review",
+  "implementationCommit": "aef88784556a171746ca862d4c930d4bc35ef824",
+  "implementationTree": "f1e12372134e8f3a19eca0b6b0f81dfbcff09128",
+  "reviewedEvidenceHead": "bb32f38e37cca3011b80a8ebbaa5d6feb163ac63",
+  "verdict": "ACCEPT",
+  "scores": {
+    "correctnessAndDeterminism": 4,
+    "architectureAndImportBoundary": 4,
+    "lifecycleAndOwnership": 3,
+    "accessibilityAndInput": 4,
+    "evidenceAndReproducibility": 3
+  },
+  "severityCounts": {"S0": 0, "S1": 0, "S2": 0, "S3": 2},
+  "independentChecks": {
+    "completeSourceManifest": "333 / 333 paths, modes, sizes, and SHA-256 values matched; 0 mismatches",
+    "verify": "typecheck, lint, 38 / 38 files, 719 / 719 tests, and production build passed",
+    "compilerAstImportGraph": "58 modules; Production/Foundation present; src/game/world.ts and src/game/visual-assets.ts absent",
+    "freshProductionBrowser": "4 passed; 0 failed or flaky",
+    "freshJourneyBrowser": "8 passed; 6 intentional project skips; 0 failed",
+    "preservedBuildSmoke": "exact fde1f025 build tar served through vinext start and passed backend, state/hash, presentation, answer, input, and restart checks",
+    "backendCheckpointHash": "f8b1e67c on both actual webgl2 and actual webgpu",
+    "presentationInvariantHash": "6a269dbc before and after high-static reduced motion plus high-contrast canvas filter",
+    "answerLatch": "game and renderer answerAt both 166.45",
+    "restartPlateau": "21 programs / 3 geometries / 2 GPU owners / 2 logical owners / 4 pool slots / 1 resize listener / 0 subscribers / 0 browser errors"
+  },
+  "s3Findings": [
+    {
+      "id": "B4-PRESERVED-BUILD-STANDARD-COMMAND",
+      "status": "proof_gap_independently_closed",
+      "observation": "The stock Playwright command serves development output rather than the preserved tar. The reviewer extracted and served the exact preserved build directly and repeated the acceptance smoke successfully."
+    },
+    {
+      "id": "B4-RENDERER-REMOUNT-SCOPE",
+      "status": "disclosed_limit",
+      "observation": "The required ten-restart path retains one mounted renderer and does not prove renderer-remount, texture/render-target, or heap stability."
+    }
+  ],
+  "buildReproducibilityNote": "A fresh isolated build passed but was not byte-identical because generated build IDs and chunk names changed. The exact stored build was intact and passed direct production-server testing.",
+  "acceptedScope": "QX-R3-001 automated task scope only",
+  "separatePendingGates": ["MAIN_INTEGRATION", "SITES_DEPLOYMENT_OF_THIS_SOURCE", "HUMAN_PLAY_ACCEPTANCE", "RIGHTS_ACCEPTANCE", "REFERENCE_HARDWARE", "CONTEST_SUBMISSION"]
+}

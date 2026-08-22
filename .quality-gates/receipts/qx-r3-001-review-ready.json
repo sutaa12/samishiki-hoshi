@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "task_id": "QX-R3-001",
-  "status": "review_ready_after_remediation",
+  "status": "accepted_automated_scope",
   "recorded_at": "2026-08-22T16:20:00+09:00",
   "implementation": {
     "branch": "codex/qx-r3-001-production-v2",
@@ -51,7 +51,14 @@
     "verdict": "REJECT",
     "severity_counts": {"S0": 0, "S1": 0, "S2": 3, "S3": 2},
     "blocking_findings_remediated": 3,
-    "fresh_independent_review": "PENDING"
+    "fresh_independent_review": "ACCEPT"
+  },
+  "independent_acceptance": {
+    "receipt": ".quality-gates/reviews/qx-r3-001-b4-accept.json",
+    "reviewed_evidence_head": "bb32f38e37cca3011b80a8ebbaa5d6feb163ac63",
+    "verdict": "ACCEPT",
+    "scores": {"correctness": 4, "architecture": 4, "lifecycle": 3, "accessibility": 4, "evidence": 3},
+    "severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 2}
   },
   "criteria": {
     "public_root_updates_v2_from_live_game_state_every_frame": true,
@@ -65,7 +72,7 @@
     "complete_tracked_source_is_sha256_bound": true
   },
   "separate_gates": {
-    "fresh_independent_review": "PENDING",
+    "fresh_independent_review": "ACCEPT",
     "renderer_remount_stress": "NOT_REQUIRED_BY_QX_R3_001_DISCLOSED_S3",
     "main_integration": "PENDING",
     "public_deployment_of_this_source": "PENDING",
