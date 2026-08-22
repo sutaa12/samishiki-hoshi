@@ -429,6 +429,12 @@ fixed-step simulation input. They do not alter story time, renderer quality,
 or deterministic state rules. Main, Sites, human, rights, reference hardware,
 and contest gates remain unchanged.
 
+Independent J1 and K2 rejection records preserve two fixed defects: boolean
+edge coalescing and partial pointer-cancel reset. Fresh L3 accepted the exact
+remediated implementation `4689a4e3` with all five dimensions at 4/4 and no
+open finding. This accepts QX-R3-003 only and authorizes QX-R3-004 to start from
+the committed acceptance record; it does not change any external gate.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

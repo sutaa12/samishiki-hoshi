@@ -196,6 +196,11 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
   an active pointer cancellation through the complete InputRouter reset and
   tests pointer, key, and Pulse cleanup together; it also requires a fresh
   frozen candidate and independent review.
+- Fresh independent L3 accepted implementation `4689a4e3` at 4/4/4/4/4 with
+  S0=S1=S2=S3=0 after reproducing 383/383 source bindings, full verify, focused
+  browser, queued Touch+Space edges, foreign and owner cancellation, hint
+  learning, and restart cleanup. QX-R3-004 may branch from the acceptance
+  record once committed; all external gates remain unchanged.
 
 ## Release record
 

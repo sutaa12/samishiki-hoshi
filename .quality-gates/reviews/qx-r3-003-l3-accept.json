@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-003",
+  "review_id": "L3",
+  "verdict": "ACCEPT",
+  "reviewed_at": "2026-08-22T19:44:00+09:00",
+  "reviewed_implementation": "4689a4e3310951ee1d3780f6b2c8709ca8e2baac",
+  "reviewed_tree": "cf9b05a24a9a660b7b86e174352a2c7324b12b3c",
+  "reviewed_evidence_head": "83b9bfa3709f06d92669ddb40fc9e01fb7059560",
+  "scores": {
+    "functional_correctness": 4,
+    "route_exclusivity": 4,
+    "reset_isolation": 4,
+    "determinism_accessibility_preservation": 4,
+    "evidence_integrity": 4
+  },
+  "severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
+  "bindings": {
+    "manifest_entries_checked": 383,
+    "manifest_mismatches": 0,
+    "manifest_sha256": "9837b0f8a497dbc76cf0a567d9e40281fec4d34fd9f3ccba74d0972223adcbe3",
+    "build_sha256": "a8feb3f294abe6bfd784354e2505aae55f80db34d670f3f4aaa93a2904bd7fd1",
+    "build_bytes": 8117760,
+    "build_entries": 128,
+    "apple_double_entries": 0
+  },
+  "independent_checks": {
+    "verify": "typecheck, lint, 40 files / 739 tests, production build passed",
+    "focused_browser": "3 passed / 3 intentional project skips / 0 failed",
+    "focused_router_simulation_parity": "4 files / 33 tests passed",
+    "two_distinct_edges": "right-touch tap plus Space produced two GameplayEvents, one Seed, then pulse-cooldown",
+    "foreign_pointer_cancel": "did not cancel owner or change held key/queued Pulse",
+    "owner_pointer_cancel": "cleared owner, pointer steering, held key, and complete queued-Pulse state",
+    "hint_learning": "raw steering plus empty Pulse left both hints unlearned and created no Seed",
+    "restart": "dirty key, pointer owner, and queued Pulse state became fully clean",
+    "settings_blur_visibility": "focused real-browser reset paths passed"
+  },
+  "limitations": {
+    "broad_graphics_timing": "not rerun; separate disclosed local diagnostic with no input dependency path",
+    "physical_multitouch": "not accepted by local Chromium automation",
+    "reference_hardware": "HARDWARE_PENDING",
+    "dependency_audit": "2 low, 15 high, 0 critical inherited findings; no dependency change",
+    "human_play": "HUMAN_PENDING",
+    "rights": "HUMAN_PENDING",
+    "main": "PENDING",
+    "sites": "PENDING",
+    "contest": "HUMAN_PENDING"
+  }
+}
