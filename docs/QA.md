@@ -231,6 +231,11 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Main and public Sites remain unchanged. This checkpoint is not independent
   acceptance and does not complete human, rights, reference-hardware, release,
   or contest gates.
+- Fresh M4 subsequently accepted the exact implementation at 4/4, 4/4, 4/4,
+  4/4, 3/4 with S0=S1=S2=0 and S3=2 after independently reproducing the
+  manifest, full verify, focused browser, exact plan bytes, and a 1,000-seed
+  challenge harness. This accepts QX-R3-004 automated scope only and authorizes
+  QX-R3-005 to branch from the acceptance record.
 
 ## Release record
 

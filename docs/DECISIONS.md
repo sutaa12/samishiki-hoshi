@@ -466,6 +466,11 @@ historical receipt for its exact earlier source. Main, Sites, human, rights,
 reference hardware, and contest gates remain unchanged until QX-R3-004 receives
 fresh independent acceptance.
 
+Fresh M4 independently accepted implementation `8e7e327e` at 4/4, 4/4, 4/4,
+4/4, 3/4 with S0=S1=S2=0 and S3=2. The accepted S3 findings are the duplicated
+preview-horizon constant and inherited dependency maintenance. QX-R3-005 may
+start from the committed acceptance record; no external gate changes.
+
 ## Rollback
 
 - Any open S0/S1/S2 finding blocks promotion.

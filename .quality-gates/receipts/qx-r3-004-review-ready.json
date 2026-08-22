@@ -2,7 +2,7 @@
   "schema_version": 1,
   "task_id": "QX-R3-004",
   "candidate_id": "M4",
-  "status": "review_ready",
+  "status": "accepted_automated_scope",
   "recorded_at": "2026-08-22T20:19:51+09:00",
   "implementation": {
     "branch": "codex/qx-r3-004-worldplan-encounters",
@@ -75,8 +75,8 @@
     "action": "reported separately; no automatic npm audit fix or dependency rewrite"
   },
   "separate_gates": {
-    "independent_review": "PENDING_M4",
-    "qx_r3_005": "PENDING",
+    "independent_review": "ACCEPT_M4",
+    "qx_r3_005": "AUTHORIZED_TO_START",
     "main_integration": "PENDING",
     "public_deployment_of_this_source": "PENDING",
     "human_play_acceptance": "HUMAN_PENDING",

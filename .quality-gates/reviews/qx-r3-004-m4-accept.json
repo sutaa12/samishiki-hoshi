@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-004",
+  "candidate_id": "M4",
+  "verdict": "ACCEPT",
+  "reviewed_at": "2026-08-22T20:32:06+09:00",
+  "reviewer": "fresh independent SolMax artifact reviewer",
+  "implementation_commit": "8e7e327e3f473eaf2a2fc114247098c84b21c018",
+  "implementation_tree": "bd187ae3e336180b643387cbfa34208cb74e234c",
+  "evidence_commit": "706c511ffc239aad7297d67120e30b89477f2718",
+  "scores": {
+    "functionality": 4,
+    "determinism_safety": 4,
+    "architecture": 4,
+    "validation_evidence": 4,
+    "maintainability": 3
+  },
+  "severity": {"S0": 0, "S1": 0, "S2": 0, "S3": 2},
+  "findings": [
+    {
+      "severity": "S3",
+      "id": "M4-PREVIEW-HORIZON-DUPLICATED",
+      "detail": "WorldPlan descriptor previewDistanceMm and runtime active-encounter discovery both use 18000 independently; a future change could drift.",
+      "evidence": ["src/world/v2/world-plan.ts:330", "src/game/encounter-system.ts:116"]
+    },
+    {
+      "severity": "S3",
+      "id": "M4-INHERITED-DEPENDENCY-AUDIT",
+      "detail": "Inherited dependency audit remains 2 low and 15 high, 0 critical; no QX-R3-004 runtime exploit or functional failure was demonstrated.",
+      "evidence": [".quality-gates/qx-r3-004-npm-audit.json", "package.json:26"]
+    }
+  ],
+  "independent_verification": {
+    "manifest": "390/390 paths, modes, byte lengths, and SHA-256 values match; 0 mismatches",
+    "manifest_sha256": "81b4734afaeda4bd6b353588ea99e42a2ef606f8a2e914c25a697b4d9f3daeb2",
+    "build_archive_sha256": "ad22e7fc1ee5d4c938ea64446e6d8040fc75a6bc2204f3a33de93034afbbd93c",
+    "build_archive": "8148992 bytes / 128 entries / 0 AppleDouble",
+    "focused_tests": "5 files / 47 tests passed",
+    "full_verify": "typecheck, lint, 41 files / 743 tests, production build passed",
+    "focused_browser": "8 passed / 0 failed",
+    "seed_harness": "1000 seeds passed",
+    "seed_harness_counts": {
+      "flow_anchored_descriptors": 18000,
+      "named_stream_derivations": 16000,
+      "passable_obstacle_routes": 3000,
+      "gate_life_node_pairs": 105000
+    },
+    "world_plan_digest": "world-plan-v1:c7ed4025456222e2",
+    "canonical_bytes": 53536,
+    "canonical_bytes_sha256": "d12f0d3ba4072d483cb8bf05a18eeac25e640bc78abc3f0d5dcd41c97c3eb441",
+    "worktree": "clean"
+  },
+  "separate_gates": {
+    "qx_r3_004_automated_artifact": "ACCEPT",
+    "qx_r3_005": "PENDING",
+    "main_integration": "PENDING",
+    "public_sites_deployment": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  }
+}
