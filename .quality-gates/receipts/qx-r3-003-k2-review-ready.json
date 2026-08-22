@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-003",
+  "candidate_id": "K2",
+  "status": "review_ready",
+  "recorded_at": "2026-08-22T19:18:00+09:00",
+  "implementation": {
+    "branch": "codex/qx-r3-003-input-router",
+    "base_commit": "6ff2359b9fd37d5d5697c7b2046be70a9265eeae",
+    "commit": "6ddaea020f7e10a7db7673b56529ea8472739174",
+    "tree": "18a78163c77fd3d89d41ddd7e0bd544b86ab3d4a",
+    "all_tracked_file_manifest": ".quality-gates/qx-r3-003-6ddaea0-all-tracked-files.sha256",
+    "all_tracked_file_count": 378,
+    "manifest_sha256": "4ee266be10519e61c7fd9f89bf5e1cf4a8d0c0fc61718c27e7effa3860857a67"
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "archive": ".quality-gates/qx-r3-003-6ddaea0-dist.tar",
+    "archive_sha256": "d32622df1aff20a173b789b7e1b27794e9693156e3a081a4f3bcbd646878489f",
+    "archive_bytes": 8117760,
+    "archive_entries": 128,
+    "apple_double_entries": 0,
+    "bundle_warning": "One or more minified chunks exceed 500 kB; reference-hardware acceptance remains separate."
+  },
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": {"files_passed": 40, "tests_passed": 739, "failed": 0},
+    "production_build": "passed",
+    "focused_input_browser": {
+      "report": ".quality-gates/qx-r3-003-input-playwright.json",
+      "sha256": "c3da4ddd3a91d8336ff4689f3dde2e7384167a815fbeec491c60522e967f96fa",
+      "expected": 3,
+      "skipped_by_project": 3,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "combined_browser": {
+      "report": ".quality-gates/qx-r3-003-browser-playwright.json",
+      "sha256": "62ea9996be84621c290dbcda2fa8aa71e22b4d41457b2ea5649dd919d9da5e0e",
+      "expected": 19,
+      "skipped_by_project": 17,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "remediation": {
+    "prior_rejection": ".quality-gates/reviews/qx-r3-003-j1-reject.json",
+    "prior_candidate": "30d9e761848141f70adb9e76618074686ae8b20a",
+    "prior_severity_counts": {"S0": 0, "S1": 1, "S2": 0, "S3": 0},
+    "finding": "boolean pending Pulse coalesced distinct edges before a fixed frame",
+    "change": "counted queue preserves each distinct edge and consumes one per fixed step",
+    "fresh_unit_edge_queue": "passed",
+    "fresh_browser_two_edge_probe": "passed"
+  },
+  "acceptance_scenarios": {
+    "wasd_and_arrows_steer": true,
+    "space_repeat_ignored": true,
+    "distinct_edges_do_not_coalesce": true,
+    "mouse_click_one_pulse": true,
+    "mouse_drag_zero_pulse": true,
+    "left_touch_drag_steers_zero_pulse": true,
+    "right_touch_tap_one_pulse": true,
+    "right_touch_drag_cancelled": true,
+    "one_pointer_id_one_route": true,
+    "secondary_pointer_ignored": true,
+    "settings_input_isolated": true,
+    "pointercancel_clears_input": true,
+    "blur_clears_input": true,
+    "visibility_change_clears_input": true,
+    "cooldown_feedback_without_seed": true,
+    "hints_require_gate_and_node_success": true
+  },
+  "dependency_audit": {
+    "report": ".quality-gates/qx-r3-003-npm-audit.json",
+    "sha256": "60dca32ceb1ccc97726399ea4da334e8e25bcc45584cabc504399f6d511da9c4",
+    "low": 2,
+    "high": 15,
+    "critical": 0,
+    "action": "reported separately; no automatic npm audit fix or dependency rewrite"
+  },
+  "separate_gates": {
+    "independent_review": "PENDING_K2",
+    "qx_r3_004": "PENDING",
+    "main_integration": "PENDING",
+    "public_deployment_of_this_source": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  },
+  "rollback": {
+    "branch_base": "6ff2359b9fd37d5d5697c7b2046be70a9265eeae",
+    "condition": "Any open S0/S1/S2, duplicate/missing/coalesced Pulse edge, one pointer reaching both routes, settings leakage, stuck input, deterministic regression, or focused browser failure blocks QX-R3-004."
+  }
+}
