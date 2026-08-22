@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-005",
+  "candidate_id": "N8",
+  "verdict": "REJECT",
+  "reviewed_at": "2026-08-22T23:58:23+09:00",
+  "reviewer": "fresh independent SolMax artifact reviewer",
+  "implementation_commit": "0c86173860e47a6190ae108ce2c703caeec80f1c",
+  "implementation_tree": "a61ecec72329ed7afeb620e972e24838bb9a3dd6",
+  "evidence_commit": "637768c12a724e1c1fc1a51a0368368f4a44d07f",
+  "severity": {"S0": 0, "S1": 0, "S2": 1, "S3": 0},
+  "findings": [
+    {
+      "severity": "S2",
+      "id": "N8-PHASE-AUDIO-PARTIAL-CONSTRUCTION-LEAK",
+      "detail": "Phase audio graph construction starts resources before committing them to instance fields. If a later construction step or the second oscillator start throws, dispose cannot reach the partially started oscillators or AudioContext; the production caller suppresses the rejected start promise.",
+      "evidence": [
+        "src/gfx/v2/integration/phase-audio-presentation.ts",
+        "tests/gfx-v2/phase-audio-presentation.test.ts",
+        "independent injected failure: disposed snapshot with contextClosed=false and both started oscillators stopped=false"
+      ]
+    }
+  ],
+  "n7_findings_rechecked": {
+    "continuous_progress_and_local_mix_separated": "fixed",
+    "four_phase_channels_consumed": "fixed",
+    "cumulative_draw_ceiling_restored": "fixed",
+    "backend_program_delta_measured": "fixed"
+  },
+  "verified_evidence": {
+    "manifest": "412/412 entries matched implementation blobs, modes, and sizes",
+    "manifest_sha256": "76b266e131d296245309aa53af5e297fc285797e41c273c0c3406e3f38c9b8e3",
+    "build_archive": "8201728 bytes / 128 entries / zero unsafe, link, or AppleDouble entries",
+    "build_archive_sha256": "20b778691f890648605cfc6690b4f4348150c5680dabc6fa6c6bd8e41762bc08",
+    "browser_report": "15 passed / 1 project skip / 0 unexpected / 0 flaky",
+    "boundary_trace": "120 actual canvas frames; black 0; monochrome 0; still 0; read errors 0; compile delta 0; backend program delta 0; camera jump 0.006863; residency misses 0",
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": "43 files / 757 tests passed"
+  },
+  "required_remediation": [
+    "Construct the graph fail-closed with local ownership until every step succeeds.",
+    "On every construction failure, stop all started oscillators, disconnect partial nodes, close the AudioContext, clear graph state, and rethrow without masking the original error.",
+    "Prove every construction stage with failure injection, including second oscillator start and cleanup failures; keep dispose idempotent."
+  ],
+  "separate_gates": {
+    "qx_r3_005_automated_artifact": "REJECT",
+    "main_integration": "PENDING",
+    "public_sites_deployment": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  }
+}
