@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-005",
+  "candidate_id": "N8",
+  "status": "review_ready",
+  "recorded_at": "2026-08-22T23:40:57+09:00",
+  "implementation": {
+    "branch": "codex/qx-r3-005-rail-camera-phase-blend",
+    "base_commit": "038d809ff1df265df2747e95faf1f725560ea21b",
+    "commit": "0c86173860e47a6190ae108ce2c703caeec80f1c",
+    "tree": "a61ecec72329ed7afeb620e972e24838bb9a3dd6",
+    "all_tracked_file_manifest": ".quality-gates/qx-r3-005-0c86173-all-tracked-files.sha256",
+    "all_tracked_file_count": 412,
+    "manifest_sha256": "76b266e131d296245309aa53af5e297fc285797e41c273c0c3406e3f38c9b8e3"
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "archive": ".quality-gates/qx-r3-005-0c86173-dist.tar",
+    "archive_sha256": "20b778691f890648605cfc6690b4f4348150c5680dabc6fa6c6bd8e41762bc08",
+    "archive_bytes": 8201728,
+    "archive_entries": 128,
+    "apple_double_entries": 0,
+    "bundle_warning": "One or more minified chunks exceed 500 kB; reference-hardware acceptance remains separate."
+  },
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": {"files_passed": 43, "tests_passed": 757, "failed": 0},
+    "production_build": "passed",
+    "relevant_browser": {
+      "report": ".quality-gates/qx-r3-005-playwright-remediation.json",
+      "sha256": "1fe2897a6097ccc32921676deb14e559faafe16b59ce78b9924ac6ef00bc12a0",
+      "expected": 15,
+      "skipped_by_project": 1,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "boundary_120_frames": {
+      "actual_canvas_frames": 120,
+      "black_frames": 0,
+      "monochrome_frames": 0,
+      "still_frame_ratio": 0,
+      "read_errors": 0,
+      "runtime_compile_delta": 0,
+      "backend_program_delta": 0,
+      "max_camera_jump_scene_units": 0.006863,
+      "minimum_quantized_color_bins": 21,
+      "minimum_normalized_luminance_stddev": 0.048251050081675385,
+      "minimum_changed_pixel_ratio": 0.0028211805555555555,
+      "current_chunk_missing": 0,
+      "camera_chunk_missing": 0,
+      "next_chunk_missing": 0,
+      "phase_progress": 0.139052,
+      "local_transition_mix": 0.695259,
+      "exposure_parameter": 1.098261,
+      "exposure_applied": 1.098261,
+      "material_parameter": 0.37236,
+      "material_applied": 0.37236,
+      "particle_parameter": 0.612112,
+      "particle_applied": 0.610948,
+      "audio_layer_parameter": 0.251677,
+      "audio_layer_applied": 0.252957
+    },
+    "density": {
+      "cumulative_draw_call_ceiling": 600,
+      "observed_cumulative_draw_calls_max": 593,
+      "draw_calls_per_sample_ceiling": 5,
+      "observed_draw_calls_per_sample_max": 3.7007874015748032,
+      "minimum_frame_samples": 127,
+      "maximum_p95_ms": 10.3
+    },
+    "broader_browser_diagnostic": {
+      "scope": "Legacy Hero pre-ready compile laboratory; outside the predeclared QX-R3-005 production/rail acceptance scope.",
+      "result": "Cold shader warm-up timing remains host-scheduling-sensitive; N7 independent review confirmed no candidate S0-S2 regression from this diagnostic.",
+      "action": "No threshold was weakened. Reference-hardware acceptance remains HARDWARE_PENDING."
+    }
+  },
+  "n7_remediation": {
+    "rejected_review": ".quality-gates/reviews/qx-r3-005-n7-reject.json",
+    "continuous_progress_and_local_mix_separated": true,
+    "four_phase_channels_consumed": true,
+    "cumulative_draw_ceiling_restored": true,
+    "backend_program_delta_measured": true,
+    "byte_frozen_audio_core_sha256": "c86f1881832ea45a025f9c580afdc5396a53f9e199afab061dfaf3c0f6a7f57f"
+  },
+  "dependency_audit": {
+    "report": ".quality-gates/qx-r3-004-npm-audit.json",
+    "sha256": "60dca32ceb1ccc97726399ea4da334e8e25bcc45584cabc504399f6d511da9c4",
+    "dependency_lock_changed": false,
+    "low": 2,
+    "high": 15,
+    "critical": 0,
+    "action": "Inherited and reported separately; no automatic npm audit fix or dependency rewrite."
+  },
+  "separate_gates": {
+    "independent_review": "PENDING_N8",
+    "qx_r3_006": "BLOCKED_UNTIL_QX_R3_005_REVIEW",
+    "main_integration": "PENDING",
+    "public_deployment_of_this_source": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  },
+  "rollback": {
+    "branch_base": "038d809ff1df265df2747e95faf1f725560ea21b",
+    "condition": "Any open S0/S1/S2, deterministic or hash drift, unconsumed phase channel, discontinuous progress, camera teleport, missing phase overlap, runtime compile or backend program growth, black or monochrome boundary frame, draw ceiling regression, chunk residency gap, or failed production/rail browser gate blocks QX-R3-006."
+  }
+}
