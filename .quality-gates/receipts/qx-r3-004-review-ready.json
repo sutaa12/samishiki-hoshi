@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "task_id": "QX-R3-004",
+  "candidate_id": "M4",
+  "status": "review_ready",
+  "recorded_at": "2026-08-22T20:19:51+09:00",
+  "implementation": {
+    "branch": "codex/qx-r3-004-worldplan-encounters",
+    "base_commit": "e657f97b7bb4d36752c375013437ba43c0ca3edf",
+    "commit": "8e7e327e3f473eaf2a2fc114247098c84b21c018",
+    "tree": "bd187ae3e336180b643387cbfa34208cb74e234c",
+    "all_tracked_file_manifest": ".quality-gates/qx-r3-004-8e7e327-all-tracked-files.sha256",
+    "all_tracked_file_count": 390,
+    "manifest_sha256": "81b4734afaeda4bd6b353588ea99e42a2ef606f8a2e914c25a697b4d9f3daeb2"
+  },
+  "world_plan": {
+    "seed": 20260818,
+    "digest": "world-plan-v1:c7ed4025456222e2",
+    "canonical_bytes_sha256": "d12f0d3ba4072d483cb8bf05a18eeac25e640bc78abc3f0d5dcd41c97c3eb441",
+    "canonical_byte_length": 53536,
+    "first_36_seconds": {"gates": 5, "obstacles": 3, "life_nodes": 3},
+    "seed_range_checked": 1000,
+    "invalid_seeds": 0
+  },
+  "build": {
+    "command": "rtk npm run verify",
+    "archive": ".quality-gates/qx-r3-004-8e7e327-dist.tar",
+    "archive_sha256": "ad22e7fc1ee5d4c938ea64446e6d8040fc75a6bc2204f3a33de93034afbbd93c",
+    "archive_bytes": 8148992,
+    "archive_entries": 128,
+    "apple_double_entries": 0,
+    "bundle_warning": "One or more minified chunks exceed 500 kB; reference-hardware acceptance remains separate."
+  },
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": {"files_passed": 41, "tests_passed": 743, "failed": 0},
+    "production_build": "passed",
+    "focused_production_and_rail_browser": {
+      "report": ".quality-gates/qx-r3-004-browser-playwright.json",
+      "sha256": "a26ccffa46da677cd7e652fa8de5a88abf21cc90e4b5bc5fdcb552275a9ddf85",
+      "expected": 8,
+      "skipped_by_project": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "broader_browser_diagnostic": {
+      "initial_run": "29 passed / 35 intentional project skips / 8 failed",
+      "stale_expected_values_rebound": 4,
+      "remaining_local_graphics_budget_failures": 4,
+      "focused_after_rebind": "9 passed / 1 atomic compile timing failure",
+      "scope": "Three compile warmup samples exceeded the local 50ms laboratory budget and one LIFE sample used 605 draw calls against the provisional 600 connection ceiling. No compile failed. Reference hardware remains HARDWARE_PENDING."
+    }
+  },
+  "acceptance_scenarios": {
+    "tutorial_gate_descriptor_seed_invariant": true,
+    "first_life_node_descriptor_seed_invariant": true,
+    "later_encounters_named_seed_owned": true,
+    "first_36_exact_counts": true,
+    "safe_route_1000_seeds": true,
+    "gate_and_node_non_overlap": true,
+    "camera_near_plane_excluded": true,
+    "forward_preview_readable": true,
+    "collision_and_visible_radii_common_descriptor": true,
+    "high_fallback_gameplay_descriptor_equal": true,
+    "simulation_uses_world_plan_by_default": true,
+    "two_authored_branches_merge_to_story": true
+  },
+  "dependency_audit": {
+    "report": ".quality-gates/qx-r3-004-npm-audit.json",
+    "sha256": "60dca32ceb1ccc97726399ea4da334e8e25bcc45584cabc504399f6d511da9c4",
+    "low": 2,
+    "high": 15,
+    "critical": 0,
+    "action": "reported separately; no automatic npm audit fix or dependency rewrite"
+  },
+  "separate_gates": {
+    "independent_review": "PENDING_M4",
+    "qx_r3_005": "PENDING",
+    "main_integration": "PENDING",
+    "public_deployment_of_this_source": "PENDING",
+    "human_play_acceptance": "HUMAN_PENDING",
+    "rights_acceptance": "HUMAN_PENDING",
+    "reference_hardware": "HARDWARE_PENDING",
+    "contest_submission": "HUMAN_PENDING"
+  },
+  "rollback": {
+    "branch_base": "e657f97b7bb4d36752c375013437ba43c0ca3edf",
+    "condition": "Any open S0/S1/S2, invalid seed, blocked route, encounter overlap, seed-dependent tutorial descriptor, quality-dependent gameplay descriptor, mismatched radius projection, failed focused production/rail browser gate, or non-canonical digest blocks QX-R3-005."
+  }
+}

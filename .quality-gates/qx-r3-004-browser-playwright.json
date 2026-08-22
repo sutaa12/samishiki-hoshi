@@ -1,0 +1,389 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.6.0/bin/node",
+      "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-004/node_modules/.bin/playwright",
+      "test",
+      "--project=desktop-chromium",
+      "tests/e2e/production-v2.spec.ts",
+      "tests/e2e/rail-flight.spec.ts",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-004/playwright.config.ts",
+    "rootDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-004/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-004/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop-chromium",
+        "name": "desktop-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-004/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-004/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-004/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 3000",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "production-v2.spec.ts",
+      "file": "production-v2.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "public root uses the forced WebGL2 v2 runtime and latches live game state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5200,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T11:19:00.780Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-62f130e6dd54d6d7aa10",
+          "file": "production-v2.spec.ts",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "public root latches the real answer state into the production renderer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3618,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T11:19:06.109Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-e51f01f6fc405b09a255",
+          "file": "production-v2.spec.ts",
+          "line": 105,
+          "column": 1
+        },
+        {
+          "title": "public root prefers actual host-Metal WebGPU without changing the checkpoint hash",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2838,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T11:19:09.733Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-b86b4d7769a0c3b7f1c8",
+          "file": "production-v2.spec.ts",
+          "line": 125,
+          "column": 1
+        },
+        {
+          "title": "ten same-star restarts keep the production renderer ownership plateau",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4826,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T11:19:12.577Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "qx-r3-001-ten-restart-plateau",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJjeWNsZSI6IDEsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiAyLAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogMywKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDQsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiA1LAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogNiwKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDcsCiAgICAicHJvZ3JhbXMiOiAyMSwKICAgICJnZW9tZXRyaWVzIjogMywKICAgICJncHVPd25lcnMiOiAyLAogICAgImxvZ2ljYWxPd25lcnMiOiAyLAogICAgInBvb2xTbG90cyI6IDQsCiAgICAicmVzaXplTGlzdGVuZXIiOiAidHJ1ZSIsCiAgICAic3Vic2NyaWJlcnMiOiAwCiAgfSwKICB7CiAgICAiY3ljbGUiOiA4LAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0sCiAgewogICAgImN5Y2xlIjogOSwKICAgICJwcm9ncmFtcyI6IDIxLAogICAgImdlb21ldHJpZXMiOiAzLAogICAgImdwdU93bmVycyI6IDIsCiAgICAibG9naWNhbE93bmVycyI6IDIsCiAgICAicG9vbFNsb3RzIjogNCwKICAgICJyZXNpemVMaXN0ZW5lciI6ICJ0cnVlIiwKICAgICJzdWJzY3JpYmVycyI6IDAKICB9LAogIHsKICAgICJjeWNsZSI6IDEwLAogICAgInByb2dyYW1zIjogMjEsCiAgICAiZ2VvbWV0cmllcyI6IDMsCiAgICAiZ3B1T3duZXJzIjogMiwKICAgICJsb2dpY2FsT3duZXJzIjogMiwKICAgICJwb29sU2xvdHMiOiA0LAogICAgInJlc2l6ZUxpc3RlbmVyIjogInRydWUiLAogICAgInN1YnNjcmliZXJzIjogMAogIH0KXQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bb1c7210bd552c4a81ca-b38537f34e820b278165",
+          "file": "production-v2.spec.ts",
+          "line": 146,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "rail-flight.spec.ts",
+      "file": "rail-flight.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "rail distance advances without input while score and seeds stay zero",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3725,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T11:19:17.415Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-40b0c6c2b5d91ded2f60",
+          "file": "rail-flight.spec.ts",
+          "line": 12,
+          "column": 1
+        },
+        {
+          "title": "an arbitrary pulse is empty but a nearby Life Node creates exactly one Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4935,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T11:19:21.149Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-84a08f9fc270b7265d4f",
+          "file": "rail-flight.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "the normal journey never synthesizes ANSWER without a valid node pulse",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3075,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T11:19:26.093Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-89b7eea74d0a95c9e55c",
+          "file": "rail-flight.spec.ts",
+          "line": 53,
+          "column": 1
+        },
+        {
+          "title": "auto-give waits for a nearby Life Node and then creates one valid Seed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2658,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T11:19:29.175Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "48dafbd028b488ffc825-e714973b04c614b7bb25",
+          "file": "rail-flight.spec.ts",
+          "line": 66,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-22T11:18:52.286Z",
+    "duration": 39699.415,
+    "expected": 8,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
