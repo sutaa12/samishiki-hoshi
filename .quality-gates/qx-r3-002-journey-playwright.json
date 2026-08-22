@@ -104,12 +104,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 5218,
+                  "duration": 5169,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:06:45.510Z",
+                  "startTime": "2026-08-22T09:23:36.558Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -138,12 +138,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 10915,
+                  "duration": 10892,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:06:50.853Z",
+                  "startTime": "2026-08-22T09:23:41.847Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -172,18 +172,18 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 40520,
+                  "duration": 40633,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:07:01.773Z",
+                  "startTime": "2026-08-22T09:23:52.745Z",
                   "annotations": [],
                   "attachments": [
                     {
                       "name": "visual-performance-samples",
                       "contentType": "application/json",
-                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNDY0LAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxMjUsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDc0LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQU5TV0VSIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogNTAsCiAgICAicDk1RnJhbWVNcyI6IDEwLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiVFdJTktMRSIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDM4LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1OSwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIkxJRkUiLAogICAgImRyYXdDYWxscyI6IDM5NCwKICAgICJ0cmlhbmdsZXMiOiAxNTcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiRUFSVEgiLAogICAgImRyYXdDYWxscyI6IDM2NCwKICAgICJ0cmlhbmdsZXMiOiAxNDUsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiAzNjQsCiAgICAidHJpYW5nbGVzIjogOTcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQyLAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiU09MSVRVREUiLAogICAgImRyYXdDYWxscyI6IDM5NCwKICAgICJ0cmlhbmdsZXMiOiA3MywKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJBTlNXRVIiLAogICAgImRyYXdDYWxscyI6IDM2NCwKICAgICJ0cmlhbmdsZXMiOiA0OSwKICAgICJwOTVGcmFtZU1zIjogMTAuMSwKICAgICJmcmFtZVNhbXBsZXMiOiAxNDIsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJUV0lOS0xFIiwKICAgICJkcmF3Q2FsbHMiOiAzNjQsCiAgICAidHJpYW5nbGVzIjogMzcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTQ0LAogICAgIndhcm11cE1zIjogMAogIH0KXQ=="
+                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNDYxLAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxMjQsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjMsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDc0LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQU5TV0VSIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogNTAsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJUV0lOS0xFIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogMzgsCiAgICAicDk1RnJhbWVNcyI6IDEwLAogICAgImZyYW1lU2FtcGxlcyI6IDE1OSwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImhpZ2giLAogICAgInBoYXNlIjogIkxJRkUiLAogICAgImRyYXdDYWxscyI6IDM5NCwKICAgICJ0cmlhbmdsZXMiOiAxNTcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiRUFSVEgiLAogICAgImRyYXdDYWxscyI6IDM5NCwKICAgICJ0cmlhbmdsZXMiOiAxNDUsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiAzOTQsCiAgICAidHJpYW5nbGVzIjogOTcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjMsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAiaGlnaCIsCiAgICAicGhhc2UiOiAiU09MSVRVREUiLAogICAgImRyYXdDYWxscyI6IDM2NCwKICAgICJ0cmlhbmdsZXMiOiA3MywKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxNDIsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJBTlNXRVIiLAogICAgImRyYXdDYWxscyI6IDM5NCwKICAgICJ0cmlhbmdsZXMiOiA0OSwKICAgICJwOTVGcmFtZU1zIjogMTAuMiwKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJoaWdoIiwKICAgICJwaGFzZSI6ICJUV0lOS0xFIiwKICAgICJkcmF3Q2FsbHMiOiAzOTQsCiAgICAidHJpYW5nbGVzIjogMzcsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU5LAogICAgIndhcm11cE1zIjogMAogIH0KXQ=="
                     }
                   ]
                 }
@@ -212,12 +212,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3003,
+                  "duration": 2931,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:07:42.299Z",
+                  "startTime": "2026-08-22T09:24:33.382Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -246,12 +246,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4492,
+                  "duration": 4478,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:07:45.308Z",
+                  "startTime": "2026-08-22T09:24:36.319Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -295,7 +295,7 @@
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:07:49.806Z",
+                  "startTime": "2026-08-22T09:24:40.801Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -334,12 +334,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4421,
+                  "duration": 4429,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:07:49.876Z",
+                  "startTime": "2026-08-22T09:24:40.873Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -378,12 +378,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 136,
+                  "duration": 142,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:07:54.815Z",
+                  "startTime": "2026-08-22T09:24:45.801Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -432,12 +432,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 87,
+                  "duration": 83,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:07:55.058Z",
+                  "startTime": "2026-08-22T09:24:46.063Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -476,18 +476,18 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 20525,
+                  "duration": 20543,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:07:55.152Z",
+                  "startTime": "2026-08-22T09:24:46.153Z",
                   "annotations": [],
                   "attachments": [
                     {
                       "name": "visual-performance-samples",
                       "contentType": "application/json",
-                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNDgyLAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxMzEsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMCwKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkFTQ0VOVCIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDk4LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiU09MSVRVREUiLAogICAgImRyYXdDYWxscyI6IDU2MCwKICAgICJ0cmlhbmdsZXMiOiA3NCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxNTcsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkFOU1dFUiIsCiAgICAiZHJhd0NhbGxzIjogNTE1LAogICAgInRyaWFuZ2xlcyI6IDUwLAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE0MiwKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiVFdJTktMRSIsCiAgICAiZHJhd0NhbGxzIjogNTE1LAogICAgInRyaWFuZ2xlcyI6IDM4LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE1OSwKICAgICJ3YXJtdXBNcyI6IDAKICB9Cl0="
+                      "body": "WwogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiTElGRSIsCiAgICAiZHJhd0NhbGxzIjogNDkxLAogICAgInRyaWFuZ2xlcyI6IDE1OCwKICAgICJwOTVGcmFtZU1zIjogMTAuMywKICAgICJmcmFtZVNhbXBsZXMiOiAxMzQsCiAgICAid2FybXVwTXMiOiAwCiAgfSwKICB7CiAgICAicXVhbGl0eSI6ICJsb3ciLAogICAgInBoYXNlIjogIkVBUlRIIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogMTQ2LAogICAgInA5NUZyYW1lTXMiOiAxMC4zLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQVNDRU5UIiwKICAgICJkcmF3Q2FsbHMiOiA1NjAsCiAgICAidHJpYW5nbGVzIjogOTgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjMsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJTT0xJVFVERSIsCiAgICAiZHJhd0NhbGxzIjogNTYwLAogICAgInRyaWFuZ2xlcyI6IDc0LAogICAgInA5NUZyYW1lTXMiOiAxMC4yLAogICAgImZyYW1lU2FtcGxlcyI6IDE1NywKICAgICJ3YXJtdXBNcyI6IDAKICB9LAogIHsKICAgICJxdWFsaXR5IjogImxvdyIsCiAgICAicGhhc2UiOiAiQU5TV0VSIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogNTAsCiAgICAicDk1RnJhbWVNcyI6IDEwLjEsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU3LAogICAgIndhcm11cE1zIjogMAogIH0sCiAgewogICAgInF1YWxpdHkiOiAibG93IiwKICAgICJwaGFzZSI6ICJUV0lOS0xFIiwKICAgICJkcmF3Q2FsbHMiOiA1MTUsCiAgICAidHJpYW5nbGVzIjogMzgsCiAgICAicDk1RnJhbWVNcyI6IDEwLjIsCiAgICAiZnJhbWVTYW1wbGVzIjogMTU5LAogICAgIndhcm11cE1zIjogMAogIH0KXQ=="
                     }
                   ]
                 }
@@ -526,12 +526,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 84,
+                  "duration": 88,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:08:15.683Z",
+                  "startTime": "2026-08-22T09:25:06.702Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -580,12 +580,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 89,
+                  "duration": 86,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:08:15.773Z",
+                  "startTime": "2026-08-22T09:25:06.796Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -624,12 +624,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3142,
+                  "duration": 3132,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:08:15.867Z",
+                  "startTime": "2026-08-22T09:25:06.886Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -668,12 +668,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 87,
+                  "duration": 90,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T09:08:19.015Z",
+                  "startTime": "2026-08-22T09:25:10.023Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -701,8 +701,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-08-22T09:06:39.068Z",
-    "duration": 100135.71800000001,
+    "startTime": "2026-08-22T09:23:30.154Z",
+    "duration": 100068.43400000001,
     "expected": 8,
     "skipped": 6,
     "unexpected": 0,

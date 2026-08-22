@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "qx-r3-002-f6-fresh-acceptance-2026-08-22",
+  "mode": "isolated-artifact-and-source-blind",
+  "candidateLabel": "F6",
+  "reviewer": "qx_r3_002_final_acceptance",
+  "reviewedEvidenceHead": "aa88e3cafff7e10db8e5c362d238c864b04b3f65",
+  "implementationCommit": "99f348c89ee329a4c9ff532ff409818ccd6c209b",
+  "implementationTree": "0aa3eb2ddf7476759c465057784e9fa72baa9260",
+  "verdict": "REJECT",
+  "scores": {
+    "correctnessAndDeterminism": 2,
+    "taskSemantics": 2,
+    "architecture": 3,
+    "accessibilityAndInput": 3,
+    "evidenceAndReproducibility": 4
+  },
+  "severityCounts": {"S0": 0, "S1": 1, "S2": 0, "S3": 0},
+  "findings": [
+    {
+      "id": "F6-TIMESTAMPED-EDGE-700MS",
+      "severity": "S1",
+      "status": "remediated_in_1bf0bd0",
+      "observation": "Timestamped replay advanced one microsecond before resolving Pulse and collapsed 0.000001 ms remaining cooldown to zero, so 0.699999999 s was accepted exactly like 0.700000000 s."
+    }
+  ],
+  "counterexample": {
+    "at_0_699999_seconds": "rejected, one Seed",
+    "at_0_699999999_seconds": "incorrectly accepted, two Seeds, node-perfect",
+    "at_0_700000000_seconds": "accepted, two Seeds"
+  },
+  "bindingChecks": {
+    "completeTrackedManifest": "358/358 matched",
+    "buildArchive": "128 entries, zero AppleDouble",
+    "allReceiptArtifacts": "hashes matched"
+  },
+  "rollback": "QX-R3-003, Main, and Sites remained blocked. Exact-edge remediation continued only on the isolated QX-R3-002 branch.",
+  "externalGatesUnchanged": ["HUMAN_PENDING_PLAY_VISUAL", "HUMAN_PENDING_RIGHTS", "HARDWARE_PENDING", "HUMAN_PENDING_MAIN", "HUMAN_PENDING_SITES", "HUMAN_PENDING_CONTEST"]
+}
