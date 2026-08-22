@@ -414,10 +414,13 @@ until movement exceeds 14 pixels; it then becomes Steer-only. A click or tap
 must also finish within 350 milliseconds. Pointer hover remains mouse-follow
 Steer outside an active gesture.
 
-Space emits one edge only when `repeat` is false. Settings opening, blur,
-visibility change, pointer cancellation, and restart clear keys, pointer
-ownership, and any unconsumed Pulse. Cooldown attempts still enter the
-simulation and produce its existing feedback event, but cannot create a Seed.
+Space emits one edge only when `repeat` is false. Distinct edges are counted,
+not represented by a boolean: if multiple edges arrive before the next RAF,
+one is consumed per fixed simulation step and later edges remain queued, so
+cooldown feedback is not lost. Settings opening, blur, visibility change,
+pointer cancellation, and restart clear keys, pointer ownership, and every
+unconsumed Pulse. Cooldown attempts still enter the simulation and produce its
+existing feedback event, but cannot create a Seed.
 Control hints become learned only after an actual Gate pass and valid Life Node
 activation, rather than after raw input.
 

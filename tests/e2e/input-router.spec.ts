@@ -47,6 +47,16 @@ test("mouse click and Space emit one edge each while mouse drag emits none", asy
     window.dispatchEvent(new KeyboardEvent("keyup", { code: "Space" }));
   });
   await expect.poll(async () => Number(await shell.getAttribute("data-gameplay-events"))).toBe(beforeSpace + 1);
+
+  const beforeQueuedEdges = Number(await shell.getAttribute("data-gameplay-events"));
+  await page.evaluate(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", repeat: false }));
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "Space" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", repeat: false }));
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "Space" }));
+  });
+  await expect.poll(async () => Number(await shell.getAttribute("data-gameplay-events")))
+    .toBe(beforeQueuedEdges + 2);
 });
 
 test("left touch drag steers without a pulse and right touch tap creates one Seed", async ({ page }, testInfo) => {

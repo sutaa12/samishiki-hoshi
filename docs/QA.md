@@ -183,6 +183,12 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
   as local laboratory instability, not waived as reference-hardware evidence.
 - Main, current public Sites v2, human play, rights, reference hardware, and
   contest gates remain unchanged pending frozen-source review.
+- Independent J1 rejected candidate `30d9e761` with one S1: a boolean pending
+  Pulse coalesced two valid edges arriving before the next fixed frame. The
+  rejection is preserved in
+  `.quality-gates/reviews/qx-r3-003-j1-reject.json`. The remediation uses a
+  counted edge queue and adds unit plus real-browser two-edge coverage; it must
+  be frozen and independently reviewed as a new candidate before acceptance.
 
 ## Release record
 

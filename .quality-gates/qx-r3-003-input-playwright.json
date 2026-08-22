@@ -102,12 +102,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4979,
+                  "duration": 5184,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T10:01:01.001Z",
+                  "startTime": "2026-08-22T10:14:27.415Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -133,7 +133,61 @@
                   "description": "mobile input acceptance",
                   "location": {
                     "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
-                    "line": 53,
+                    "line": 63,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 56,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T10:14:32.715Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "mobile input acceptance",
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                        "line": 63,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "82fc966fed2bbe9ed078-40472d9ea50acded43f6",
+          "file": "input-router.spec.ts",
+          "line": 62,
+          "column": 1
+        },
+        {
+          "title": "settings, cancel, blur, and visibility changes cannot leak held input",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "mobile input isolation acceptance",
+                  "location": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
+                    "line": 82,
                     "column": 8
                   }
                 }
@@ -151,68 +205,14 @@
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T10:01:06.104Z",
-                  "annotations": [
-                    {
-                      "type": "skip",
-                      "description": "mobile input acceptance",
-                      "location": {
-                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
-                        "line": 53,
-                        "column": 8
-                      }
-                    }
-                  ],
-                  "attachments": []
-                }
-              ],
-              "status": "skipped"
-            }
-          ],
-          "id": "82fc966fed2bbe9ed078-40472d9ea50acded43f6",
-          "file": "input-router.spec.ts",
-          "line": 52,
-          "column": 1
-        },
-        {
-          "title": "settings, cancel, blur, and visibility changes cannot leak held input",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 30000,
-              "annotations": [
-                {
-                  "type": "skip",
-                  "description": "mobile input isolation acceptance",
-                  "location": {
-                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
-                    "line": 72,
-                    "column": 8
-                  }
-                }
-              ],
-              "expectedStatus": "skipped",
-              "projectId": "desktop-chromium",
-              "projectName": "desktop-chromium",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "skipped",
-                  "duration": 64,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-08-22T10:01:06.178Z",
+                  "startTime": "2026-08-22T10:14:32.776Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "mobile input isolation acceptance",
                       "location": {
                         "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-003/tests/e2e/input-router.spec.ts",
-                        "line": 72,
+                        "line": 82,
                         "column": 8
                       }
                     }
@@ -225,7 +225,7 @@
           ],
           "id": "82fc966fed2bbe9ed078-b5bcb89d9e5558a717fc",
           "file": "input-router.spec.ts",
-          "line": 71,
+          "line": 81,
           "column": 1
         },
         {
@@ -254,12 +254,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "skipped",
-                  "duration": 131,
+                  "duration": 127,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T10:01:06.574Z",
+                  "startTime": "2026-08-22T10:14:33.178Z",
                   "annotations": [
                     {
                       "type": "skip",
@@ -298,12 +298,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4696,
+                  "duration": 4672,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T10:01:06.824Z",
+                  "startTime": "2026-08-22T10:14:33.421Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -313,7 +313,7 @@
           ],
           "id": "82fc966fed2bbe9ed078-8c23c137f442ce162737",
           "file": "input-router.spec.ts",
-          "line": 52,
+          "line": 62,
           "column": 1
         },
         {
@@ -332,12 +332,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2814,
+                  "duration": 2954,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-22T10:01:11.525Z",
+                  "startTime": "2026-08-22T10:14:38.102Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -347,7 +347,7 @@
           ],
           "id": "82fc966fed2bbe9ed078-0c8c863c8ea83754f2fb",
           "file": "input-router.spec.ts",
-          "line": 71,
+          "line": 81,
           "column": 1
         }
       ]
@@ -355,8 +355,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-08-22T10:00:54.258Z",
-    "duration": 20161.189,
+    "startTime": "2026-08-22T10:14:20.965Z",
+    "duration": 20179.386,
     "expected": 3,
     "skipped": 3,
     "unexpected": 0,

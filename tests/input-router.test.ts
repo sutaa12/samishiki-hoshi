@@ -36,6 +36,20 @@ describe("QX-R3-003 InputRouter", () => {
     expect(router.consumeFrame().pulse).toBe(false);
   });
 
+  it("queues distinct Pulse edges instead of coalescing them before a frame", () => {
+    const router = new InputRouter();
+    router.keyDown("Space", false);
+    router.keyUp("Space");
+    router.keyDown("Space", false);
+    router.keyUp("Space");
+
+    expect(router.consumeFrame().pulse).toBe(true);
+    expect(router.status().pendingPulse).toBe(true);
+    expect(router.consumeFrame().pulse).toBe(true);
+    expect(router.status().pendingPulse).toBe(false);
+    expect(router.consumeFrame().pulse).toBe(false);
+  });
+
   it("routes a left-zone touch drag only to steer and never to pulse", () => {
     const router = new InputRouter();
     expect(router.pointerDown(pointer()).steerIntent).toBe(true);

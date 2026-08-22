@@ -50,12 +50,12 @@ export class InputRouter {
   readonly #keys = new Set<string>();
   #gesture: PointerGesture | null = null;
   #pointer = { x: 0, y: -0.72, active: false };
-  #pendingPulse = false;
+  #pendingPulseEdges = 0;
 
   keyDown(code: string, repeat: boolean): InputRouteResult {
     if (code === "Space") {
       const pulseEdge = !repeat;
-      if (pulseEdge) this.#pendingPulse = true;
+      if (pulseEdge) this.#pendingPulseEdges += 1;
       return Object.freeze({
         handled: true,
         steerIntent: false,
@@ -122,7 +122,7 @@ export class InputRouter {
     }
     const result = endPointerGesture(this.#gesture, sample);
     this.#gesture = null;
-    if (result.pulse) this.#pendingPulse = true;
+    if (result.pulse) this.#pendingPulseEdges += 1;
     const target = normalizePointerTarget(sample);
     this.#pointer = {
       ...target,
@@ -148,7 +148,7 @@ export class InputRouter {
     this.#keys.clear();
     this.#gesture = null;
     this.#pointer = { x: 0, y: -0.72, active: false };
-    this.#pendingPulse = false;
+    this.#pendingPulseEdges = 0;
   }
 
   consumeFrame(): InputFrame {
@@ -156,8 +156,8 @@ export class InputRouter {
       - Number(this.#keys.has("ArrowLeft") || this.#keys.has("KeyA"));
     const moveY = Number(this.#keys.has("ArrowUp") || this.#keys.has("KeyW"))
       - Number(this.#keys.has("ArrowDown") || this.#keys.has("KeyS"));
-    const pulse = this.#pendingPulse;
-    this.#pendingPulse = false;
+    const pulse = this.#pendingPulseEdges > 0;
+    if (pulse) this.#pendingPulseEdges -= 1;
     return Object.freeze({ moveX, moveY, pointer: Object.freeze({ ...this.#pointer }), pulse });
   }
 
@@ -166,7 +166,7 @@ export class InputRouter {
       heldKeyCount: this.#keys.size,
       pointerActive: this.#pointer.active,
       activePointerId: this.#gesture?.pointerId ?? null,
-      pendingPulse: this.#pendingPulse,
+      pendingPulse: this.#pendingPulseEdges > 0,
     });
   }
 }
