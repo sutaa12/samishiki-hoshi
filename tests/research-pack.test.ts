@@ -148,6 +148,34 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_VALIDATION_BINDING");
   });
 
+  it("rejects a validation receipt recorded before its capture", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const validationPath = join(root, ".quality-gates/QX-R4-R01/research-validation.json");
+    const validation = JSON.parse(await readFile(validationPath, "utf8")) as { recorded_at: string };
+    validation.recorded_at = "2026-08-23T05:00:00Z";
+    const validationText = `${JSON.stringify(validation, null, 2)}\n`;
+    await writeFile(validationPath, validationText, "utf8");
+    const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8")) as { research_validation: { sha256: string } };
+    evidence.research_validation.sha256 = sha256(validationText);
+    await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R01");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_VALIDATION_BINDING");
+  });
+
+  it("rejects a missing ablation screenshot interval", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const path = join(root, "docs/research/QX-R4-R01/ablation.md");
+    const ablation = (await readFile(path, "utf8")).replace("- EARTH: 48.95-49.07s; 36cccfbf->a2b5274b", "- EARTH interval omitted");
+    await writeFile(path, ablation, "utf8");
+    const result = runValidator(root, "QX-R4-R01");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("CAPTURE_INTERVAL_SYNC");
+  });
+
   it("keeps completion blocked without numeric and raw human evidence", async () => {
     const root = await makeRoot();
     await copySample(root);

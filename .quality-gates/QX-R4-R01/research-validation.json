@@ -3,10 +3,10 @@
   "task_id": "QX-R4-R01",
   "stage": "research",
   "result": "passed",
-  "recorded_at": "2026-08-23T14:19:00+09:00",
+  "recorded_at": "2026-08-23T15:13:03+09:00",
   "issuer": "Codex implementation verifier",
-  "research_snapshot_commit": "0ef190ca1c9e77ba336989045e96be31c4738ef6",
-  "research_snapshot_source_sha256": "454280212950413ecbfca7ed20c1617d84a6f34ec593aeb51341bfddfe3c8814",
+  "research_snapshot_commit": "aa791ef16abe759823e4399d836429abcf464fbe",
+  "research_snapshot_source_sha256": "690ce2be64c6cf11b1cfcfce18b79ffcb2f3d04033fc18e3fb53b968b041dc17",
   "runtime_source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
   "runtime_source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
   "subject_build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
@@ -15,10 +15,10 @@
     {"command": "npm run build", "exit_code": 0, "errors": 0, "observations": "Clean source-bound Vinext Production build completed; known chunk-size warning only."},
     {"command": "npm run build:manifest -- --source-commit be0eb51661df90bc21bdb471a8a626078ff92ce3 --output .quality-gates/QX-R4-R01/production-complete-files.sha256", "exit_code": 0, "errors": 0, "observations": "Clean-worktree check passed; 106 deployable files hashed, including runtime JavaScript, CSS, server output, and assets."},
     {"command": "npm run research:validate -- QX-R4-R01", "exit_code": 0, "errors": 0, "observations": "Large corpus; Primary 6, GitHub 2, Community 2, comparable games 6, frames 13."},
-    {"command": "npm run test:research", "exit_code": 0, "errors": 0, "observations": "26 of 26 tests passed, including composition syntax, still-TTC, embedded-media, receipt-binding, and forged hard-gate negatives."},
+    {"command": "npm run test:research", "exit_code": 0, "errors": 0, "observations": "28 of 28 tests passed, including composition syntax, still-TTC, embedded-media, receipt chronology, interval synchronization, receipt-binding, and forged hard-gate negatives."},
     {"command": "npm run typecheck", "exit_code": 0, "errors": 0, "observations": "TypeScript completed without diagnostics."},
     {"command": "npm run lint", "exit_code": 0, "errors": 0, "observations": "ESLint completed without diagnostics."},
-    {"command": "npm test -- --reporter=dot", "exit_code": 0, "errors": 0, "observations": "44 files and 804 of 804 tests passed."},
+    {"command": "npm test -- --reporter=dot", "exit_code": 0, "errors": 0, "observations": "44 files and 808 of 808 tests passed."},
     {"command": "node scripts/validate-research-pack.mjs QX-R4-R01 --stage complete", "exit_code": 1, "errors": 15, "observations": "Expected fail-closed result: runtime candidate comparison and human completion evidence remain pending."}
   ],
   "toolchain": {
@@ -27,7 +27,10 @@
     "ffmpeg": "8.1.2"
   },
   "implementation_verifier_severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
-  "independent_review_status": "pending",
+  "independent_review_status": "accepted-research-stage-only",
+  "independent_review_score": "30/32",
+  "independent_review_severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 2},
+  "independent_review_artifact": {"path": ".quality-gates/QX-R4-R01/independent-review-round4.md", "sha256": "4b6b14b9ba94708815e4677eea0d663f4a21c962405f225b0121a077272bfc79"},
   "limitations": [
     "R01 makes no runtime performance, gameplay-quality, or deployment-improvement claim.",
     "Vinext injects nondeterministic build identifiers, so the complete manifest binds the exact build rather than claiming byte identity across separate builds.",

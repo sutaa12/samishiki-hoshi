@@ -379,16 +379,30 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   }
   if (scale === "large") {
     const researchValidation = await readArtifactJson(root, directory, evidence.research_validation);
+    const baselineCaptureReceipt = await readArtifactJson(root, directory, evidence.baseline?.metrics);
+    const validationRecordedAt = Date.parse(researchValidation?.recorded_at ?? "");
+    const captureRecordedAt = Date.parse(baselineCaptureReceipt?.captured_at ?? "");
     if (!researchValidation
       || researchValidation.schema_version !== "automation-validation.v1"
       || researchValidation.task_id !== taskId
       || researchValidation.result !== "passed"
+      || !Number.isFinite(validationRecordedAt)
+      || !Number.isFinite(captureRecordedAt)
+      || validationRecordedAt < captureRecordedAt
       || researchValidation.runtime_source_commit !== evidence.baseline?.source_commit
       || researchValidation.runtime_source_sha256 !== evidence.baseline?.source_sha256
       || researchValidation.subject_build_sha256 !== evidence.baseline?.build_sha256
       || !isGitCommit(root, researchValidation.research_snapshot_commit)
       || gitArchiveSha256(root, researchValidation.research_snapshot_commit) !== researchValidation.research_snapshot_source_sha256) {
-      issues.push(issue("RESEARCH_VALIDATION_BINDING", "Large research needs a digest-bound automation-validation.v1 receipt matching its task, runtime source/build, and frozen research snapshot.", "evidence.json"));
+      issues.push(issue("RESEARCH_VALIDATION_BINDING", "Large research needs a digest-bound automation-validation.v1 receipt recorded after its capture and matching its task, runtime source/build, and frozen research snapshot.", "evidence.json"));
+    }
+    const expectedCaptureIntervals = (baselineCaptureReceipt?.checkpoints ?? []).map((checkpoint) => {
+      const before = checkpoint.screenshot_binding?.before;
+      const after = checkpoint.screenshot_binding?.after;
+      return `${checkpoint.phase}: ${before?.story_time}-${after?.story_time}s; ${before?.gameplay_hash}->${after?.gameplay_hash}`;
+    });
+    if (expectedCaptureIntervals.length === 0 || expectedCaptureIntervals.some((interval) => !files.get("current-baseline.md").includes(interval) || !files.get("ablation.md").includes(interval))) {
+      issues.push(issue("CAPTURE_INTERVAL_SYNC", "Large research must preserve every receipt story-time/gameplay-hash interval in both current-baseline.md and ablation.md.", "ablation.md"));
     }
   }
 

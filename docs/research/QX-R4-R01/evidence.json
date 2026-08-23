@@ -24,7 +24,7 @@
     "build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
     "build_artifact": ".quality-gates/QX-R4-R01/production-complete-files.sha256",
     "build_hash_procedure": "Run npm run build from the clean source commit, then npm run build:manifest over every regular file under dist and SHA-256 the complete manifest.",
-    "gameplay_hash": "LIFE@[11.05,11.42]=[6349ca8e,1f1a2cc7];EARTH@[48.95,49.07]=[36cccfbf,a2b5274b];SOLITUDE@143.03=9997894d",
+    "gameplay_hash": "LIFE_11.05-11.42_6349ca8e-1f1a2cc7;EARTH_48.95-49.07_36cccfbf-a2b5274b;SOLITUDE_143.03_9997894d",
     "screenshot": {"path": ".quality-gates/QX-R4-R01/current-earth-48s.png", "sha256": "9bb4df6bfaafddc8c7393e274257381abc99d3c95495a94a8e0e464517c44db1"},
     "clip": {"path": ".quality-gates/QX-R4-R01/current-earth-moving-12s.webm", "sha256": "5b43f26458ec0ff9bbd18e6e34e35a7e44d115d3c654b5d976ca745c0e8d5b96"},
     "metrics": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "c494024c7776c16b4199945bca80ed25c46e3a72f42e0349a5fc84d03b96b537"},
@@ -39,12 +39,12 @@
     "selected_option": "A",
     "rationale": "Use official URL/timecode evidence plus project-owned captures to define measurable future constraints while keeping Production unchanged."
   },
-  "research_validation": {"path": ".quality-gates/QX-R4-R01/research-validation.json", "sha256": "ff9893102d8694022dc5beb432f3d4945129c1462b4f5d05abd59ed58010cb69"},
+  "research_validation": {"path": ".quality-gates/QX-R4-R01/research-validation.json", "sha256": "6561475d17170dde7b37a0bf41a9bcc6bf8c86227c1ef811c4927f48f29b779e"},
   "numeric_hard_gates": [
     {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "4bab449a52004e2fb53abed0e815e8e9742b27a951444a780bc08bcccbea2915"}},
     {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "57688a3261c80d9dd9c890419a7b9415a327a8cc2dddf6de83f2b51ab4eebef3"}},
     {"id": "current_same_condition_captures", "target": {"operator": "gte", "value": 1, "unit": "captures"}, "observed": 3, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "c494024c7776c16b4199945bca80ed25c46e3a72f42e0349a5fc84d03b96b537"}},
-    {"id": "redistributed_third_party_media", "target": {"operator": "eq", "value": 0, "unit": "files"}, "observed": 0, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/rights.md", "sha256": "110f91e4a69042c7aeb49571f91bbcd056805d4fdcc446957c78efd0b3dabf35"}}
+    {"id": "redistributed_third_party_media", "target": {"operator": "eq", "value": 0, "unit": "files"}, "observed": 0, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/rights.md", "sha256": "2da6521f49a0c6cb8e149c17b27447090c8ca5cfca7c8c94cc3ca2fd80c8e167"}}
   ],
   "metrics": {
     "status": "pending",
@@ -64,7 +64,7 @@
     "commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
     "source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
     "build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
-    "gameplay_hash": "LIFE@[11.05,11.42]=[6349ca8e,1f1a2cc7];EARTH@[48.95,49.07]=[36cccfbf,a2b5274b];SOLITUDE@143.03=9997894d",
+    "gameplay_hash": "LIFE_11.05-11.42_6349ca8e-1f1a2cc7;EARTH_48.95-49.07_36cccfbf-a2b5274b;SOLITUDE_143.03_9997894d",
     "artifact": "rollback.md",
     "condition": "Revert if external media is committed, human evidence is forged, Production drifts, or a digest fails.",
     "instructions": "rollback.md"

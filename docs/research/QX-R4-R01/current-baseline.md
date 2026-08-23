@@ -11,8 +11,9 @@ Captured at: 2026-08-23T05:37:52.711Z (2026-08-23 14:37:52 JST)
 - Viewport and DPR: 1920x1080, DPR 1
 - Backend and quality: requested/actual WebGL2, high, full motion, standard contrast, seed 20260818
 - Query checkpoints: LIFE `at=10`/S03, EARTH `at=48`/S08, SOLITUDE `at=142`/S18
-- Screenshot story-time intervals: LIFE 11.05-11.42s, EARTH 48.95-49.07s, SOLITUDE 143.03-143.03s
-- Screenshot gameplay-hash intervals: LIFE `6349ca8e` to `1f1a2cc7`, EARTH `36cccfbf` to `a2b5274b`, SOLITUDE `9997894d` to `9997894d`
+- Screenshot bindings: LIFE: 11.05-11.42s; 6349ca8e->1f1a2cc7
+- Screenshot bindings: EARTH: 48.95-49.07s; 36cccfbf->a2b5274b
+- Screenshot bindings: SOLITUDE: 143.03-143.03s; 9997894d->9997894d
 - Actual applied exposure: LIFE 1.05, EARTH 1.12, SOLITUDE 1.00
 - Timestamped input trace: no steering or pulse input; automatic progression after checkpoint setup
 
