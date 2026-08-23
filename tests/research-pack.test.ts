@@ -96,8 +96,63 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toEqual(
-      expect.arrayContaining(["COMPLETE_GATE", "METRICS_GATE", "HARD_GATE", "HUMAN_GATE"]),
+      expect.arrayContaining(["COMPLETE_GATE", "METRICS_GATE", "HARD_GATE", "HUMAN_GATE", "CANDIDATE_CAPTURE"]),
     );
+  });
+
+  it("rejects missing, outside, directory, symlink, alias, and digest-mismatched candidate captures", async () => {
+    for (const mode of ["missing", "outside", "directory", "symlink", "alias", "digest"] as const) {
+      const root = await makeRoot();
+      await copySample(root);
+      const pack = join(root, "docs/research/QX-R4-R00");
+      const payloads = { screenshot: "shot", clip: "clip", input_trace: "trace" };
+      for (const [id, payload] of Object.entries(payloads)) await writeFile(join(pack, `${id}.bin`), payload, "utf8");
+      if (mode === "symlink") await symlink("screenshot.bin", join(pack, "screenshot-link.bin"));
+      const evidencePath = join(pack, "evidence.json");
+      const evidence = JSON.parse(await readFile(evidencePath, "utf8")) as {
+        candidate: Record<string, unknown> & { source_commit: string; source_sha256: string; build_sha256: string };
+        gates: { complete: string };
+      };
+      const refs: Record<string, { path: string; sha256: string } | null> = {
+        screenshot: { path: "screenshot.bin", sha256: sha256(payloads.screenshot) },
+        clip: { path: "clip.bin", sha256: sha256(payloads.clip) },
+        input_trace: { path: "input_trace.bin", sha256: sha256(payloads.input_trace) },
+      };
+      if (mode === "missing") refs.screenshot = null;
+      if (mode === "outside") refs.screenshot = { path: "../outside.bin", sha256: sha256("outside") };
+      if (mode === "directory") refs.screenshot = { path: "docs/", sha256: sha256("directory") };
+      if (mode === "symlink") refs.screenshot = { path: "screenshot-link.bin", sha256: sha256(payloads.screenshot) };
+      if (mode === "alias") refs.clip = { path: "docs/research/QX-R4-R00/screenshot.bin", sha256: sha256(payloads.screenshot) };
+      if (mode === "digest" && refs.screenshot) refs.screenshot.sha256 = "0".repeat(64);
+      Object.assign(evidence.candidate, refs);
+      const receipt = JSON.stringify({
+        schema_version: "capture-set.v1",
+        task_id: "QX-R4-R00",
+        candidate_source_commit: evidence.candidate.source_commit,
+        candidate_source_sha256: evidence.candidate.source_sha256,
+        candidate_build_sha256: evidence.candidate.build_sha256,
+        artifacts: refs,
+      });
+      await writeFile(join(pack, "capture-receipt.json"), receipt, "utf8");
+      evidence.candidate.capture_receipt = { path: "capture-receipt.json", sha256: sha256(receipt) };
+      evidence.gates.complete = "passed";
+      await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+      const result = runValidator(root, "QX-R4-R00", "complete");
+      expect(result.status, mode).toBe(1);
+      expect(result.report.issues?.map((entry) => entry.code), mode).toContain("CANDIDATE_CAPTURE");
+    }
+  });
+
+  it("rejects a baseline capture digest mismatch", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const path = join(root, "docs/research/QX-R4-R00/evidence.json");
+    const evidence = JSON.parse(await readFile(path, "utf8")) as { baseline: { screenshot: { sha256: string } } };
+    evidence.baseline.screenshot.sha256 = "0".repeat(64);
+    await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("BASELINE_EVIDENCE");
   });
 
   it("rejects forged completion flags without structured raw answers or owner evidence", async () => {
@@ -297,6 +352,19 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00");
     expect(result.status).toBe(1);
     expect(result.report.issues?.some((entry) => entry.code === "ROLLBACK")).toBe(true);
+  });
+
+  it("rejects rollback document commit and gameplay-hash mismatch", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const path = join(root, "docs/research/QX-R4-R00/rollback.md");
+    const rollback = (await readFile(path, "utf8"))
+      .replace(/Rollback commit: [0-9a-f]{40}/, `Rollback commit: ${"1".repeat(40)}`)
+      .replace(/- Expected gameplay hash:[^\n]*/, "- Expected gameplay hash: wrong");
+    await writeFile(path, rollback, "utf8");
+    const result = runValidator(root, "QX-R4-R00");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["ROLLBACK_FILE", "ROLLBACK_GAMEPLAY"]));
   });
 
   it("does not overwrite an existing Research Pack", async () => {

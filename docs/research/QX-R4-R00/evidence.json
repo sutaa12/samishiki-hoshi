@@ -10,6 +10,11 @@
     "build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
     "build_artifact": ".quality-gates/QX-R4-R00/production-stable-assets.sha256",
     "build_hash_procedure": "SHA-256 of the sorted, repository-persisted Production CSS and client asset manifest; the manifest entries are identical at baseline and candidate.",
+    "screenshot": null,
+    "clip": null,
+    "input_trace": null,
+    "capture_receipt": null,
+    "build_command_receipt": {"path": ".quality-gates/QX-R4-R00/build-command.json", "sha256": "ed9813d98709609fdad5d9fc5574f5b69d1503dbfcdc6fa27b075bd072e39099"},
     "branch": "codex/qx-r4-r00-evidence-protocol",
     "worktree": "/Users/snari/Documents/GitProject/LonelyStar-qx-r4-r00"
   },
@@ -19,10 +24,11 @@
     "build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
     "build_artifact": ".quality-gates/QX-R4-R00/production-stable-assets.sha256",
     "build_hash_procedure": "SHA-256 of the sorted, repository-persisted Production CSS and client asset manifest; the manifest entries are identical at baseline and candidate.",
-    "screenshot": ".quality-gates/screenshots/qx-r3-006-moving-master-start.png",
-    "clip": ".quality-gates/qx-r3-006-moving-master-12s.webm",
-    "metrics": ".quality-gates/qx-r3-006-playwright-o2-accepted.json",
-    "human_findings": "Notion page 16 R3 Human Reject and its five binary blocker categories"
+    "gameplay_hash": "1d537378",
+    "screenshot": {"path": ".quality-gates/screenshots/qx-r3-006-moving-master-start.png", "sha256": "909c280cac6ca2b61ca634bce8b3abaa58e9915d5dbd7fee4e3bc9adeebb0fdc"},
+    "clip": {"path": ".quality-gates/qx-r3-006-moving-master-12s.webm", "sha256": "e544fb3bfbdee4d07e25ed5a9b6b94cb302d7e22e22f2bfcc075bfffe8875355"},
+    "metrics": {"path": ".quality-gates/qx-r3-006-playwright-o2-accepted.json", "sha256": "5bf1f83fe8c14b990b135500247700d2d10f02ed707c49437808a97b13f75ba7"},
+    "human_findings": {"path": "docs/research/QX-R4-R00/current-baseline.md", "sha256": "ad1709971eead24ad0b64dc2d7e7dc5232439fedf2584767962d408848d708e9"}
   },
   "options": [
     {"id": "native-node", "decision": "selected", "reason": "Fail-closed cross-file validation with no added dependency or game bundle change."},
@@ -57,6 +63,7 @@
     "commit": "0a63c462557aad29f947a88460b0380538782d53",
     "source_sha256": "29c6dafed74c63c7fb03bcd5099c88830cd52742770b983252c2d46e204024eb",
     "build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
+    "gameplay_hash": "1d537378",
     "artifact": "rollback.md",
     "condition": "Any false pass, missing evidence class, gameplay hash drift, or Production build drift.",
     "instructions": "rollback.md"

@@ -308,9 +308,10 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   if (gitArchiveSha256(root, evidence.baseline?.source_commit) !== evidence.baseline?.source_sha256) issues.push(issue("BASELINE_SOURCE_DIGEST", "Baseline source SHA-256 must match the exact git archive for baseline.source_commit.", "evidence.json"));
   if (baselineBuildArtifact.sha256 !== evidence.baseline?.build_sha256) issues.push(issue("BASELINE_BUILD_DIGEST", "Baseline build SHA-256 must match the persisted build artifact.", "evidence.json"));
   if (evidence.baseline?.source_commit !== evidence.source_commit) issues.push(issue("BASELINE_BINDING", "Baseline and Research Pack must bind to the same source SHA before a Candidate is created.", "evidence.json"));
-  if (!meaningful(evidence.baseline?.screenshot) || !meaningful(evidence.baseline?.clip) || !meaningful(evidence.baseline?.metrics) || !meaningful(evidence.baseline?.human_findings)) {
-    issues.push(issue("BASELINE_EVIDENCE", "Baseline needs screenshot, moving clip, metrics, and raw human findings.", "evidence.json"));
-  }
+  const baselineCaptureEntries = [["screenshot", evidence.baseline?.screenshot], ["clip", evidence.baseline?.clip], ["metrics", evidence.baseline?.metrics], ["human findings", evidence.baseline?.human_findings]];
+  const baselineCaptureArtifacts = await Promise.all(baselineCaptureEntries.map(([, reference]) => regularArtifact(root, directory, reference?.path)));
+  const baselineCaptureRealpaths = baselineCaptureArtifacts.map((artifact) => artifact.path);
+  if (!meaningful(evidence.baseline?.gameplay_hash) || baselineCaptureEntries.some(([, reference], index) => !SHA256_PATTERN.test(reference?.sha256 ?? "") || !baselineCaptureArtifacts[index].ok || baselineCaptureArtifacts[index].sha256 !== reference.sha256) || new Set(baselineCaptureRealpaths).size !== baselineCaptureRealpaths.length) issues.push(issue("BASELINE_EVIDENCE", "Baseline needs a gameplay hash plus distinct digest-bound screenshot, moving clip, metrics, and raw human findings files.", "evidence.json"));
   if (!Array.isArray(evidence.options) || !evidence.options.some((option) => option.decision === "rejected" && meaningful(option.reason))) {
     issues.push(issue("REJECTED_ALTERNATIVE", "Record at least one rejected alternative and its reason.", "evidence.json"));
   }
@@ -337,11 +338,12 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     if (!/^(?:Adopt|Conditional|Reject)\b/.test(row[18] ?? "")) issues.push(issue("LIBRARY_DECISION", `Library row ${index + 1} needs an Adopt, Conditional, or Reject decision.`, "library-scorecard.md"));
   }
   if (!files.get("decision.md").includes("Rejected:")) issues.push(issue("DECISION_REJECT", "decision.md must preserve a rejected option and reason.", "decision.md"));
-  if (!/Rollback commit:\s*[0-9a-f]{40}/.test(files.get("rollback.md"))) issues.push(issue("ROLLBACK_FILE", "rollback.md must bind a full rollback commit.", "rollback.md"));
+  if (!new RegExp(`Rollback commit:\\s*${evidence.rollback?.commit ?? "invalid"}`).test(files.get("rollback.md"))) issues.push(issue("ROLLBACK_FILE", "rollback.md must bind the exact evidence rollback and baseline commit.", "rollback.md"));
   if (!new RegExp(`Expected source archive SHA-256:\\s*${evidence.rollback?.source_sha256 ?? "invalid"}`).test(files.get("rollback.md")) || !new RegExp(`Expected Production build SHA-256:\\s*${evidence.rollback?.build_sha256 ?? "invalid"}`).test(files.get("rollback.md"))) {
     issues.push(issue("ROLLBACK_FILE_SHA256", "rollback.md must match the rollback source and build SHA-256 values.", "rollback.md"));
   }
   if (!/Expected Sites rollback version[^:]*:\s*(?!pending\b|none\b|not applicable\b).+/i.test(files.get("rollback.md"))) issues.push(issue("ROLLBACK_SITES", "rollback.md must preserve the prior Sites version or explicit currently deployed rollback boundary.", "rollback.md"));
+  if (!meaningful(evidence.rollback?.gameplay_hash) || evidence.rollback?.gameplay_hash !== evidence.baseline?.gameplay_hash || !new RegExp(`Expected gameplay hash:\\s*\`?${evidence.baseline?.gameplay_hash ?? "invalid"}\`?`).test(files.get("rollback.md"))) issues.push(issue("ROLLBACK_GAMEPLAY", "rollback.md and evidence.rollback must bind the exact accepted baseline gameplay hash.", "rollback.md"));
   if (!files.get("research-card.md").includes(`Task ID: ${taskId}`)) issues.push(issue("CARD_TASK_ID", "research-card.md Task ID must match the directory.", "research-card.md"));
   if (!files.get("current-baseline.md").includes(`Source commit: ${evidence.source_commit}`)) issues.push(issue("BASELINE_FILE_BINDING", "current-baseline.md must bind the evidence.json source commit.", "current-baseline.md"));
 
@@ -362,6 +364,15 @@ export async function validateResearchPack(root, taskId, stage = "research") {
       const received = receipt?.gates?.[gate.id];
       if (!receipt || receipt.schema_version !== "numeric-hard-gates.v1" || receipt.task_id !== taskId || receipt.candidate_source_commit !== evidence.candidate?.source_commit || receipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || receipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || received?.observed !== gate.observed || received?.unit !== gate.target?.unit || received?.result !== "passed") issues.push(issue("HARD_GATE_ARTIFACT", `Hard-gate evidence must be a digest-bound numeric-hard-gates.v1 receipt matching the candidate and ${gate.id} observation.`, "evidence.json"));
     }
+    const candidateCaptureEntries = [["screenshot", evidence.candidate?.screenshot], ["clip", evidence.candidate?.clip], ["input_trace", evidence.candidate?.input_trace]];
+    const candidateCaptureArtifacts = await Promise.all(candidateCaptureEntries.map(([, reference]) => regularArtifact(root, directory, reference?.path)));
+    const candidateCaptureRealpaths = candidateCaptureArtifacts.map((artifact) => artifact.path);
+    const candidateCaptureRefsValid = candidateCaptureEntries.every(([, reference], index) => SHA256_PATTERN.test(reference?.sha256 ?? "") && candidateCaptureArtifacts[index].ok && candidateCaptureArtifacts[index].sha256 === reference.sha256) && new Set(candidateCaptureRealpaths).size === candidateCaptureRealpaths.length;
+    const captureReceipt = await readArtifactJson(root, directory, evidence.candidate?.capture_receipt);
+    const captureReceiptValid = captureReceipt?.schema_version === "capture-set.v1" && captureReceipt.task_id === taskId && captureReceipt.candidate_source_commit === evidence.candidate?.source_commit && captureReceipt.candidate_source_sha256 === evidence.candidate?.source_sha256 && captureReceipt.candidate_build_sha256 === evidence.candidate?.build_sha256 && candidateCaptureEntries.every(([id, reference]) => captureReceipt.artifacts?.[id]?.path === reference?.path && captureReceipt.artifacts?.[id]?.sha256 === reference?.sha256);
+    if (!candidateCaptureRefsValid || !captureReceiptValid) issues.push(issue("CANDIDATE_CAPTURE", "Complete evidence needs distinct digest-bound screenshot, moving clip, and input-trace files plus a candidate-bound capture-set.v1 receipt.", "evidence.json"));
+    const buildReceipt = await readArtifactJson(root, directory, evidence.candidate?.build_command_receipt);
+    if (!buildReceipt || buildReceipt.schema_version !== "build-command.v1" || buildReceipt.task_id !== taskId || buildReceipt.candidate_source_commit !== evidence.candidate?.source_commit || buildReceipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || buildReceipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || buildReceipt.command !== "npm run build" || buildReceipt.exit_code !== 0 || !Number.isFinite(Date.parse(buildReceipt.recorded_at ?? "")) || !meaningful(buildReceipt.observations)) issues.push(issue("BUILD_COMMAND", "Complete evidence needs a digest-bound successful npm run build receipt tied to the candidate source/build.", "evidence.json"));
     if (evidence.human?.status !== "passed" || evidence.human?.owner_decision !== "pass" || !(evidence.human?.raw_answer_count > 0)) {
       issues.push(issue("HUMAN_GATE", "Complete evidence needs a human pass and at least one preserved raw answer.", "evidence.json"));
     }
