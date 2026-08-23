@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -122,23 +122,23 @@ describe("evidence-driven Research Pack", () => {
     });
     const reusedPath = join(root, "docs/research/QX-R4-R00/reused-evidence.json");
     await writeFile(reusedPath, reusedReceipt, "utf8");
-    const reusedRef = { path: "reused-evidence.json", sha256: sha256(reusedReceipt) };
+    const reusedSha = sha256(reusedReceipt);
     evidence.human.status = "passed";
     evidence.human.raw_answer_count = 1;
     evidence.human.owner_decision = "pass";
-    evidence.human.raw_answers = reusedRef;
-    evidence.human.owner_evidence = reusedRef;
+    evidence.human.raw_answers = { path: "reused-evidence.json", sha256: reusedSha };
+    evidence.human.owner_evidence = { path: "./reused-evidence.json", sha256: reusedSha };
     evidence.gates.complete = "passed";
     await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const humanPath = join(root, "docs/research/QX-R4-R00/human-test.md");
     const human = (await readFile(humanPath, "utf8"))
       .replace("Owner: not applicable to this process-only task", "Owner: Human Acceptance Owner")
       .replace("Decision: not applicable to QX-R4-R00. This file is a validated sample; it cannot be reused as a Human pass for another task.", "Decision: pass")
-      .replace("| --- | --- | --- | --- | --- | --- | --- | --- |", `| --- | --- | --- | --- | --- | --- | --- | --- |\n| P01 | novice | 2026-08-23T12:00:00+09:00 | 2026-08-23T12:03:00+09:00 | Exact answer | pass | reused-evidence.json | ${reusedRef.sha256} |`);
+      .replace("| --- | --- | --- | --- | --- | --- | --- | --- |", `| --- | --- | --- | --- | --- | --- | --- | --- |\n| P01 | novice | 2026-08-23T12:00:00+09:00 | 2026-08-23T12:03:00+09:00 | Exact answer | fail | docs/research/QX-R4-R00/reused-evidence.json | ${reusedSha} |`);
     await writeFile(humanPath, human, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete");
     expect(result.status).toBe(1);
-    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["HUMAN_RAW"]));
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["HUMAN_RAW", "HUMAN_REJECT"]));
   });
 
   it("computes metric direction and numeric hard-gate outcomes", async () => {
@@ -176,6 +176,17 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["BASELINE_BUILD_BINDING", "ROLLBACK_SHA256"]));
   });
 
+  it("rejects a symlinked required Research Pack file", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const pack = join(root, "docs/research/QX-R4-R00");
+    await rename(join(pack, "evidence.json"), join(pack, "evidence-real.json"));
+    await symlink("evidence-real.json", join(pack, "evidence.json"));
+    const result = runValidator(root, "QX-R4-R00");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("PACK_FILE_TYPE");
+  });
+
   it("rejects invalid scale and an official label without matching Primary proof", async () => {
     const root = await makeRoot();
     await copySample(root);
@@ -190,11 +201,38 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["SCALE", "COMPARABLE_OFFICIAL_PROOF"]));
   });
 
+  it("rejects blank library fields, arbitrary decisions, missing comparable hypothesis, and missing Sites rollback boundary", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const pack = join(root, "docs/research/QX-R4-R00");
+    const scorecardPath = join(pack, "library-scorecard.md");
+    const scorecard = (await readFile(scorecardPath, "utf8")).replace("| Not in game frame |", "|  |").replace("| Adopt |", "| Maybe |");
+    await writeFile(scorecardPath, scorecard, "utf8");
+    const comparablePath = join(pack, "comparable-games.csv");
+    await writeFile(comparablePath, (await readFile(comparablePath, "utf8")).replace("A persistent route landmark visible for at least three seconds improves first-time direction answers.", ""), "utf8");
+    const rollbackPath = join(pack, "rollback.md");
+    await writeFile(rollbackPath, (await readFile(rollbackPath, "utf8")).replace(/- Expected Sites rollback version[^\n]*\n/, ""), "utf8");
+    const result = runValidator(root, "QX-R4-R00");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["LIBRARY_FIELD", "LIBRARY_DECISION", "COMPARABLE_FIELD", "ROLLBACK_SITES"]));
+  });
+
+  it("accepts commits but rejects Git tree objects as commit identities", async () => {
+    const { isGitCommit } = await import("../scripts/validate-research-pack.mjs");
+    const commit = execFileSync("git", ["-C", projectRoot.pathname, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    const tree = execFileSync("git", ["-C", projectRoot.pathname, "rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
+    expect(isGitCommit(projectRoot.pathname, commit)).toBe(true);
+    expect(isGitCommit(projectRoot.pathname, tree)).toBe(false);
+  });
+
   it("rejects moving GitHub labels and duplicate or unofficial comparables", async () => {
     const root = await makeRoot();
     await copySample(root);
     const referencesPath = join(root, "docs/research/QX-R4-R00/references.csv");
-    await writeFile(referencesPath, (await readFile(referencesPath, "utf8")).replace("v8.17.1,MIT", "latest,MIT"), "utf8");
+    const references = (await readFile(referencesPath, "utf8"))
+      .replace("v8.17.1,MIT", "latest,MIT")
+      .replace("https://openai.com/index/introducing-the-codex-app/", "https://app.notion.com/p/3c59b8d39c28817f9f6fc3db42f623fd?duplicate=1#same");
+    await writeFile(referencesPath, references, "utf8");
     const scorecardPath = join(root, "docs/research/QX-R4-R00/library-scorecard.md");
     await writeFile(scorecardPath, (await readFile(scorecardPath, "utf8")).replace("| v8.17.1 | MIT |", "| latest | MIT |"), "utf8");
     const comparablePath = join(root, "docs/research/QX-R4-R00/comparable-games.csv");
@@ -203,7 +241,7 @@ describe("evidence-driven Research Pack", () => {
     await writeFile(comparablePath, comparable, "utf8");
     const result = runValidator(root, "QX-R4-R00");
     expect(result.status).toBe(1);
-    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["GITHUB_PIN", "LIBRARY_PIN", "COMPARABLE_OFFICIAL", "COMPARABLE_DISTINCT"]));
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["SOURCE_DISTINCT", "GITHUB_PIN", "LIBRARY_PIN", "COMPARABLE_OFFICIAL", "COMPARABLE_DISTINCT"]));
   });
 
   it("requires reusable source, build, and rollback SHA-256 bindings", async () => {

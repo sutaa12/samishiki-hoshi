@@ -30,7 +30,7 @@
       "command": "npm run test:research",
       "exit_code": 0,
       "result": "passed",
-      "observations": "14/14 research-pack tests passed, including empty, community-only, valid sample, unknown license, baseline SHA, rollback, overwrite protection, forged one-file human completion, computed metric/hard-gate failure, directory/symlink rejection, invalid scale/unproven official source, moving/duplicate sources, and reusable SHA-256 bindings."
+      "observations": "17/17 research-pack tests passed, including empty/community-only, valid sample, licenses/pins, baseline/rollback/Sites, overwrite protection, Human Reject and aliased evidence, computed metric/hard-gate failure, directory and required-file symlinks, invalid scale/unproven official source, canonical duplicates, mandatory Library/comparable fields, Git commit-vs-tree identity, and reusable SHA-256 bindings."
     },
     {
       "command": "node scripts/validate-research-pack.mjs QX-R4-R00",
@@ -48,7 +48,7 @@
       "command": "npm run verify",
       "exit_code": 0,
       "result": "passed",
-      "observations": "Typecheck, lint, 96/96 suites and 794/794 tests, and Production build passed."
+      "observations": "Typecheck, lint, 96/96 suites and 797/797 tests, and Production build passed."
     },
     {
       "command": "Playwright selected Production regression: production-v2, rail-camera-phase-continuity, rail-flight, desktop project",
@@ -60,7 +60,7 @@
   "artifacts": {
     "vitest_report": {
       "path": ".quality-gates/qx-r4-r00-vitest-accepted.json",
-      "sha256": "5e3263e2dc758cb873ef4e3f18d54698be1fa0448cdbe3c2838756f681604a25"
+      "sha256": "1c2d45687f15db69dfe5e7d8d27dd35f9d9500ce76400465560a2a6c0ff4b9fa"
     },
     "production_report": {
       "path": ".quality-gates/qx-r4-r00-production-regression-accepted.json",
@@ -106,7 +106,7 @@
   "diagnostics": {
     "legacy_journey_test": "The isolated test expecting data-webgl=true fails with data-webgl=false at both baseline and candidate. It is preserved as a historical diagnostic and is not counted as a candidate regression."
   },
-  "severity_counts": {"S0": 0, "S1": 2, "S2": 2, "S3": 0},
+  "severity_counts": {"S0": 0, "S1": 2, "S2": 6, "S3": 0},
   "known_limitations": [
     "This process-only task is not a human gameplay acceptance.",
     "R4 player-facing Human Gate, rights, Main merge, and replacement Sites deployment remain frozen."
@@ -121,7 +121,8 @@
     "rounds": [
       {"round": 1, "verdict": "rejected", "artifact": ".quality-gates/QX-R4-R00/independent-review-round1.md", "open_s2": 3},
       {"round": 2, "verdict": "rejected", "artifact": ".quality-gates/QX-R4-R00/independent-review-round2.md", "open_s1": 2, "open_s2": 2},
-      {"round": 3, "verdict": "pending", "artifact": ".quality-gates/QX-R4-R00/independent-review-round3.md"}
+      {"round": 3, "verdict": "rejected", "artifact": ".quality-gates/QX-R4-R00/independent-review-round3.md", "open_s1": 2, "open_s2": 6, "blindness_limitation": true},
+      {"round": 4, "verdict": "pending", "artifact": ".quality-gates/QX-R4-R00/independent-review-round4.md"}
     ]
   }
 }

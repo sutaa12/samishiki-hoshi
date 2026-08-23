@@ -184,6 +184,12 @@ function gitArchiveSha256(root, commit) {
   return createHash("sha256").update(result.stdout).digest("hex");
 }
 
+export function isGitCommit(root, object) {
+  if (!SHA_PATTERN.test(object ?? "")) return false;
+  const result = spawnSync("git", ["-C", root, "cat-file", "-t", object], { encoding: "utf8" });
+  return result.status === 0 && result.stdout.trim() === "commit";
+}
+
 function issue(code, message, file) {
   return { code, message, ...(file ? { file } : {}) };
 }
@@ -202,15 +208,21 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   const files = new Map();
 
   for (const file of REQUIRED_FILES) {
+    const artifact = await regularArtifact(root, directory, file);
+    if (!artifact.ok) {
+      const missing = /ENOENT|no such file/i.test(artifact.reason ?? "");
+      issues.push(issue(missing ? "MISSING_FILE" : "PACK_FILE_TYPE", missing ? `${file} is required.` : `${file} must be a repository-contained regular non-symlink file.`, file));
+      continue;
+    }
     try {
-      const fileText = await readFile(resolve(directory, file), "utf8");
+      const fileText = await readFile(artifact.path, "utf8");
       files.set(file, fileText);
       if (!fileText.trim()) issues.push(issue("EMPTY_FILE", `${file} is empty.`, file));
     } catch {
       issues.push(issue("MISSING_FILE", `${file} is required.`, file));
     }
   }
-  if (issues.some((entry) => entry.code === "MISSING_FILE")) {
+  if (issues.some((entry) => entry.code === "MISSING_FILE" || entry.code === "PACK_FILE_TYPE")) {
     return { ok: false, task_id: taskId, stage, issues, counts: {} };
   }
 
@@ -243,7 +255,8 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     }
   }
   if (!uniqueNonempty(references, "ID")) issues.push(issue("SOURCE_DISTINCT", "Reference IDs must be nonempty and distinct.", "references.csv"));
-  if (!uniqueNonempty(references, "URL")) issues.push(issue("SOURCE_DISTINCT", "Reference URLs must be nonempty and distinct.", "references.csv"));
+  const canonicalReferenceUrls = references.map((row) => canonicalUrl(row.URL));
+  if (canonicalReferenceUrls.some((url) => !url) || new Set(canonicalReferenceUrls).size !== canonicalReferenceUrls.length) issues.push(issue("SOURCE_DISTINCT", "Reference URLs must be valid HTTPS and canonically distinct after removing query, fragment, www, and trailing-slash differences.", "references.csv"));
 
   let evidence;
   try {
@@ -263,7 +276,7 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     issues.push(issue("FRAME_COUNT", `${scale} research requires ${minimumFrames} annotated frames or timecodes; found ${frames.length}.`, "frame-analysis.csv"));
   }
   for (const [index, row] of comparableGames.entries()) {
-    for (const field of ["Game", "Source", "SourceKind", "OfficialEvidenceID", "Publisher", "Observed", "Inference", "AdoptOrReject"]) {
+    for (const field of ["Game", "Source", "SourceKind", "OfficialEvidenceID", "Publisher", "Observed", "Inference", "TestableHypothesis", "AdoptOrReject"]) {
       if (!meaningful(row[field])) issues.push(issue("COMPARABLE_FIELD", `comparable-games.csv row ${index + 2} needs ${field}.`, "comparable-games.csv"));
     }
     if (row.SourceKind !== "Official" || !isHttpsUrl(row.Source)) issues.push(issue("COMPARABLE_OFFICIAL", `comparable-games.csv row ${index + 2} must use an HTTPS Official source.`, "comparable-games.csv"));
@@ -288,6 +301,7 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   if (evidence.task_id !== taskId) issues.push(issue("TASK_ID", "evidence.json task_id must match the requested pack.", "evidence.json"));
   if (!SHA_PATTERN.test(evidence.source_commit ?? "")) issues.push(issue("SOURCE_SHA", "evidence.json source_commit must be a full Git SHA.", "evidence.json"));
   if (!SHA_PATTERN.test(evidence.baseline?.source_commit ?? "")) issues.push(issue("BASELINE_SHA", "Baseline source_commit must be a full Git SHA.", "evidence.json"));
+  if (!isGitCommit(root, evidence.source_commit) || !isGitCommit(root, evidence.baseline?.source_commit)) issues.push(issue("GIT_COMMIT_TYPE", "Research and baseline source identifiers must resolve to Git commit objects, not trees, blobs, or tags.", "evidence.json"));
   if (!SHA256_PATTERN.test(evidence.baseline?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.baseline?.build_sha256 ?? "")) issues.push(issue("BASELINE_SHA256", "Baseline needs exact 64-character source and build SHA-256 values.", "evidence.json"));
   const baselineBuildArtifact = await regularArtifact(root, directory, evidence.baseline?.build_artifact);
   if (!meaningful(evidence.baseline?.build_hash_procedure) || !baselineBuildArtifact.ok) issues.push(issue("BASELINE_BUILD_BINDING", "Baseline needs a reproducible build-hash procedure and a repository-contained regular build evidence file.", "evidence.json"));
@@ -304,6 +318,7 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   if (!SHA_PATTERN.test(evidence.rollback?.commit ?? "") || !meaningful(evidence.rollback?.condition) || !meaningful(evidence.rollback?.instructions)) {
     issues.push(issue("ROLLBACK", "Rollback needs a full commit, trigger condition, and instructions.", "evidence.json"));
   }
+  if (!isGitCommit(root, evidence.rollback?.commit)) issues.push(issue("GIT_COMMIT_TYPE", "Rollback identifier must resolve to a Git commit object.", "evidence.json"));
   if (!SHA256_PATTERN.test(evidence.rollback?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.rollback?.build_sha256 ?? "") || !(await regularArtifact(root, directory, evidence.rollback?.artifact)).ok) {
     issues.push(issue("ROLLBACK_SHA256", "Rollback needs source/build SHA-256 values and an existing rollback artifact.", "evidence.json"));
   }
@@ -314,17 +329,19 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   const scorecardRows = markdownTableRows(libraryScorecard);
   if (scorecardRows.length === 0) issues.push(issue("LIBRARY_ROW", "library-scorecard.md needs at least one evaluated option.", "library-scorecard.md"));
   for (const [index, row] of scorecardRows.entries()) {
+    if (row.length < 19 || row.slice(0, 19).some((cell) => !meaningful(cell))) issues.push(issue("LIBRARY_FIELD", `Library row ${index + 1} must fill every mandatory maintenance, compatibility, cost, lifecycle, determinism, browser, communication, fallback, rollback, and decision cell.`, "library-scorecard.md"));
     if (!meaningful(row[0]) || !/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/|$)/.test(row[1] ?? "") || (!/No third-party library/.test(row[3] ?? "") && !PIN_PATTERN.test(row[2] ?? ""))) issues.push(issue("LIBRARY_PIN", `Library row ${index + 1} needs a GitHub repository and semantic version or full commit; only an explicit no-third-party option may use the existing engine contract.`, "library-scorecard.md"));
     if (!/\b(?:MIT|Apache-2\.0|BSD-[23]-Clause|MPL-2\.0|ISC|CC0-1\.0|No third-party library)\b/.test(row[3] ?? "")) issues.push(issue("LICENSE", `Library row ${index + 1} needs a known license or No third-party library.`, "library-scorecard.md"));
     if (!meaningful(row[16])) issues.push(issue("LIBRARY_FALLBACK", `Library row ${index + 1} needs a fallback.`, "library-scorecard.md"));
     if (!SHA_PATTERN.test(row[17] ?? "")) issues.push(issue("LIBRARY_ROLLBACK", `Library row ${index + 1} needs a full rollback commit.`, "library-scorecard.md"));
-    if (!meaningful(row[18])) issues.push(issue("LIBRARY_DECISION", `Library row ${index + 1} needs an Adopt, Conditional, or Reject decision.`, "library-scorecard.md"));
+    if (!/^(?:Adopt|Conditional|Reject)\b/.test(row[18] ?? "")) issues.push(issue("LIBRARY_DECISION", `Library row ${index + 1} needs an Adopt, Conditional, or Reject decision.`, "library-scorecard.md"));
   }
   if (!files.get("decision.md").includes("Rejected:")) issues.push(issue("DECISION_REJECT", "decision.md must preserve a rejected option and reason.", "decision.md"));
   if (!/Rollback commit:\s*[0-9a-f]{40}/.test(files.get("rollback.md"))) issues.push(issue("ROLLBACK_FILE", "rollback.md must bind a full rollback commit.", "rollback.md"));
   if (!new RegExp(`Expected source archive SHA-256:\\s*${evidence.rollback?.source_sha256 ?? "invalid"}`).test(files.get("rollback.md")) || !new RegExp(`Expected Production build SHA-256:\\s*${evidence.rollback?.build_sha256 ?? "invalid"}`).test(files.get("rollback.md"))) {
     issues.push(issue("ROLLBACK_FILE_SHA256", "rollback.md must match the rollback source and build SHA-256 values.", "rollback.md"));
   }
+  if (!/Expected Sites rollback version[^:]*:\s*(?!pending\b|none\b|not applicable\b).+/i.test(files.get("rollback.md"))) issues.push(issue("ROLLBACK_SITES", "rollback.md must preserve the prior Sites version or explicit currently deployed rollback boundary.", "rollback.md"));
   if (!files.get("research-card.md").includes(`Task ID: ${taskId}`)) issues.push(issue("CARD_TASK_ID", "research-card.md Task ID must match the directory.", "research-card.md"));
   if (!files.get("current-baseline.md").includes(`Source commit: ${evidence.source_commit}`)) issues.push(issue("BASELINE_FILE_BINDING", "current-baseline.md must bind the evidence.json source commit.", "current-baseline.md"));
 
@@ -352,21 +369,23 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     const validHumanRows = humanRows.filter((row) => {
       const started = Date.parse(row[2] ?? "");
       const completed = Date.parse(row[3] ?? "");
-      return row.length >= 8 && row.slice(0, 5).every(meaningful) && Number.isFinite(started) && Number.isFinite(completed) && completed >= started && /^(?:pass|fail)$/i.test(row[5] ?? "") && meaningful(row[6]) && SHA256_PATTERN.test(row[7] ?? "");
+      return row.length >= 8 && row.slice(0, 5).every(meaningful) && Number.isFinite(started) && Number.isFinite(completed) && completed >= started && /^pass$/i.test(row[5] ?? "") && meaningful(row[6]) && SHA256_PATTERN.test(row[7] ?? "");
     });
-    const tracePaths = validHumanRows.map((row) => row[6]);
-    let traceArtifactsValid = validHumanRows.length === humanRows.length && new Set(tracePaths).size === tracePaths.length;
-    for (const row of validHumanRows) traceArtifactsValid &&= await validArtifactRef(root, directory, { path: row[6], sha256: row[7] });
+    if (humanRows.some((row) => /^fail$/i.test(row[5] ?? ""))) issues.push(issue("HUMAN_REJECT", "Any preserved Human Reject row blocks completion for this candidate.", "human-test.md"));
+    const traceArtifacts = await Promise.all(validHumanRows.map((row) => regularArtifact(root, directory, row[6])));
+    const traceRealpaths = traceArtifacts.map((artifact) => artifact.path);
+    const traceArtifactsValid = validHumanRows.length === humanRows.length && traceArtifacts.every((artifact, index) => artifact.ok && artifact.sha256 === validHumanRows[index][7]) && new Set(traceRealpaths).size === traceRealpaths.length;
     const rawRefValid = await validArtifactRef(root, directory, evidence.human?.raw_answers);
-    const rawPath = evidence.human?.raw_answers?.path;
-    const ownerPath = evidence.human?.owner_evidence?.path;
-    const evidencePathsSeparate = meaningful(rawPath) && meaningful(ownerPath) && rawPath !== ownerPath && !tracePaths.includes(rawPath) && !tracePaths.includes(ownerPath);
+    const rawArtifact = await regularArtifact(root, directory, evidence.human?.raw_answers?.path);
+    const ownerArtifact = await regularArtifact(root, directory, evidence.human?.owner_evidence?.path);
+    const allHumanRealpaths = [rawArtifact.path, ownerArtifact.path, ...traceRealpaths];
+    const evidencePathsSeparate = rawRefValid && ownerArtifact.ok && allHumanRealpaths.every(Boolean) && new Set(allHumanRealpaths).size === allHumanRealpaths.length;
     if (humanRows.length === 0 || validHumanRows.length !== humanRows.length || !traceArtifactsValid || !rawRefValid || !evidencePathsSeparate || evidence.human?.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_RAW", "Complete evidence needs counted, timestamped raw rows plus distinct digest-bound raw, trace, and owner files.", "human-test.md"));
     if (/Status:\s*pending|Decision:\s*pending/i.test(files.get("human-test.md"))) issues.push(issue("HUMAN_RAW", "human-test.md still records a pending human result.", "human-test.md"));
     const ownerReceipt = await readArtifactJson(root, directory, evidence.human?.owner_evidence);
     if (!/Owner:\s*[^\n]+/i.test(files.get("human-test.md")) || !/Decision:\s*pass\b/i.test(files.get("human-test.md")) || !ownerReceipt || ownerReceipt.schema_version !== "human-owner-decision.v1" || ownerReceipt.task_id !== taskId || ownerReceipt.decision !== "pass" || !meaningful(ownerReceipt.owner_role) || !Number.isFinite(Date.parse(ownerReceipt.signed_at ?? "")) || ownerReceipt.candidate_source_commit !== evidence.candidate?.source_commit || ownerReceipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || ownerReceipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || ownerReceipt.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_OWNER", "Complete evidence needs a distinct digest-bound owner receipt tied to the task, candidate source/build, raw-answer count, owner role, and signed pass.", "human-test.md"));
     const candidateBuildArtifact = await regularArtifact(root, directory, evidence.candidate?.build_artifact);
-    if (!SHA_PATTERN.test(evidence.candidate?.source_commit ?? "") || !SHA256_PATTERN.test(evidence.candidate?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.candidate?.build_sha256 ?? "") || !meaningful(evidence.candidate?.build_hash_procedure) || !candidateBuildArtifact.ok) {
+    if (!isGitCommit(root, evidence.candidate?.source_commit) || !SHA256_PATTERN.test(evidence.candidate?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.candidate?.build_sha256 ?? "") || !meaningful(evidence.candidate?.build_hash_procedure) || !candidateBuildArtifact.ok) {
       issues.push(issue("CANDIDATE_SHA256", "Complete evidence needs candidate commit, source/build SHA-256 values, a reproducible build-hash procedure, and an existing build artifact.", "evidence.json"));
     }
     if (gitArchiveSha256(root, evidence.candidate?.source_commit) !== evidence.candidate?.source_sha256) issues.push(issue("CANDIDATE_SOURCE_DIGEST", "Candidate source SHA-256 must match the exact git archive for candidate.source_commit.", "evidence.json"));
