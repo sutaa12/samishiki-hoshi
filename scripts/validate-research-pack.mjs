@@ -112,14 +112,20 @@ function descriptionFingerprint(value) {
 function containsReject(value) {
   const words = normalizedDescription(value)
     .replace(/\p{Cf}+/gu, "")
+    .replace(/[*_~`]+/g, "")
     .replace(/[\p{P}\p{S}]+/gu, " ");
-  return /\b(?:fail(?:ed|ure)?|reject(?:ed|ion)?)\b/i.test(words) || /拒否|不合格|却下/.test(words);
+  return /\b(?:fail(?:ed|ure)?|reject(?:ed|ion)?)\b/i.test(words) || /拒否|不合格|却下|失敗/.test(words);
+}
+
+function valueContainsReject(value) {
+  if (typeof value === "string") return containsReject(value);
+  if (Array.isArray(value)) return value.some(valueContainsReject);
+  if (value && typeof value === "object") return Object.values(value).some(valueContainsReject);
+  return false;
 }
 
 function hasHumanReject(human) {
-  return containsReject(human?.status)
-    || containsReject(human?.owner_decision)
-    || (Number.isInteger(human?.reject_count) && human.reject_count > 0);
+  return valueContainsReject(human) || (Number.isFinite(Number(human?.reject_count)) && Number(human.reject_count) > 0);
 }
 
 function probeMovingVideo(path) {
@@ -187,6 +193,17 @@ function probeMovingVideo(path) {
     return sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
   };
   const activeDifferenceRatio = yAverage.length ? yAverage.filter((value) => value >= 1).length / yAverage.length : 0;
+  const nativeDifferenceProbe = spawnSync("ffmpeg", [
+    "-nostdin", "-v", "info", "-i", path,
+    "-map", "0:v:0", "-vf", "tblend=all_mode=difference,signalstats,metadata=print", "-f", "null", "-",
+  ], { encoding: "utf8", maxBuffer: 24 * 1024 * 1024 });
+  if (nativeDifferenceProbe.status !== 0) return { ok: false, reason: "native-frame motion could not be measured" };
+  const nativeDifferenceOutput = `${nativeDifferenceProbe.stdout}\n${nativeDifferenceProbe.stderr}`;
+  const nativeYAverage = [...nativeDifferenceOutput.matchAll(/lavfi\.signalstats\.YAVG=([0-9.]+)/g)].map((match) => Number(match[1]));
+  const nativeYMinimum = [...nativeDifferenceOutput.matchAll(/lavfi\.signalstats\.YMIN=([0-9.]+)/g)].map((match) => Number(match[1]));
+  const nativeYMaximum = [...nativeDifferenceOutput.matchAll(/lavfi\.signalstats\.YMAX=([0-9.]+)/g)].map((match) => Number(match[1]));
+  const nativeSpatialRanges = nativeYMinimum.map((minimum, index) => nativeYMaximum[index] - minimum).filter(Number.isFinite);
+  const nativeActiveDifferenceRatio = nativeYAverage.length ? nativeYAverage.filter((value) => value >= 0.25).length / nativeYAverage.length : 0;
   const sceneProbe = spawnSync("ffmpeg", [
     "-nostdin", "-v", "info", "-i", path,
     "-map", "0:v:0", "-vf", "fps=10,select='gt(scene,0.3)',showinfo", "-f", "null", "-",
@@ -202,6 +219,9 @@ function probeMovingVideo(path) {
       && median(yAverage) >= 1
       && median(spatialRanges) >= 8
       && activeDifferenceRatio >= 0.8
+      && nativeYAverage.length >= decodedFrames - 2
+      && nativeActiveDifferenceRatio >= 0.8
+      && median(nativeSpatialRanges) >= 16
       && sceneCuts <= 2,
     durationMs,
     decodedFrames,
@@ -212,6 +232,9 @@ function probeMovingVideo(path) {
     medianLumaDifference: median(yAverage),
     medianSpatialDifferenceRange: median(spatialRanges),
     activeDifferenceRatio,
+    nativeMedianLumaDifference: median(nativeYAverage),
+    nativeMedianSpatialDifferenceRange: median(nativeSpatialRanges),
+    nativeActiveDifferenceRatio,
     sceneCuts,
   };
 }
@@ -269,6 +292,8 @@ function canonicalUrl(value) {
 
 function artifactPath(root, packDirectory, artifact) {
   if (!meaningful(artifact)) return null;
+  const segments = artifact.split("/");
+  if (isAbsolute(artifact) || segments.some((segment) => !segment || segment === "." || segment === "..")) return null;
   const path = resolve(artifact.includes("/") ? root : packDirectory, artifact);
   const rootPath = resolve(root);
   const within = relative(rootPath, path);
@@ -279,11 +304,18 @@ async function regularArtifact(root, packDirectory, artifact) {
   const path = artifactPath(root, packDirectory, artifact);
   if (!path) return { ok: false, reason: "path is missing or outside the repository", path: null, sha256: null };
   try {
+    const rootPath = resolve(root);
+    const lexicalWithin = relative(rootPath, path);
+    let componentPath = rootPath;
+    for (const component of lexicalWithin.split("/")) {
+      componentPath = resolve(componentPath, component);
+      if ((await lstat(componentPath)).isSymbolicLink()) return { ok: false, reason: "path contains a symbolic-link component", path, sha256: null };
+    }
     const lexical = await lstat(path);
     if (lexical.isSymbolicLink() || !lexical.isFile()) return { ok: false, reason: "path is not a regular non-symlink file", path, sha256: null };
     const resolvedPath = await realpath(path);
-    const rootPath = await realpath(root);
-    const within = relative(rootPath, resolvedPath);
+    const resolvedRootPath = await realpath(root);
+    const within = relative(resolvedRootPath, resolvedPath);
     if (!within || within.startsWith("..") || isAbsolute(within) || !(await stat(resolvedPath)).isFile()) return { ok: false, reason: "resolved path is outside the repository or not a regular file", path, sha256: null };
     return { ok: true, reason: null, path: resolvedPath, identity: `${lexical.dev}:${lexical.ino}`, size: lexical.size, sha256: createHash("sha256").update(await readFile(resolvedPath)).digest("hex") };
   } catch (error) {
@@ -411,7 +443,7 @@ const AI_REMEDIATION_ROUTES = {
 async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues) {
   const closure = await readArtifactJson(root, directory, evidence.research_only_ai_closure);
   const reviewText = closure ? await readArtifactText(root, directory, closure.independent_review) : null;
-  const normalizedReviewText = (reviewText ?? "").normalize("NFKC").replace(/\p{Cf}+/gu, "");
+  const normalizedReviewText = (reviewText ?? "").normalize("NFKC").replace(/\p{Cf}+/gu, "").replace(/[*_~`]+/g, "");
   const reviewScore = /\bScore\s*:\s*(\d+)\/32\b/i.exec(normalizedReviewText);
   const reviewVerdicts = normalizedReviewText.match(/\bVerdict\s*:\s*(?:ACCEPT|REJECT)\b/gim) ?? [];
   const reviewScores = normalizedReviewText.match(/\bScore\s*:\s*\d+\/32\b/gim) ?? [];
@@ -424,7 +456,8 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     && /research stage only/i.test(normalizedReviewText)
     && Number(reviewScore?.[1]) >= 28
     && /Reviewer severities\s*:\s*S0\s+0,\s*S1\s+0,\s*S2\s+0\b/i.test(normalizedReviewText)
-    && !contradictorySeverity;
+    && !contradictorySeverity
+    && !/must not be marked complete|HUMAN_PENDING/i.test(normalizedReviewText);
   if (!closure
     || taskId !== "QX-R4-R01"
     || closure.schema_version !== "research-only-ai-closure.v1"
@@ -465,10 +498,12 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
 
   const telemetry = await readArtifactJson(root, directory, ai?.telemetry);
   const distanceTrace = Array.isArray(telemetry?.distance_trace) ? telemetry.distance_trace : [];
+  const expectedFrameIntervalMs = telemetry?.duration_ms / telemetry?.frame_count;
   const distanceTraceValid = distanceTrace.length === telemetry?.frame_count
     && telemetry?.frame_count === videoProbe.decodedFrames
     && distanceTrace.every((sample, index) => Number.isInteger(sample?.frame) && sample.frame === index
       && Number.isFinite(sample?.at_ms) && sample.at_ms >= 0 && sample.at_ms <= telemetry.duration_ms
+      && Math.abs(sample.at_ms - index * expectedFrameIntervalMs) <= 1
       && Number.isFinite(sample?.distance_mm)
       && (index === 0 || sample.at_ms > distanceTrace[index - 1].at_ms)
       && (index === 0 || sample.distance_mm > distanceTrace[index - 1].distance_mm))
@@ -490,6 +525,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     && steerProbe.completed_at_ms - steerProbe.input_at_ms <= 300
     && Number.isFinite(steerProbe?.viewport_width_px) && steerProbe.viewport_width_px > 0
     && Number.isFinite(steerProbe?.start_x_px) && Number.isFinite(steerProbe?.response_x_px) && Number.isFinite(steerProbe?.end_x_px)
+    && [steerProbe.start_x_px, steerProbe.response_x_px, steerProbe.end_x_px].every((x) => x >= 0 && x <= steerProbe.viewport_width_px)
     && Math.abs(steerProbe.response_x_px - steerProbe.start_x_px) >= 12
     && steerDisplacementRatio >= 0.1
     && steerProbe.completed_at_ms <= telemetry?.duration_ms;
@@ -536,12 +572,14 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
   if (!ledger
     || ledger.schema_version !== "ai-binary-event-ledger.v1"
     || ledger.task_id !== taskId
+    || ledger.result !== "passed"
     || ledger.subject_source_sha256 !== evidence.candidate?.source_sha256
     || ledger.subject_build_sha256 !== evidence.candidate?.build_sha256
     || ledger.subject_video_sha256 !== ai?.video?.sha256
     || !Number.isFinite(Date.parse(ledger.recorded_at ?? ""))
     || !Array.isArray(ledger.events)
-    || ledger.events.length < 4
+    || ledger.events.length !== 4
+    || valueContainsReject(ledger.events)
     || eventTimes.some((time) => !Number.isFinite(time))
     || eventTimes.some((time) => time < 0 || time > telemetry?.duration_ms)
     || eventTimes.some((time, index) => index > 0 && time <= eventTimes[index - 1])
@@ -569,7 +607,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || !Number.isFinite(Date.parse(review.reviewed_at ?? "")))) {
     issues.push(issue("AI_REVIEW_BINDING", "Every AI review must bind the same task/source/build/video and record artifact-only blindness plus a valid review time.", "evidence.json"));
   }
-  if (reviews.some((review) => review?.pass !== true || AI_REVIEW_BOOLEAN_FIELDS.some((field) => review?.answers?.[field] !== true))) {
+  if (reviews.some((review) => review?.pass !== true || valueContainsReject(review) || AI_REVIEW_BOOLEAN_FIELDS.some((field) => review?.answers?.[field] !== true))) {
     issues.push(issue("AI_REVIEW_FAIL", "Every AI review and every required binary comprehension answer must pass.", "evidence.json"));
   }
   const descriptions = reviews.map((review) => normalizedDescription(review?.plain_description));
@@ -585,6 +623,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
 
   const remediation = await readArtifactJson(root, directory, ai?.remediation);
   const remediationRoutesMatch = JSON.stringify(remediation?.remediation_map) === JSON.stringify(AI_REMEDIATION_ROUTES);
+  const remediationObservationCharacters = new Set(normalizedDescription(remediation?.observations).replace(/[\p{P}\p{S}\p{Z}\s]+/gu, ""));
   if (!remediation
     || remediation.schema_version !== "ai-binary-remediation.v1"
     || remediation.task_id !== taskId
@@ -595,6 +634,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || remediation.decision !== "accept"
     || !meaningful(remediation.observations)
     || normalizedDescription(remediation.observations).length < 40
+    || remediationObservationCharacters.size < 12
     || !remediation.remediation_map
     || typeof remediation.remediation_map !== "object"
     || !remediationRoutesMatch
@@ -813,11 +853,7 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
 
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
-    const humanDecisionReject = optionalHumanText.split("\n").some((line) => {
-      const normalizedLine = line.normalize("NFKC").replace(/\p{Cf}+/gu, "");
-      return /\b(?:decision|status|outcome)\b/i.test(normalizedLine) && containsReject(normalizedLine);
-    });
-    if (acceptance === "ai-binary" && (hasHumanReject(evidence.human) || markdownTableRows(optionalHumanText).some((row) => containsReject(row[5])) || humanDecisionReject || /\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
+    if (acceptance === "ai-binary" && (hasHumanReject(evidence.human) || containsReject(optionalHumanText) || /\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject still blocks the candidate; AI Binary mode may omit Human evidence but cannot override an existing Reject.", "human-test.md"));
     }
     const researchOnlyAiClosure = acceptance === "ai-binary" && evidence.gates?.complete === "research-only-ai-accepted";

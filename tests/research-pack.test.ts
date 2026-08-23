@@ -135,6 +135,7 @@ async function prepareValidAiBinaryPack(root: string) {
   const eventLedger = await artifact("event-ledger.json", {
     schema_version: "ai-binary-event-ledger.v1",
     task_id: "QX-R4-R00",
+    result: "passed",
     subject_source_sha256: sourceSha,
     subject_build_sha256: build.sha256,
     subject_video_sha256: video.sha256,
@@ -259,7 +260,7 @@ describe("evidence-driven Research Pack", () => {
     expect(skill).toContain("ai_binary_gameplay:");
     expect(skill).toContain("requires_three_blind_ai_reviews: true");
     expect(skill).toContain("validator must decode the video itself");
-    expect(skill).toContain("one indexed, timestamped `distance_mm` sample for every decoded video frame");
+    expect(skill).toContain("one indexed, uniformly frame-timed `distance_mm` sample for every decoded video frame");
     expect(skill).toContain("Reject preserved in either optional Human Markdown or `evidence.json`");
   });
 
@@ -396,7 +397,7 @@ describe("evidence-driven Research Pack", () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
-    evidence.human = { status: "human reject", owner_decision: "pending", raw_answer_count: 1, reject_count: 0 };
+    evidence.human = { status: "pending", outcome: "失敗", decision: "FAIL", raw_answer_count: 1, reject_count: "1" };
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
@@ -552,6 +553,24 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_COUNT");
   });
 
+  it("rejects lexical parent aliases and symlinked intermediate directories", async () => {
+    for (const mode of ["parent", "intermediate"] as const) {
+      const root = await makeRoot();
+      const fixture = await prepareValidAiBinaryPack(root);
+      const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+      if (mode === "parent") {
+        evidence.ai_binary_gameplay.reviews[0].path = ".quality-gates/QX-R4-R00/../QX-R4-R00/review-1.json";
+      } else {
+        await symlink("QX-R4-R00", join(root, ".quality-gates/review-alias"));
+        evidence.ai_binary_gameplay.reviews[0].path = ".quality-gates/review-alias/review-1.json";
+      }
+      await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+      const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+      expect(result.status, mode).toBe(1);
+      expect(result.report.issues?.map((entry) => entry.code), mode).toContain("AI_REVIEW_COUNT");
+    }
+  });
+
   it("rejects an AI review bound to a different Video SHA", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -694,6 +713,25 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_TELEMETRY");
   });
 
+  it("rejects compressed frame times and steering coordinates outside the viewport", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const telemetryPath = join(root, fixture.telemetry.path);
+    const telemetry = JSON.parse(await readFile(telemetryPath, "utf8"));
+    telemetry.distance_trace = telemetry.distance_trace.map((sample: { frame: number; distance_mm: number }, index: number) => ({ ...sample, at_ms: index === 449 ? 15000 : index }));
+    telemetry.steer_probe.start_x_px = 401;
+    telemetry.steer_probe.response_x_px = 420;
+    telemetry.steer_probe.end_x_px = 460;
+    const text = `${JSON.stringify(telemetry, null, 2)}\n`;
+    await writeFile(telemetryPath, text, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.ai_binary_gameplay.telemetry.sha256 = sha256(text);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_TELEMETRY");
+  });
+
   it("rejects a one-sample distance trace for a multi-frame video", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -748,6 +786,23 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EVENT_LEDGER");
   });
 
+  it("rejects a failed ledger or duplicate semantic event after completion", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const ledgerPath = join(root, evidence.ai_binary_gameplay.event_ledger.path);
+    const ledger = JSON.parse(await readFile(ledgerPath, "utf8"));
+    ledger.result = "failed";
+    ledger.events.push({ event_class: "ring_success", at_ms: 14500 });
+    const text = `${JSON.stringify(ledger, null, 2)}\n`;
+    await writeFile(ledgerPath, text, "utf8");
+    evidence.ai_binary_gameplay.event_ledger.sha256 = sha256(text);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EVENT_LEDGER");
+  });
+
   it("rejects a shape-only remediation map", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -768,6 +823,29 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REMEDIATION");
+  });
+
+  it("rejects contradictory review fields and filler remediation observations", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const reviewPath = join(root, fixture.reviews[0].path);
+    const review = JSON.parse(await readFile(reviewPath, "utf8"));
+    review.verdict = "REJECT";
+    review.outcome = "fail";
+    const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+    await writeFile(reviewPath, reviewText, "utf8");
+    evidence.ai_binary_gameplay.reviews[0].sha256 = sha256(reviewText);
+    const remediationPath = join(root, fixture.remediation.path);
+    const remediation = JSON.parse(await readFile(remediationPath, "utf8"));
+    remediation.observations = "x".repeat(48);
+    const remediationText = `${JSON.stringify(remediation, null, 2)}\n`;
+    await writeFile(remediationPath, remediationText, "utf8");
+    evidence.ai_binary_gameplay.remediation.sha256 = sha256(remediationText);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["AI_REVIEW_FAIL", "AI_REMEDIATION"]));
   });
 
   it("rejects duplicate AI free descriptions even when all binary answers pass", async () => {
@@ -833,7 +911,7 @@ describe("evidence-driven Research Pack", () => {
     const root = await makeRoot();
     await copyR01(root);
     const reviewPath = join(root, ".quality-gates/QX-R4-R01/independent-review-round4.md");
-    const reviewText = "# Synthetic review\n\nVerdict: ACCEPT — research stage only\nScore: 30/32\nReviewer severities: S0 0, S1 0, S2 0, S3 0\n\n> Verdict: REJECT\n\nOpen S2 findings: 1\n\n## S2 blocker\n";
+    const reviewText = "# Synthetic review\n\nVerdict: ACCEPT — research stage only\nScore: 30/32\nReviewer severities: S0 0, S1 0, S2 0, S3 0\n\n> - **Ver**dict: REJECT\n\n- **Score:** 0/32\n\n> Open **S2** findings: 1\n\n## S2 blocker\n";
     await writeFile(reviewPath, reviewText, "utf8");
     const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
     const closure = JSON.parse(await readFile(closurePath, "utf8"));

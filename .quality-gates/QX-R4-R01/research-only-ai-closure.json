@@ -11,9 +11,13 @@
   "baseline_build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
   "research_validation_sha256": "6561475d17170dde7b37a0bf41a9bcc6bf8c86227c1ef811c4927f48f29b779e",
   "automated_review_result": "accepted-research-stage-only",
-  "automated_review_score": "30/32",
+  "automated_review_score": "32/32",
   "automated_review_open_s0_s2": 0,
   "independent_review": {
+    "path": ".quality-gates/QX-R4-R01/r5-migration-assessment.md",
+    "sha256": "97db72c9552a9b3298f53f06a2107c08ce1e432eb27eb78083985a4dcb4117b1"
+  },
+  "historical_research_review": {
     "path": ".quality-gates/QX-R4-R01/independent-review-round4.md",
     "sha256": "4b6b14b9ba94708815e4677eea0d663f4a21c962405f225b0121a077272bfc79"
   },
