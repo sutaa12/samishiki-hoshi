@@ -712,6 +712,9 @@ describe("evidence-driven Research Pack", () => {
     ["string yes rejected flag", { rejected: "yes" }],
     ["string on failed flag", { failed: "on" }],
     ["string off approved flag", { approved: "off" }],
+    ["negative success flag", { success: false }],
+    ["negative approval switch", { approval: "off" }],
+    ["nested positive failed value", { failed: { value: true } }],
   ])("rejects preserved Human evidence hidden by %s", async (_label, human) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -768,6 +771,8 @@ describe("evidence-driven Research Pack", () => {
     ["denies approval prose", "Human denies approval.\n"],
     ["contracted approving prose", "Reviewer isn’t approving.\n"],
     ["contracted passed prose", "Reviewer hasn’t passed it.\n"],
+    ["disapproved prose", "Human was disapproved.\n"],
+    ["contracted success prose", "Decision: wasn’t successful.\n"],
   ])("rejects Human-labeled supplemental text with %s", async (_label, supplementalText) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1004,6 +1009,29 @@ describe("evidence-driven Research Pack", () => {
       "A droplet moves through a ring, avoids a rock, and sends light away from a plant.",
       "A small water character advances through a gate, avoids an obstacle, and sends light while a camera activates a plant.",
       "小さな水滴を動かしてリングをくぐり、岩を避け、芽から光を送る遊びです。",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects Japanese actor insertion with de and mo particles", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "水滴を動かしてリングをカメラでくぐり、岩を避け、芽へ光を渡す遊びです。",
+      "プレイヤーを左右に移動し、輪を通り、障害をカメラで避け、植物へ光を届けます。",
+      "雫を操作してゲートを抜け、壁をかわし、ノードへカメラも光を送ります。",
     ];
     for (const [index, description] of descriptions.entries()) {
       const reviewPath = join(root, fixture.reviews[index].path);

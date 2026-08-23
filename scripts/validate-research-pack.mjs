@@ -139,14 +139,14 @@ function isOrderedSubsequence(needle, haystack) {
 
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
-  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
+  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|disapprov(?:e|ed|ing|al)|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
 }
 
 function containsHumanFailureText(value) {
   const compact = securityFingerprint(normalizedDescription(value));
   return containsReject(value)
     || /(?:pass|passed|accept|accepted|approve|approved)(?:is|was)?false/.test(compact)
-    || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|hasnt|havent|couldnt|wouldnt|wont|cant|not)(?:pass|passes|passed|passing|accept|accepts|accepted|accepting|approve|approves|approved|approving)/.test(compact)
+    || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|hasnt|havent|couldnt|wouldnt|wont|cant|not)(?:pass|passes|passed|passing|accept|accepts|accepted|accepting|approve|approves|approved|approving|success|successful|succeed|succeeds|succeeded|succeeding)/.test(compact)
     || /(?:承認|合格)(?:され)?ず|未承認/.test(compact);
 }
 
@@ -183,9 +183,9 @@ function communicatesR5Gameplay(value) {
   const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗/.test(text);
   const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ)(?:が|は|を)?(?:(?![がは]).){0,20}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
-  const japaneseRing = /(?:(?:くぐ|通|抜け).{0,16}(?:リング|輪|門|ゲート|円)|(?:リング|輪|門|ゲート|円).{0,16}(?:くぐ|通|抜け))/;
-  const japaneseObstacle = /(?:(?:避け|かわし).{0,16}(?:岩|障害|壁|危険)|(?:岩|障害|壁|危険).{0,16}(?:避け|かわし))/;
-  const japanesePulse = /(?:(?:芽|植物|ノード|対象)(?:へ|に).{0,8}(?:光|パルス|生命).{0,8}(?:渡|送|届け|当て|光らせ|起動|照ら)|(?:光|パルス|生命).{0,8}(?:芽|植物|ノード|対象)(?:へ|に).{0,8}(?:渡|送|届け|当て|光らせ|起動|照ら))/;
+  const japaneseRing = /(?:リング|輪|門|ゲート|円)を?(?:くぐ|通|抜け)/;
+  const japaneseObstacle = /(?:岩|障害|壁|危険)を?(?:避け|かわし)/;
+  const japanesePulse = /(?:芽|植物|ノード|対象)(?:へ|に)(?:光|パルス|生命)を?(?:渡|送|届け|当て|光らせ|起動|照ら)/;
   const japaneseActorMotionMatch = japaneseActorMotion.exec(text);
   const japaneseRingMatch = japaneseRing.exec(text);
   const japaneseObstacleMatch = japaneseObstacle.exec(text);
@@ -198,7 +198,7 @@ function communicatesR5Gameplay(value) {
     && japaneseConnector.test(text.slice(japaneseRingMatch.index + japaneseRingMatch[0].length, japaneseObstacleMatch.index))
     && japaneseConnector.test(text.slice(japaneseObstacleMatch.index + japaneseObstacleMatch[0].length, japanesePulseMatch.index));
   const japaneseSubjectSwap = Boolean(japaneseActorMotionMatch && japanesePulseMatch
-    && /[がは]/.test(text.slice(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japanesePulseMatch.index + japanesePulseMatch[0].length)));
+    && /[がはもで]/.test(text.slice(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japanesePulseMatch.index + japanesePulseMatch[0].length)));
   const sentenceLike = hasJapanese
     ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && !japaneseWrongActor.test(text) && !japaneseSubjectSwap && japaneseRelationsValid
     : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && !englishNegative && !englishWrongActor.test(text) && englishRelationsValid;
@@ -222,13 +222,16 @@ function hasHumanReject(human) {
     const normalized = normalizedScalar(value);
     return normalized === false || normalized === 0 || normalized === "false" || normalized === "no" || normalized === "off" || normalized === "0";
   };
-  const visit = (value) => {
+  const successKeyPattern = /(?:pass|accept|approve|approval|success|successful|合格|承認)/;
+  const visit = (value, inheritedFailureKey = false, inheritedSuccessKey = false) => {
     if (!value || typeof value !== "object") return false;
     return Object.entries(value).some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
-      if (containsReject(normalizedKey) && isPositive(child)) return true;
-      if (/(?:pass|accept|approve|合格|承認)/.test(normalizedKey) && isNegative(child)) return true;
-      return child && typeof child === "object" ? visit(child) : false;
+      const failureKey = inheritedFailureKey || containsReject(normalizedKey);
+      const successKey = inheritedSuccessKey || successKeyPattern.test(normalizedKey);
+      if (failureKey && isPositive(child)) return true;
+      if (successKey && isNegative(child)) return true;
+      return child && typeof child === "object" ? visit(child, failureKey, successKey) : false;
     });
   };
   const containsFailureString = (value) => {
