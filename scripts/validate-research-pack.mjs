@@ -13,7 +13,8 @@ const PIN_PATTERN = /^(?:[0-9a-f]{40}|v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$/;
 const PLACEHOLDER_PATTERN = /\{\{[^}]+\}\}|REPLACE_(?:ME|WITH_[A-Z_]+)|\bTBD\b/;
 const EXTERNAL_MEDIA_EXTENSIONS = new Set([".apng", ".avif", ".gif", ".jpeg", ".jpg", ".m4a", ".mp3", ".mp4", ".ogg", ".png", ".wav", ".webm", ".webp"]);
 const R5_EXPECTED_DESCRIPTION = "小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム";
-const R01_MIGRATION_ASSESSMENT_SHA256 = "4f13b2b94c52c3a92b77a31e7c7e10cb0afeaa0872a04696f9acd4d1fce3b0c7";
+const R01_MIGRATION_ASSESSMENT_SHA256 = "aea51297374d27e508b9402f84106ac8a987a4113df35898f56e50d5a745c8ef";
+const R00_PRODUCTION_STABLE_MANIFEST_SHA256 = "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25";
 const REQUIRED_FILES = [
   "research-card.md",
   "references.csv",
@@ -130,6 +131,18 @@ function containsReject(value) {
   return /fail(?:ed|ure)?|reject(?:ed|ion)?/i.test(compact) || /拒否|不合格|却下|失敗/.test(compact);
 }
 
+function communicatesR5Gameplay(value) {
+  const text = normalizedDescription(value);
+  const concepts = [
+    /\b(?:droplet|drop|water|player|avatar|character|orb|bead)\b|水滴|雫|プレイヤー|自機|キャラ/iu,
+    /\b(?:steer|move|moves|moving|sideways|advance|advances|travel|guide|control|dodge|veer|navigate)\b|操作|移動|左右|進む|進行|避け/iu,
+    /\b(?:ring|hoop|gate|circle|arch|loop)\b|リング|輪|門|ゲート|円/iu,
+    /\b(?:rock|hazard|obstacle|barrier|boulder)\b|岩|障害|壁|危険/iu,
+    /\b(?:pulse|energize|energizing|energy|light|sprout|plant|node|target|charge|activate|bloom)\b|パルス|光|芽|植物|ノード|対象|生命|起動/iu,
+  ];
+  return concepts.filter((pattern) => pattern.test(text)).length >= 4;
+}
+
 function valueContainsReject(value) {
   if (typeof value === "string") return containsReject(value);
   if (Array.isArray(value)) return value.some(valueContainsReject);
@@ -143,7 +156,7 @@ function hasHumanReject(human) {
     return Object.entries(value).some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
       if (/reject[a-z0-9]*count/.test(normalizedKey) && Number.isFinite(Number(child)) && Number(child) > 0) return true;
-      if (/^reject(?:ed|ion)?$/.test(normalizedKey) && (child === true || (Number.isFinite(Number(child)) && Number(child) > 0))) return true;
+      if (normalizedKey.includes("reject") && (child === true || (Number.isFinite(Number(child)) && Number(child) > 0))) return true;
       return child && typeof child === "object" ? hasPositiveRejectCount(child) : false;
     });
   };
@@ -151,12 +164,21 @@ function hasHumanReject(human) {
 }
 
 function hasHumanRejectAnywhere(value) {
-  if (!value || typeof value !== "object") return false;
-  return Object.entries(value).some(([key, child]) => {
-    const normalizedKey = descriptionFingerprint(key);
-    if (normalizedKey.includes("human") && hasHumanReject({ [key]: child })) return true;
-    return child && typeof child === "object" ? hasHumanRejectAnywhere(child) : false;
-  });
+  const visit = (current, inheritedHumanContext = false) => {
+    if (!current || typeof current !== "object") return false;
+    const entries = Object.entries(current);
+    const labeledHuman = inheritedHumanContext || entries.some(([key, child]) => {
+      const normalizedKey = descriptionFingerprint(key);
+      return /^(?:label|type|kind|category|scope|subject)$/.test(normalizedKey) && descriptionFingerprint(child).includes("human");
+    });
+    if (labeledHuman && hasHumanReject(current)) return true;
+    return entries.some(([key, child]) => {
+      const childHumanContext = labeledHuman || descriptionFingerprint(key).includes("human");
+      if (child && typeof child === "object") return visit(child, childHumanContext);
+      return childHumanContext && hasHumanReject({ [key]: child });
+    });
+  };
+  return visit(value);
 }
 
 function probeMovingVideo(path) {
@@ -289,7 +311,7 @@ function hasExactKeys(value, keys) {
     && JSON.stringify(Object.keys(value).toSorted()) === JSON.stringify([...keys].toSorted()));
 }
 
-async function manifestMatchesArchive(root, directory, manifestReference, archiveReference) {
+async function manifestMatchesArchive(root, directory, manifestReference, archiveReference, requireExactFileSet = true) {
   const manifest = await regularArtifact(root, directory, manifestReference);
   const archive = await regularArtifact(root, directory, archiveReference?.path);
   if (!manifest.ok || !archive.ok || archive.sha256 !== archiveReference?.sha256) return false;
@@ -300,8 +322,9 @@ async function manifestMatchesArchive(root, directory, manifestReference, archiv
   if (listed.status !== 0) return false;
   const archiveFiles = listed.stdout.split("\n").filter((path) => path && !path.endsWith("/"));
   const expectedFiles = entries.map((entry) => `dist/${entry[2]}`);
-  if (archiveFiles.some((path) => !path.startsWith("dist/") || path.split("/").some((segment) => segment === ".."))
-    || JSON.stringify([...archiveFiles].sort()) !== JSON.stringify([...expectedFiles].sort())) return false;
+  if (archiveFiles.some((path) => !path.startsWith("dist/") || path.split("/").some((segment) => segment === ".."))) return false;
+  if (requireExactFileSet && JSON.stringify([...archiveFiles].sort()) !== JSON.stringify([...expectedFiles].sort())) return false;
+  if (!requireExactFileSet && expectedFiles.some((path) => !archiveFiles.includes(path))) return false;
   const extractionRoot = await mkdtemp(join(tmpdir(), "lonely-star-build-verify-"));
   try {
     const extracted = spawnSync("tar", ["-xzf", archive.path, "-C", extractionRoot], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
@@ -535,6 +558,11 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
   const contradictoryClaim = /(?:humanacceptance|ownerreleasedecision|legalacceptance|mainintegration|sitespublicationandhealth|contestsubmissionoracceptance)(?:is|status)?(?:passed|complete)/.test(reviewSecurityText)
     || /(?:aiacceptance|migrationacceptance|review)(?:is)?pass(?:ed)?false/.test(reviewSecurityText);
   const buildArchiveValid = closure ? await manifestMatchesArchive(root, directory, evidence.candidate?.build_artifact, closure.build_archive) : false;
+  const stableManifest = await regularArtifact(root, directory, ".quality-gates/QX-R4-R00/production-stable-assets.sha256");
+  const stableProductionValid = Boolean(closure
+    && stableManifest.ok
+    && stableManifest.sha256 === R00_PRODUCTION_STABLE_MANIFEST_SHA256
+    && await manifestMatchesArchive(root, directory, ".quality-gates/QX-R4-R00/production-stable-assets.sha256", closure.build_archive, false));
   const migrationSubjectBound = Boolean(closure && reviewText
     && closure.independent_review?.path === ".quality-gates/QX-R4-R01/r5-migration-assessment.md"
     && closure.historical_research_review?.path === ".quality-gates/QX-R4-R01/independent-review-round4.md"
@@ -582,6 +610,7 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     || closure.historical_research_review?.path !== researchValidation?.independent_review_artifact?.path
     || closure.historical_research_review?.sha256 !== researchValidation?.independent_review_artifact?.sha256
     || !buildArchiveValid
+    || !stableProductionValid
     || !acceptedReview
     || !migrationSubjectBound
     || closure.next_task !== "QX-R5-001"
@@ -758,6 +787,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
   const expectedDescriptionFingerprint = descriptionFingerprint(R5_EXPECTED_DESCRIPTION);
   if (descriptions.some((description) => !meaningful(description) || description.length < 12)
     || descriptionFingerprints.some((fingerprint) => fingerprint.length < 8)
+    || reviews.some((review) => !communicatesR5Gameplay(review?.plain_description))
     || new Set(descriptionFingerprints).size !== 3
     || descriptions.some((description) => textSha256(description) === expectedAnswerSha256)
     || descriptionFingerprints.some((fingerprint) => fingerprint.includes(expectedDescriptionFingerprint))) {

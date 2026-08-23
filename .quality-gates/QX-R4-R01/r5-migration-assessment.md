@@ -15,12 +15,12 @@ Reviewer severities: S0 0, S1 0, S2 0, S3 0
 
 | Subject | SHA-256 or identifier |
 | --- | --- |
-| Research-validation artifact | `ce5b365fdcd34969bf36f97ca1330a15126b127f46875e4d1179abc688c60e54` |
+| Research-validation artifact | `77c7d99882ff31f7177e37dba3709ee667a7c313639286c74855471275a7ff71` |
 | Historical round-4 review artifact | `4b6b14b9ba94708815e4677eea0d663f4a21c962405f225b0121a077272bfc79` |
 | Runtime source commit | `be0eb51661df90bc21bdb471a8a626078ff92ce3` |
 | Runtime source SHA-256 | `b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da` |
-| Subject build SHA-256 | `ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360` |
-| Preserved build archive | `67f49b71723963ef312926a359c6d6b40a38e2a948280d1f3daedc1427445db4` |
+| Subject build SHA-256 | `7d97e3212ae92c724697587504e9cf160a1c5f28eac8152eeec4b9be748bfb0d` |
+| Preserved build archive | `0367ae29146a4ac15e7ddd3926d752015a901d1e6e6d620b5f315f50b28f6186` |
 | Research snapshot commit | `aa791ef16abe759823e4399d836429abcf464fbe` |
 | Research snapshot SHA-256 | `690ce2be64c6cf11b1cfcfce18b79ffcb2f3d04033fc18e3fb53b968b041dc17` |
 | R00 Production-stable manifest | `03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25` |
@@ -53,7 +53,7 @@ Reviewer severities: S0 0, S1 0, S2 0, S3 0
 
 ## Limitations
 
-- Source identity was re-derived from the exact Git commit archive. The complete 106-entry build manifest was recomputed against the preserved build archive; no broader Production-improvement claim is inferred from that historical build.
+- Source identity was re-derived from the exact Git commit archive. The complete 106-entry build manifest and the pinned 24-entry R00 Production-stable subset were recomputed against the preserved build archive; no Production-improvement claim is inferred from that historical build.
 - The validator was not executed because full execution would traverse artifacts and repository state outside the permitted review scope. Only its current R01 migration predicate was read.
 - No Git history, diff, status, runtime files, prior QX-R5-000A reviews, team state, deployment, Main, Sites, or user-conversation evidence was inspected.
 - This assessment is digest-bound by the closure receipt. The closure is in turn digest-bound by the Evidence Pack without creating a circular self-reference.

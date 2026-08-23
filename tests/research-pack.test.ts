@@ -683,15 +683,37 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
   });
 
-  it("rejects preserved Human evidence outside the canonical evidence.human subtree", async () => {
+  it.each([
+    ["Human label sibling", { audit_record: { label: "Human", payload: { rejected: true } } }],
+    ["is_rejected", { preserved_human_evidence: { is_rejected: true } }],
+    ["rejection_positive", { preserved_human_evidence: { rejection_positive: true } }],
+  ])("rejects preserved Human evidence outside the canonical subtree: %s", async (_label, preserved) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
-    evidence.preserved_human_evidence = { rejection: true };
+    Object.assign(evidence, preserved);
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it("rejects distinct but meaningless AI descriptions", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    for (const [index, description] of ["aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb", "cccccccccccccccc"].entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
   });
 
   it("rejects a format-only Reviewer ID", async () => {
@@ -1041,6 +1063,16 @@ describe("evidence-driven Research Pack", () => {
     await copyR01(root);
     const manifestPath = join(root, ".quality-gates/QX-R4-R01/production-complete-files.sha256");
     await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}contradictory malformed line\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
+  it("rejects an R01 archive that does not reproduce the pinned Production-stable subset", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const stablePath = join(root, ".quality-gates/QX-R4-R00/production-stable-assets.sha256");
+    await writeFile(stablePath, (await readFile(stablePath, "utf8")).replace("c24f1032", "d24f1032"), "utf8");
     const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");

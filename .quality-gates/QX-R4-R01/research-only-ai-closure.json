@@ -9,18 +9,18 @@
   "human_gate_required": false,
   "baseline_source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
   "baseline_source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
-  "baseline_build_sha256": "ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360",
+  "baseline_build_sha256": "7d97e3212ae92c724697587504e9cf160a1c5f28eac8152eeec4b9be748bfb0d",
   "build_archive": {
     "path": ".quality-gates/QX-R4-R01/production-build-be0eb516.tar.gz",
-    "sha256": "67f49b71723963ef312926a359c6d6b40a38e2a948280d1f3daedc1427445db4"
+    "sha256": "0367ae29146a4ac15e7ddd3926d752015a901d1e6e6d620b5f315f50b28f6186"
   },
-  "research_validation_sha256": "ce5b365fdcd34969bf36f97ca1330a15126b127f46875e4d1179abc688c60e54",
+  "research_validation_sha256": "77c7d99882ff31f7177e37dba3709ee667a7c313639286c74855471275a7ff71",
   "automated_review_result": "accepted-research-stage-only",
   "automated_review_score": "32/32",
   "automated_review_open_s0_s2": 0,
   "independent_review": {
     "path": ".quality-gates/QX-R4-R01/r5-migration-assessment.md",
-    "sha256": "4f13b2b94c52c3a92b77a31e7c7e10cb0afeaa0872a04696f9acd4d1fce3b0c7"
+    "sha256": "aea51297374d27e508b9402f84106ac8a987a4113df35898f56e50d5a745c8ef"
   },
   "historical_research_review": {
     "path": ".quality-gates/QX-R4-R01/independent-review-round4.md",

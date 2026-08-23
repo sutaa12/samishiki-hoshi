@@ -7,7 +7,7 @@
     "kind": "research-only-no-runtime-change",
     "source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
     "source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
-    "build_sha256": "ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360",
+    "build_sha256": "7d97e3212ae92c724697587504e9cf160a1c5f28eac8152eeec4b9be748bfb0d",
     "build_artifact": ".quality-gates/QX-R4-R01/production-complete-files.sha256",
     "build_hash_procedure": "Run npm run build from the clean source commit, then npm run build:manifest over every regular file under dist and SHA-256 the complete manifest.",
     "screenshot": null,
@@ -21,7 +21,7 @@
   "baseline": {
     "source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
     "source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
-    "build_sha256": "ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360",
+    "build_sha256": "7d97e3212ae92c724697587504e9cf160a1c5f28eac8152eeec4b9be748bfb0d",
     "build_artifact": ".quality-gates/QX-R4-R01/production-complete-files.sha256",
     "build_hash_procedure": "Run npm run build from the clean source commit, then npm run build:manifest over every regular file under dist and SHA-256 the complete manifest.",
     "gameplay_hash": "LIFE_11.05-11.42_6349ca8e-1f1a2cc7;EARTH_48.95-49.07_36cccfbf-a2b5274b;SOLITUDE_143.03_9997894d",
@@ -39,8 +39,8 @@
     "selected_option": "A",
     "rationale": "Use official URL/timecode evidence plus project-owned captures to define measurable future constraints while keeping Production unchanged."
   },
-  "research_validation": {"path": ".quality-gates/QX-R4-R01/research-validation.json", "sha256": "ce5b365fdcd34969bf36f97ca1330a15126b127f46875e4d1179abc688c60e54"},
-  "research_only_ai_closure": {"path": ".quality-gates/QX-R4-R01/research-only-ai-closure.json", "sha256": "2e2dd4f4aa1627d59bcb98355f2efef712c9785a4d9e3880cf91e26a62e9db2e"},
+  "research_validation": {"path": ".quality-gates/QX-R4-R01/research-validation.json", "sha256": "77c7d99882ff31f7177e37dba3709ee667a7c313639286c74855471275a7ff71"},
+  "research_only_ai_closure": {"path": ".quality-gates/QX-R4-R01/research-only-ai-closure.json", "sha256": "5b49b8e6b6b8b79caf34e816cc162d993dd68855ede3ef732c333ea3b6f631bf"},
   "numeric_hard_gates": [
     {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "4bab449a52004e2fb53abed0e815e8e9742b27a951444a780bc08bcccbea2915"}},
     {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "57688a3261c80d9dd9c890419a7b9415a327a8cc2dddf6de83f2b51ab4eebef3"}},
@@ -64,7 +64,7 @@
   "rollback": {
     "commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
     "source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
-    "build_sha256": "ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360",
+    "build_sha256": "7d97e3212ae92c724697587504e9cf160a1c5f28eac8152eeec4b9be748bfb0d",
     "gameplay_hash": "LIFE_11.05-11.42_6349ca8e-1f1a2cc7;EARTH_48.95-49.07_36cccfbf-a2b5274b;SOLITUDE_143.03_9997894d",
     "artifact": "rollback.md",
     "condition": "Revert if external media is committed, human evidence is forged, Production drifts, or a digest fails.",
