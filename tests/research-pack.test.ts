@@ -125,6 +125,29 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_HARD_GATE_EVIDENCE");
   });
 
+  it("rejects numeric TTC inferred from a single official still", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const path = join(root, "docs/research/QX-R4-R01/frame-analysis.csv");
+    const csv = (await readFile(path, "utf8")).replace("large ships above and right; TTC not measurable from still", "large ships above and right; estimated TTC 0.7s");
+    await writeFile(path, csv, "utf8");
+    const result = runValidator(root, "QX-R4-R01");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("TIMING_PROVENANCE");
+  });
+
+  it("rejects a forged large-research validation receipt binding", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const path = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const evidence = JSON.parse(await readFile(path, "utf8")) as { research_validation: { sha256: string } };
+    evidence.research_validation.sha256 = "0".repeat(64);
+    await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R01");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_VALIDATION_BINDING");
+  });
+
   it("keeps completion blocked without numeric and raw human evidence", async () => {
     const root = await makeRoot();
     await copySample(root);

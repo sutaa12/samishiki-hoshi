@@ -98,6 +98,26 @@ function uniqueNonempty(rows, field) {
   return values.length === rows.length && new Set(values).size === values.length;
 }
 
+function normalizedDistinct(...values) {
+  const normalized = values.map((value) => value?.trim().toLowerCase()).filter(Boolean);
+  return normalized.length === values.length && new Set(normalized).size === values.length;
+}
+
+function validLargePlayerOccupancy(value) {
+  const match = /^x(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) y(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?); height (\d+(?:\.\d+)?)%; area (\d+(?:\.\d+)?)%$/i.exec(value ?? "");
+  if (!match) return false;
+  const [xMin, xMax, yMin, yMax, height, area] = match.slice(1).map(Number);
+  return [xMin, xMax, yMin, yMax, height, area].every(Number.isFinite)
+    && xMin >= 0 && xMax <= 100 && xMin < xMax
+    && yMin >= 0 && yMax <= 100 && yMin < yMax
+    && height > 0 && height <= 100 && area > 0 && area <= 100;
+}
+
+function validPercentPoint(value) {
+  const match = /^(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/.exec(value ?? "");
+  return Boolean(match && match.slice(1).map(Number).every((number) => number >= 0 && number <= 100));
+}
+
 function isHttpsUrl(value) {
   try {
     return new URL(value).protocol === "https:";
@@ -293,16 +313,29 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     if (row.SourceKind !== "Official" || !isHttpsUrl(row.Source)) issues.push(issue("COMPARABLE_OFFICIAL", `comparable-games.csv row ${index + 2} must use an HTTPS Official source.`, "comparable-games.csv"));
     const proof = primary.find((entry) => entry.ID === row.OfficialEvidenceID);
     if (!proof || canonicalUrl(proof.URL) !== canonicalUrl(row.Source) || !meaningful(proof.ObservedFact)) issues.push(issue("COMPARABLE_OFFICIAL_PROOF", `comparable-games.csv row ${index + 2} must cite a Primary evidence ID with the same canonical official URL.`, "comparable-games.csv"));
+    if (!normalizedDistinct(row.Observed, row.Inference, row.TestableHypothesis)) issues.push(issue("EPISTEMIC_SEPARATION", `comparable-games.csv row ${index + 2} must keep observation, inference, and hypothesis distinct.`, "comparable-games.csv"));
+    const stillOnly = /still|screenshot|hero image|official page/i.test(`${row.TimeStart ?? ""} ${row.TimeEnd ?? ""}`);
+    if (stillOnly && /^\d+(?:\.\d+)?(?:\s|$)/.test(row.TargetTTC ?? "")) issues.push(issue("TIMING_PROVENANCE", `comparable-games.csv row ${index + 2} cannot infer numeric TTC from still-only evidence.`, "comparable-games.csv"));
   }
   const comparableCanonicalUrls = comparableGames.map((row) => canonicalUrl(row.Source));
   if (!uniqueNonempty(comparableGames, "Game") || comparableCanonicalUrls.some((url) => !url) || new Set(comparableCanonicalUrls).size !== comparableCanonicalUrls.length) issues.push(issue("COMPARABLE_DISTINCT", "Comparable games and canonical official source URLs must be distinct.", "comparable-games.csv"));
   for (const [index, row] of frames.entries()) {
-    for (const field of ["FrameID", "Game", "Source", "SourceKind", "TimecodeOrFrame", "PlayerBox", "VanishingPoint", "RouteCorridor", "GoalLandmark", "HazardSilhouette", "DepthLayers", "LuminanceHierarchy", "MaterialIdentity", "AttentionEffect", "UISafeArea", "Observed", "Inference", "TestableHypothesis", "Rights"]) {
+    for (const field of ["FrameID", "Game", "Source", "SourceKind", "TimecodeOrFrame", "VanishingPoint", "RouteCorridor", "GoalLandmark", "HazardSilhouette", "DepthLayers", "LuminanceHierarchy", "MaterialIdentity", "AttentionEffect", "UISafeArea", "Observed", "Inference", "TestableHypothesis", "Rights"]) {
       if (!meaningful(row[field])) issues.push(issue("FRAME_FIELD", `frame-analysis.csv row ${index + 2} needs ${field}.`, "frame-analysis.csv"));
     }
+    const playerOccupancy = row.PlayerOccupancy ?? row.PlayerBox;
+    if (!meaningful(playerOccupancy)) issues.push(issue("FRAME_FIELD", `frame-analysis.csv row ${index + 2} needs PlayerOccupancy or legacy PlayerBox.`, "frame-analysis.csv"));
     if (row.SourceKind !== "Official" || !isHttpsUrl(row.Source)) issues.push(issue("FRAME_OFFICIAL", `frame-analysis.csv row ${index + 2} must use an HTTPS Official source.`, "frame-analysis.csv"));
     const comparable = comparableGames.find((entry) => entry.Game === row.Game && canonicalUrl(entry.Source) === canonicalUrl(row.Source));
     if (!comparable) issues.push(issue("FRAME_OFFICIAL_PROOF", `frame-analysis.csv row ${index + 2} must match an officially proven comparable-game source.`, "frame-analysis.csv"));
+    if (!normalizedDistinct(row.Observed, row.Inference, row.TestableHypothesis)) issues.push(issue("EPISTEMIC_SEPARATION", `frame-analysis.csv row ${index + 2} must keep observation, inference, and hypothesis distinct.`, "frame-analysis.csv"));
+    if (/still|screenshot|hero image/i.test(row.TimecodeOrFrame ?? "") && /\bTTC\s*(?:=|of|about|estimated)?\s*\d/i.test(row.HazardSilhouette ?? "")) issues.push(issue("TIMING_PROVENANCE", `frame-analysis.csv row ${index + 2} cannot infer numeric TTC from one still.`, "frame-analysis.csv"));
+    if (scale === "large") {
+      if (!validLargePlayerOccupancy(playerOccupancy)) issues.push(issue("COMPOSITION_NUMERIC", `frame-analysis.csv row ${index + 2} needs normalized PlayerOccupancy syntax and in-range values.`, "frame-analysis.csv"));
+      if (!validPercentPoint(row.VanishingPoint)) issues.push(issue("COMPOSITION_NUMERIC", `frame-analysis.csv row ${index + 2} needs normalized VanishingPoint x/y percentages.`, "frame-analysis.csv"));
+      if (!/(?:^|\s)(?:100|\d{1,2})(?:\.\d+)?%/.test(row.RouteCorridor ?? "")) issues.push(issue("COMPOSITION_NUMERIC", `frame-analysis.csv row ${index + 2} needs a numeric route-width percentage.`, "frame-analysis.csv"));
+      if (!["near", "mid", "far"].every((layer) => new RegExp(`\\b${layer}\\b`, "i").test(row.DepthLayers ?? ""))) issues.push(issue("DEPTH_LAYERS", `frame-analysis.csv row ${index + 2} needs explicit Near, Mid, and Far layers.`, "frame-analysis.csv"));
+    }
   }
   if (!uniqueNonempty(frames, "FrameID")) issues.push(issue("FRAME_DISTINCT", "Frame identifiers must be distinct.", "frame-analysis.csv"));
   const frameLocators = frames.map((row) => `${row.Game?.trim().toLowerCase()}|${canonicalUrl(row.Source)}|${row.TimecodeOrFrame?.trim().toLowerCase()}`);
@@ -343,6 +376,20 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   }
   for (const gate of evidence.numeric_hard_gates ?? []) {
     if (!(await validArtifactRef(root, directory, gate.evidence))) issues.push(issue("RESEARCH_HARD_GATE_EVIDENCE", `Research hard gate ${gate.id ?? "unknown"} needs a digest-bound repository artifact.`, "evidence.json"));
+  }
+  if (scale === "large") {
+    const researchValidation = await readArtifactJson(root, directory, evidence.research_validation);
+    if (!researchValidation
+      || researchValidation.schema_version !== "automation-validation.v1"
+      || researchValidation.task_id !== taskId
+      || researchValidation.result !== "passed"
+      || researchValidation.runtime_source_commit !== evidence.baseline?.source_commit
+      || researchValidation.runtime_source_sha256 !== evidence.baseline?.source_sha256
+      || researchValidation.subject_build_sha256 !== evidence.baseline?.build_sha256
+      || !isGitCommit(root, researchValidation.research_snapshot_commit)
+      || gitArchiveSha256(root, researchValidation.research_snapshot_commit) !== researchValidation.research_snapshot_source_sha256) {
+      issues.push(issue("RESEARCH_VALIDATION_BINDING", "Large research needs a digest-bound automation-validation.v1 receipt matching its task, runtime source/build, and frozen research snapshot.", "evidence.json"));
+    }
   }
 
   const libraryScorecard = files.get("library-scorecard.md");
@@ -392,8 +439,8 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     if (!candidateCaptureRefsValid || !captureReceiptValid) issues.push(issue("CANDIDATE_CAPTURE", "Complete evidence needs distinct digest-bound screenshot, moving clip, and input-trace files plus a candidate-bound capture-set.v1 receipt.", "evidence.json"));
     const buildReceipt = await readArtifactJson(root, directory, evidence.candidate?.build_command_receipt);
     if (!buildReceipt || buildReceipt.schema_version !== "build-command.v1" || buildReceipt.task_id !== taskId || buildReceipt.candidate_source_commit !== evidence.candidate?.source_commit || buildReceipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || buildReceipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || buildReceipt.command !== "npm run build" || buildReceipt.exit_code !== 0 || !Number.isFinite(Date.parse(buildReceipt.recorded_at ?? "")) || !meaningful(buildReceipt.observations)) issues.push(issue("BUILD_COMMAND", "Complete evidence needs a digest-bound successful npm run build receipt tied to the candidate source/build.", "evidence.json"));
-    if (evidence.human?.status !== "passed" || evidence.human?.owner_decision !== "pass" || !(evidence.human?.raw_answer_count > 0)) {
-      issues.push(issue("HUMAN_GATE", "Complete evidence needs a human pass and at least one preserved raw answer.", "evidence.json"));
+    if (evidence.human?.status !== "passed" || evidence.human?.owner_decision !== "pass" || !(evidence.human?.raw_answer_count >= 2)) {
+      issues.push(issue("HUMAN_GATE", "Complete evidence needs a human pass and at least two preserved raw answers.", "evidence.json"));
     }
     const humanRows = markdownTableRows(files.get("human-test.md"));
     const validHumanRows = humanRows.filter((row) => {
@@ -410,7 +457,8 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     const ownerArtifact = await regularArtifact(root, directory, evidence.human?.owner_evidence?.path);
     const allHumanRealpaths = [rawArtifact.path, ownerArtifact.path, ...traceRealpaths];
     const evidencePathsSeparate = rawRefValid && ownerArtifact.ok && allHumanRealpaths.every(Boolean) && new Set(allHumanRealpaths).size === allHumanRealpaths.length;
-    if (humanRows.length === 0 || validHumanRows.length !== humanRows.length || !traceArtifactsValid || !rawRefValid || !evidencePathsSeparate || evidence.human?.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_RAW", "Complete evidence needs counted, timestamped raw rows plus distinct digest-bound raw, trace, and owner files.", "human-test.md"));
+    const distinctParticipants = new Set(validHumanRows.map((row) => row[0]?.trim().toLowerCase())).size === validHumanRows.length;
+    if (humanRows.length < 2 || validHumanRows.length !== humanRows.length || !distinctParticipants || !traceArtifactsValid || !rawRefValid || !evidencePathsSeparate || evidence.human?.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_RAW", "Complete evidence needs at least two distinct participants with counted, timestamped raw rows plus distinct digest-bound raw, trace, and owner files.", "human-test.md"));
     if (/Status:\s*pending|Decision:\s*pending/i.test(files.get("human-test.md"))) issues.push(issue("HUMAN_RAW", "human-test.md still records a pending human result.", "human-test.md"));
     const ownerReceipt = await readArtifactJson(root, directory, evidence.human?.owner_evidence);
     if (!/Owner:\s*[^\n]+/i.test(files.get("human-test.md")) || !/Decision:\s*pass\b/i.test(files.get("human-test.md")) || !ownerReceipt || ownerReceipt.schema_version !== "human-owner-decision.v1" || ownerReceipt.task_id !== taskId || ownerReceipt.decision !== "pass" || !meaningful(ownerReceipt.owner_role) || !Number.isFinite(Date.parse(ownerReceipt.signed_at ?? "")) || ownerReceipt.candidate_source_commit !== evidence.candidate?.source_commit || ownerReceipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || ownerReceipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || ownerReceipt.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_OWNER", "Complete evidence needs a distinct digest-bound owner receipt tied to the task, candidate source/build, raw-answer count, owner role, and signed pass.", "human-test.md"));

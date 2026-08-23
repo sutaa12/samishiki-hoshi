@@ -39,9 +39,10 @@
     "selected_option": "A",
     "rationale": "Use official URL/timecode evidence plus project-owned captures to define measurable future constraints while keeping Production unchanged."
   },
+  "research_validation": {"path": ".quality-gates/QX-R4-R01/research-validation.json", "sha256": "ff9893102d8694022dc5beb432f3d4945129c1462b4f5d05abd59ed58010cb69"},
   "numeric_hard_gates": [
-    {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "7fbfff34fe901953d0d5eb17df899f28876b649c2d95d2aa40ff26f9c76d7b67"}},
-    {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "4a3ae7677a6c7107b72590a306d19699046c8b23cdee36a6f733d848229c01bd"}},
+    {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "4bab449a52004e2fb53abed0e815e8e9742b27a951444a780bc08bcccbea2915"}},
+    {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "57688a3261c80d9dd9c890419a7b9415a327a8cc2dddf6de83f2b51ab4eebef3"}},
     {"id": "current_same_condition_captures", "target": {"operator": "gte", "value": 1, "unit": "captures"}, "observed": 3, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "9dee4fc55a2e0613b9175a5a65d57d22c8505b4972e3beeaf4108b0f51024b85"}},
     {"id": "redistributed_third_party_media", "target": {"operator": "eq", "value": 0, "unit": "files"}, "observed": 0, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/rights.md", "sha256": "110f91e4a69042c7aeb49571f91bbcd056805d4fdcc446957c78efd0b3dabf35"}}
   ],
@@ -83,6 +84,8 @@
     "human_test": "human-test.md",
     "human_frame_packet": "human-frame-test.md",
     "rights": "rights.md",
+    "annotation_method": "annotation-method.md",
+    "research_validation": ".quality-gates/QX-R4-R01/research-validation.json",
     "rollback": "rollback.md"
   }
 }

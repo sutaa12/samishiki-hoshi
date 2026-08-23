@@ -149,11 +149,22 @@ async function captureStill(browser, baseUrl, checkpoint, outputDirectory) {
     await metrics.evaluate((element) => {
       element.style.display = "none";
     });
+    const shell = page.getByTestId("game-shell");
+    const screenshotBefore = await shell.evaluate((element) => ({
+      story_time: element.getAttribute("data-story-time"),
+      gameplay_hash: element.getAttribute("data-gameplay-hash"),
+      exposure: element.getAttribute("data-render-exposure-applied"),
+    }));
     const path = join(outputDirectory, `${checkpoint.id}.png`);
     await page.screenshot({ path });
-    const shellAttributes = await page.getByTestId("game-shell").evaluate((element) => Object.fromEntries(
+    const shellAttributes = await shell.evaluate((element) => Object.fromEntries(
       Array.from(element.attributes, (attribute) => [attribute.name, attribute.value]),
     ));
+    const screenshotAfter = {
+      story_time: shellAttributes["data-story-time"],
+      gameplay_hash: shellAttributes["data-gameplay-hash"],
+      exposure: shellAttributes["data-render-exposure-applied"],
+    };
     const canvasBox = await page.locator("canvas.world-canvas").boundingBox();
     return {
       ...checkpoint,
@@ -161,6 +172,11 @@ async function captureStill(browser, baseUrl, checkpoint, outputDirectory) {
       sha256: await sha256(path),
       viewport: { width: 1920, height: 1080 },
       canvas_box: canvasBox,
+      screenshot_binding: {
+        before: screenshotBefore,
+        after: screenshotAfter,
+        interpretation: "The screenshot was produced within this source-bound story-time and gameplay-hash interval; no single post-capture timestamp is asserted as pixel-atomic.",
+      },
       shell: shellAttributes,
       metrics: metricAttributes,
     };

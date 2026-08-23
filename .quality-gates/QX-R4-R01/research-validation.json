@@ -1,0 +1,38 @@
+{
+  "schema_version": "automation-validation.v1",
+  "task_id": "QX-R4-R01",
+  "stage": "research",
+  "result": "passed",
+  "recorded_at": "2026-08-23T14:19:00+09:00",
+  "issuer": "Codex implementation verifier",
+  "research_snapshot_commit": "0ef190ca1c9e77ba336989045e96be31c4738ef6",
+  "research_snapshot_source_sha256": "454280212950413ecbfca7ed20c1617d84a6f34ec593aeb51341bfddfe3c8814",
+  "runtime_source_commit": "1323ade4c4c9197609f88593dbf6510b7c088f9b",
+  "runtime_source_sha256": "7b89aef037af74af47e0af20121ae7ef04e7d41cf3b37941d656d390c032f397",
+  "subject_build_sha256": "56cad6377aa570f785580998e42c27db8ff57880c796b96df52329197d841a5c",
+  "commands": [
+    {"command": "npm run capture:reference -- --task QX-R4-R01 --source-commit 1323ade4c4c9197609f88593dbf6510b7c088f9b", "exit_code": 0, "errors": 0, "observations": "Harness rejected external server ownership, launched the clean source itself, and captured 3 PNGs plus a 72-frame 12-second WebM."},
+    {"command": "npm run build", "exit_code": 0, "errors": 0, "observations": "Clean source-bound Vinext Production build completed; known chunk-size warning only."},
+    {"command": "npm run build:manifest -- --source-commit 1323ade4c4c9197609f88593dbf6510b7c088f9b --output .quality-gates/QX-R4-R01/production-complete-files.sha256", "exit_code": 0, "errors": 0, "observations": "106 deployable files hashed: 68 JavaScript, 14 CSS, and 10 asset-path files."},
+    {"command": "npm run research:validate -- QX-R4-R01", "exit_code": 0, "errors": 0, "observations": "Large corpus; Primary 6, GitHub 2, Community 2, comparable games 6, frames 13."},
+    {"command": "npm run test:research", "exit_code": 0, "errors": 0, "observations": "24 of 24 tests passed, including annotation, embedded-media, and forged research-hard-gate negatives."},
+    {"command": "npm run typecheck", "exit_code": 0, "errors": 0, "observations": "TypeScript completed without diagnostics."},
+    {"command": "npm run lint", "exit_code": 0, "errors": 0, "observations": "ESLint completed without diagnostics."},
+    {"command": "npm test -- --reporter=dot", "exit_code": 0, "errors": 0, "observations": "44 files and 804 of 804 tests passed."},
+    {"command": "node scripts/validate-research-pack.mjs QX-R4-R01 --stage complete", "exit_code": 1, "errors": 15, "observations": "Expected fail-closed result: runtime candidate comparison and human completion evidence remain pending."}
+  ],
+  "toolchain": {
+    "playwright": "1.62.1",
+    "chromium": "151.0.7922.34",
+    "ffmpeg": "8.1.2"
+  },
+  "implementation_verifier_severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
+  "independent_review_status": "pending",
+  "limitations": [
+    "R01 makes no runtime performance, gameplay-quality, or deployment-improvement claim.",
+    "Vinext injects nondeterministic build identifiers, so the complete manifest binds the exact build rather than claiming byte identity across separate builds.",
+    "The two-person uninformed human frame-identification gate remains pending.",
+    "Official reference media remains external and was not committed."
+  ],
+  "rollback_condition": "Revert the R01 corpus if external media, forged human evidence, Production-source drift, or a digest mismatch is found."
+}

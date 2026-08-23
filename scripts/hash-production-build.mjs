@@ -47,6 +47,7 @@ async function walk(directory) {
 async function main() {
   const { sourceCommit, outputPath } = parseArguments(process.argv.slice(2));
   if (git("rev-parse", "HEAD") !== sourceCommit) throw new Error("HEAD does not match --source-commit.");
+  if (git("status", "--short")) throw new Error("The complete worktree must be clean before hashing the Production build.");
   const dist = resolve(PROJECT_ROOT, "dist");
   const files = (await walk(dist)).sort((a, b) => relative(dist, a).localeCompare(relative(dist, b)));
   if (files.length === 0) throw new Error("dist has no files; run npm run build first.");
