@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, link, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -386,7 +386,7 @@ describe("evidence-driven Research Pack", () => {
   it("does not let AI Binary mode override a preserved Human Reject", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
-    await writeFile(join(fixture.pack, "human-test.md"), "# Human test\n\nDecision: rejected\n", "utf8");
+    await writeFile(join(fixture.pack, "human-test.md"), "# Human test\n\n- **Status：** RE​JECT!\n", "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
@@ -455,6 +455,42 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_VIDEO");
   });
 
+  it("rejects 150 hard-cut static plates even though every sampled hash changes", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    execFileSync("ffmpeg", [
+      "-nostdin", "-y", "-v", "error", "-f", "lavfi",
+      "-i", "nullsrc=s=64x64:r=10:d=15,geq=lum='mod(N*97,256)':cb=128:cr=128",
+      "-c:v", "libvpx-vp9", "-an", join(root, fixture.video.path),
+    ]);
+    const bytes = await readFile(join(root, fixture.video.path));
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.candidate.clip.sha256 = sha256(bytes);
+    evidence.ai_binary_gameplay.video.sha256 = sha256(bytes);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_VIDEO");
+  });
+
+  it("rejects a visually static clip with only one changing pixel", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    execFileSync("ffmpeg", [
+      "-nostdin", "-y", "-v", "error", "-f", "lavfi",
+      "-i", "nullsrc=s=64x64:r=10:d=15,geq=lum='if(eq(X,mod(N,64))*eq(Y,0),255,0)':cb=128:cr=128",
+      "-c:v", "libvpx-vp9", "-an", join(root, fixture.video.path),
+    ]);
+    const bytes = await readFile(join(root, fixture.video.path));
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.candidate.clip.sha256 = sha256(bytes);
+    evidence.ai_binary_gameplay.video.sha256 = sha256(bytes);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_VIDEO");
+  });
+
   it("rejects AI Binary completion with only two reviewers", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -480,6 +516,40 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_ID");
+  });
+
+  it("rejects visibly identical Reviewer IDs separated only by zero-width characters", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const ids = ["blind-reviewer", "blind-​reviewer", "blind-‌reviewer"];
+    for (let index = 0; index < fixture.reviews.length; index += 1) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.reviewer_id = ids[index];
+      const text = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, text, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(text);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_ID");
+  });
+
+  it("rejects hard-linked AI review artifacts that share one inode", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const firstPath = join(root, fixture.reviews[0].path);
+    const secondPath = join(root, fixture.reviews[1].path);
+    await rm(secondPath);
+    await link(firstPath, secondPath);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.ai_binary_gameplay.reviews[1].sha256 = evidence.ai_binary_gameplay.reviews[0].sha256;
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_COUNT");
   });
 
   it("rejects an AI review bound to a different Video SHA", async () => {
@@ -549,6 +619,29 @@ describe("evidence-driven Research Pack", () => {
       "。小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム。",
       "！小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム！",
       "「小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム」",
+    ];
+    for (let index = 0; index < fixture.reviews.length; index += 1) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = copies[index];
+      const text = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, text, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(text);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects visible expected-answer copies separated only by zero-width characters", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const copies = [
+      "小さな​水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム",
+      "小さな‌水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム",
+      "小さな‍水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム",
     ];
     for (let index = 0; index < fixture.reviews.length; index += 1) {
       const reviewPath = join(root, fixture.reviews[index].path);
@@ -639,6 +732,22 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EVENT_LEDGER");
   });
 
+  it("rejects semantic Event ledger entries sharing one timestamp", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const ledgerPath = join(root, evidence.ai_binary_gameplay.event_ledger.path);
+    const ledger = JSON.parse(await readFile(ledgerPath, "utf8"));
+    ledger.events = ledger.events.map((event: object) => ({ ...event, at_ms: 5000 }));
+    const text = `${JSON.stringify(ledger, null, 2)}\n`;
+    await writeFile(ledgerPath, text, "utf8");
+    evidence.ai_binary_gameplay.event_ledger.sha256 = sha256(text);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EVENT_LEDGER");
+  });
+
   it("rejects a shape-only remediation map", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -705,6 +814,26 @@ describe("evidence-driven Research Pack", () => {
     await copyR01(root);
     const reviewPath = join(root, ".quality-gates/QX-R4-R01/independent-review-round4.md");
     const reviewText = "# Synthetic review\n\nVerdict: REJECT — research stage only\nScore: 0/32\nReviewer severities: S0 0, S1 0, S2 1, S3 0\n";
+    await writeFile(reviewPath, reviewText, "utf8");
+    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+    const closure = JSON.parse(await readFile(closurePath, "utf8"));
+    closure.independent_review.sha256 = sha256(reviewText);
+    const closureText = `${JSON.stringify(closure, null, 2)}\n`;
+    await writeFile(closurePath, closureText, "utf8");
+    const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    evidence.research_only_ai_closure.sha256 = sha256(closureText);
+    await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
+  it("rejects a contradictory R01 review hidden behind Markdown prefixes or open-severity prose", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const reviewPath = join(root, ".quality-gates/QX-R4-R01/independent-review-round4.md");
+    const reviewText = "# Synthetic review\n\nVerdict: ACCEPT — research stage only\nScore: 30/32\nReviewer severities: S0 0, S1 0, S2 0, S3 0\n\n> Verdict: REJECT\n\nOpen S2 findings: 1\n\n## S2 blocker\n";
     await writeFile(reviewPath, reviewText, "utf8");
     const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
     const closure = JSON.parse(await readFile(closurePath, "utf8"));

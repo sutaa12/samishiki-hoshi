@@ -106,12 +106,14 @@ function normalizedDescription(value) {
 }
 
 function descriptionFingerprint(value) {
-  return normalizedDescription(value).replace(/[\p{P}\p{S}\p{Z}\s]+/gu, "");
+  return normalizedDescription(value).replace(/[\p{P}\p{S}\p{Z}\p{Cf}\p{M}\s]+/gu, "");
 }
 
 function containsReject(value) {
-  const words = normalizedDescription(value).replace(/[\p{P}\p{S}]+/gu, " ");
-  return /\b(?:fail(?:ed|ure)?|reject(?:ed|ion)?)\b/i.test(words);
+  const words = normalizedDescription(value)
+    .replace(/\p{Cf}+/gu, "")
+    .replace(/[\p{P}\p{S}]+/gu, " ");
+  return /\b(?:fail(?:ed|ure)?|reject(?:ed|ion)?)\b/i.test(words) || /拒否|不合格|却下/.test(words);
 }
 
 function hasHumanReject(human) {
@@ -170,17 +172,47 @@ function probeMovingVideo(path) {
     longestIdenticalRun = Math.max(longestIdenticalRun, currentIdenticalRun);
   }
   const transitionRatio = sampledHashes.length > 1 ? changedTransitions / (sampledHashes.length - 1) : 0;
+  const differenceProbe = spawnSync("ffmpeg", [
+    "-nostdin", "-v", "info", "-i", path,
+    "-map", "0:v:0", "-vf", "fps=10,tblend=all_mode=difference,signalstats,metadata=print", "-f", "null", "-",
+  ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  if (differenceProbe.status !== 0) return { ok: false, reason: "video motion could not be measured" };
+  const differenceOutput = `${differenceProbe.stdout}\n${differenceProbe.stderr}`;
+  const yAverage = [...differenceOutput.matchAll(/lavfi\.signalstats\.YAVG=([0-9.]+)/g)].map((match) => Number(match[1]));
+  const yMinimum = [...differenceOutput.matchAll(/lavfi\.signalstats\.YMIN=([0-9.]+)/g)].map((match) => Number(match[1]));
+  const yMaximum = [...differenceOutput.matchAll(/lavfi\.signalstats\.YMAX=([0-9.]+)/g)].map((match) => Number(match[1]));
+  const spatialRanges = yMinimum.map((minimum, index) => yMaximum[index] - minimum).filter(Number.isFinite);
+  const median = (values) => {
+    const sorted = values.filter(Number.isFinite).toSorted((left, right) => left - right);
+    return sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+  };
+  const activeDifferenceRatio = yAverage.length ? yAverage.filter((value) => value >= 1).length / yAverage.length : 0;
+  const sceneProbe = spawnSync("ffmpeg", [
+    "-nostdin", "-v", "info", "-i", path,
+    "-map", "0:v:0", "-vf", "fps=10,select='gt(scene,0.3)',showinfo", "-f", "null", "-",
+  ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  if (sceneProbe.status !== 0) return { ok: false, reason: "video scene continuity could not be measured" };
+  const sceneCuts = (`${sceneProbe.stdout}\n${sceneProbe.stderr}`.match(/Parsed_showinfo[^\n]*\bn:\s*\d+/g) ?? []).length;
   return {
     ok: sampledHashes.length >= 149
       && new Set(sampledHashes).size >= 120
       && longestIdenticalRun <= 5
-      && transitionRatio >= 0.8,
+      && transitionRatio >= 0.8
+      && yAverage.length >= 149
+      && median(yAverage) >= 1
+      && median(spatialRanges) >= 8
+      && activeDifferenceRatio >= 0.8
+      && sceneCuts <= 2,
     durationMs,
     decodedFrames,
     sampledFrames: sampledHashes.length,
     distinctSampledFrames: new Set(sampledHashes).size,
     longestIdenticalRun,
     transitionRatio,
+    medianLumaDifference: median(yAverage),
+    medianSpatialDifferenceRange: median(spatialRanges),
+    activeDifferenceRatio,
+    sceneCuts,
   };
 }
 
@@ -253,7 +285,7 @@ async function regularArtifact(root, packDirectory, artifact) {
     const rootPath = await realpath(root);
     const within = relative(rootPath, resolvedPath);
     if (!within || within.startsWith("..") || isAbsolute(within) || !(await stat(resolvedPath)).isFile()) return { ok: false, reason: "resolved path is outside the repository or not a regular file", path, sha256: null };
-    return { ok: true, reason: null, path: resolvedPath, size: lexical.size, sha256: createHash("sha256").update(await readFile(resolvedPath)).digest("hex") };
+    return { ok: true, reason: null, path: resolvedPath, identity: `${lexical.dev}:${lexical.ino}`, size: lexical.size, sha256: createHash("sha256").update(await readFile(resolvedPath)).digest("hex") };
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : String(error), path, sha256: null };
   }
@@ -379,15 +411,20 @@ const AI_REMEDIATION_ROUTES = {
 async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues) {
   const closure = await readArtifactJson(root, directory, evidence.research_only_ai_closure);
   const reviewText = closure ? await readArtifactText(root, directory, closure.independent_review) : null;
-  const reviewScore = /Score:\s*(\d+)\/32\b/i.exec(reviewText ?? "");
-  const reviewVerdicts = (reviewText ?? "").match(/^Verdict:\s*(?:ACCEPT|REJECT)\b/gim) ?? [];
-  const reviewScores = (reviewText ?? "").match(/^Score:\s*\d+\/32\b/gim) ?? [];
+  const normalizedReviewText = (reviewText ?? "").normalize("NFKC").replace(/\p{Cf}+/gu, "");
+  const reviewScore = /\bScore\s*:\s*(\d+)\/32\b/i.exec(normalizedReviewText);
+  const reviewVerdicts = normalizedReviewText.match(/\bVerdict\s*:\s*(?:ACCEPT|REJECT)\b/gim) ?? [];
+  const reviewScores = normalizedReviewText.match(/\bScore\s*:\s*\d+\/32\b/gim) ?? [];
+  const contradictorySeverity = /(?:open\s+)?S[0-2](?:\s+findings?)?\s*[:=]?\s*[1-9]\d*\b/i.test(normalizedReviewText)
+    || /^#{1,6}\s*S[0-2]\b/im.test(normalizedReviewText)
+    || /\bS[0-2]\s+(?:blocker|finding)\b/i.test(normalizedReviewText);
   const acceptedReview = reviewVerdicts.length === 1
     && reviewScores.length === 1
-    && /^Verdict:\s*ACCEPT\b/i.test(reviewVerdicts[0])
-    && /research stage only/i.test(reviewText ?? "")
+    && /\bVerdict\s*:\s*ACCEPT\b/i.test(reviewVerdicts[0])
+    && /research stage only/i.test(normalizedReviewText)
     && Number(reviewScore?.[1]) >= 28
-    && /Reviewer severities:\s*S0\s+0,\s*S1\s+0,\s*S2\s+0\b/i.test(reviewText ?? "");
+    && /Reviewer severities\s*:\s*S0\s+0,\s*S1\s+0,\s*S2\s+0\b/i.test(normalizedReviewText)
+    && !contradictorySeverity;
   if (!closure
     || taskId !== "QX-R4-R01"
     || closure.schema_version !== "research-only-ai-closure.v1"
@@ -507,7 +544,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || ledger.events.length < 4
     || eventTimes.some((time) => !Number.isFinite(time))
     || eventTimes.some((time) => time < 0 || time > telemetry?.duration_ms)
-    || eventTimes.some((time, index) => index > 0 && time < eventTimes[index - 1])
+    || eventTimes.some((time, index) => index > 0 && time <= eventTimes[index - 1])
     || !eventOrderValid) {
     issues.push(issue("AI_EVENT_LEDGER", "AI Binary completion needs a source/build/video-bound chronological ledger of ring_success, rock_avoid or rock_contact, node_pulse, then progress_update.", "evidence.json"));
   }
@@ -515,10 +552,10 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
   const reviewRefs = Array.isArray(ai?.reviews) ? ai.reviews : [];
   const reviewArtifacts = await Promise.all(reviewRefs.map((reference) => regularArtifact(root, directory, reference?.path)));
   const reviews = await Promise.all(reviewRefs.map((reference) => readArtifactJson(root, directory, reference)));
-  if (reviewRefs.length !== 3 || reviewArtifacts.some((artifact) => !artifact.ok) || new Set(reviewArtifacts.map((artifact) => artifact.path)).size !== 3) {
+  if (reviewRefs.length !== 3 || reviewArtifacts.some((artifact) => !artifact.ok) || new Set(reviewArtifacts.map((artifact) => artifact.identity)).size !== 3) {
     issues.push(issue("AI_REVIEW_COUNT", "AI Binary completion needs exactly three distinct digest-bound review artifacts.", "evidence.json"));
   }
-  const reviewerIds = reviews.map((review) => normalizedDescription(review?.reviewer_id));
+  const reviewerIds = reviews.map((review) => descriptionFingerprint(review?.reviewer_id));
   if (reviews.some((review) => !meaningful(review?.reviewer_id)) || new Set(reviewerIds).size !== 3) {
     issues.push(issue("AI_REVIEW_ID", "AI Binary reviews need three different nonempty Reviewer IDs.", "evidence.json"));
   }
@@ -563,8 +600,8 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || !remediationRoutesMatch
     || !Array.isArray(remediation.review_ids)
     || remediation.review_ids.length !== 3
-    || new Set(remediation.review_ids.map(normalizedDescription)).size !== 3
-    || reviewerIds.some((reviewerId) => !remediation.review_ids.map(normalizedDescription).includes(reviewerId))) {
+    || new Set(remediation.review_ids.map(descriptionFingerprint)).size !== 3
+    || reviewerIds.some((reviewerId) => !remediation.review_ids.map(descriptionFingerprint).includes(reviewerId))) {
     issues.push(issue("AI_REMEDIATION", "AI Binary completion needs a source/build/video-bound remediation decision covering the same three Reviewer IDs and the exact Page 19 first-fix/prohibited-first routing map.", "evidence.json"));
   }
 }
@@ -703,8 +740,8 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
   const baselineCaptureEntries = [["screenshot", evidence.baseline?.screenshot], ["clip", evidence.baseline?.clip], ["metrics", evidence.baseline?.metrics]];
   if (acceptance === "human-release") baselineCaptureEntries.push(["human findings", evidence.baseline?.human_findings]);
   const baselineCaptureArtifacts = await Promise.all(baselineCaptureEntries.map(([, reference]) => regularArtifact(root, directory, reference?.path)));
-  const baselineCaptureRealpaths = baselineCaptureArtifacts.map((artifact) => artifact.path);
-  if (!meaningful(evidence.baseline?.gameplay_hash) || baselineCaptureEntries.some(([, reference], index) => !SHA256_PATTERN.test(reference?.sha256 ?? "") || !baselineCaptureArtifacts[index].ok || baselineCaptureArtifacts[index].sha256 !== reference.sha256) || new Set(baselineCaptureRealpaths).size !== baselineCaptureRealpaths.length) issues.push(issue("BASELINE_EVIDENCE", `Baseline needs a gameplay hash plus distinct digest-bound screenshot, moving clip, metrics${acceptance === "human-release" ? ", and raw human findings" : ""} files.`, "evidence.json"));
+  const baselineCaptureIdentities = baselineCaptureArtifacts.map((artifact) => artifact.identity);
+  if (!meaningful(evidence.baseline?.gameplay_hash) || baselineCaptureEntries.some(([, reference], index) => !SHA256_PATTERN.test(reference?.sha256 ?? "") || !baselineCaptureArtifacts[index].ok || baselineCaptureArtifacts[index].sha256 !== reference.sha256) || new Set(baselineCaptureIdentities).size !== baselineCaptureIdentities.length) issues.push(issue("BASELINE_EVIDENCE", `Baseline needs a gameplay hash plus distinct digest-bound screenshot, moving clip, metrics${acceptance === "human-release" ? ", and raw human findings" : ""} files.`, "evidence.json"));
   if (!Array.isArray(evidence.options) || !evidence.options.some((option) => option.decision === "rejected" && meaningful(option.reason))) {
     issues.push(issue("REJECTED_ALTERNATIVE", "Record at least one rejected alternative and its reason.", "evidence.json"));
   }
@@ -776,7 +813,10 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
 
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
-    const humanDecisionReject = optionalHumanText.split("\n").some((line) => /^\s*Decision\s*:/i.test(line) && containsReject(line));
+    const humanDecisionReject = optionalHumanText.split("\n").some((line) => {
+      const normalizedLine = line.normalize("NFKC").replace(/\p{Cf}+/gu, "");
+      return /\b(?:decision|status|outcome)\b/i.test(normalizedLine) && containsReject(normalizedLine);
+    });
     if (acceptance === "ai-binary" && (hasHumanReject(evidence.human) || markdownTableRows(optionalHumanText).some((row) => containsReject(row[5])) || humanDecisionReject || /\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject still blocks the candidate; AI Binary mode may omit Human evidence but cannot override an existing Reject.", "human-test.md"));
     }
@@ -802,8 +842,8 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     }
     const candidateCaptureEntries = [["screenshot", evidence.candidate?.screenshot], ["clip", evidence.candidate?.clip], ["input_trace", evidence.candidate?.input_trace]];
     const candidateCaptureArtifacts = await Promise.all(candidateCaptureEntries.map(([, reference]) => regularArtifact(root, directory, reference?.path)));
-    const candidateCaptureRealpaths = candidateCaptureArtifacts.map((artifact) => artifact.path);
-    const candidateCaptureRefsValid = candidateCaptureEntries.every(([, reference], index) => SHA256_PATTERN.test(reference?.sha256 ?? "") && candidateCaptureArtifacts[index].ok && candidateCaptureArtifacts[index].sha256 === reference.sha256) && new Set(candidateCaptureRealpaths).size === candidateCaptureRealpaths.length;
+    const candidateCaptureIdentities = candidateCaptureArtifacts.map((artifact) => artifact.identity);
+    const candidateCaptureRefsValid = candidateCaptureEntries.every(([, reference], index) => SHA256_PATTERN.test(reference?.sha256 ?? "") && candidateCaptureArtifacts[index].ok && candidateCaptureArtifacts[index].sha256 === reference.sha256) && new Set(candidateCaptureIdentities).size === candidateCaptureIdentities.length;
     const captureReceipt = await readArtifactJson(root, directory, evidence.candidate?.capture_receipt);
     const captureReceiptValid = captureReceipt?.schema_version === "capture-set.v1" && captureReceipt.task_id === taskId && captureReceipt.candidate_source_commit === evidence.candidate?.source_commit && captureReceipt.candidate_source_sha256 === evidence.candidate?.source_sha256 && captureReceipt.candidate_build_sha256 === evidence.candidate?.build_sha256 && candidateCaptureEntries.every(([id, reference]) => captureReceipt.artifacts?.[id]?.path === reference?.path && captureReceipt.artifacts?.[id]?.sha256 === reference?.sha256);
     if (!candidateCaptureRefsValid || !captureReceiptValid) issues.push(issue("CANDIDATE_CAPTURE", "Complete evidence needs distinct digest-bound screenshot, moving clip, and input-trace files plus a candidate-bound capture-set.v1 receipt.", "evidence.json"));
@@ -821,13 +861,13 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
       });
       if (humanRows.some((row) => /^fail$/i.test(row[5] ?? ""))) issues.push(issue("HUMAN_REJECT", "Any preserved Human Reject row blocks completion for this candidate.", "human-test.md"));
       const traceArtifacts = await Promise.all(validHumanRows.map((row) => regularArtifact(root, directory, row[6])));
-      const traceRealpaths = traceArtifacts.map((artifact) => artifact.path);
-      const traceArtifactsValid = validHumanRows.length === humanRows.length && traceArtifacts.every((artifact, index) => artifact.ok && artifact.sha256 === validHumanRows[index][7]) && new Set(traceRealpaths).size === traceRealpaths.length;
+      const traceIdentities = traceArtifacts.map((artifact) => artifact.identity);
+      const traceArtifactsValid = validHumanRows.length === humanRows.length && traceArtifacts.every((artifact, index) => artifact.ok && artifact.sha256 === validHumanRows[index][7]) && new Set(traceIdentities).size === traceIdentities.length;
       const rawRefValid = await validArtifactRef(root, directory, evidence.human?.raw_answers);
       const rawArtifact = await regularArtifact(root, directory, evidence.human?.raw_answers?.path);
       const ownerArtifact = await regularArtifact(root, directory, evidence.human?.owner_evidence?.path);
-      const allHumanRealpaths = [rawArtifact.path, ownerArtifact.path, ...traceRealpaths];
-      const evidencePathsSeparate = rawRefValid && ownerArtifact.ok && allHumanRealpaths.every(Boolean) && new Set(allHumanRealpaths).size === allHumanRealpaths.length;
+      const allHumanIdentities = [rawArtifact.identity, ownerArtifact.identity, ...traceIdentities];
+      const evidencePathsSeparate = rawRefValid && ownerArtifact.ok && allHumanIdentities.every(Boolean) && new Set(allHumanIdentities).size === allHumanIdentities.length;
       const distinctParticipants = new Set(validHumanRows.map((row) => row[0]?.trim().toLowerCase())).size === validHumanRows.length;
       if (humanRows.length < 2 || validHumanRows.length !== humanRows.length || !distinctParticipants || !traceArtifactsValid || !rawRefValid || !evidencePathsSeparate || evidence.human?.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_RAW", "Complete evidence needs at least two distinct participants with counted, timestamped raw rows plus distinct digest-bound raw, trace, and owner files.", "human-test.md"));
       if (/Status:\s*pending|Decision:\s*pending/i.test(files.get("human-test.md"))) issues.push(issue("HUMAN_RAW", "human-test.md still records a pending human result.", "human-test.md"));
