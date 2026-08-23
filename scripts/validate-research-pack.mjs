@@ -43,7 +43,7 @@ function decodeUtf8Evidence(bytes) {
   const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   for (const character of text) {
     const code = character.charCodeAt(0);
-    if (code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
+    if (code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31) || (code >= 127 && code <= 159)) {
       throw new Error("embedded control byte");
     }
   }
@@ -351,7 +351,7 @@ function declaresHumanContext(value) {
 function declaresExternalContext(value) {
   if (!value || typeof value !== "object") return false;
   const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|authority|authorities|approvedby|approver|approvers|descriptor|descriptors|audience|audiences)$/;
-  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
+  const externalMarker = /(?:human|humana?|humaine?|mensch(?:lich)?|owner|propietari[oa]|propri[eé]taire|eigent[uü]mer|legal|juridique|rechtlich|rights(?:acceptance)?|derechos|droits|rechte|mainintegration|sites?|sitio|seite|contest|concurso|concours|wettbewerb|submission|env[ií]o|soumission|einreichung|release|releaseready|lanzamiento|sortie|ver[oö]ffentlichung|freigabe|deploy(?:ment|ed)?|despliegue|d[eé]ploiement|bereitstellung|hosting|hosted|publication|publicaci[oó]n|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
   const containsExternalMarker = (child) => {
     if (typeof child === "string") return externalMarker.test(descriptionFingerprint(child));
     if (Array.isArray(child)) return child.some(containsExternalMarker);
@@ -379,7 +379,7 @@ function hasMalformedHumanProvenanceId(value) {
 function isPositiveClaimScalar(candidate) {
   if (candidate === true || (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0)) return true;
   const normalized = normalizedDescription(candidate);
-  return /^(?:true|yes|on|[1-9]\d*|pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|ok|success|successful|succeeded|合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)$/.test(normalized);
+  return /^(?:true|yes|on|[1-9]\d*|pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|ok|success|successful|succeeded|aprobad[oa]s?|aceptad[oa]s?|publicad[oa]s?|completad[oa]s?|exitos[oa]s?|approuv[eé]e?s?|accept[eé]e?s?|publi[eé]e?s?|termin[eé]e?s?|r[eé]ussi(?:e|es)?|bestanden|genehmigt|ver[oö]ffentlicht|abgeschlossen|erfolgreich|合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)$/.test(normalized);
 }
 
 function hasPositiveResultClaim(value) {
@@ -410,17 +410,19 @@ function containsHumanPassArtifact(value, path = "") {
 }
 
 function hasAiBinaryExternalPassClaim(value) {
-  const externalKey = /^(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
-  const externalText = /(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
+  const externalKey = /^(?:human|humana?|humaine?|mensch(?:lich)?|owner|propietari[oa]|propri[eé]taire|eigent[uü]mer|legal|juridique|rechtlich|rights(?:acceptance)?|derechos|droits|rechte|main|sites?|sitio|seite|contest|concurso|concours|wettbewerb|submission|env[ií]o|soumission|einreichung|release|releaseready|lanzamiento|sortie|ver[oö]ffentlichung|freigabe|deploy(?:ment|ed)?|despliegue|d[eé]ploiement|bereitstellung|hosting|hosted|publication|publicaci[oó]n|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
+  const externalText = /(?:human|humana?|humaine?|mensch(?:lich)?|owner|propietari[oa]|propri[eé]taire|eigent[uü]mer|legal|juridique|rechtlich|rights(?:acceptance)?|derechos|droits|rechte|main|sites?|sitio|seite|contest|concurso|concours|wettbewerb|submission|env[ií]o|soumission|einreichung|release|releaseready|lanzamiento|sortie|ver[oö]ffentlichung|freigabe|deploy(?:ment|ed)?|despliegue|d[eé]ploiement|bereitstellung|hosting|hosted|publication|publicaci[oó]n|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
   const containsExternalPassProse = (candidate, inheritedExternal = false) => {
     if (typeof candidate !== "string") return false;
     return candidate.normalize("NFKC").split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((clause) => {
       const compact = securityFingerprint(clause);
-      const positive = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
+      const positivePattern = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded|aprobad[oa]s?|aceptad[oa]s?|publicad[oa]s?|completad[oa]s?|exitos[oa]s?|approuv[eé]e?s?|accept[eé]e?s?|publi[eé]e?s?|termin[eé]e?s?|r[eé]ussi(?:e|es)?|bestanden|genehmigt|ver[oö]ffentlicht|abgeschlossen|erfolgreich)(?!pending|false|no|off|0)/;
+      const positive = positivePattern.test(compact)
         || /(?:合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)/.test(compact);
       const negative = /(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,80})(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/.test(compact)
         || /(?:未|不|非|保留|拒否|却下|失敗|待ち|していない|されていない|できない|不可)(?:.{0,40})(?:合格|承認|通過|公開|提出|リリース|完了|成功)/.test(compact);
-      return (inheritedExternal || externalText.test(compact)) && positive && !negative;
+      const transitionToPositive = /(?:changed|moved|updated|switched)?from(?:\w{0,80})(?:reject|rejected|fail|failed|pending|denied|withheld)(?:\w{0,40})(?:to|into)(?:\w{0,40})(?:pass|passed|approved|accepted|ready|complete|completed|success|successful|succeeded)/.test(compact);
+      return (inheritedExternal || externalText.test(compact)) && positive && (!negative || transitionToPositive);
     });
   };
   const visit = (current, inheritedExternal = false, depth = 0, keyTrail = "") => {
@@ -440,7 +442,7 @@ function hasAiBinaryExternalPassClaim(value) {
 }
 
 function hasMalformedExternalResult(value) {
-  const externalKey = /^(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
+  const externalKey = /^(?:human|humana?|humaine?|mensch(?:lich)?|owner|propietari[oa]|propri[eé]taire|eigent[uü]mer|legal|juridique|rechtlich|rights(?:acceptance)?|derechos|droits|rechte|main|sites?|sitio|seite|contest|concurso|concours|wettbewerb|submission|env[ií]o|soumission|einreichung|release|releaseready|lanzamiento|sortie|ver[oö]ffentlichung|freigabe|deploy(?:ment|ed)?|despliegue|d[eé]ploiement|bereitstellung|hosting|hosted|publication|publicaci[oó]n|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
   const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict|状態|結果|判定|決定|評決)$/;
   const validScalar = (candidate) => typeof candidate === "boolean"
     || (typeof candidate === "number" && Number.isFinite(candidate))
@@ -561,14 +563,15 @@ function semanticClaimsInArtifact(text, path, taskId, sha256) {
     // Plain-text evidence is inspected below using contextual markers.
   }
   const humanMarker = /(?:human|participantid|testerid|evaluatorid|reviewerid|approvedbyhuman|approverhuman|人間|参加者|テスター|評価者|審査者)/;
-  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
-  const positiveMarker = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded|合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)/;
+  const externalMarker = /(?:human|humana?|humaine?|mensch(?:lich)?|owner|propietari[oa]|propri[eé]taire|eigent[uü]mer|legal|juridique|rechtlich|rights(?:acceptance)?|derechos|droits|rechte|mainintegration|sites?|sitio|seite|contest|concurso|concours|wettbewerb|submission|env[ií]o|soumission|einreichung|release|releaseready|lanzamiento|sortie|ver[oö]ffentlichung|freigabe|deploy(?:ment|ed)?|despliegue|d[eé]ploiement|bereitstellung|hosting|hosted|publication|publicaci[oó]n|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
+  const positiveMarker = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded|aprobad[oa]s?|aceptad[oa]s?|publicad[oa]s?|completad[oa]s?|exitos[oa]s?|approuv[eé]e?s?|accept[eé]e?s?|publi[eé]e?s?|termin[eé]e?s?|r[eé]ussi(?:e|es)?|bestanden|genehmigt|ver[oö]ffentlicht|abgeschlossen|erfolgreich|合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)/;
   const negativeMarker = /(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld|未|不合格|不承認|保留|拒否|却下|失敗|待ち|していない|されていない|できない|不可)/;
   const canonicalSourceCorpus = path === "references.csv" || path === `docs/research/${taskId}/references.csv`;
   const semanticLines = text.normalize("NFKC").split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i);
   const externalPassLine = !canonicalSourceCorpus && semanticLines.some((line) => {
     const lineCompact = securityFingerprint(normalizedDescription(line));
-    return externalMarker.test(lineCompact) && positiveMarker.test(lineCompact) && !negativeMarker.test(lineCompact);
+    const transitionToPositive = /(?:changed|moved|updated|switched)?from(?:\w{0,80})(?:reject|rejected|fail|failed|pending|denied|withheld)(?:\w{0,40})(?:to|into)(?:\w{0,40})(?:pass|passed|approved|accepted|ready|complete|completed|success|successful|succeeded)/.test(lineCompact);
+    return externalMarker.test(lineCompact) && positiveMarker.test(lineCompact) && (!negativeMarker.test(lineCompact) || transitionToPositive);
   });
   const csvHumanContext = extname(path).toLowerCase() === ".csv" && humanMarker.test(securityFingerprint(normalizedDescription(text)));
   const humanRejectLine = !canonicalSourceCorpus && semanticLines.some((line) => {

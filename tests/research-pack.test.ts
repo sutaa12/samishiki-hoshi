@@ -1080,6 +1080,19 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_TEXT_ENCODING");
   });
 
+  it("rejects C1 controls inside optional Human evidence", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    delete evidence.artifacts.human_test;
+    await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    await writeFile(join(root, "docs/research/QX-R4-R01/human-test.md"), "Human status: RE\u0080JECT\n", "utf8");
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_TEXT_ENCODING");
+  });
+
   it("runs the CLI when the validator path contains spaces", async () => {
     const root = await makeRoot();
     const spacedDirectory = join(root, "validator path with spaces");
@@ -1610,6 +1623,8 @@ describe("evidence-driven Research Pack", () => {
     ["Japanese gate and verdict", { audit_record: { gate: "人間", 判定: "合格" } }],
     ["qualified Sites status", { sites: { status: "passed after smoke test" } }],
     ["deployment alias status", { deployment: { status: "succeeded after public smoke test" } }],
+    ["terminal Human transition", { audit_note: "Human acceptance changed from rejected to passed." }],
+    ["Spanish Human approval", { auditoria: "La aceptación humana fue aprobada." }],
   ])("rejects %s in AI Binary evidence", async (_label, claim) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
