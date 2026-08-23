@@ -700,6 +700,7 @@ describe("evidence-driven Research Pack", () => {
     ["Japanese reject count", { 拒否数: 1 }],
     ["NFKC positive rejected_count", { rejected_count: "１" }],
     ["negative Human decision text", { decision: "did not pass" }],
+    ["contracted Human decision text", { decision: "didn’t pass" }],
     ["denied Human decision text", { decision: "denied" }],
     ["declined Human decision text", { decision: "declined" }],
     ["unsuccessful Human outcome", { outcome: "unsuccessful" }],
@@ -722,6 +723,7 @@ describe("evidence-driven Research Pack", () => {
     ["non-historical baseline alias", { "base line": { reviewer_role: "Human", status: "declined" } }],
     ["nested Human reviewer role", { audit_record: { reviewer: { role: "Human" }, status: "denied" } }],
     ["plural Human reviewer roles", { audit_record: { reviewer_roles: ["Human"], status: "refused" } }],
+    ["nested plural Human descriptors", { audit_record: { descriptors: [{ roles: ["Human"] }], structured_result: { passed: false } } }],
     ["is_rejected", { preserved_human_evidence: { is_rejected: true } }],
     ["rejection_positive", { preserved_human_evidence: { rejection_positive: true } }],
   ])("rejects preserved Human evidence outside the canonical subtree: %s", async (_label, preserved) => {
@@ -742,7 +744,7 @@ describe("evidence-driven Research Pack", () => {
     const markdownPath = ".quality-gates/QX-R4-R00/preserved-human-result.md";
     await writeFile(join(root, markdownPath), markdown, "utf8");
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
-    evidence.audit_record = { reviewer_role: "Human", evidence: { path: markdownPath, sha256: sha256(markdown) } };
+    evidence.audit_record = { descriptors: [{ roles: ["Human"] }], evidence: { path: markdownPath, sha256: sha256(markdown) } };
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
@@ -753,6 +755,7 @@ describe("evidence-driven Research Pack", () => {
     ["JSON false pass", "{\"passed\":false}\n"],
     ["JSON numeric pass failure", "{\"pass\":0}\n"],
     ["negative pass prose", "Decision: did not pass.\n"],
+    ["contracted pass prose", "Decision: didn’t pass.\n"],
     ["negative acceptance prose", "Outcome: not accepted.\n"],
   ])("rejects Human-labeled supplemental text with %s", async (_label, supplementalText) => {
     const root = await makeRoot();
@@ -898,6 +901,29 @@ describe("evidence-driven Research Pack", () => {
       "小さな青い水滴を左右に動かし、光るリングをくぐり、大きな岩を避け、芽へ優しい光を渡すゲームです。",
       "小さな透明な水滴を左右に動かし、丸いリングをくぐり、硬い岩を避け、芽へ暖かな光を渡すゲームです。",
       "小さな輝く水滴を左右に動かし、大きいリングをくぐり、黒い岩を避け、芽へ明るい光を渡すゲームです。",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects Japanese descriptions with reversed order, wrong subject, or negated traversal", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "水滴を動かして芽へ光を渡し、岩を避け、リングをくぐる遊びです。",
+      "水滴を動かしてカメラがリングをくぐり、岩を避け、芽へ光を渡す遊びです。",
+      "水滴を動かしてリングをくぐらなかったが、岩を避け、芽へ光を渡す遊びです。",
     ];
     for (const [index, description] of descriptions.entries()) {
       const reviewPath = join(root, fixture.reviews[index].path);

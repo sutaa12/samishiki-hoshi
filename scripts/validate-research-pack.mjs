@@ -146,7 +146,7 @@ function containsHumanFailureText(value) {
   const compact = securityFingerprint(normalizedDescription(value));
   return containsReject(value)
     || /(?:pass|passed|accept|accepted|approve|approved)(?:is|was)?false/.test(compact)
-    || /(?:didnot|doesnot|donot|not)(?:pass|passed|accept|accepted|approve|approved)/.test(compact)
+    || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|couldnt|wouldnt|wont|cant|not)(?:pass|passed|accept|accepted|approve|approved)/.test(compact)
     || /(?:承認|合格)(?:され)?ず|未承認/.test(compact);
 }
 
@@ -180,17 +180,25 @@ function communicatesR5Gameplay(value) {
       || englishActorToRingConnector.test(text.slice(englishActorMotionMatch.index + englishActorMotionMatch[0].length, englishRingMatch.index)))
     && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
     && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index));
-  const japaneseNegative = /ない|ず|ません|できない|失敗/.test(text);
-  const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ).{0,24}(?:動か|移動|進|操作|操縦|避け)/;
+  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗/.test(text);
+  const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ).{0,24}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
-  const japaneseRelations = [
-    japaneseActorMotion,
-    /(?:(?:くぐ|通|抜け).{0,16}(?:リング|輪|門|ゲート|円)|(?:リング|輪|門|ゲート|円).{0,16}(?:くぐ|通|抜け))/,
-    /(?:(?:避け|かわし).{0,16}(?:岩|障害|壁|危険)|(?:岩|障害|壁|危険).{0,16}(?:避け|かわし))/,
-    /(?:(?:渡|送|届け|当て|光らせ|起動|照ら).{0,20}(?:芽|植物|ノード|対象)|(?:光|パルス|生命).{0,20}(?:芽|植物|ノード|対象).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら)|(?:芽|植物|ノード|対象).{0,20}(?:光|パルス|生命).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら))/,
-  ];
+  const japaneseRing = /(?:(?:くぐ|通|抜け).{0,16}(?:リング|輪|門|ゲート|円)|(?:リング|輪|門|ゲート|円).{0,16}(?:くぐ|通|抜け))/;
+  const japaneseObstacle = /(?:(?:避け|かわし).{0,16}(?:岩|障害|壁|危険)|(?:岩|障害|壁|危険).{0,16}(?:避け|かわし))/;
+  const japanesePulse = /(?:(?:渡|送|届け|当て|光らせ|起動|照ら).{0,20}(?:芽|植物|ノード|対象)|(?:光|パルス|生命).{0,20}(?:芽|植物|ノード|対象).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら)|(?:芽|植物|ノード|対象).{0,20}(?:光|パルス|生命).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら))/;
+  const japaneseActorMotionMatch = japaneseActorMotion.exec(text);
+  const japaneseRingMatch = japaneseRing.exec(text);
+  const japaneseObstacleMatch = japaneseObstacle.exec(text);
+  const japanesePulseMatch = japanesePulse.exec(text);
+  const japaneseConnector = /^[\s、,]*(?:(?:り|て|し|して|そして|次に|その後)[\s、,]*)?$/;
+  const japaneseRelationsValid = Boolean(japaneseActorMotionMatch && japaneseRingMatch && japaneseObstacleMatch && japanesePulseMatch)
+    && japaneseRingMatch.index < japaneseObstacleMatch.index
+    && japaneseObstacleMatch.index < japanesePulseMatch.index
+    && japaneseConnector.test(text.slice(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japaneseRingMatch.index))
+    && japaneseConnector.test(text.slice(japaneseRingMatch.index + japaneseRingMatch[0].length, japaneseObstacleMatch.index))
+    && japaneseConnector.test(text.slice(japaneseObstacleMatch.index + japaneseObstacleMatch[0].length, japanesePulseMatch.index));
   const sentenceLike = hasJapanese
-    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && !japaneseWrongActor.test(text) && japaneseRelations.every((pattern) => pattern.test(text))
+    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && !japaneseWrongActor.test(text) && japaneseRelationsValid
     : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && !englishNegative && !englishWrongActor.test(text) && englishRelationsValid;
   return concepts.filter((pattern) => pattern.test(text)).length >= 4 && sentenceLike;
 }
@@ -242,8 +250,8 @@ function containsHumanFailureArtifact(value) {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers)$/;
-  const metadataKey = /^(?:metadata|meta|context|descriptor|classification|reviewmetadata|auditmetadata)$/;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers|descriptor|descriptors)$/;
+  const metadataKey = /^(?:metadata|meta|context|descriptor|descriptors|classification|reviewmetadata|auditmetadata)$/;
   const entries = Object.entries(value);
   const containsHumanMarker = (child) => {
     if (typeof child === "string") return descriptionFingerprint(child).includes("human");
