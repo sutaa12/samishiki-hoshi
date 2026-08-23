@@ -228,6 +228,18 @@ function containsHumanFailureText(value) {
     || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認|満たさなかった|満たしていない|満たせなかった/.test(compact);
 }
 
+function containsTerminalHumanFailureProse(value) {
+  if (typeof value !== "string") return false;
+  return value.normalize("NFKC").split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((clause) => {
+    const compact = securityFingerprint(normalizedDescription(clause));
+    const relationalCompact = compact.replace(/failclosed/g, "");
+    const terminalRelation = /(?:human|humana?|humaine?|mensch(?:lich)?|人間).{0,48}(?:fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|rechazad[oa]s?|denegad[oa]s?|fallid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen|拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗)|(?:fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|rechazad[oa]s?|denegad[oa]s?|fallid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen|拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗).{0,48}(?:human|humana?|humaine?|mensch(?:lich)?|人間)/.test(relationalCompact);
+    const historicalContext = /(?:r[0-4]|baseline|prior|previous|old|historical|notionpage16|旧|過去|以前|履歴)/.test(compact);
+    const hypotheticalContext = /(?:if|when|without|missing|must|required|rollback|revert|could|would|should|future|beforecompletion|場合|不足|必要|将来|ロールバック)/.test(compact);
+    return terminalRelation && containsHumanFailureText(clause) && !historicalContext && !hypotheticalContext;
+  });
+}
+
 function communicatesR5Gameplay(value) {
   const text = normalizedDescription(value);
   const concepts = [
@@ -495,6 +507,7 @@ function hasHumanRejectAnywhere(value, skipHistoricalBaseline = false) {
     if (!current || typeof current !== "object") return false;
     const entries = Object.entries(current);
     const labeledHuman = inheritedHumanContext || declaresHumanContext(current);
+    if (entries.some(([, child]) => containsTerminalHumanFailureProse(child))) return true;
     if (labeledHuman && (hasHumanReject(current) || containsHumanFailureText(joinedStrings(current)))) return true;
     return entries.some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
@@ -565,7 +578,7 @@ function semanticClaimsInArtifact(text, path, taskId, sha256) {
     (path === ".quality-gates/QX-R4-R01/r5-migration-assessment.md" && sha256 === R01_MIGRATION_ASSESSMENT_SHA256)
     || (path === ".quality-gates/QX-R4-R01/independent-review-round4.md" && sha256 === R01_HISTORICAL_REVIEW_SHA256)
   );
-  if (dedicatedR01SemanticArtifact) return { humanReject: false, externalPass: false };
+  if (dedicatedR01SemanticArtifact) return { humanReject: false, externalPass: false, confusableMetadataKey: false };
   const historicalR01HumanBaseline = taskId === "QX-R4-R01" && (
     (path === "docs/research/QX-R4-R01/baseline-human-findings.md" && sha256 === R01_HISTORICAL_HUMAN_BASELINE_SHA256)
     || (path === "human-test.md" && sha256 === R01_HISTORICAL_HUMAN_TEST_SHA256)
@@ -605,7 +618,10 @@ function semanticClaimsInArtifact(text, path, taskId, sha256) {
   const externalPass = parsed && typeof parsed === "object"
     ? hasAiBinaryExternalPassClaim(parsed)
     : externalPassLine;
-  return { humanReject: Boolean(humanReject), externalPass: Boolean(externalPass) };
+  const confusableMetadataKey = parsed && typeof parsed === "object"
+    ? hasUnsupportedConfusableMetadataKey(parsed)
+    : false;
+  return { humanReject: Boolean(humanReject), externalPass: Boolean(externalPass), confusableMetadataKey };
 }
 
 function probeMovingVideo(path) {
@@ -1583,6 +1599,10 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     }
     if (textualArtifactEncodingInvalid) {
       issues.push(issue("ARTIFACT_TEXT_ENCODING", "Textual evidence must be valid UTF-8 without embedded control bytes; undecodable or alternate-encoded text fails closed.", "evidence.json"));
+    }
+    const confusableMetadataArtifacts = semanticStates.filter((state) => state?.confusableMetadataKey).map((state) => state.path);
+    if (confusableMetadataArtifacts.length > 0) {
+      issues.push(issue("CONFUSABLE_METADATA_KEY", `Referenced or mapped JSON evidence cannot use unsupported confusable scripts in metadata keys. Found in: ${[...new Set(confusableMetadataArtifacts)].join(", ")}.`, "evidence.json"));
     }
     const humanRejectArtifacts = semanticStates.filter((state) => state?.humanReject).map((state) => state.path);
     if (humanRejectArtifacts.length > 0) {

@@ -1707,6 +1707,43 @@ describe("evidence-driven Research Pack", () => {
   });
 
   it.each([
+    ["digest reference with mixed-script Sites", "digest", { "\u0455ites": { status: "passed" } }],
+    ["string map with mixed-script Sites", "map", { "\u0455ites": { status: "passed" } }],
+    ["digest reference with all-Cyrillic Sites", "digest", { "\u0455\u0456\u0442\u0435\u0455": { status: "passed" } }],
+    ["string map with all-Cyrillic Sites", "map", { "\u0455\u0456\u0442\u0435\u0455": { status: "passed" } }],
+    ["digest reference with confusable Human", "digest", { "\u04bbuman": { status: "REJECT" } }],
+    ["string map with confusable Human", "map", { "\u04bbuman": { status: "REJECT" } }],
+  ])("fails closed on confusable metadata in mapped JSON: %s", async (_label, route, payload) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const artifactPath = ".quality-gates/QX-R4-R00/confusable-evidence.json";
+    const artifactText = `${JSON.stringify(payload, null, 2)}\n`;
+    await writeFile(join(root, artifactPath), artifactText, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    if (route === "digest") evidence.audit_record = { evidence: { path: artifactPath, sha256: sha256(artifactText) } };
+    else evidence.artifacts.confusable_evidence = artifactPath;
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("CONFUSABLE_METADATA_KEY");
+  });
+
+  it.each([
+    ["English", "Human acceptance status: REJECT."],
+    ["Spanish", "La aceptación humana fue rechazada."],
+    ["Japanese", "人間の判定：不合格。"],
+  ])("rejects terminal Human failure prose under a neutral evidence key: %s", async (_label, auditNote) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.audit_note = auditNote;
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it.each([
     ["unknown Spanish Rights status", { derechos: { estado: "verde" } }],
     ["negative numeric Sites status", { sites: { status: -1 } }],
   ])("fails closed on %s", async (_label, claim) => {
