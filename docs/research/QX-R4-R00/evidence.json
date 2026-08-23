@@ -70,7 +70,7 @@
   },
   "gates": {
     "research": "passed",
-    "r00_explicit_acceptance": "remediation-review-pending",
+    "r00_explicit_acceptance": "passed",
     "complete": "pending"
   },
   "artifacts": {

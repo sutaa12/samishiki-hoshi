@@ -3,7 +3,7 @@
   "task_id": "QX-R4-R00",
   "recorded_at": "2026-08-23T12:00:00+09:00",
   "issuer": "Codex implementation verifier",
-  "result": "independent-review-pending",
+  "result": "accepted-process-foundation",
   "subject": {
     "implementation_commit": "a65058ec1eab14bcd53d4acdc892e090617adf49",
     "implementation_tree": "ebeb2785c917ac17c1779ec3c29a80bafb3e290e",
@@ -106,7 +106,7 @@
   "diagnostics": {
     "legacy_journey_test": "The isolated test expecting data-webgl=true fails with data-webgl=false at both baseline and candidate. It is preserved as a historical diagnostic and is not counted as a candidate regression."
   },
-  "severity_counts": {"S0": 0, "S1": 2, "S2": 0, "S3": 1},
+  "severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
   "known_limitations": [
     "This process-only task is not a human gameplay acceptance.",
     "R4 player-facing Human Gate, rights, Main merge, and replacement Sites deployment remain frozen."
@@ -117,13 +117,13 @@
     "instructions": "Create a revert commit for QX-R4-R00 or resume from the rollback commit; do not rewrite shared history."
   },
   "independent_review": {
-    "status": "remediation-review-pending",
+    "status": "accepted-process-foundation",
     "rounds": [
       {"round": 1, "verdict": "rejected", "artifact": ".quality-gates/QX-R4-R00/independent-review-round1.md", "open_s2": 3},
       {"round": 2, "verdict": "rejected", "artifact": ".quality-gates/QX-R4-R00/independent-review-round2.md", "open_s1": 2, "open_s2": 2},
       {"round": 3, "verdict": "rejected", "artifact": ".quality-gates/QX-R4-R00/independent-review-round3.md", "open_s1": 2, "open_s2": 6, "blindness_limitation": true},
       {"round": 4, "verdict": "rejected", "artifact": ".quality-gates/QX-R4-R00/independent-review-round4.md", "open_s1": 2, "open_s3": 1},
-      {"round": 5, "verdict": "pending", "artifact": ".quality-gates/QX-R4-R00/independent-review-round5.md"}
+      {"round": 5, "verdict": "accepted", "artifact": ".quality-gates/QX-R4-R00/independent-review-round5.md", "score": "32/32", "open_s0_s2": 0}
     ]
   }
 }
