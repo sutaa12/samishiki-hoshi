@@ -2,14 +2,15 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, readFile, realpath, stat } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { lstat, readdir, readFile, realpath, stat } from "node:fs/promises";
+import { extname, isAbsolute, relative, resolve } from "node:path";
 
 const TASK_ID_PATTERN = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const PIN_PATTERN = /^(?:[0-9a-f]{40}|v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$/;
 const PLACEHOLDER_PATTERN = /\{\{[^}]+\}\}|REPLACE_(?:ME|WITH_[A-Z_]+)|\bTBD\b/;
+const EXTERNAL_MEDIA_EXTENSIONS = new Set([".apng", ".avif", ".gif", ".jpeg", ".jpg", ".m4a", ".mp3", ".mp4", ".ogg", ".png", ".wav", ".webm", ".webp"]);
 const REQUIRED_FILES = [
   "research-card.md",
   "references.csv",
@@ -159,6 +160,16 @@ async function readArtifactJson(root, packDirectory, reference) {
   }
 }
 
+async function mediaFiles(directory) {
+  const found = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) found.push(...await mediaFiles(path));
+    else if (entry.isFile() && EXTERNAL_MEDIA_EXTENSIONS.has(extname(entry.name).toLowerCase())) found.push(path);
+  }
+  return found;
+}
+
 function comparisonPasses(target, observed) {
   if (!target || typeof target !== "object" || !Number.isFinite(target.value) || !meaningful(target.unit) || !Number.isFinite(observed)) return false;
   if (target.operator === "eq") return observed === target.value;
@@ -276,7 +287,7 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     issues.push(issue("FRAME_COUNT", `${scale} research requires ${minimumFrames} annotated frames or timecodes; found ${frames.length}.`, "frame-analysis.csv"));
   }
   for (const [index, row] of comparableGames.entries()) {
-    for (const field of ["Game", "Source", "SourceKind", "OfficialEvidenceID", "Publisher", "Observed", "Inference", "TestableHypothesis", "AdoptOrReject"]) {
+    for (const field of ["Game", "Source", "SourceKind", "OfficialEvidenceID", "Publisher", "Observed", "Inference", "PlayerHeightPct", "PlayerAreaPct", "VanishingPointX", "VanishingPointY", "RouteWidthPct", "TargetTTC", "FeedbackOnsetMs", "FeedbackPeakMs", "RecoveryMs", "NearObjectsPerSecond", "TestableHypothesis", "AdoptOrReject"]) {
       if (!meaningful(row[field])) issues.push(issue("COMPARABLE_FIELD", `comparable-games.csv row ${index + 2} needs ${field}.`, "comparable-games.csv"));
     }
     if (row.SourceKind !== "Official" || !isHttpsUrl(row.Source)) issues.push(issue("COMPARABLE_OFFICIAL", `comparable-games.csv row ${index + 2} must use an HTTPS Official source.`, "comparable-games.csv"));
@@ -286,7 +297,7 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   const comparableCanonicalUrls = comparableGames.map((row) => canonicalUrl(row.Source));
   if (!uniqueNonempty(comparableGames, "Game") || comparableCanonicalUrls.some((url) => !url) || new Set(comparableCanonicalUrls).size !== comparableCanonicalUrls.length) issues.push(issue("COMPARABLE_DISTINCT", "Comparable games and canonical official source URLs must be distinct.", "comparable-games.csv"));
   for (const [index, row] of frames.entries()) {
-    for (const field of ["FrameID", "Game", "Source", "SourceKind", "TimecodeOrFrame", "Observed", "Inference", "TestableHypothesis", "Rights"]) {
+    for (const field of ["FrameID", "Game", "Source", "SourceKind", "TimecodeOrFrame", "PlayerBox", "VanishingPoint", "RouteCorridor", "GoalLandmark", "HazardSilhouette", "DepthLayers", "LuminanceHierarchy", "MaterialIdentity", "AttentionEffect", "UISafeArea", "Observed", "Inference", "TestableHypothesis", "Rights"]) {
       if (!meaningful(row[field])) issues.push(issue("FRAME_FIELD", `frame-analysis.csv row ${index + 2} needs ${field}.`, "frame-analysis.csv"));
     }
     if (row.SourceKind !== "Official" || !isHttpsUrl(row.Source)) issues.push(issue("FRAME_OFFICIAL", `frame-analysis.csv row ${index + 2} must use an HTTPS Official source.`, "frame-analysis.csv"));
@@ -296,6 +307,8 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   if (!uniqueNonempty(frames, "FrameID")) issues.push(issue("FRAME_DISTINCT", "Frame identifiers must be distinct.", "frame-analysis.csv"));
   const frameLocators = frames.map((row) => `${row.Game?.trim().toLowerCase()}|${canonicalUrl(row.Source)}|${row.TimecodeOrFrame?.trim().toLowerCase()}`);
   if (new Set(frameLocators).size !== frameLocators.length) issues.push(issue("FRAME_DISTINCT", "Game, source, and timecode/frame tuples must be distinct.", "frame-analysis.csv"));
+  const embeddedMedia = await mediaFiles(directory);
+  if (embeddedMedia.length > 0) issues.push(issue("EXTERNAL_MEDIA", `Research Pack must use external URL/timecode locators; found ${embeddedMedia.length} embedded media file(s).`, "frame-analysis.csv"));
 
   if (evidence.schema_version !== "research-pack.v1") issues.push(issue("SCHEMA", "evidence.json schema_version must be research-pack.v1.", "evidence.json"));
   if (evidence.task_id !== taskId) issues.push(issue("TASK_ID", "evidence.json task_id must match the requested pack.", "evidence.json"));
@@ -325,6 +338,12 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   }
   if (evidence.rollback?.commit !== evidence.baseline?.source_commit || evidence.rollback?.source_sha256 !== evidence.baseline?.source_sha256 || evidence.rollback?.build_sha256 !== evidence.baseline?.build_sha256) issues.push(issue("ROLLBACK_BINDING", "Rollback commit and source/build SHA-256 values must match the accepted baseline.", "evidence.json"));
   if (evidence.gates?.research !== "passed") issues.push(issue("RESEARCH_GATE", "evidence.json gates.research must be passed after the pack is complete.", "evidence.json"));
+  if (!Array.isArray(evidence.numeric_hard_gates) || evidence.numeric_hard_gates.length === 0 || evidence.numeric_hard_gates.some((gate) => gate.result !== "passed" || !comparisonPasses(gate.target, gate.observed))) {
+    issues.push(issue("RESEARCH_HARD_GATE", "Research evidence needs at least one satisfied numeric hard gate.", "evidence.json"));
+  }
+  for (const gate of evidence.numeric_hard_gates ?? []) {
+    if (!(await validArtifactRef(root, directory, gate.evidence))) issues.push(issue("RESEARCH_HARD_GATE_EVIDENCE", `Research hard gate ${gate.id ?? "unknown"} needs a digest-bound repository artifact.`, "evidence.json"));
+  }
 
   const libraryScorecard = files.get("library-scorecard.md");
   const scorecardRows = markdownTableRows(libraryScorecard);

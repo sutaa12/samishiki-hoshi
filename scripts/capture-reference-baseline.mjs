@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
+
+const require = createRequire(import.meta.url);
+const PLAYWRIGHT_VERSION = require("@playwright/test/package.json").version;
 
 const PROJECT_ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const TASK_ID_PATTERN = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/;
@@ -19,7 +23,7 @@ const CHECKPOINTS = Object.freeze([
 
 function parseArguments(argv) {
   const options = {
-    baseUrl: "http://127.0.0.1:4174/",
+    baseUrl: "http://localhost:4174/",
     sourceCommit: "",
     taskId: "",
   };
@@ -47,6 +51,58 @@ function git(...args) {
 
 async function sha256(path) {
   return createHash("sha256").update(await readFile(path)).digest("hex");
+}
+
+async function localhostResponds(baseUrl) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 750);
+  try {
+    await fetch(baseUrl, { signal: controller.signal });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function startSourceBoundServer(baseUrl) {
+  if (await localhostResponds(baseUrl)) {
+    throw new Error(`Refusing to capture an existing server at ${baseUrl}; the harness must own the source-bound server.`);
+  }
+  const url = new URL(baseUrl);
+  const child = spawn(
+    "npm",
+    ["run", "dev", "--", "--host", url.hostname, "--port", url.port],
+    {
+      cwd: PROJECT_ROOT,
+      detached: true,
+      env: { ...process.env, WRANGLER_LOG_PATH: ".wrangler/wrangler.log" },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) throw new Error(`Source-bound dev server exited ${child.exitCode}: ${output.slice(-4_000)}`);
+    if (await localhostResponds(baseUrl)) {
+      return {
+        command: `npm run dev -- --host ${url.hostname} --port ${url.port}`,
+        stop() {
+          if (child.pid) {
+            try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); }
+          }
+        },
+      };
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+  }
+  if (child.pid) {
+    try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); }
+  }
+  throw new Error(`Source-bound dev server did not become ready: ${output.slice(-4_000)}`);
 }
 
 function relativeArtifact(path) {
@@ -170,9 +226,10 @@ async function main() {
   if (head !== options.sourceCommit) {
     throw new Error(`HEAD ${head} does not match --source-commit ${options.sourceCommit}.`);
   }
-  if (git("status", "--short", "--untracked-files=no")) {
-    throw new Error("Tracked files must be clean before capture.");
+  if (git("status", "--short")) {
+    throw new Error("The complete worktree must be clean before capture.");
   }
+  const server = await startSourceBoundServer(options.baseUrl);
   const outputDirectory = resolve(PROJECT_ROOT, ".quality-gates", options.taskId);
   await mkdir(outputDirectory, { recursive: true });
   const browser = await chromium.launch({
@@ -180,6 +237,8 @@ async function main() {
     args: ["--ignore-gpu-blocklist", "--use-gl=angle", "--use-angle=metal"],
   });
   try {
+    const browserVersion = await browser.version();
+    const ffmpegVersion = spawnSync("ffmpeg", ["-version"], { encoding: "utf8" }).stdout.split("\n")[0]?.trim();
     const checkpoints = [];
     for (const checkpoint of CHECKPOINTS) {
       checkpoints.push(await captureStill(browser, options.baseUrl, checkpoint, outputDirectory));
@@ -191,6 +250,7 @@ async function main() {
       source_commit: options.sourceCommit,
       source_tree: git("rev-parse", `${options.sourceCommit}^{tree}`),
       base_url: options.baseUrl,
+      server_command: server.command,
       captured_at: new Date().toISOString(),
       rights: "Project-owned runtime capture; third-party media is not embedded.",
       conditions: {
@@ -198,6 +258,11 @@ async function main() {
         backend: "webgl2",
         quality: "high",
         seed: "20260818",
+      },
+      toolchain: {
+        playwright: PLAYWRIGHT_VERSION,
+        chromium: browserVersion,
+        ffmpeg: ffmpegVersion,
       },
       checkpoints,
       clip,
@@ -215,6 +280,7 @@ async function main() {
     }, null, 2)}\n`);
   } finally {
     await browser.close();
+    server.stop();
   }
 }
 

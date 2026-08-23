@@ -22,6 +22,14 @@ async function copySample(root: string) {
   await cp(new URL("../docs/research/QX-R4-R00", import.meta.url), join(root, "docs/research/QX-R4-R00"), { recursive: true });
 }
 
+async function copyR01(root: string) {
+  await cp(new URL("../docs/research/QX-R4-R01", import.meta.url), join(root, "docs/research/QX-R4-R01"), { recursive: true });
+  await mkdir(join(root, ".quality-gates/QX-R4-R01"), { recursive: true });
+  await cp(new URL("../.quality-gates/QX-R4-R01", import.meta.url), join(root, ".quality-gates/QX-R4-R01"), { recursive: true });
+  await mkdir(join(root, ".quality-gates/QX-R4-R00"), { recursive: true });
+  await cp(new URL("../.quality-gates/QX-R4-R00/production-stable-assets.sha256", import.meta.url), join(root, ".quality-gates/QX-R4-R00/production-stable-assets.sha256"));
+}
+
 function runValidator(root: string, taskId: string, stage = "research") {
   const result = spawnSync(process.execPath, [validator.pathname, taskId, "--root", root, "--stage", stage], { encoding: "utf8" });
   return { ...result, report: JSON.parse(result.stdout || "{}") as { ok?: boolean; issues?: Array<{ code: string }> } };
@@ -83,6 +91,38 @@ describe("evidence-driven Research Pack", () => {
       scale: "large",
       counts: { primary: 6, github: 2, community: 2, comparable_games: 6, frames: 13 },
     });
+  });
+
+  it("rejects a large corpus with missing composition annotations", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const path = join(root, "docs/research/QX-R4-R01/frame-analysis.csv");
+    const csv = (await readFile(path, "utf8")).replace("x58-64 y65-95; height 23%; area 2.1%", "");
+    await writeFile(path, csv, "utf8");
+    const result = runValidator(root, "QX-R4-R01");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("FRAME_FIELD");
+  });
+
+  it("rejects embedded media inside a URL-and-timecode Research Pack", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    await writeFile(join(root, "docs/research/QX-R4-R01/copied-frame.png"), "not-a-real-image", "utf8");
+    const result = runValidator(root, "QX-R4-R01");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("EXTERNAL_MEDIA");
+  });
+
+  it("rejects a forged research-stage hard-gate digest", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const path = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const evidence = JSON.parse(await readFile(path, "utf8")) as { numeric_hard_gates: Array<{ evidence: { sha256: string } }> };
+    evidence.numeric_hard_gates[0].evidence.sha256 = "0".repeat(64);
+    await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R01");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_HARD_GATE_EVIDENCE");
   });
 
   it("keeps completion blocked without numeric and raw human evidence", async () => {

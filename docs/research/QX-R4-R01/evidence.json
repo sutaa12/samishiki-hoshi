@@ -39,8 +39,8 @@
     "rationale": "Use official URL/timecode evidence plus project-owned captures to define measurable future constraints while keeping Production unchanged."
   },
   "numeric_hard_gates": [
-    {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "9f19b777f3bb0151f9960496a8d2a2c9d863e9419641eeeba398343d07610007"}},
-    {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "acc2209ac2924861f4dc182d4b53fd6a0955f924e54ca705cc73feef58db0300"}},
+    {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "7fbfff34fe901953d0d5eb17df899f28876b649c2d95d2aa40ff26f9c76d7b67"}},
+    {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "4a3ae7677a6c7107b72590a306d19699046c8b23cdee36a6f733d848229c01bd"}},
     {"id": "current_same_condition_captures", "target": {"operator": "gte", "value": 1, "unit": "captures"}, "observed": 3, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "e1fbece5774b424f91079129afd9eabe2cbca90084c741a3cc0e8c9fc2fed19a"}},
     {"id": "redistributed_third_party_media", "target": {"operator": "eq", "value": 0, "unit": "files"}, "observed": 0, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/rights.md", "sha256": "ce60f161bd07b7291677fd4536e674883f9f4686a5cf0cb1068846d2760802b3"}}
   ],
