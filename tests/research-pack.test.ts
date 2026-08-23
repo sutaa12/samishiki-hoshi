@@ -73,6 +73,18 @@ describe("evidence-driven Research Pack", () => {
     });
   });
 
+  it("passes the large QX-R4-R01 official reference corpus", () => {
+    const result = spawnSync(process.execPath, [validator.pathname, "QX-R4-R01", "--root", projectRoot.pathname], { encoding: "utf8" });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      task_id: "QX-R4-R01",
+      scale: "large",
+      counts: { primary: 6, github: 2, community: 2, comparable_games: 6, frames: 13 },
+    });
+  });
+
   it("keeps completion blocked without numeric and raw human evidence", async () => {
     const root = await makeRoot();
     await copySample(root);

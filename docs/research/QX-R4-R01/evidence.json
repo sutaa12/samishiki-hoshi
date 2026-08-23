@@ -1,0 +1,87 @@
+{
+  "schema_version": "research-pack.v1",
+  "task_id": "QX-R4-R01",
+  "scale": "large",
+  "source_commit": "a091772372c0253098ebfb0efb11450c2acbba27",
+  "candidate": {
+    "source_commit": null,
+    "source_sha256": null,
+    "build_sha256": null,
+    "build_artifact": null,
+    "build_hash_procedure": null,
+    "screenshot": null,
+    "clip": null,
+    "input_trace": null,
+    "capture_receipt": null,
+    "build_command_receipt": null,
+    "branch": "codex/qx-r4-r01-reference-corpus",
+    "worktree": "/Users/snari/Documents/GitProject/LonelyStar-qx-r4-r00"
+  },
+  "baseline": {
+    "source_commit": "a091772372c0253098ebfb0efb11450c2acbba27",
+    "source_sha256": "a97889a7356150ee91d151f2e8de4cc4398b585cb00bc0465ac88281cb571a19",
+    "build_sha256": "65809abff8795a21dc89e6743d5e5c4c1bcb2165eb34331fe4aed0dbfc2f7d77",
+    "build_artifact": ".quality-gates/QX-R4-R01/baseline-production-stable-assets.sha256",
+    "build_hash_procedure": "Run npm run build, hash the sorted stable Production CSS and owned asset set, then SHA-256 the persisted manifest file.",
+    "gameplay_hash": "LIFE=1f1a2cc7;EARTH=a2b5274b;SOLITUDE=b32248a0",
+    "screenshot": {"path": ".quality-gates/QX-R4-R01/current-earth-48s.png", "sha256": "d433273569adbc300f4c730c26745cfcab95ea6cec0ecb1b646a589b1e841a3e"},
+    "clip": {"path": ".quality-gates/QX-R4-R01/current-earth-moving-12s.webm", "sha256": "95318418e6103fd790937f249f1495d2af0236ac59b09b6a71dec8cfd58a7826"},
+    "metrics": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "e1fbece5774b424f91079129afd9eabe2cbca90084c741a3cc0e8c9fc2fed19a"},
+    "human_findings": {"path": "docs/research/QX-R4-R01/baseline-human-findings.md", "sha256": "a6f3e4e108d85fdc0f462124a5732ba0e989e5206e726c2debb8df6e2cb83036"}
+  },
+  "options": [
+    {"id": "A", "decision": "selected", "reason": "A data-only corpus preserves rights and converts observations into falsifiable constraints without runtime drift."},
+    {"id": "B", "decision": "rejected", "reason": "Embedding third-party pixels introduces redistribution and provenance risk without improving reproducibility."},
+    {"id": "C", "decision": "rejected", "reason": "Immediate Production changes would confound multiple hypotheses before blind human evidence exists."}
+  ],
+  "decision": {
+    "selected_option": "A",
+    "rationale": "Use official URL/timecode evidence plus project-owned captures to define measurable future constraints while keeping Production unchanged."
+  },
+  "numeric_hard_gates": [
+    {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "9f19b777f3bb0151f9960496a8d2a2c9d863e9419641eeeba398343d07610007"}},
+    {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "acc2209ac2924861f4dc182d4b53fd6a0955f924e54ca705cc73feef58db0300"}},
+    {"id": "current_same_condition_captures", "target": {"operator": "gte", "value": 1, "unit": "captures"}, "observed": 3, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "e1fbece5774b424f91079129afd9eabe2cbca90084c741a3cc0e8c9fc2fed19a"}},
+    {"id": "redistributed_third_party_media", "target": {"operator": "eq", "value": 0, "unit": "files"}, "observed": 0, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/rights.md", "sha256": "ce60f161bd07b7291677fd4536e674883f9f4686a5cf0cb1068846d2760802b3"}}
+  ],
+  "metrics": {
+    "status": "pending",
+    "performance_no_regression": false,
+    "load": {"baseline": null, "candidate": null, "unit": "milliseconds", "direction": "lower-is-better", "max_regression_pct": null, "regression": null, "evidence": null, "observation": "R01 has no runtime candidate."},
+    "frame": {"baseline": null, "candidate": null, "unit": "milliseconds", "direction": "lower-is-better", "max_regression_pct": null, "regression": null, "evidence": null, "observation": "R01 has no runtime candidate."},
+    "memory": {"baseline": null, "candidate": null, "unit": "megabytes", "direction": "lower-is-better", "max_regression_pct": null, "regression": null, "evidence": null, "observation": "R01 has no runtime candidate."}
+  },
+  "human": {
+    "status": "pending",
+    "raw_answer_count": 0,
+    "owner_decision": "pending",
+    "raw_answers": null,
+    "owner_evidence": null
+  },
+  "rollback": {
+    "commit": "a091772372c0253098ebfb0efb11450c2acbba27",
+    "source_sha256": "a97889a7356150ee91d151f2e8de4cc4398b585cb00bc0465ac88281cb571a19",
+    "build_sha256": "65809abff8795a21dc89e6743d5e5c4c1bcb2165eb34331fe4aed0dbfc2f7d77",
+    "gameplay_hash": "LIFE=1f1a2cc7;EARTH=a2b5274b;SOLITUDE=b32248a0",
+    "artifact": "rollback.md",
+    "condition": "Revert if external media is committed, human evidence is forged, Production drifts, or a digest fails.",
+    "instructions": "rollback.md"
+  },
+  "gates": {
+    "research": "passed",
+    "complete": "pending"
+  },
+  "artifacts": {
+    "references": "references.csv",
+    "comparable_games": "comparable-games.csv",
+    "frame_analysis": "frame-analysis.csv",
+    "library_scorecard": "library-scorecard.md",
+    "baseline": "current-baseline.md",
+    "decision": "decision.md",
+    "ablation": "ablation.md",
+    "human_test": "human-test.md",
+    "human_frame_packet": "human-frame-test.md",
+    "rights": "rights.md",
+    "rollback": "rollback.md"
+  }
+}
