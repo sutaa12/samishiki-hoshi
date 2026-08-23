@@ -1016,6 +1016,39 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["HUMAN_REJECT", "AI_EXTERNAL_GATE_CLAIM"]));
   });
 
+  it.each([
+    ["ordinary Sites-success Markdown", "neutral-receipt.md", "Sites publication succeeded.\n", "AI_EXTERNAL_GATE_CLAIM"],
+    ["participant rejection CSV", "neutral-receipt.csv", "participant_id,status\nP-01,REJECT\n", "HUMAN_REJECT"],
+    ["JSON bytes under a binary extension", "neutral-receipt.bin", `${JSON.stringify({ human: { status: "REJECT" }, sites: { status: "published" } })}\n`, "HUMAN_REJECT"],
+    ["sibling Human approver and passed status", "neutral-receipt.json", `${JSON.stringify({ approved_by: "Human", status: "passed" })}\n`, "AI_EXTERNAL_GATE_CLAIM"],
+  ])("semantically scans %s", async (_label, name, receipt, code) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const receiptPath = `.quality-gates/QX-R4-R00/${name}`;
+    await writeFile(join(root, receiptPath), receipt, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.supplemental_gate_receipt = { path: receiptPath, sha256: sha256(receipt) };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain(code);
+  });
+
+  it("does not grant the pinned R01 semantic exception to an R5 task", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const receipt = "Human status: REJECT\n";
+    const receiptPath = "docs/research/QX-R4-R01/baseline-human-findings.md";
+    await mkdir(join(root, "docs/research/QX-R4-R01"), { recursive: true });
+    await writeFile(join(root, receiptPath), receipt, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.supplemental_gate_receipt = { path: receiptPath, sha256: sha256(receipt) };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
   it("rejects malformed digest-reference-shaped objects", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);

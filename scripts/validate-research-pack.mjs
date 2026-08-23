@@ -15,6 +15,7 @@ const EXTERNAL_MEDIA_EXTENSIONS = new Set([".apng", ".avif", ".gif", ".jpeg", ".
 const R5_EXPECTED_DESCRIPTION = "小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム";
 const R01_MIGRATION_ASSESSMENT_SHA256 = "23125b75bc1ecdfa12bf0d9a2833829e554f0e778f3bf1195184673e97183f9f";
 const R01_MIGRATION_POLICY_SHA256 = "59fd54dc9d948828e13ab4dca4cadac8e31cb7d9d9521ba08eded686b6b28e7e";
+const R01_HISTORICAL_HUMAN_BASELINE_SHA256 = "a6f3e4e108d85fdc0f462124a5732ba0e989e5206e726c2debb8df6e2cb83036";
 const R00_PRODUCTION_STABLE_MANIFEST_SHA256 = "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25";
 const REQUIRED_FILES = [
   "research-card.md",
@@ -313,7 +314,7 @@ function containsHumanFailureArtifact(value, path = "") {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|approvedby|approver|approvers|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|descriptors|classification|reviewmetadata|auditmetadata)$/;
   const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid)$/;
   const entries = Object.entries(value);
@@ -496,8 +497,10 @@ function allArtifactReferences(value) {
   };
 }
 
-function semanticClaimsInArtifact(text, path) {
-  const historicalR01HumanBaseline = path === "docs/research/QX-R4-R01/baseline-human-findings.md";
+function semanticClaimsInArtifact(text, path, taskId, sha256) {
+  const historicalR01HumanBaseline = taskId === "QX-R4-R01"
+    && path === "docs/research/QX-R4-R01/baseline-human-findings.md"
+    && sha256 === R01_HISTORICAL_HUMAN_BASELINE_SHA256;
   let parsed = null;
   try {
     parsed = JSON.parse(text);
@@ -505,13 +508,20 @@ function semanticClaimsInArtifact(text, path) {
     // Plain-text evidence is inspected below using contextual markers.
   }
   const compact = securityFingerprint(normalizedDescription(text));
+  const humanContext = /(?:human|participantid|testerid|evaluatorid|reviewerid|approvedbyhuman|approverhuman)/.test(compact);
+  const externalMarker = /(?:human|owner|legal|rightsacceptance|mainintegration|sites|contest|submission|release|releaseready)/;
+  const positiveMarker = /(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/;
+  const negativeMarker = /(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)/;
+  const externalPassLine = text.split(/[\r\n.!?。！？]+/).some((line) => {
+    const lineCompact = securityFingerprint(normalizedDescription(line));
+    return externalMarker.test(lineCompact) && positiveMarker.test(lineCompact) && !negativeMarker.test(lineCompact);
+  });
   const humanReject = !historicalR01HumanBaseline && (parsed && typeof parsed === "object"
     ? hasHumanRejectAnywhere(parsed)
-    : compact.includes("human") && containsHumanFailureText(text));
+    : humanContext && containsHumanFailureText(text));
   const externalPass = parsed && typeof parsed === "object"
     ? hasAiBinaryExternalPassClaim(parsed)
-    : /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/.test(compact)
-      && containsHumanPassArtifact(text, path);
+    : externalPassLine;
   return { humanReject: Boolean(humanReject), externalPass: Boolean(externalPass) };
 }
 
@@ -1429,9 +1439,14 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
       issues.push(issue("ARTIFACT_PATH_MAP", "Every evidence.artifacts entry must resolve to a repository-contained regular non-symlink file; only the optional AI Binary human_test file may be absent.", "evidence.json"));
     }
     const semanticStates = await Promise.all(artifactStates.map(async (state) => {
-      if (!state.artifact.ok || state.artifact.sha256 !== state.reference.sha256 || !/\.(?:json|md|txt|csv|ya?ml|log)$/i.test(state.reference.path)) return null;
-      const text = await readFile(state.artifact.path, "utf8");
-      return semanticClaimsInArtifact(text, state.reference.path);
+      if (!state.artifact.ok || state.artifact.sha256 !== state.reference.sha256) return null;
+      let text;
+      try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(await readFile(state.artifact.path));
+      } catch {
+        return null;
+      }
+      return semanticClaimsInArtifact(text, state.reference.path, taskId, state.reference.sha256);
     }));
     if (semanticStates.some((state) => state?.humanReject)) {
       issues.push(issue("HUMAN_REJECT", "A Human Reject in any digest-bound textual evidence artifact blocks completion; only the pinned R01 historical baseline artifact is exempt from semantic interpretation.", "evidence.json"));
