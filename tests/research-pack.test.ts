@@ -174,7 +174,7 @@ async function prepareValidAiBinaryPack(root: string) {
   const descriptions = [
     "A droplet steers through a hoop before avoiding a solid hazard and energizing a plant.",
     "The player moves sideways, clears a ring, dodges a rock, then sends light into a sprout.",
-    "A small water character advances continuously through a gate and obstacle toward a pulse target.",
+    "A small water character advances through a gate, avoids an obstacle, and pulses a target.",
   ];
   const reviews = [];
   for (let index = 0; index < 3; index += 1) {
@@ -672,6 +672,11 @@ describe("evidence-driven Research Pack", () => {
     ["Unicode-confusable reject", { status: "r\u0435ject" }],
     ["positive rejected_count", { rejected_count: 1 }],
     ["positive rejected flag", { rejected: true }],
+    ["positive failed flag", { failed: true }],
+    ["negative passed flag", { passed: false }],
+    ["positive failed_count", { failed_count: 1 }],
+    ["Japanese reject count", { 拒否数: 1 }],
+    ["NFKC positive rejected_count", { rejected_count: "１" }],
   ])("rejects preserved Human evidence hidden by %s", async (_label, human) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -685,6 +690,8 @@ describe("evidence-driven Research Pack", () => {
 
   it.each([
     ["Human label sibling", { audit_record: { label: "Human", payload: { rejected: true } } }],
+    ["Human review_type sibling", { audit_record: { review_type: "Human", payload: { failed: true } } }],
+    ["nested Human metadata sibling", { audit_record: { metadata: { label: "Human" }, payload: { passed: false } } }],
     ["is_rejected", { preserved_human_evidence: { is_rejected: true } }],
     ["rejection_positive", { preserved_human_evidence: { rejection_positive: true } }],
   ])("rejects preserved Human evidence outside the canonical subtree: %s", async (_label, preserved) => {
@@ -705,7 +712,7 @@ describe("evidence-driven Research Pack", () => {
     const markdownPath = ".quality-gates/QX-R4-R00/preserved-human-result.md";
     await writeFile(join(root, markdownPath), markdown, "utf8");
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
-    evidence.audit_record = { label: "Human", evidence: { path: markdownPath, sha256: sha256(markdown) } };
+    evidence.audit_record = { review_type: "Human", evidence: { path: markdownPath, sha256: sha256(markdown) } };
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
@@ -717,7 +724,7 @@ describe("evidence-driven Research Pack", () => {
     await copySample(root);
     const evidencePath = join(root, "docs/research/QX-R4-R00/evidence.json");
     const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-    evidence.human.is_rejected = true;
+    evidence.human.passed = false;
     evidence.gates.complete = "passed";
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "human-release");
@@ -747,7 +754,11 @@ describe("evidence-driven Research Pack", () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
-    const descriptions = ["player move ring rock pulse", "droplet steer hoop obstacle light", "water avatar navigate gate hazard plant"];
+    const descriptions = [
+      "player move ring rock pulse and foo bar baz qux",
+      "droplet steer hoop obstacle light and foo bar baz qux",
+      "water avatar navigate gate hazard plant and foo bar baz qux",
+    ];
     for (const [index, description] of descriptions.entries()) {
       const reviewPath = join(root, fixture.reviews[index].path);
       const review = JSON.parse(await readFile(reviewPath, "utf8"));
@@ -1060,6 +1071,17 @@ describe("evidence-driven Research Pack", () => {
     expect(JSON.parse(human.stdout).issues.map((entry: { code: string }) => entry.code)).toEqual(expect.arrayContaining(["COMPLETE_GATE", "HUMAN_GATE"]));
   }, 15_000);
 
+  it("exempts structured historical Human rejection inside the R01 baseline", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    evidence.baseline.historical_human_input = { review_type: "Human", status: "REJECT", rejected_count: 1 };
+    await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.report.issues?.map((entry) => entry.code)).not.toContain("HUMAN_REJECT");
+  });
+
   it("does not let R01 bypass its dedicated migration through ordinary AI completion", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1098,6 +1120,23 @@ describe("evidence-driven Research Pack", () => {
     const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
     const closure = JSON.parse(await readFile(closurePath, "utf8"));
     closure.build_archive.sha256 = sha256(archiveText);
+    await bindR01Closure(root, closure);
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
+  it("rejects a rewritten R01 migration policy even when its local references are rebound", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const policyPath = join(root, ".quality-gates/QX-R4-R01/migration-policy.json");
+    const policy = JSON.parse(await readFile(policyPath, "utf8"));
+    policy.minimum_score = 0;
+    const policyText = `${JSON.stringify(policy, null, 2)}\n`;
+    await writeFile(policyPath, policyText, "utf8");
+    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+    const closure = JSON.parse(await readFile(closurePath, "utf8"));
+    closure.migration_policy.sha256 = sha256(policyText);
     await bindR01Closure(root, closure);
     const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
     expect(result.status).toBe(1);

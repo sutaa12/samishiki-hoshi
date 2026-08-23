@@ -40,7 +40,7 @@
     "rationale": "Use official URL/timecode evidence plus project-owned captures to define measurable future constraints while keeping Production unchanged."
   },
   "research_validation": {"path": ".quality-gates/QX-R4-R01/research-validation.json", "sha256": "77c7d99882ff31f7177e37dba3709ee667a7c313639286c74855471275a7ff71"},
-  "research_only_ai_closure": {"path": ".quality-gates/QX-R4-R01/research-only-ai-closure.json", "sha256": "5b49b8e6b6b8b79caf34e816cc162d993dd68855ede3ef732c333ea3b6f631bf"},
+  "research_only_ai_closure": {"path": ".quality-gates/QX-R4-R01/research-only-ai-closure.json", "sha256": "f47e467de5cecf23e404318915fc5d18da32d43583ebacf07d0428ab58961fe7"},
   "numeric_hard_gates": [
     {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "4bab449a52004e2fb53abed0e815e8e9742b27a951444a780bc08bcccbea2915"}},
     {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "57688a3261c80d9dd9c890419a7b9415a327a8cc2dddf6de83f2b51ab4eebef3"}},

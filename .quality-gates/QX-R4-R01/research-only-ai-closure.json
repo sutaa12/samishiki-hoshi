@@ -18,9 +18,13 @@
   "automated_review_result": "accepted-research-stage-only",
   "automated_review_score": "32/32",
   "automated_review_open_s0_s2": 0,
+  "migration_policy": {
+    "path": ".quality-gates/QX-R4-R01/migration-policy.json",
+    "sha256": "59fd54dc9d948828e13ab4dca4cadac8e31cb7d9d9521ba08eded686b6b28e7e"
+  },
   "independent_review": {
     "path": ".quality-gates/QX-R4-R01/r5-migration-assessment.md",
-    "sha256": "aea51297374d27e508b9402f84106ac8a987a4113df35898f56e50d5a745c8ef"
+    "sha256": "23125b75bc1ecdfa12bf0d9a2833829e554f0e778f3bf1195184673e97183f9f"
   },
   "historical_research_review": {
     "path": ".quality-gates/QX-R4-R01/independent-review-round4.md",

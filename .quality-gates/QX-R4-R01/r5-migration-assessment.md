@@ -24,7 +24,7 @@ Reviewer severities: S0 0, S1 0, S2 0, S3 0
 | Research snapshot commit | `aa791ef16abe759823e4399d836429abcf464fbe` |
 | Research snapshot SHA-256 | `690ce2be64c6cf11b1cfcfce18b79ffcb2f3d04033fc18e3fb53b968b041dc17` |
 | R00 Production-stable manifest | `03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25` |
-| Reviewed migration-logic script | `eb0c169725c69f39cc85eee20389c6f6fd4608bae3d1d5197e2db0c58e8514d4` |
+| Reviewed migration-policy artifact | `59fd54dc9d948828e13ab4dca4cadac8e31cb7d9d9521ba08eded686b6b28e7e` |
 
 ## Findings
 
@@ -54,7 +54,7 @@ Reviewer severities: S0 0, S1 0, S2 0, S3 0
 ## Limitations
 
 - Source identity was re-derived from the exact Git commit archive. The complete 106-entry build manifest and the pinned 24-entry R00 Production-stable subset were recomputed against the preserved build archive; no Production-improvement claim is inferred from that historical build.
-- The validator was not executed because full execution would traverse artifacts and repository state outside the permitted review scope. Only its current R01 migration predicate was read.
+- This assessment reviews the immutable R01 migration-policy artifact. Enforcement by the current validator is covered separately by the final QX-R5-000A blind review, avoiding a circular self-hash between this assessment and mutable validator code.
 - No Git history, diff, status, runtime files, prior QX-R5-000A reviews, team state, deployment, Main, Sites, or user-conversation evidence was inspected.
 - This assessment is digest-bound by the closure receipt. The closure is in turn digest-bound by the Evidence Pack without creating a circular self-reference.
 

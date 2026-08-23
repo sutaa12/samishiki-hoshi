@@ -1,0 +1,25 @@
+{
+  "schema_version": "r5-r01-migration-policy.v1",
+  "task_id": "QX-R4-R01",
+  "allowed_result": "research-only-ai-accepted",
+  "production_improvement_claimed": false,
+  "human_gate_required": false,
+  "baseline_source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
+  "baseline_source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
+  "baseline_build_sha256": "7d97e3212ae92c724697587504e9cf160a1c5f28eac8152eeec4b9be748bfb0d",
+  "build_archive_sha256": "0367ae29146a4ac15e7ddd3926d752015a901d1e6e6d620b5f315f50b28f6186",
+  "stable_manifest_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
+  "historical_review_sha256": "4b6b14b9ba94708815e4677eea0d663f4a21c962405f225b0121a077272bfc79",
+  "minimum_score": 28,
+  "maximum_score": 32,
+  "maximum_open_s0_s2": 0,
+  "next_task": "QX-R5-001",
+  "external_gates": [
+    "Human",
+    "Owner",
+    "Legal",
+    "Main",
+    "Sites",
+    "Contest"
+  ]
+}

@@ -13,7 +13,8 @@ const PIN_PATTERN = /^(?:[0-9a-f]{40}|v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$/;
 const PLACEHOLDER_PATTERN = /\{\{[^}]+\}\}|REPLACE_(?:ME|WITH_[A-Z_]+)|\bTBD\b/;
 const EXTERNAL_MEDIA_EXTENSIONS = new Set([".apng", ".avif", ".gif", ".jpeg", ".jpg", ".m4a", ".mp3", ".mp4", ".ogg", ".png", ".wav", ".webm", ".webp"]);
 const R5_EXPECTED_DESCRIPTION = "小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム";
-const R01_MIGRATION_ASSESSMENT_SHA256 = "aea51297374d27e508b9402f84106ac8a987a4113df35898f56e50d5a745c8ef";
+const R01_MIGRATION_ASSESSMENT_SHA256 = "23125b75bc1ecdfa12bf0d9a2833829e554f0e778f3bf1195184673e97183f9f";
+const R01_MIGRATION_POLICY_SHA256 = "59fd54dc9d948828e13ab4dca4cadac8e31cb7d9d9521ba08eded686b6b28e7e";
 const R00_PRODUCTION_STABLE_MANIFEST_SHA256 = "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25";
 const REQUIRED_FILES = [
   "research-card.md",
@@ -142,9 +143,11 @@ function communicatesR5Gameplay(value) {
   ];
   const latinWords = text.match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
   const hasJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(text);
+  const englishActions = text.match(/\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|dodges?|dodging|veers?|veering|navigates?|navigating|clears?|clearing|avoids?|avoiding|energizes?|energizing|pulses?|pulsing|passes?|passing|activates?|activating|charges?|charging|sends?|sending)\b/g) ?? [];
+  const japaneseActions = text.match(/動か(?:す|し|して)|移動(?:する|し|して)|進(?:む|み|んで)|避け(?:る|て)?|くぐ(?:る|り|って)|通(?:る|り|って)|渡(?:す|し|して)|光らせ(?:る|て)|起動(?:する|し|して)|照ら(?:す|し|して)/g) ?? [];
   const sentenceLike = hasJapanese
-    ? text.length >= 20 && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text)
-    : latinWords.length >= 10 && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text);
+    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && japaneseActions.length >= 3
+    : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && englishActions.length >= 3;
   return concepts.filter((pattern) => pattern.test(text)).length >= 4 && sentenceLike;
 }
 
@@ -156,30 +159,47 @@ function valueContainsReject(value) {
 }
 
 function hasHumanReject(human) {
-  const hasPositiveRejectCount = (value) => {
+  const normalizedScalar = (value) => typeof value === "string" ? value.normalize("NFKC").trim().toLowerCase() : value;
+  const isPositive = (value) => {
+    const normalized = normalizedScalar(value);
+    return normalized === true || (Number.isFinite(Number(normalized)) && Number(normalized) > 0);
+  };
+  const isNegative = (value) => {
+    const normalized = normalizedScalar(value);
+    return normalized === false || normalized === "false" || normalized === "no" || normalized === "0";
+  };
+  const visit = (value) => {
     if (!value || typeof value !== "object") return false;
     return Object.entries(value).some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
-      if (/reject[a-z0-9]*count/.test(normalizedKey) && Number.isFinite(Number(child)) && Number(child) > 0) return true;
-      if (normalizedKey.includes("reject") && (child === true || (Number.isFinite(Number(child)) && Number(child) > 0))) return true;
-      return child && typeof child === "object" ? hasPositiveRejectCount(child) : false;
+      if (/(?:reject|fail|拒否|不合格|却下|失敗)/.test(normalizedKey) && isPositive(child)) return true;
+      if (/(?:pass|accept|approve|合格|承認)/.test(normalizedKey) && isNegative(child)) return true;
+      return child && typeof child === "object" ? visit(child) : false;
     });
   };
-  return valueContainsReject(human) || hasPositiveRejectCount(human);
+  return valueContainsReject(human) || visit(human);
+}
+
+function declaresHumanContext(value) {
+  if (!value || typeof value !== "object") return false;
+  const descriptorKey = /(?:label|type|kind|category|scope|subject)$/;
+  const metadataKey = /^(?:metadata|meta|context|descriptor|classification|reviewmetadata|auditmetadata)$/;
+  const entries = Object.entries(value);
+  if (entries.some(([key, child]) => descriptorKey.test(descriptionFingerprint(key)) && descriptionFingerprint(child).includes("human"))) return true;
+  return entries.some(([key, child]) => metadataKey.test(descriptionFingerprint(key)) && child && typeof child === "object" && declaresHumanContext(child));
 }
 
 function hasHumanRejectAnywhere(value) {
-  const visit = (current, inheritedHumanContext = false) => {
+  const visit = (current, inheritedHumanContext = false, depth = 0) => {
     if (!current || typeof current !== "object") return false;
     const entries = Object.entries(current);
-    const labeledHuman = inheritedHumanContext || entries.some(([key, child]) => {
-      const normalizedKey = descriptionFingerprint(key);
-      return /^(?:label|type|kind|category|scope|subject)$/.test(normalizedKey) && descriptionFingerprint(child).includes("human");
-    });
+    const labeledHuman = inheritedHumanContext || declaresHumanContext(current);
     if (labeledHuman && hasHumanReject(current)) return true;
     return entries.some(([key, child]) => {
-      const childHumanContext = labeledHuman || descriptionFingerprint(key).includes("human");
-      if (child && typeof child === "object") return visit(child, childHumanContext);
+      const normalizedKey = descriptionFingerprint(key);
+      if (depth === 0 && normalizedKey === "baseline") return false;
+      const childHumanContext = labeledHuman || normalizedKey.includes("human");
+      if (child && typeof child === "object") return visit(child, childHumanContext, depth + 1);
       return childHumanContext && hasHumanReject({ [key]: child });
     });
   };
@@ -191,10 +211,7 @@ function humanArtifactReferences(value) {
   const visit = (current, inheritedHumanContext = false, depth = 0) => {
     if (!current || typeof current !== "object") return;
     const entries = Object.entries(current);
-    const labeledHuman = inheritedHumanContext || entries.some(([key, child]) => {
-      const normalizedKey = descriptionFingerprint(key);
-      return /^(?:label|type|kind|category|scope|subject)$/.test(normalizedKey) && descriptionFingerprint(child).includes("human");
-    });
+    const labeledHuman = inheritedHumanContext || declaresHumanContext(current);
     if (labeledHuman && meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
     for (const [key, child] of entries) {
       const normalizedKey = descriptionFingerprint(key);
@@ -551,6 +568,7 @@ const AI_REMEDIATION_ROUTES = {
 
 async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues) {
   const closure = await readArtifactJson(root, directory, evidence.research_only_ai_closure);
+  const migrationPolicy = closure ? await readArtifactJson(root, directory, closure.migration_policy) : null;
   const reviewText = closure ? await readArtifactText(root, directory, closure.independent_review) : null;
   const researchValidation = await readArtifactJson(root, directory, evidence.research_validation);
   const normalizedReviewText = (reviewText ?? "").normalize("NFKC").replace(/\p{Cf}+/gu, "").replace(/[*_~`]+/g, "");
@@ -588,6 +606,26 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     && stableManifest.ok
     && stableManifest.sha256 === R00_PRODUCTION_STABLE_MANIFEST_SHA256
     && await manifestMatchesArchive(root, directory, ".quality-gates/QX-R4-R00/production-stable-assets.sha256", closure.build_archive, false));
+  const migrationPolicyValid = Boolean(closure && migrationPolicy
+    && hasExactKeys(migrationPolicy, ["schema_version", "task_id", "allowed_result", "production_improvement_claimed", "human_gate_required", "baseline_source_commit", "baseline_source_sha256", "baseline_build_sha256", "build_archive_sha256", "stable_manifest_sha256", "historical_review_sha256", "minimum_score", "maximum_score", "maximum_open_s0_s2", "next_task", "external_gates"])
+    && closure.migration_policy?.path === ".quality-gates/QX-R4-R01/migration-policy.json"
+    && closure.migration_policy?.sha256 === R01_MIGRATION_POLICY_SHA256
+    && migrationPolicy.schema_version === "r5-r01-migration-policy.v1"
+    && migrationPolicy.task_id === taskId
+    && migrationPolicy.allowed_result === closure.result
+    && migrationPolicy.production_improvement_claimed === closure.production_improvement_claimed
+    && migrationPolicy.human_gate_required === closure.human_gate_required
+    && migrationPolicy.baseline_source_commit === closure.baseline_source_commit
+    && migrationPolicy.baseline_source_sha256 === closure.baseline_source_sha256
+    && migrationPolicy.baseline_build_sha256 === closure.baseline_build_sha256
+    && migrationPolicy.build_archive_sha256 === closure.build_archive?.sha256
+    && migrationPolicy.stable_manifest_sha256 === R00_PRODUCTION_STABLE_MANIFEST_SHA256
+    && migrationPolicy.historical_review_sha256 === closure.historical_research_review?.sha256
+    && migrationPolicy.minimum_score === 28
+    && migrationPolicy.maximum_score === 32
+    && migrationPolicy.maximum_open_s0_s2 === 0
+    && migrationPolicy.next_task === closure.next_task
+    && JSON.stringify(migrationPolicy.external_gates) === JSON.stringify(["Human", "Owner", "Legal", "Main", "Sites", "Contest"]));
   const migrationSubjectBound = Boolean(closure && reviewText
     && closure.independent_review?.path === ".quality-gates/QX-R4-R01/r5-migration-assessment.md"
     && closure.historical_research_review?.path === ".quality-gates/QX-R4-R01/independent-review-round4.md"
@@ -599,6 +637,7 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     && reviewText.includes(`Preserved build archive | \`${closure.build_archive?.sha256}\``)
     && reviewText.includes(`Research-validation artifact | \`${closure.research_validation_sha256}\``)
     && reviewText.includes(`Historical round-4 review artifact | \`${closure.historical_research_review?.sha256}\``)
+    && reviewText.includes(`Reviewed migration-policy artifact | \`${closure.migration_policy?.sha256}\``)
     && gateStatesValid);
   const acceptedReview = reviewVerdicts.length === 1
     && reviewScores.length === 1
@@ -615,7 +654,7 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
   if (!closure
     || taskId !== "QX-R4-R01"
     || evidence.gates?.complete !== "research-only-ai-accepted"
-    || !hasExactKeys(closure, ["schema_version", "task_id", "result", "recorded_at", "issuer", "policy_source", "production_improvement_claimed", "human_gate_required", "baseline_source_commit", "baseline_source_sha256", "baseline_build_sha256", "build_archive", "research_validation_sha256", "automated_review_result", "automated_review_score", "automated_review_open_s0_s2", "independent_review", "historical_research_review", "withdrawn_gate", "retained_boundary", "next_task", "rollback_condition"])
+    || !hasExactKeys(closure, ["schema_version", "task_id", "result", "recorded_at", "issuer", "policy_source", "production_improvement_claimed", "human_gate_required", "baseline_source_commit", "baseline_source_sha256", "baseline_build_sha256", "build_archive", "research_validation_sha256", "automated_review_result", "automated_review_score", "automated_review_open_s0_s2", "migration_policy", "independent_review", "historical_research_review", "withdrawn_gate", "retained_boundary", "next_task", "rollback_condition"])
     || closure.schema_version !== "research-only-ai-closure.v1"
     || closure.task_id !== taskId
     || closure.result !== "research-only-ai-accepted"
@@ -629,6 +668,8 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     || closure.automated_review_result !== "accepted-research-stage-only"
     || closure.automated_review_score !== `${reviewScore?.[1]}/32`
     || closure.automated_review_open_s0_s2 !== 0
+    || !(await validArtifactRef(root, directory, closure.migration_policy))
+    || !migrationPolicyValid
     || !(await validArtifactRef(root, directory, closure.independent_review))
     || closure.independent_review?.sha256 !== R01_MIGRATION_ASSESSMENT_SHA256
     || !(await validArtifactRef(root, directory, closure.historical_research_review))
