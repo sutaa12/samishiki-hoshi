@@ -143,6 +143,24 @@ function securityFingerprint(value) {
     .replace(/[\p{P}\p{S}\p{Z}\p{Cf}\p{M}\s]+/gu, "");
 }
 
+const UNSUPPORTED_CONFUSABLE_KEY_SCRIPT = /[\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Armenian}]/u;
+
+function hasUnsupportedConfusableMetadataKey(value) {
+  const stack = [{ current: value, depth: 0 }];
+  let visitedNodes = 0;
+  while (stack.length > 0) {
+    const { current, depth } = stack.pop();
+    if (!current || typeof current !== "object") continue;
+    visitedNodes += 1;
+    if (visitedNodes > 4096 || depth > 128) return true;
+    for (const [key, child] of Object.entries(current)) {
+      if (UNSUPPORTED_CONFUSABLE_KEY_SCRIPT.test(key)) return true;
+      if (child && typeof child === "object") stack.push({ current: child, depth: depth + 1 });
+    }
+  }
+  return false;
+}
+
 function descriptionFingerprint(value) {
   return securityFingerprint(normalizedDescription(value));
 }
@@ -1040,6 +1058,7 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
       rollback_condition: closure.rollback_condition,
     })
     || hasMalformedExternalResult(closure)
+    || hasUnsupportedConfusableMetadataKey(closure)
     || closure.baseline_source_commit !== evidence.baseline?.source_commit
     || closure.baseline_source_sha256 !== evidence.baseline?.source_sha256
     || closure.baseline_build_sha256 !== evidence.baseline?.build_sha256
@@ -1613,6 +1632,9 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     }
     if (hasMalformedExternalResult(evidence)) {
       issues.push(issue("EXTERNAL_RESULT_METADATA", "Human, Owner, Legal, Main, Sites, Contest, submission, and release result metadata must use meaningful scalar values; malformed metadata fails closed.", "evidence.json"));
+    }
+    if (hasUnsupportedConfusableMetadataKey(evidence)) {
+      issues.push(issue("CONFUSABLE_METADATA_KEY", "Evidence metadata keys cannot use unsupported confusable scripts; Cyrillic, Greek, and Armenian keys fail closed.", "evidence.json"));
     }
     if (acceptance === "ai-binary" && (hasAiBinaryExternalPassClaim(evidence)
       || containsHumanPassArtifact(optionalHumanText, "human-test.md")

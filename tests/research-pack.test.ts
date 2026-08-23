@@ -1692,6 +1692,21 @@ describe("evidence-driven Research Pack", () => {
   });
 
   it.each([
+    ["Cyrillic dze in Sites with passed", { "\u0455ites": { status: "passed" } }],
+    ["Cyrillic dze in Sites with green", { "\u0455ites": { status: "green" } }],
+    ["all-Cyrillic Sites lookalike", { "\u0455\u0456\u0442\u0435\u0455": { status: "passed" } }],
+  ])("fails closed on a Unicode-confusable metadata key: %s", async (_label, claim) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    Object.assign(evidence, claim);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("CONFUSABLE_METADATA_KEY");
+  });
+
+  it.each([
     ["unknown Spanish Rights status", { derechos: { estado: "verde" } }],
     ["negative numeric Sites status", { sites: { status: -1 } }],
   ])("fails closed on %s", async (_label, claim) => {
