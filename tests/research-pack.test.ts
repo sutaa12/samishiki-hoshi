@@ -785,6 +785,8 @@ describe("evidence-driven Research Pack", () => {
     ["perfect passive requirements prose", "The requirements have not been met.\n"],
     ["remaining unmet prose", "The acceptance criteria remain unmet.\n"],
     ["generic false result prose", "result: false\n"],
+    ["generic no status prose", "Status: no\n"],
+    ["generic zero result prose", "Result: 0\n"],
     ["withheld approval prose", "Approval was withheld.\n"],
     ["Japanese criteria not met prose", "基準を満たさなかった。\n"],
   ])("rejects Human-labeled supplemental text with %s", async (_label, supplementalText) => {
@@ -895,6 +897,34 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_PROVENANCE_ID");
+  });
+
+  it("rejects a malformed Human reviewer ID", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.audit_record = { metadata: { review_type: "Human" }, reviewer_id: null };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_PROVENANCE_ID");
+  });
+
+  it("rejects a Human artifact hard-linked to candidate evidence", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const source = join(root, evidence.candidate.input_trace.path);
+    const aliasPath = ".quality-gates/QX-R4-R00/human-input-alias.json";
+    await link(source, join(root, aliasPath));
+    evidence.audit_record = {
+      metadata: { review_type: "Human" },
+      evidence: { path: aliasPath, sha256: evidence.candidate.input_trace.sha256 },
+    };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_ARTIFACT_REFERENCE");
   });
 
   it("rejects distinct but meaningless AI descriptions", async () => {
@@ -1203,6 +1233,9 @@ describe("evidence-driven Research Pack", () => {
     ["independent motion", "A droplet independently steers through a ring, avoids a rock, and energizes a plant."],
     ["zero traversal", "A droplet steers through zero ring, avoids a rock, and energizes a plant."],
     ["Japanese AI operation", "水滴がAIで操作してリングをくぐり、岩を避け、芽へ光を渡すゲームです。"],
+    ["Japanese AI agent operation", "水滴がAIにより操作してリングをくぐり、岩を避け、芽へ光を渡すゲームです。"],
+    ["Japanese AI instrumental operation", "水滴がAIによって操作してリングをくぐり、岩を避け、芽へ光を渡すゲームです。"],
+    ["Japanese bot operation", "水滴がボットで操作してリングをくぐり、岩を避け、芽へ光を渡すゲームです。"],
   ])("rejects %s in an AI gameplay description", async (_label, description) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1319,6 +1352,43 @@ describe("evidence-driven Research Pack", () => {
     evidence.release_ready = true;
     evidence.gates.human_release = "passed";
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EXTERNAL_GATE_CLAIM");
+  });
+
+  it.each([
+    ["descriptor-derived Human decision", { audit_record: { metadata: { review_type: "Human" }, decision: "passed" } }],
+    ["numeric Human passed claim", { human: { passed: 1 } }],
+    ["string Human passed claim", { human: { passed: "yes" } }],
+  ])("rejects %s in AI Binary evidence", async (_label, claim) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    Object.assign(evidence, claim);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EXTERNAL_GATE_CLAIM");
+  });
+
+  it.each([
+    ["optional Human file", "human-test.md", "Decision: passed\n"],
+    ["referenced Human artifact", ".quality-gates/QX-R4-R00/preserved-human-pass.txt", "Status: yes\n"],
+  ])("rejects a pass claim in the %s", async (_label, artifactPath, artifactText) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    if (artifactPath === "human-test.md") {
+      await writeFile(join(root, `docs/research/${AI_TASK_ID}/human-test.md`), artifactText, "utf8");
+    } else {
+      await writeFile(join(root, artifactPath), artifactText, "utf8");
+      const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+      evidence.audit_record = {
+        metadata: { review_type: "Human" },
+        evidence: { path: artifactPath, sha256: sha256(artifactText) },
+      };
+      await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    }
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EXTERNAL_GATE_CLAIM");

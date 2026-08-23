@@ -185,7 +185,7 @@ function containsHumanFailureText(value) {
     || /(?:acceptance|criteria|criterion|standard|requirements?)(?:(?:was|were|is|are)not|(?:wasnt|werent|isnt|arent))(?:met|satisfied|reached)/.test(compact)
     || /(?:acceptance|criteria|criterion|standard|requirements?)(?:have|has|had)notbeen(?:met|satisfied|reached)/.test(compact)
     || /(?:acceptance|criteria|criterion|standard|requirements?)(?:remain|remains|remained)unmet/.test(compact)
-    || /(?:result|status|outcome|decision|verdict)(?:(?:is|was|equals?)?)false/.test(compact)
+    || /(?:result|status|outcome|decision|verdict)(?:(?:is|was|equals?)?)(?:false(?![a-z])|no(?![a-z])|off(?![a-z])|0(?!\d))/.test(compact)
     || /notgranted/.test(compact)
     || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認|満たさなかった|満たしていない|満たせなかった/.test(compact);
 }
@@ -226,7 +226,7 @@ function communicatesR5Gameplay(value) {
     && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
     && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index))
     && /^[.!?]+$/.test(text.slice(englishPulseMatch.index + englishPulseMatch[0].length));
-  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|ゼロ|零|一つも|自動|オート|自律|勝手|自ら|自身で|自己で|自分で|ひとりで|一人で|単独で|aiで|コンピュータ|人工知能|無人|自走/.test(text);
+  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|ゼロ|零|一つも|自動|オート|自律|勝手|自ら|自身で|自己で|自分で|ひとりで|一人で|単独で|ai(?:で|により|によって|が|を)|ボット|bot|コンピュータ|人工知能|機械(?:により|によって|が)|無人|自走/.test(text);
   const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ)(?:が|は|を)?(?:(?![がは]).){0,20}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRing = /(?:リング|輪|門|ゲート|円)を?(?:くぐ|通|抜け)/;
@@ -329,7 +329,7 @@ function declaresHumanContext(value) {
 }
 
 function hasMalformedHumanProvenanceId(value) {
-  const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid)$/;
+  const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid|reviewerid|revieweridentifier)$/;
   const validId = (candidate) => (meaningful(candidate) && descriptionFingerprint(candidate).length > 0)
     || (Number.isSafeInteger(candidate) && candidate >= 0);
   const visit = (current, depth = 0) => {
@@ -343,19 +343,48 @@ function hasMalformedHumanProvenanceId(value) {
   return visit(value);
 }
 
-function hasAiBinaryExternalPassClaim(value) {
-  const externalKey = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
-  const passClaim = (candidate) => {
-    if (candidate === true) return true;
-    const normalized = normalizedDescription(candidate);
-    return /^(?:pass|passed|approve|approved|accept|accepted|ready|complete|completed|success|successful|succeeded)$/.test(normalized);
-  };
-  const visit = (current, inheritedExternal = false, depth = 0) => {
+function isPositiveClaimScalar(candidate) {
+  if (candidate === true || candidate === 1) return true;
+  const normalized = normalizedDescription(candidate);
+  return /^(?:true|yes|on|1|pass|passed|approve|approved|accept|accepted|ready|complete|completed|success|successful|succeeded)$/.test(normalized);
+}
+
+function hasPositiveResultClaim(value) {
+  const positiveKey = /(?:pass|passed|approve|approved|accept|accepted|success|successful|ready|result|status|outcome|decision|verdict)$/;
+  const visit = (current, inheritedPositiveKey = false) => {
     if (!current || typeof current !== "object") return false;
     return Object.entries(current).some(([key, child]) => {
+      const scoped = inheritedPositiveKey || positiveKey.test(descriptionFingerprint(key));
+      if (scoped && isPositiveClaimScalar(child)) return true;
+      return child && typeof child === "object" ? visit(child, scoped) : false;
+    });
+  };
+  return visit(value);
+}
+
+function containsHumanPassArtifact(value, path = "") {
+  if (typeof value !== "string") return false;
+  const compact = securityFingerprint(normalizedDescription(value));
+  if (/(?:pass|passed|approve|approved|accept|accepted|success|successful|ready|result|status|outcome|decision|verdict)(?:(?:is|was|equals?)?)(?:true|yes|on|1|pass|passed|approved|accepted|ready|success|successful)/.test(compact)) return true;
+  const jsonLike = extname(path).toLowerCase() === ".json" || /^[{[]/.test(value.trim());
+  try {
+    const parsed = JSON.parse(value);
+    if (isPositiveClaimScalar(parsed)) return true;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? hasPositiveResultClaim(parsed) : false;
+  } catch {
+    return jsonLike;
+  }
+}
+
+function hasAiBinaryExternalPassClaim(value) {
+  const externalKey = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
+  const visit = (current, inheritedExternal = false, depth = 0) => {
+    if (!current || typeof current !== "object") return false;
+    const objectExternal = inheritedExternal || declaresHumanContext(current);
+    return Object.entries(current).some(([key, child]) => {
       if (depth === 0 && key === "baseline") return false;
-      const scoped = inheritedExternal || externalKey.test(descriptionFingerprint(key));
-      if (scoped && passClaim(child)) return true;
+      const scoped = objectExternal || externalKey.test(descriptionFingerprint(key));
+      if (scoped && isPositiveClaimScalar(child)) return true;
       return child && typeof child === "object" ? visit(child, scoped, depth + 1) : false;
     });
   };
@@ -1280,14 +1309,36 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
     const humanArtifacts = humanArtifactReferences(evidence);
-    const referencedHumanTexts = await Promise.all(humanArtifacts.references.map((reference) => readArtifactText(root, directory, reference)));
-    if (humanArtifacts.invalid.length > 0 || referencedHumanTexts.some((text) => typeof text !== "string")) {
+    const referencedHumanStates = await Promise.all(humanArtifacts.references.map(async (reference) => {
+      const artifact = await regularArtifact(root, directory, reference.path);
+      const valid = artifact.ok && artifact.sha256 === reference.sha256;
+      return { artifact, text: valid ? await readFile(artifact.path, "utf8") : null };
+    }));
+    const referencedHumanTexts = referencedHumanStates.map((state) => state.text);
+    const humanIdentities = referencedHumanStates.filter((state) => state.artifact.ok).map((state) => state.artifact.identity);
+    const protectedReferences = acceptance === "ai-binary" ? [
+      evidence.candidate?.screenshot,
+      evidence.candidate?.clip,
+      evidence.candidate?.input_trace,
+      evidence.ai_binary_gameplay?.video,
+      evidence.ai_binary_gameplay?.telemetry,
+      evidence.ai_binary_gameplay?.event_ledger,
+      evidence.ai_binary_gameplay?.remediation,
+      ...(Array.isArray(evidence.ai_binary_gameplay?.reviews) ? evidence.ai_binary_gameplay.reviews : []),
+    ].filter(Boolean) : [];
+    const protectedArtifacts = await Promise.all(protectedReferences.map((reference) => regularArtifact(root, directory, reference.path)));
+    const protectedIdentities = new Set(protectedArtifacts.filter((artifact) => artifact.ok).map((artifact) => artifact.identity));
+    const humanIdentityCollision = new Set(humanIdentities).size !== humanIdentities.length
+      || humanIdentities.some((identity) => protectedIdentities.has(identity));
+    if (humanArtifacts.invalid.length > 0 || referencedHumanTexts.some((text) => typeof text !== "string") || humanIdentityCollision) {
       issues.push(issue("HUMAN_ARTIFACT_REFERENCE", "Every Human-labeled artifact reference must provide a nonempty path and exact SHA-256 digest; malformed references fail closed.", "evidence.json"));
     }
     if (hasMalformedHumanProvenanceId(evidence)) {
       issues.push(issue("HUMAN_PROVENANCE_ID", "Human participant, tester, and evaluator IDs must be nonempty strings or nonnegative integers; malformed provenance fails closed.", "evidence.json"));
     }
-    if (acceptance === "ai-binary" && hasAiBinaryExternalPassClaim(evidence)) {
+    if (acceptance === "ai-binary" && (hasAiBinaryExternalPassClaim(evidence)
+      || containsHumanPassArtifact(optionalHumanText, "human-test.md")
+      || referencedHumanTexts.some((text, index) => containsHumanPassArtifact(text, humanArtifacts.references[index]?.path)))) {
       issues.push(issue("AI_EXTERNAL_GATE_CLAIM", "AI Binary evidence cannot claim Human, Owner, Legal, Main, Sites, Contest, submission, or release readiness as passed.", "evidence.json"));
     }
     if (hasHumanRejectAnywhere(evidence)
