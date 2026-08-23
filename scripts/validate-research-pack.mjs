@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdtemp, readdir, readFile, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const TASK_ID_PATTERN = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -37,6 +38,17 @@ const REQUIRED_FILES = [
   "human-test.md",
   "evidence.json",
 ];
+
+function decodeUtf8Evidence(bytes) {
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  for (const character of text) {
+    const code = character.charCodeAt(0);
+    if (code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
+      throw new Error("embedded control byte");
+    }
+  }
+  return text;
+}
 
 function parseArguments(argv) {
   let root = process.cwd();
@@ -1270,27 +1282,31 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
       continue;
     }
     try {
-      const fileText = await readFile(artifact.path, "utf8");
+      const fileText = decodeUtf8Evidence(await readFile(artifact.path));
       packArtifacts.push(artifact);
       files.set(file, fileText);
       if (!fileText.trim()) issues.push(issue("EMPTY_FILE", `${file} is empty.`, file));
     } catch {
-      issues.push(issue("MISSING_FILE", `${file} is required.`, file));
+      issues.push(issue("PACK_TEXT_ENCODING", `${file} must be valid UTF-8 without embedded control bytes.`, file));
     }
   }
   if (acceptance === "ai-binary" && !files.has("human-test.md")) {
     const optionalHuman = await regularArtifact(root, directory, "human-test.md");
     if (optionalHuman.ok) {
-      const optionalHumanText = await readFile(optionalHuman.path, "utf8");
-      if (optionalHumanText.trim()) {
-        packArtifacts.push(optionalHuman);
-        files.set("human-test.md", optionalHumanText);
+      try {
+        const optionalHumanText = decodeUtf8Evidence(await readFile(optionalHuman.path));
+        if (optionalHumanText.trim()) {
+          packArtifacts.push(optionalHuman);
+          files.set("human-test.md", optionalHumanText);
+        }
+      } catch {
+        issues.push(issue("ARTIFACT_TEXT_ENCODING", "Optional human-test.md must be valid UTF-8 without embedded control bytes when present.", "human-test.md"));
       }
     } else if (!/ENOENT|no such file/i.test(optionalHuman.reason ?? "")) {
       issues.push(issue("PACK_FILE_TYPE", "Optional human-test.md must be a repository-contained regular non-symlink file when present.", "human-test.md"));
     }
   }
-  if (issues.some((entry) => entry.code === "MISSING_FILE" || entry.code === "PACK_FILE_TYPE")) {
+  if (issues.some((entry) => entry.code === "MISSING_FILE" || entry.code === "PACK_FILE_TYPE" || entry.code === "PACK_TEXT_ENCODING")) {
     return { ok: false, task_id: taskId, stage, issues, counts: {} };
   }
 
@@ -1479,17 +1495,9 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const decodeArtifactText = async (artifact, logicalPath) => {
       let text = null;
       try {
-        text = new TextDecoder("utf-8", { fatal: true }).decode(await readFile(artifact.path));
+        text = decodeUtf8Evidence(await readFile(artifact.path));
       } catch {
         if (TEXTUAL_EVIDENCE_EXTENSIONS.has(extname(logicalPath).toLowerCase())) textualArtifactEncodingInvalid = true;
-        return null;
-      }
-      const hasEmbeddedControlByte = [...text].some((character) => {
-        const code = character.charCodeAt(0);
-        return code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31);
-      });
-      if (TEXTUAL_EVIDENCE_EXTENSIONS.has(extname(logicalPath).toLowerCase()) && hasEmbeddedControlByte) {
-        textualArtifactEncodingInvalid = true;
         return null;
       }
       return text;
@@ -1692,7 +1700,16 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
   return { ok: issues.length === 0, task_id: taskId, stage, acceptance, scale, counts, issues };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+async function isDirectCliInvocation() {
+  if (!process.argv[1]) return false;
+  try {
+    return await realpath(fileURLToPath(import.meta.url)) === await realpath(process.argv[1]);
+  } catch {
+    return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
+  }
+}
+
+if (await isDirectCliInvocation()) {
   try {
     const { root, taskId, stage, acceptance } = parseArguments(process.argv.slice(2));
     const result = await validateResearchPack(root, taskId, stage, acceptance);

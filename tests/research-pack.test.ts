@@ -1067,6 +1067,30 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_TEXT_ENCODING");
   });
 
+  it("rejects an alternate-encoded optional Human file omitted from the artifact map", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    delete evidence.artifacts.human_test;
+    await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    await writeFile(join(root, "docs/research/QX-R4-R01/human-test.md"), Buffer.from("Human status: REJECT\n", "utf16le"));
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_TEXT_ENCODING");
+  });
+
+  it("runs the CLI when the validator path contains spaces", async () => {
+    const root = await makeRoot();
+    const spacedDirectory = join(root, "validator path with spaces");
+    const copiedValidator = join(spacedDirectory, "validate-research-pack.mjs");
+    await mkdir(spacedDirectory, { recursive: true });
+    await cp(validator, copiedValidator);
+    const result = spawnSync(process.execPath, [copiedValidator, "INVALID_TASK", "--root", "/definitely/missing", "--stage", "complete", "--acceptance", "ai-binary"], { encoding: "utf8" });
+    expect(result.status, `stdout=${result.stdout}\nstderr=${result.stderr}`).toBe(1);
+    expect(result.stderr).toContain("Task ID is required");
+  });
+
   it("does not grant the pinned R01 semantic exception to an R5 task", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
