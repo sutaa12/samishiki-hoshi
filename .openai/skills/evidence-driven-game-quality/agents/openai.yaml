@@ -1,0 +1,4 @@
+interface:
+  display_name: "Evidence-Driven Game Quality"
+  short_description: "Research-gated game quality implementation"
+  default_prompt: "Use the repository research gate before changing game quality."

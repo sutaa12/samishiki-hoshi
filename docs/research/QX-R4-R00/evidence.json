@@ -1,0 +1,65 @@
+{
+  "schema_version": "research-pack.v1",
+  "task_id": "QX-R4-R00",
+  "scale": "standard",
+  "source_commit": "0a63c462557aad29f947a88460b0380538782d53",
+  "candidate": {
+    "branch": "codex/qx-r4-r00-evidence-protocol",
+    "worktree": "/Users/snari/Documents/GitProject/LonelyStar-qx-r4-r00"
+  },
+  "baseline": {
+    "source_commit": "0a63c462557aad29f947a88460b0380538782d53",
+    "screenshot": ".quality-gates/screenshots/qx-r3-006-moving-master-start.png",
+    "clip": ".quality-gates/qx-r3-006-moving-master-12s.webm",
+    "metrics": ".quality-gates/qx-r3-006-playwright-o2-accepted.json",
+    "human_findings": "Notion page 16 R3 Human Reject and its five binary blocker categories"
+  },
+  "options": [
+    {"id": "native-node", "decision": "selected", "reason": "Fail-closed cross-file validation with no added dependency or game bundle change."},
+    {"id": "ajv", "decision": "rejected", "reason": "JSON-only benefit does not justify dependency and lockfile churn for the fixed pack."},
+    {"id": "zod", "decision": "rejected", "reason": "Typed schema adds toolchain surface without a player-recognized quality gain for R00."}
+  ],
+  "decision": {
+    "selected_option": "native-node",
+    "rationale": "Use native Node scripts, Markdown/CSV/JSON templates, and subprocess tests so the protocol is executable without touching runtime dependencies."
+  },
+  "numeric_hard_gates": [
+    {"id": "empty-pack", "target": "nonzero exit", "result": "pending", "evidence": "tests/research-pack.test.ts"},
+    {"id": "community-only", "target": "nonzero exit", "result": "pending", "evidence": "tests/research-pack.test.ts"},
+    {"id": "sample-pack", "target": "zero exit", "result": "pending", "evidence": "tests/research-pack.test.ts"},
+    {"id": "runtime-equality", "target": "no runtime-source or Production output drift", "result": "pending", "evidence": ".quality-gates/QX-R4-R00/acceptance.json"}
+  ],
+  "metrics": {
+    "status": "pending",
+    "performance_no_regression": false,
+    "load": "No browser dependency or asset change; exact build comparison pending.",
+    "frame": "No runtime source change; full verification pending.",
+    "memory": "No runtime source change; full verification pending."
+  },
+  "human": {
+    "status": "not-applicable-process-only",
+    "raw_answer_count": 0,
+    "owner_decision": "not-applicable",
+    "raw_answers": "human-test.md"
+  },
+  "rollback": {
+    "commit": "0a63c462557aad29f947a88460b0380538782d53",
+    "condition": "Any false pass, missing evidence class, gameplay hash drift, or Production build drift.",
+    "instructions": "rollback.md"
+  },
+  "gates": {
+    "research": "passed",
+    "complete": "pending"
+  },
+  "artifacts": {
+    "references": "references.csv",
+    "comparable_games": "comparable-games.csv",
+    "frame_analysis": "frame-analysis.csv",
+    "library_scorecard": "library-scorecard.md",
+    "baseline": "current-baseline.md",
+    "decision": "decision.md",
+    "ablation": "ablation.md",
+    "human_test": "human-test.md",
+    "rollback": "rollback.md"
+  }
+}

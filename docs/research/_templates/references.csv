@@ -1,0 +1,2 @@
+ID,SourceType,Title,URL,VersionOrCommit,License,ObservedFact,Inference,TestableHypothesis,AccessedAt
+P01,Primary,{{PRIMARY_TITLE}},{{PRIMARY_URL}},{{PRIMARY_VERSION}},{{PRIMARY_LICENSE}},{{PRIMARY_OBSERVED}},{{PRIMARY_INFERENCE}},{{PRIMARY_HYPOTHESIS}},{{DATE}}

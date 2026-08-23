@@ -1,0 +1,2 @@
+FrameID,Game,Source,TimecodeOrFrame,PlayerBox,VanishingPoint,RouteCorridor,GoalLandmark,HazardSilhouette,DepthLayers,LuminanceHierarchy,MaterialIdentity,AttentionEffect,UISafeArea,Observed,Inference,TestableHypothesis,Rights
+F01,{{GAME}},{{GAME_SOURCE}},{{TIMECODE}},{{PLAYER_BOX}},{{VANISHING_POINT}},{{ROUTE_CORRIDOR}},{{GOAL_LANDMARK}},{{HAZARD}},{{DEPTH_LAYERS}},{{LUMINANCE}},{{MATERIAL}},{{ATTENTION_EFFECT}},{{UI_SAFE_AREA}},{{FRAME_OBSERVED}},{{FRAME_INFERENCE}},{{FRAME_HYPOTHESIS}},URL/timecode only

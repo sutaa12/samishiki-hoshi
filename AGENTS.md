@@ -4,11 +4,37 @@ This repository implements the Notion-defined game `さみしき星のまたた�
 
 ## Source-of-truth precedence
 
-1. Graphics, renderer, material, temporal, backend, and Hero Slice constraints in Notion page 13 (`写実グラフィック・Mega Demo参照・レンダリング設計`).
-2. Product and generation constraints in Notion pages 02, 08, 09, 10, 11, and 12.
-3. Visual targets and production process in pages 01, 03, 05, 06, and 07.
-4. The executable specification and rebaseline plan in `docs/SPEC.md` and `docs/GFX_REBASELINE_PLAN.md`.
-5. Tests and implementation. If these conflict with a higher source, fix the lower source and record the decision.
+1. Evidence and acceptance protocol in Notion page 18 (`Codex Evidence-Driven Game Quality Protocol`) and R4 hard gates in page 16.
+2. Graphics, renderer, material, temporal, backend, and Hero Slice constraints in Notion page 13 (`写実グラフィック・Mega Demo参照・レンダリング設計`).
+3. Product and generation constraints in Notion pages 02, 08, 09, 10, 11, and 12.
+4. Visual targets and production process in pages 01, 03, 05, 06, and 07.
+5. The executable specification and rebaseline plan in `docs/SPEC.md` and `docs/GFX_REBASELINE_PLAN.md`.
+6. Tests and implementation. If these conflict with a higher source, fix the lower source and record the decision.
+
+## Evidence-driven quality gate
+
+Before changing graphics, geometry, camera, controls, onboarding, feedback, or adding a third-party library:
+
+1. Create `docs/research/<task-id>/research-card.md` with `npm run research:init -- <task-id>`.
+2. Use at least two primary sources, two maintained GitHub evidence items, three comparable games, six annotated frames or timecodes, and two community observations. Large tasks require five comparable games and twelve frames or timecodes.
+3. Separate observed facts, inference, and testable hypotheses in every evidence record.
+4. Record license, locked version or commit, load/frame/memory cost, fallback, and rollback for every library candidate.
+5. Implement one hypothesis in an isolated worktree or behind a feature flag. Do not combine unrelated visual, camera, speed, and post-effect hypotheses in one spike.
+6. Compare Current and Candidate under the same camera, input, device, viewport, exposure, backend, and quality.
+7. Run `npm run research:validate -- <task-id>` before implementation and `npm run research:validate -- <task-id> --stage complete` before claiming completion.
+8. Do not mark the task complete without measurable improvement, a committed Evidence Pack, and raw human evidence bound to the same source SHA.
+9. Reddit, forum posts, AI vision, automated screenshots, object counts, effect counts, and test pass counts cannot override a Human Reject.
+
+External video frames may be inspected only in the minimum amount needed for analysis. Store third-party URLs and timecodes, not redistributed media, unless the repository has explicit reuse rights.
+
+The project-local workflow is `.openai/skills/evidence-driven-game-quality/SKILL.md`. QX-R4-R00 must pass before any new graphics library, geometry generator, or post effect enters Production.
+
+## R4 isolation and release boundary
+
+- Start R4 work from accepted candidate `0a63c462557aad29f947a88460b0380538782d53` in `codex/qx-r4-*` worktrees.
+- QX-R4-R00 may change only the research workflow, templates, validation, tests, package commands, decisions, and evidence. Gameplay state, hashes, runtime source, and Production build output must remain unchanged.
+- Keep QX-R4-001 through QX-R4-009 blocked until their declared predecessors and Research Gates pass.
+- Do not merge to Main or deploy a replacement Sites version until the R4 Human Owner explicitly passes the required binary acceptance gate.
 
 ## Isolated graphics rebaseline
 

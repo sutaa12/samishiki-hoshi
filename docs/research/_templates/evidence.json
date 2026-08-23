@@ -1,0 +1,61 @@
+{
+  "schema_version": "research-pack.v1",
+  "task_id": "{{TASK_ID}}",
+  "scale": "standard",
+  "source_commit": "{{SOURCE_COMMIT}}",
+  "candidate": {
+    "branch": "{{CANDIDATE_BRANCH}}",
+    "worktree": "{{CANDIDATE_WORKTREE}}"
+  },
+  "baseline": {
+    "source_commit": "{{SOURCE_COMMIT}}",
+    "screenshot": "{{BASELINE_SCREENSHOT}}",
+    "clip": "{{BASELINE_CLIP}}",
+    "metrics": "{{BASELINE_METRICS}}",
+    "human_findings": "{{BASELINE_HUMAN_FINDINGS}}"
+  },
+  "options": [
+    {"id": "A", "decision": "selected", "reason": "{{OPTION_A_REASON}}"},
+    {"id": "B", "decision": "rejected", "reason": "{{OPTION_B_REJECT_REASON}}"}
+  ],
+  "decision": {
+    "selected_option": "A",
+    "rationale": "{{DECISION_RATIONALE}}"
+  },
+  "numeric_hard_gates": [
+    {"id": "{{HARD_GATE_ID}}", "target": "{{HARD_GATE_TARGET}}", "result": "pending", "evidence": "{{HARD_GATE_EVIDENCE}}"}
+  ],
+  "metrics": {
+    "status": "pending",
+    "performance_no_regression": false,
+    "load": "{{LOAD_EVIDENCE}}",
+    "frame": "{{FRAME_EVIDENCE}}",
+    "memory": "{{MEMORY_EVIDENCE}}"
+  },
+  "human": {
+    "status": "pending",
+    "raw_answer_count": 0,
+    "owner_decision": "pending",
+    "raw_answers": "human-test.md"
+  },
+  "rollback": {
+    "commit": "{{SOURCE_COMMIT}}",
+    "condition": "{{ROLLBACK_TRIGGER}}",
+    "instructions": "rollback.md"
+  },
+  "gates": {
+    "research": "pending",
+    "complete": "pending"
+  },
+  "artifacts": {
+    "references": "references.csv",
+    "comparable_games": "comparable-games.csv",
+    "frame_analysis": "frame-analysis.csv",
+    "library_scorecard": "library-scorecard.md",
+    "baseline": "current-baseline.md",
+    "decision": "decision.md",
+    "ablation": "ablation.md",
+    "human_test": "human-test.md",
+    "rollback": "rollback.md"
+  }
+}
