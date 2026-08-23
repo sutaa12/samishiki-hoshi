@@ -141,7 +141,8 @@ function hasHumanReject(human) {
     if (!value || typeof value !== "object") return false;
     return Object.entries(value).some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
-      if (/reject(?:ed|ion)?count/.test(normalizedKey) && Number.isFinite(Number(child)) && Number(child) > 0) return true;
+      if (/reject[a-z0-9]*count/.test(normalizedKey) && Number.isFinite(Number(child)) && Number(child) > 0) return true;
+      if (/^reject(?:ed|ion)?$/.test(normalizedKey) && (child === true || (Number.isFinite(Number(child)) && Number(child) > 0))) return true;
       return child && typeof child === "object" ? hasPositiveRejectCount(child) : false;
     });
   };
@@ -493,6 +494,7 @@ const AI_REMEDIATION_ROUTES = {
 async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues) {
   const closure = await readArtifactJson(root, directory, evidence.research_only_ai_closure);
   const reviewText = closure ? await readArtifactText(root, directory, closure.independent_review) : null;
+  const researchValidation = await readArtifactJson(root, directory, evidence.research_validation);
   const normalizedReviewText = (reviewText ?? "").normalize("NFKC").replace(/\p{Cf}+/gu, "").replace(/[*_~`]+/g, "");
   const reviewScore = /\bScore\s*:\s*(\d+)\/32\b/i.exec(normalizedReviewText);
   const reviewVerdicts = normalizedReviewText.match(/\bVerdict\s*:\s*(?:ACCEPT|REJECT)\b/gim) ?? [];
@@ -519,6 +521,9 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     return matching.length === 1 && matching[0][1] === expected;
   });
   const forbiddenClaim = /release\s*[_ -]?ready\s*[:=]\s*true|production\s*[_ -]?improvement\s*[_ -]?claimed\s*[:=]\s*true/i.test(normalizedReviewText);
+  const reviewSecurityText = securityFingerprint(reviewText);
+  const contradictoryClaim = /(?:humanacceptance|ownerreleasedecision|legalacceptance|mainintegration|sitespublicationandhealth|contestsubmissionoracceptance)(?:is|status)?(?:passed|complete)/.test(reviewSecurityText)
+    || /(?:aiacceptance|migrationacceptance|review)(?:is)?pass(?:ed)?false/.test(reviewSecurityText);
   const buildArchiveValid = closure ? await manifestMatchesArchive(root, directory, evidence.candidate?.build_artifact, closure.build_archive) : false;
   const migrationSubjectBound = Boolean(closure && reviewText
     && closure.independent_review?.path === ".quality-gates/QX-R4-R01/r5-migration-assessment.md"
@@ -537,10 +542,12 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     && /\bVerdict\s*:\s*ACCEPT\b/i.test(reviewVerdicts[0])
     && /research stage only/i.test(normalizedReviewText)
     && Number(reviewScore?.[1]) >= 28
+    && Number(reviewScore?.[1]) <= 32
     && /Reviewer severities\s*:\s*S0\s+0,\s*S1\s+0,\s*S2\s+0\b/i.test(normalizedReviewText)
     && !contradictorySeverity
     && !containsReject(reviewText)
     && !forbiddenClaim
+    && !contradictoryClaim
     && !/must not be marked complete|HUMAN_PENDING/i.test(normalizedReviewText);
   if (!closure
     || taskId !== "QX-R4-R01"
@@ -561,6 +568,8 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     || closure.automated_review_open_s0_s2 !== 0
     || !(await validArtifactRef(root, directory, closure.independent_review))
     || !(await validArtifactRef(root, directory, closure.historical_research_review))
+    || closure.historical_research_review?.path !== researchValidation?.independent_review_artifact?.path
+    || closure.historical_research_review?.sha256 !== researchValidation?.independent_review_artifact?.sha256
     || !buildArchiveValid
     || !acceptedReview
     || !migrationSubjectBound
@@ -582,13 +591,17 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
   const ai = evidence.ai_binary_gameplay;
   const buildManifest = await regularArtifact(root, directory, evidence.candidate?.build_artifact);
   let buildEntries = [];
+  let buildLinesValid = false;
   if (buildManifest.ok && buildManifest.sha256 === evidence.candidate?.build_sha256) {
     const buildText = await readFile(buildManifest.path, "utf8");
-    buildEntries = buildText.trim().split("\n").map((line) => /^([0-9a-f]{64})\s{2}(.+)$/.exec(line)).filter(Boolean);
+    const parsedEntries = buildText.trim().split("\n").map((line) => /^([0-9a-f]{64})\s{2}(.+)$/.exec(line));
+    buildLinesValid = parsedEntries.length > 0 && parsedEntries.every(Boolean);
+    buildEntries = parsedEntries.filter(Boolean);
   }
   const builtArtifacts = await Promise.all(buildEntries.map((match) => regularArtifact(root, directory, match[2])));
   if (!buildManifest.ok
     || buildManifest.sha256 !== evidence.candidate?.build_sha256
+    || !buildLinesValid
     || buildEntries.length === 0
     || builtArtifacts.some((artifact, index) => !artifact.ok || artifact.sha256 !== buildEntries[index][1])
     || new Set(builtArtifacts.map((artifact) => artifact.identity)).size !== builtArtifacts.length) {
