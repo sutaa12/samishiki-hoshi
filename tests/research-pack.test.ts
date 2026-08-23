@@ -1002,6 +1002,42 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_IDENTITY_REUSE");
   });
 
+  it("semantically scans neutral digest-bound artifacts for Human and external claims", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const receipt = `${JSON.stringify({ human: { status: "REJECT" }, sites: { status: "published" }, release: { status: "ready" } }, null, 2)}\n`;
+    const receiptPath = ".quality-gates/QX-R4-R00/supplemental-gate-receipt.json";
+    await writeFile(join(root, receiptPath), receipt, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.supplemental_gate_receipt = { path: receiptPath, sha256: sha256(receipt) };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["HUMAN_REJECT", "AI_EXTERNAL_GATE_CLAIM"]));
+  });
+
+  it("rejects malformed digest-reference-shaped objects", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.supplemental = { path: "../../etc/passwd", sha256: "malformed" };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_REFERENCE");
+  });
+
+  it("rejects escaping string-form artifact-map paths", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.artifacts.human_frame_packet = "../../../../etc/passwd";
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_PATH_MAP");
+  });
+
   it("rejects distinct but meaningless AI descriptions", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);

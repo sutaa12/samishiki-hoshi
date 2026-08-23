@@ -313,7 +313,7 @@ function containsHumanFailureArtifact(value, path = "") {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|gates|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|descriptors|classification|reviewmetadata|auditmetadata)$/;
   const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid)$/;
   const entries = Object.entries(value);
@@ -377,13 +377,14 @@ function containsHumanPassArtifact(value, path = "") {
 }
 
 function hasAiBinaryExternalPassClaim(value) {
-  const externalKey = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
+  const externalKey = /^(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
+  const externalText = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
   const containsExternalPassProse = (candidate) => {
     if (typeof candidate !== "string") return false;
     const compact = securityFingerprint(normalizedDescription(candidate));
-    return externalKey.test(compact)
-      && /(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
-      && !/(?:not|never|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,24})(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|success|successful|succeeded)/.test(compact);
+    return externalText.test(compact)
+      && /(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
+      && !/(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,160})(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/.test(compact);
   };
   const visit = (current, inheritedExternal = false, depth = 0, keyTrail = "") => {
     if (!current || typeof current !== "object") return false;
@@ -402,7 +403,7 @@ function hasAiBinaryExternalPassClaim(value) {
 }
 
 function hasMalformedExternalResult(value) {
-  const externalKey = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
+  const externalKey = /^(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
   const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict)$/;
   const validScalar = (candidate) => typeof candidate === "boolean"
     || (typeof candidate === "number" && Number.isFinite(candidate))
@@ -476,15 +477,42 @@ function humanArtifactReferences(value, skipHistoricalBaseline = false) {
 
 function allArtifactReferences(value) {
   const references = [];
+  const invalid = [];
   const visit = (current) => {
     if (!current || typeof current !== "object") return;
-    if (meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
+    const referenceShaped = Object.hasOwn(current, "path") || Object.hasOwn(current, "sha256");
+    if (referenceShaped) {
+      if (meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
+      else invalid.push(current);
+    }
     for (const child of Object.values(current)) {
       if (child && typeof child === "object") visit(child);
     }
   };
   visit(value);
-  return [...new Map(references.map((reference) => [`${reference.path}|${reference.sha256}`, reference])).values()];
+  return {
+    references: [...new Map(references.map((reference) => [`${reference.path}|${reference.sha256}`, reference])).values()],
+    invalid,
+  };
+}
+
+function semanticClaimsInArtifact(text, path) {
+  const historicalR01HumanBaseline = path === "docs/research/QX-R4-R01/baseline-human-findings.md";
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    // Plain-text evidence is inspected below using contextual markers.
+  }
+  const compact = securityFingerprint(normalizedDescription(text));
+  const humanReject = !historicalR01HumanBaseline && (parsed && typeof parsed === "object"
+    ? hasHumanRejectAnywhere(parsed)
+    : compact.includes("human") && containsHumanFailureText(text));
+  const externalPass = parsed && typeof parsed === "object"
+    ? hasAiBinaryExternalPassClaim(parsed)
+    : /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/.test(compact)
+      && containsHumanPassArtifact(text, path);
+  return { humanReject: Boolean(humanReject), externalPass: Boolean(externalPass) };
 }
 
 function probeMovingVideo(path) {
@@ -1382,15 +1410,37 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";
     const optionalHumanText = files.get("human-test.md") ?? "";
     const artifactReferences = allArtifactReferences(evidence);
-    const artifactStates = await Promise.all(artifactReferences.map(async (reference) => ({
+    const artifactStates = await Promise.all(artifactReferences.references.map(async (reference) => ({
       reference,
       artifact: await regularArtifact(root, directory, reference.path),
     })));
-    if (artifactStates.some((state) => !state.artifact.ok || state.artifact.sha256 !== state.reference.sha256)) {
-      issues.push(issue("ARTIFACT_REFERENCE", "Every digest-bound evidence reference must resolve to a repository-contained regular non-symlink file with the exact declared SHA-256, including historical baseline evidence.", "evidence.json"));
+    if (artifactReferences.invalid.length > 0 || artifactStates.some((state) => !state.artifact.ok || state.artifact.sha256 !== state.reference.sha256)) {
+      issues.push(issue("ARTIFACT_REFERENCE", "Every object containing path or sha256 must be a complete digest-bound reference to a repository-contained regular non-symlink file with the exact declared SHA-256.", "evidence.json"));
+    }
+    const stringArtifactEntries = evidence.artifacts && typeof evidence.artifacts === "object" && !Array.isArray(evidence.artifacts)
+      ? Object.entries(evidence.artifacts)
+      : [];
+    const stringArtifactStates = await Promise.all(stringArtifactEntries.map(async ([key, path]) => {
+      if (acceptance === "ai-binary" && key === "human_test" && path === "human-test.md" && !files.has("human-test.md")) return { key, path, artifact: null, optional: true };
+      return { key, path, artifact: typeof path === "string" ? await regularArtifact(root, directory, path) : null, optional: false };
+    }));
+    if (!evidence.artifacts || typeof evidence.artifacts !== "object" || Array.isArray(evidence.artifacts)
+      || stringArtifactStates.some((state) => !state.optional && (!meaningful(state.path) || !state.artifact?.ok))) {
+      issues.push(issue("ARTIFACT_PATH_MAP", "Every evidence.artifacts entry must resolve to a repository-contained regular non-symlink file; only the optional AI Binary human_test file may be absent.", "evidence.json"));
+    }
+    const semanticStates = await Promise.all(artifactStates.map(async (state) => {
+      if (!state.artifact.ok || state.artifact.sha256 !== state.reference.sha256 || !/\.(?:json|md|txt|csv|ya?ml|log)$/i.test(state.reference.path)) return null;
+      const text = await readFile(state.artifact.path, "utf8");
+      return semanticClaimsInArtifact(text, state.reference.path);
+    }));
+    if (semanticStates.some((state) => state?.humanReject)) {
+      issues.push(issue("HUMAN_REJECT", "A Human Reject in any digest-bound textual evidence artifact blocks completion; only the pinned R01 historical baseline artifact is exempt from semantic interpretation.", "evidence.json"));
+    }
+    if (acceptance === "ai-binary" && semanticStates.some((state) => state?.externalPass)) {
+      issues.push(issue("AI_EXTERNAL_GATE_CLAIM", "Digest-bound textual evidence cannot claim Human, Owner, Legal, Main, Sites, Contest, submission, or release readiness as passed in AI Binary mode.", "evidence.json"));
     }
     const pathsByIdentity = new Map();
-    for (const artifact of [...packArtifacts, ...artifactStates.map((state) => state.artifact)]) {
+    for (const artifact of [...packArtifacts, ...artifactStates.map((state) => state.artifact), ...stringArtifactStates.map((state) => state.artifact).filter(Boolean)]) {
       if (!artifact.ok) continue;
       const paths = pathsByIdentity.get(artifact.identity) ?? new Set();
       paths.add(artifact.path);
