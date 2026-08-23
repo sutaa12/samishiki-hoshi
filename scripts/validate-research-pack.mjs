@@ -144,7 +144,13 @@ function descriptionsAreNearDuplicates(values) {
       .replace(/(?:この|小さな|ちいさな|青い|光る)/g, ""),
   ));
   const structuralVocabulary = /^(?:droplet|drop|water|player|avatar|character|orb|bead|steer|steers|steering|move|moves|moving|advance|advances|advancing|travel|travels|traveling|guide|guides|guiding|control|controls|controlling|veer|veers|veering|navigate|navigates|navigating|through|clear|clears|clearing|ring|hoop|gate|circle|arch|loop|avoid|avoids|avoiding|dodge|dodges|dodging|around|past|rock|hazard|obstacle|barrier|boulder|energize|energizes|energizing|pulse|pulses|pulsing|activate|activates|activating|charge|charges|charging|send|sends|sending|pass|passes|passing|deliver|delivers|delivering|light|energy|into|to|toward|towards|sprout|plant|node|target)$/;
-  const structures = values.map((value) => (normalizedDescription(value).match(/[a-z]+/g) ?? [])
+  const structuralText = values.map((value) => normalizedDescription(value)
+    .replace(/^(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,3}(droplet|drop|player|avatar|character|orb|bead)\b/, "$1")
+    .replace(/\bthrough\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(ring|hoop|gate|circle|arch|loop)\b/g, "through $1")
+    .replace(/\b(clear|clears|clearing)\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(ring|hoop|gate|circle|arch|loop)\b/g, "$1 $2")
+    .replace(/\b(avoid|avoids|avoiding|dodge|dodges|dodging)\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(rock|hazard|obstacle|barrier|boulder)\b/g, "$1 $2")
+    .replace(/\b(energize|energizes|energizing|pulse|pulses|pulsing|activate|activates|activating|charge|charges|charging)\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(sprout|plant|node|target)\b/g, "$1 $2"));
+  const structures = structuralText.map((value) => (value.match(/[a-z]+/g) ?? [])
     .filter((token) => structuralVocabulary.test(token))
     .join("|"));
   const trigrams = (value) => new Set(Array.from({ length: Math.max(0, value.length - 2) }, (_, index) => value.slice(index, index + 3)));
@@ -179,6 +185,7 @@ function containsHumanFailureText(value) {
     || /(?:acceptance|criteria|criterion|standard|requirements?)(?:(?:was|were|is|are)not|(?:wasnt|werent|isnt|arent))(?:met|satisfied|reached)/.test(compact)
     || /(?:acceptance|criteria|criterion|standard|requirements?)(?:have|has|had)notbeen(?:met|satisfied|reached)/.test(compact)
     || /(?:acceptance|criteria|criterion|standard|requirements?)(?:remain|remains|remained)unmet/.test(compact)
+    || /(?:result|status|outcome|decision|verdict)(?:(?:is|was|equals?)?)false/.test(compact)
     || /notgranted/.test(compact)
     || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認|満たさなかった|満たしていない|満たせなかった/.test(compact);
 }
@@ -194,7 +201,7 @@ function communicatesR5Gameplay(value) {
   ];
   const latinWords = text.match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
   const hasJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(text);
-  const englishNegative = /\b(?:never|neither|nor|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not|automatic(?:ally)?|autopilot|auto-pilot|self-driving|independently|autonomously|itself)\b|\bon\s+its\s+own\b|\bby\s+itself\b/.test(text);
+  const englishNegative = /\b(?:never|neither|nor|zero|nil|none|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not|automatic(?:ally)?|autopilot|auto-pilot|self-driving|self-propelled|independently|autonomously|unmanned|computer|bot|ai|itself)\b|\bon\s+its\s+own\b|\bby\s+itself\b/.test(text);
   const englishActorMotion = /^(?:(?:a|an|the)\s+)?(?:(?:small|tiny|little|water|shining|blue)\s+){0,3}(?:droplet|drop|player|avatar|character|orb|bead)\b(?:\s+(?:continuously|steadily|sideways|forward|laterally)){0,3}\s+(?:(?:is|keeps?|can)\s+)?(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/;
   const englishWrongActor = /\b(?:rock|ring|hoop|gate|hazard|obstacle|barrier|boulder|plant|sprout|node|target|pulse|light)\b\s+(?:(?:it|then|also)\s+)?(?:steers?|moves?|advances?|travels?|guides?|controls?|dodges?|veers?|navigates?|clears?|avoids?|energizes?|pulses?|passes?|activates?|charges?|sends?)\b/;
   const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b(?:\s+(?:continuously|steadily|sideways|forward|laterally))*\s+through\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
@@ -219,7 +226,7 @@ function communicatesR5Gameplay(value) {
     && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
     && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index))
     && /^[.!?]+$/.test(text.slice(englishPulseMatch.index + englishPulseMatch[0].length));
-  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|自動|オート|自律|勝手|自ら|自身で|自己で|自分で|ひとりで|一人で|単独で/.test(text);
+  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|ゼロ|零|一つも|自動|オート|自律|勝手|自ら|自身で|自己で|自分で|ひとりで|一人で|単独で|aiで|コンピュータ|人工知能|無人|自走/.test(text);
   const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ)(?:が|は|を)?(?:(?![がは]).){0,20}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRing = /(?:リング|輪|門|ゲート|円)を?(?:くぐ|通|抜け)/;
@@ -323,13 +330,33 @@ function declaresHumanContext(value) {
 
 function hasMalformedHumanProvenanceId(value) {
   const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid)$/;
-  const validId = (candidate) => meaningful(candidate) || (Number.isSafeInteger(candidate) && candidate >= 0);
+  const validId = (candidate) => (meaningful(candidate) && descriptionFingerprint(candidate).length > 0)
+    || (Number.isSafeInteger(candidate) && candidate >= 0);
   const visit = (current, depth = 0) => {
     if (!current || typeof current !== "object") return false;
     return Object.entries(current).some(([key, child]) => {
       if (depth === 0 && key === "baseline") return false;
       if (humanProvenanceIdKey.test(descriptionFingerprint(key))) return !validId(child);
       return child && typeof child === "object" ? visit(child, depth + 1) : false;
+    });
+  };
+  return visit(value);
+}
+
+function hasAiBinaryExternalPassClaim(value) {
+  const externalKey = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
+  const passClaim = (candidate) => {
+    if (candidate === true) return true;
+    const normalized = normalizedDescription(candidate);
+    return /^(?:pass|passed|approve|approved|accept|accepted|ready|complete|completed|success|successful|succeeded)$/.test(normalized);
+  };
+  const visit = (current, inheritedExternal = false, depth = 0) => {
+    if (!current || typeof current !== "object") return false;
+    return Object.entries(current).some(([key, child]) => {
+      if (depth === 0 && key === "baseline") return false;
+      const scoped = inheritedExternal || externalKey.test(descriptionFingerprint(key));
+      if (scoped && passClaim(child)) return true;
+      return child && typeof child === "object" ? visit(child, scoped, depth + 1) : false;
     });
   };
   return visit(value);
@@ -1254,11 +1281,14 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const optionalHumanText = files.get("human-test.md") ?? "";
     const humanArtifacts = humanArtifactReferences(evidence);
     const referencedHumanTexts = await Promise.all(humanArtifacts.references.map((reference) => readArtifactText(root, directory, reference)));
-    if (humanArtifacts.invalid.length > 0) {
+    if (humanArtifacts.invalid.length > 0 || referencedHumanTexts.some((text) => typeof text !== "string")) {
       issues.push(issue("HUMAN_ARTIFACT_REFERENCE", "Every Human-labeled artifact reference must provide a nonempty path and exact SHA-256 digest; malformed references fail closed.", "evidence.json"));
     }
     if (hasMalformedHumanProvenanceId(evidence)) {
       issues.push(issue("HUMAN_PROVENANCE_ID", "Human participant, tester, and evaluator IDs must be nonempty strings or nonnegative integers; malformed provenance fails closed.", "evidence.json"));
+    }
+    if (acceptance === "ai-binary" && hasAiBinaryExternalPassClaim(evidence)) {
+      issues.push(issue("AI_EXTERNAL_GATE_CLAIM", "AI Binary evidence cannot claim Human, Owner, Legal, Main, Sites, Contest, submission, or release readiness as passed.", "evidence.json"));
     }
     if (hasHumanRejectAnywhere(evidence)
       || containsHumanFailureArtifact(optionalHumanText, "human-test.md")
