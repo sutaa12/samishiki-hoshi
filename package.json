@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "test:research": "vitest run tests/research-pack.test.ts",
     "capture:og": "node scripts/capture-og.mjs",
+    "capture:reference": "node scripts/capture-reference-baseline.mjs",
     "research:init": "node scripts/init-research-pack.mjs",
     "research:validate": "node scripts/validate-research-pack.mjs",
     "typecheck": "tsc --noEmit",
