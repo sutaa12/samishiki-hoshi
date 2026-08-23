@@ -3,7 +3,7 @@
 Task ID: QX-R4-R01
 Owner agent: Codex
 Date: 2026-08-23
-Source commit: a091772372c0253098ebfb0efb11450c2acbba27
+Source commit: 1323ade4c4c9197609f88593dbf6510b7c088f9b
 Candidate branch/worktree: codex/qx-r4-r01-reference-corpus
 Scale: large
 
@@ -19,7 +19,7 @@ Under one fixed 1920x1080 WebGL2/high capture condition, the current EARTH and S
 ## Current baseline
 
 - URL or build: committed source served at `http://localhost:4174/`; no public deployment changed
-- Source SHA: a091772372c0253098ebfb0efb11450c2acbba27
+- Source SHA: 1323ade4c4c9197609f88593dbf6510b7c088f9b
 - Device: macOS desktop Chromium through Playwright 1.62.1
 - Viewport: 1920x1080, DPR 1
 - Backend and quality: WebGL2, high, full motion, standard contrast, seed 20260818
@@ -54,7 +54,7 @@ Budget: 6 official games, 13 annotated frames, one reproducible capture pass, an
 
 Fallback: retain the current Production build and use the CSV corpus only as planning evidence.
 
-Rollback: `a091772372c0253098ebfb0efb11450c2acbba27`
+Rollback: `1323ade4c4c9197609f88593dbf6510b7c088f9b`
 
 ## Acceptance
 

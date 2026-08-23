@@ -1,7 +1,7 @@
 # Ablation and same-condition comparison
 
 Task ID: QX-R4-R01
-Source commit: a091772372c0253098ebfb0efb11450c2acbba27
+Source commit: 1323ade4c4c9197609f88593dbf6510b7c088f9b
 
 | Candidate | Single changed hypothesis | Camera/input/device/viewport/exposure/backend/quality match | Load | Frame P50/P75/P95/P99 | Memory | Human free answer | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- |
