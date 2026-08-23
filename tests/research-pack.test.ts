@@ -174,7 +174,7 @@ async function prepareValidAiBinaryPack(root: string) {
   const descriptions = [
     "A droplet steers through a hoop before avoiding a solid hazard and energizing a plant.",
     "The player moves sideways, clears a ring, dodges a rock, then sends light into a sprout.",
-    "A small water character advances through a gate, avoids an obstacle, and pulses a target.",
+    "A small water character navigates through a gate, avoids an obstacle, and pulses a target.",
   ];
   const reviews = [];
   for (let index = 0; index < 3; index += 1) {
@@ -714,6 +714,8 @@ describe("evidence-driven Research Pack", () => {
     ["string off approved flag", { approved: "off" }],
     ["negative success flag", { success: false }],
     ["negative approval switch", { approval: "off" }],
+    ["generic Human result false", { result: false }],
+    ["nested generic Human outcome false", { outcome: { value: false } }],
     ["nested positive failed value", { failed: { value: true } }],
   ])("rejects preserved Human evidence hidden by %s", async (_label, human) => {
     const root = await makeRoot();
@@ -735,6 +737,7 @@ describe("evidence-driven Research Pack", () => {
     ["plural Human reviewer roles", { audit_record: { reviewer_roles: ["Human"], status: "refused" } }],
     ["nested plural Human descriptors", { audit_record: { descriptors: [{ roles: ["Human"] }], structured_result: { passed: false } } }],
     ["nested Human audience context", { audit_record: { context: { audience: "Human" }, result: { passed: false } } }],
+    ["Human reviewer ID and generic result", { audit_record: { reviewer_id: "Human-42", result: false } }],
     ["is_rejected", { preserved_human_evidence: { is_rejected: true } }],
     ["rejection_positive", { preserved_human_evidence: { rejection_positive: true } }],
   ])("rejects preserved Human evidence outside the canonical subtree: %s", async (_label, preserved) => {
@@ -777,6 +780,7 @@ describe("evidence-driven Research Pack", () => {
     ["not granted prose", "Approval was not granted.\n"],
     ["Japanese approval denial prose", "承認されませんでした。\n"],
     ["acceptance not met prose", "Decision: did not meet acceptance.\n"],
+    ["passive acceptance criteria prose", "The acceptance criteria were not met.\n"],
     ["withheld approval prose", "Approval was withheld.\n"],
     ["Japanese criteria not met prose", "基準を満たさなかった。\n"],
   ])("rejects Human-labeled supplemental text with %s", async (_label, supplementalText) => {
@@ -1093,6 +1097,29 @@ describe("evidence-driven Research Pack", () => {
       await writeFile(reviewPath, reviewText, "utf8");
       evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
     }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it.each([
+    ["automatic motion", "A droplet automatically moves through a ring, avoids a rock, and energizes a plant."],
+    ["autopilot motion", "A droplet on autopilot steers through a ring, avoids a rock, and energizes a plant."],
+    ["motion without player agency", "A small water character advances through a gate, avoids an obstacle, and pulses a target."],
+    ["Japanese automatic motion", "水滴が自動で移動してリングをくぐり、岩を避け、芽へ光を渡す遊びです。"],
+    ["Japanese auto motion", "雫がオートで移動してゲートを抜け、壁をかわし、ノードに光を送ります。"],
+    ["Japanese motion without player agency", "水滴が進んでリングをくぐり、岩を避け、芽へ光を渡す遊びです。"],
+  ])("rejects %s in an AI gameplay description", async (_label, description) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const reviewPath = join(root, fixture.reviews[0].path);
+    const review = JSON.parse(await readFile(reviewPath, "utf8"));
+    review.plain_description = description;
+    const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+    await writeFile(reviewPath, reviewText, "utf8");
+    evidence.ai_binary_gameplay.reviews[0].sha256 = sha256(reviewText);
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);

@@ -148,6 +148,7 @@ function containsHumanFailureText(value) {
     || /(?:pass|passed|accept|accepted|approve|approved)(?:is|was)?false/.test(compact)
     || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|hasnt|havent|couldnt|wouldnt|wont|cant|not)(?:a)?(?:pass|passes|passed|passing|accept|accepts|accepted|accepting|approve|approves|approved|approving|success|successful|succeed|succeeds|succeeded|succeeding|granted)/.test(compact)
     || /(?:didnot|doesnot|didnt|doesnt|not)(?:meet|satisfy|reach)(?:the)?(?:acceptance|criteria|criterion|standard|requirements?)/.test(compact)
+    || /(?:acceptance|criteria|criterion|standard|requirements?)(?:(?:was|were|is|are)not|(?:wasnt|werent|isnt|arent))(?:met|satisfied|reached)/.test(compact)
     || /notgranted/.test(compact)
     || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認|満たさなかった/.test(compact);
 }
@@ -163,19 +164,24 @@ function communicatesR5Gameplay(value) {
   ];
   const latinWords = text.match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
   const hasJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(text);
-  const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not)\b/.test(text);
-  const englishActorMotion = /^(?:(?:a|an|the)\s+)?(?:(?:small|tiny|little|water|shining|blue)\s+){0,3}(?:droplet|drop|player|avatar|character|orb|bead)\b(?:\s+(?:continuously|steadily|sideways|forward|automatically|laterally)){0,3}\s+(?:(?:is|keeps?|can)\s+)?(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/;
+  const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not|automatic(?:ally)?|autopilot|auto-pilot|self-driving)\b/.test(text);
+  const englishActorMotion = /^(?:(?:a|an|the)\s+)?(?:(?:small|tiny|little|water|shining|blue)\s+){0,3}(?:droplet|drop|player|avatar|character|orb|bead)\b(?:\s+(?:continuously|steadily|sideways|forward|laterally)){0,3}\s+(?:(?:is|keeps?|can)\s+)?(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/;
   const englishWrongActor = /\b(?:rock|ring|hoop|gate|hazard|obstacle|barrier|boulder|plant|sprout|node|target|pulse|light)\b\s+(?:(?:it|then|also)\s+)?(?:steers?|moves?|advances?|travels?|guides?|controls?|dodges?|veers?|navigates?|clears?|avoids?|energizes?|pulses?|passes?|activates?|charges?|sends?)\b/;
-  const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b(?:\s+(?:continuously|steadily|sideways|forward|automatically|laterally))*\s+through\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
+  const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b(?:\s+(?:continuously|steadily|sideways|forward|laterally))*\s+through\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
   const englishObstacle = /\b(?:avoids?|avoiding|dodges?|dodging|veers?\s+(?:around|past)|steers?\s+(?:around|past))\b[^,;.!?]{0,28}\b(?:rock|hazard|obstacle|barrier|boulder)\b/;
   const englishPulse = /(?:\b(?:energizes?|energizing|pulses?|pulsing|activates?|activating|charges?|charging)\b[^,;.!?]{0,28}\b(?:sprout|plant|node|target)\b|\b(?:sends?|sending|passes?|passing|delivers?|delivering)\b[^,;.!?]{0,12}\b(?:light|energy|pulse)\b\s+(?:into|to|toward|towards)\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:sprout|plant|node|target)\b)/;
   const englishRingMatch = englishRing.exec(text);
   const englishObstacleMatch = englishObstacle.exec(text);
   const englishPulseMatch = englishPulse.exec(text);
   const englishActorMotionMatch = englishActorMotion.exec(text);
+  const englishAgencyText = englishActorMotionMatch && englishRingMatch
+    ? text.slice(englishActorMotionMatch.index, Math.max(englishActorMotionMatch.index + englishActorMotionMatch[0].length, englishRingMatch.index))
+    : "";
+  const englishAgency = /\b(?:steers?|steering|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating|sideways|laterally)\b/.test(englishAgencyText);
   const englishConnector = /^[\s,]*(?:(?:and|then|before)[\s,]*)?$/;
   const englishActorToRingConnector = /^[\s,]*(?:(?:sideways|forward|continuously|steadily|laterally)[\s,]*)?(?:(?:and|then)[\s,]*)?$/;
   const englishRelationsValid = Boolean(englishActorMotionMatch && englishRingMatch && englishObstacleMatch && englishPulseMatch)
+    && englishAgency
     && englishRingMatch.index < englishObstacleMatch.index
     && englishObstacleMatch.index < englishPulseMatch.index
     && (englishRingMatch.index <= englishActorMotionMatch.index + englishActorMotionMatch[0].length
@@ -183,7 +189,7 @@ function communicatesR5Gameplay(value) {
     && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
     && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index))
     && /^[.!?]+$/.test(text.slice(englishPulseMatch.index + englishPulseMatch[0].length));
-  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗/.test(text);
+  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|自動|オート|自律|勝手/.test(text);
   const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ)(?:が|は|を)?(?:(?![がは]).){0,20}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRing = /(?:リング|輪|門|ゲート|円)を?(?:くぐ|通|抜け)/;
@@ -193,8 +199,13 @@ function communicatesR5Gameplay(value) {
   const japaneseRingMatch = japaneseRing.exec(text);
   const japaneseObstacleMatch = japaneseObstacle.exec(text);
   const japanesePulseMatch = japanesePulse.exec(text);
+  const japaneseAgencyText = japaneseActorMotionMatch && japaneseRingMatch
+    ? text.slice(japaneseActorMotionMatch.index, Math.max(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japaneseRingMatch.index))
+    : "";
+  const japaneseAgency = /操作|操縦|左右|動か|導/.test(japaneseAgencyText);
   const japaneseConnector = /^[\s、,]*(?:(?:り|て|し|して|そして|次に|その後)[\s、,]*)?$/;
   const japaneseRelationsValid = Boolean(japaneseActorMotionMatch && japaneseRingMatch && japaneseObstacleMatch && japanesePulseMatch)
+    && japaneseAgency
     && japaneseRingMatch.index < japaneseObstacleMatch.index
     && japaneseObstacleMatch.index < japanesePulseMatch.index
     && japaneseConnector.test(text.slice(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japaneseRingMatch.index))
@@ -227,15 +238,18 @@ function hasHumanReject(human) {
     return normalized === false || normalized === 0 || normalized === "false" || normalized === "no" || normalized === "off" || normalized === "0";
   };
   const successKeyPattern = /(?:pass|accept|approve|approval|success|successful|合格|承認)/;
-  const visit = (value, inheritedFailureKey = false, inheritedSuccessKey = false) => {
+  const genericResultKeyPattern = /^(?:result|status|outcome|decision|verdict)$/;
+  const visit = (value, inheritedFailureKey = false, inheritedSuccessKey = false, inheritedResultKey = false) => {
     if (!value || typeof value !== "object") return false;
     return Object.entries(value).some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
       const failureKey = inheritedFailureKey || containsReject(normalizedKey);
       const successKey = inheritedSuccessKey || successKeyPattern.test(normalizedKey);
+      const resultKey = inheritedResultKey || genericResultKeyPattern.test(normalizedKey);
       if (failureKey && isPositive(child)) return true;
       if (successKey && isNegative(child)) return true;
-      return child && typeof child === "object" ? visit(child, failureKey, successKey) : false;
+      if (resultKey && isNegative(child)) return true;
+      return child && typeof child === "object" ? visit(child, failureKey, successKey, resultKey) : false;
     });
   };
   const containsFailureString = (value) => {
@@ -259,7 +273,7 @@ function containsHumanFailureArtifact(value) {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers|descriptor|descriptors|audience|audiences)$/;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|descriptors|classification|reviewmetadata|auditmetadata)$/;
   const entries = Object.entries(value);
   const containsHumanMarker = (child) => {
