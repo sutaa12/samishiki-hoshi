@@ -1021,6 +1021,9 @@ describe("evidence-driven Research Pack", () => {
     ["participant rejection CSV", "neutral-receipt.csv", "participant_id,status\nP-01,REJECT\n", "HUMAN_REJECT"],
     ["JSON bytes under a binary extension", "neutral-receipt.bin", `${JSON.stringify({ human: { status: "REJECT" }, sites: { status: "published" } })}\n`, "HUMAN_REJECT"],
     ["sibling Human approver and passed status", "neutral-receipt.json", `${JSON.stringify({ approved_by: "Human", status: "passed" })}\n`, "AI_EXTERNAL_GATE_CLAIM"],
+    ["sibling Human authority and rejected status", "authority-receipt.json", `${JSON.stringify({ authority: "Human", status: "REJECT" })}\n`, "HUMAN_REJECT"],
+    ["sibling Sites gate and published status", "sites-gate-receipt.json", `${JSON.stringify({ gate: "Sites", status: "published" })}\n`, "AI_EXTERNAL_GATE_CLAIM"],
+    ["mixed successful and pending prose clauses", "mixed-gate-receipt.md", "Sites publication succeeded; Human acceptance pending.\n", "AI_EXTERNAL_GATE_CLAIM"],
   ])("semantically scans %s", async (_label, name, receipt, code) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1043,6 +1046,23 @@ describe("evidence-driven Research Pack", () => {
     await writeFile(join(root, receiptPath), receipt, "utf8");
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
     evidence.supplemental_gate_receipt = { path: receiptPath, sha256: sha256(receipt) };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it("recursively validates and semantically scans nested digest-bound references", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const rejectText = "Human status: REJECT\n";
+    const rejectPath = ".quality-gates/QX-R4-R00/nested-human-result.txt";
+    await writeFile(join(root, rejectPath), rejectText, "utf8");
+    const index = `${JSON.stringify({ nested_receipt: { path: rejectPath, sha256: sha256(rejectText) } }, null, 2)}\n`;
+    const indexPath = ".quality-gates/QX-R4-R00/nested-index.json";
+    await writeFile(join(root, indexPath), index, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.supplemental_index = { path: indexPath, sha256: sha256(index) };
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);

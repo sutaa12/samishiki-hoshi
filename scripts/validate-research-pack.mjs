@@ -16,6 +16,7 @@ const R5_EXPECTED_DESCRIPTION = "小さな水滴を左右に動かし、リン�
 const R01_MIGRATION_ASSESSMENT_SHA256 = "23125b75bc1ecdfa12bf0d9a2833829e554f0e778f3bf1195184673e97183f9f";
 const R01_MIGRATION_POLICY_SHA256 = "59fd54dc9d948828e13ab4dca4cadac8e31cb7d9d9521ba08eded686b6b28e7e";
 const R01_HISTORICAL_HUMAN_BASELINE_SHA256 = "a6f3e4e108d85fdc0f462124a5732ba0e989e5206e726c2debb8df6e2cb83036";
+const R01_HISTORICAL_REVIEW_SHA256 = "4b6b14b9ba94708815e4677eea0d663f4a21c962405f225b0121a077272bfc79";
 const R00_PRODUCTION_STABLE_MANIFEST_SHA256 = "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25";
 const REQUIRED_FILES = [
   "research-card.md",
@@ -314,7 +315,7 @@ function containsHumanFailureArtifact(value, path = "") {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|approvedby|approver|approvers|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|authority|authorities|approvedby|approver|approvers|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|descriptors|classification|reviewmetadata|auditmetadata)$/;
   const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid)$/;
   const entries = Object.entries(value);
@@ -327,6 +328,19 @@ function declaresHumanContext(value) {
   if (entries.some(([key]) => humanProvenanceIdKey.test(descriptionFingerprint(key)))) return true;
   if (entries.some(([key, child]) => descriptorKey.test(descriptionFingerprint(key)) && containsHumanMarker(child))) return true;
   return entries.some(([key, child]) => metadataKey.test(descriptionFingerprint(key)) && child && typeof child === "object" && declaresHumanContext(child));
+}
+
+function declaresExternalContext(value) {
+  if (!value || typeof value !== "object") return false;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|authority|authorities|approvedby|approver|approvers|descriptor|descriptors|audience|audiences)$/;
+  const externalMarker = /(?:human|owner|legal|rightsacceptance|mainintegration|sites|contest|submission|release|releaseready)/;
+  const containsExternalMarker = (child) => {
+    if (typeof child === "string") return externalMarker.test(descriptionFingerprint(child));
+    if (Array.isArray(child)) return child.some(containsExternalMarker);
+    if (child && typeof child === "object") return Object.values(child).some(containsExternalMarker);
+    return false;
+  };
+  return Object.entries(value).some(([key, child]) => descriptorKey.test(descriptionFingerprint(key)) && containsExternalMarker(child));
 }
 
 function hasMalformedHumanProvenanceId(value) {
@@ -389,7 +403,7 @@ function hasAiBinaryExternalPassClaim(value) {
   };
   const visit = (current, inheritedExternal = false, depth = 0, keyTrail = "") => {
     if (!current || typeof current !== "object") return false;
-    const objectExternal = inheritedExternal || declaresHumanContext(current);
+    const objectExternal = inheritedExternal || declaresHumanContext(current) || declaresExternalContext(current);
     return Object.entries(current).some(([key, child]) => {
       if (depth === 0 && key === "baseline") return false;
       const normalizedKey = descriptionFingerprint(key);
@@ -411,7 +425,7 @@ function hasMalformedExternalResult(value) {
     || (typeof candidate === "string" && descriptionFingerprint(candidate).length > 0);
   const visit = (current, inheritedExternalContext = false, depth = 0, keyTrail = "") => {
     if (!current || typeof current !== "object") return false;
-    const labeledExternal = inheritedExternalContext || declaresHumanContext(current);
+    const labeledExternal = inheritedExternalContext || declaresHumanContext(current) || declaresExternalContext(current);
     return Object.entries(current).some(([key, child]) => {
       if (depth === 0 && key === "baseline") return false;
       const normalizedKey = descriptionFingerprint(key);
@@ -498,6 +512,11 @@ function allArtifactReferences(value) {
 }
 
 function semanticClaimsInArtifact(text, path, taskId, sha256) {
+  const dedicatedR01SemanticArtifact = taskId === "QX-R4-R01" && (
+    (path === ".quality-gates/QX-R4-R01/r5-migration-assessment.md" && sha256 === R01_MIGRATION_ASSESSMENT_SHA256)
+    || (path === ".quality-gates/QX-R4-R01/independent-review-round4.md" && sha256 === R01_HISTORICAL_REVIEW_SHA256)
+  );
+  if (dedicatedR01SemanticArtifact) return { humanReject: false, externalPass: false };
   const historicalR01HumanBaseline = taskId === "QX-R4-R01"
     && path === "docs/research/QX-R4-R01/baseline-human-findings.md"
     && sha256 === R01_HISTORICAL_HUMAN_BASELINE_SHA256;
@@ -512,7 +531,7 @@ function semanticClaimsInArtifact(text, path, taskId, sha256) {
   const externalMarker = /(?:human|owner|legal|rightsacceptance|mainintegration|sites|contest|submission|release|releaseready)/;
   const positiveMarker = /(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/;
   const negativeMarker = /(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)/;
-  const externalPassLine = text.split(/[\r\n.!?。！？]+/).some((line) => {
+  const externalPassLine = text.split(/[\r\n.!?。！？;,；，]+/).some((line) => {
     const lineCompact = securityFingerprint(normalizedDescription(line));
     return externalMarker.test(lineCompact) && positiveMarker.test(lineCompact) && !negativeMarker.test(lineCompact);
   });
@@ -1420,11 +1439,45 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";
     const optionalHumanText = files.get("human-test.md") ?? "";
     const artifactReferences = allArtifactReferences(evidence);
-    const artifactStates = await Promise.all(artifactReferences.references.map(async (reference) => ({
-      reference,
-      artifact: await regularArtifact(root, directory, reference.path),
-    })));
-    if (artifactReferences.invalid.length > 0 || artifactStates.some((state) => !state.artifact.ok || state.artifact.sha256 !== state.reference.sha256)) {
+    const artifactQueue = [...artifactReferences.references];
+    const visitedArtifactReferences = new Set();
+    const artifactStates = [];
+    const semanticStates = [];
+    let artifactGraphInvalid = artifactReferences.invalid.length > 0;
+    while (artifactQueue.length > 0) {
+      if (visitedArtifactReferences.size >= 1024) {
+        artifactGraphInvalid = true;
+        break;
+      }
+      const reference = artifactQueue.shift();
+      const referenceKey = `${reference.path}|${reference.sha256}`;
+      if (visitedArtifactReferences.has(referenceKey)) continue;
+      visitedArtifactReferences.add(referenceKey);
+      const artifact = await regularArtifact(root, directory, reference.path);
+      artifactStates.push({ reference, artifact });
+      if (!artifact.ok || artifact.sha256 !== reference.sha256) {
+        artifactGraphInvalid = true;
+        continue;
+      }
+      let text;
+      try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(await readFile(artifact.path));
+      } catch {
+        continue;
+      }
+      semanticStates.push(semanticClaimsInArtifact(text, reference.path, taskId, reference.sha256));
+      try {
+        const nestedValue = JSON.parse(text);
+        if (nestedValue && typeof nestedValue === "object") {
+          const nestedReferences = allArtifactReferences(nestedValue);
+          if (nestedReferences.invalid.length > 0) artifactGraphInvalid = true;
+          artifactQueue.push(...nestedReferences.references);
+        }
+      } catch {
+        // UTF-8 text that is not JSON has no nested structured references.
+      }
+    }
+    if (artifactGraphInvalid) {
       issues.push(issue("ARTIFACT_REFERENCE", "Every object containing path or sha256 must be a complete digest-bound reference to a repository-contained regular non-symlink file with the exact declared SHA-256.", "evidence.json"));
     }
     const stringArtifactEntries = evidence.artifacts && typeof evidence.artifacts === "object" && !Array.isArray(evidence.artifacts)
@@ -1438,16 +1491,6 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
       || stringArtifactStates.some((state) => !state.optional && (!meaningful(state.path) || !state.artifact?.ok))) {
       issues.push(issue("ARTIFACT_PATH_MAP", "Every evidence.artifacts entry must resolve to a repository-contained regular non-symlink file; only the optional AI Binary human_test file may be absent.", "evidence.json"));
     }
-    const semanticStates = await Promise.all(artifactStates.map(async (state) => {
-      if (!state.artifact.ok || state.artifact.sha256 !== state.reference.sha256) return null;
-      let text;
-      try {
-        text = new TextDecoder("utf-8", { fatal: true }).decode(await readFile(state.artifact.path));
-      } catch {
-        return null;
-      }
-      return semanticClaimsInArtifact(text, state.reference.path, taskId, state.reference.sha256);
-    }));
     if (semanticStates.some((state) => state?.humanReject)) {
       issues.push(issue("HUMAN_REJECT", "A Human Reject in any digest-bound textual evidence artifact blocks completion; only the pinned R01 historical baseline artifact is exempt from semantic interpretation.", "evidence.json"));
     }
