@@ -1806,6 +1806,16 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).not.toContain("HUMAN_REJECT");
   });
 
+  it("still verifies the digest of R01 historical Human baseline evidence", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    await writeFile(join(root, "docs/research/QX-R4-R01/baseline-human-findings.md"), "tampered historical finding\n", "utf8");
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_REFERENCE");
+    expect(result.report.issues?.map((entry) => entry.code)).not.toContain("HUMAN_REJECT");
+  });
+
   it("does not let R01 bypass its dedicated migration through ordinary AI completion", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);

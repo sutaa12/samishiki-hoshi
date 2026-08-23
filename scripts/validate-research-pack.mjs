@@ -1386,6 +1386,9 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
       reference,
       artifact: await regularArtifact(root, directory, reference.path),
     })));
+    if (artifactStates.some((state) => !state.artifact.ok || state.artifact.sha256 !== state.reference.sha256)) {
+      issues.push(issue("ARTIFACT_REFERENCE", "Every digest-bound evidence reference must resolve to a repository-contained regular non-symlink file with the exact declared SHA-256, including historical baseline evidence.", "evidence.json"));
+    }
     const pathsByIdentity = new Map();
     for (const artifact of [...packArtifacts, ...artifactStates.map((state) => state.artifact)]) {
       if (!artifact.ok) continue;
