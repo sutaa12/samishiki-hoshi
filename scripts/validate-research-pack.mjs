@@ -105,6 +105,63 @@ function normalizedDescription(value) {
   return typeof value === "string" ? value.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ") : "";
 }
 
+function descriptionFingerprint(value) {
+  return normalizedDescription(value).replace(/[\p{P}\p{S}\p{Z}\s]+/gu, "");
+}
+
+function hasHumanReject(human) {
+  const rejected = new Set(["fail", "failed", "reject", "rejected"]);
+  return rejected.has(normalizedDescription(human?.status))
+    || rejected.has(normalizedDescription(human?.owner_decision))
+    || (Number.isInteger(human?.reject_count) && human.reject_count > 0);
+}
+
+function probeMovingVideo(path) {
+  if (!path) return { ok: false, reason: "missing path" };
+  const probe = spawnSync("ffprobe", [
+    "-v", "error",
+    "-select_streams", "v:0",
+    "-count_frames",
+    "-show_entries", "stream=codec_type,width,height,nb_read_frames:format=duration",
+    "-of", "json",
+    path,
+  ], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 });
+  if (probe.status !== 0) return { ok: false, reason: "ffprobe failed" };
+  let payload;
+  try {
+    payload = JSON.parse(probe.stdout);
+  } catch {
+    return { ok: false, reason: "ffprobe returned invalid JSON" };
+  }
+  const stream = payload.streams?.[0];
+  const durationMs = Number(payload.format?.duration) * 1000;
+  const decodedFrames = Number(stream?.nb_read_frames);
+  if (stream?.codec_type !== "video"
+    || !Number.isInteger(stream.width) || stream.width <= 0
+    || !Number.isInteger(stream.height) || stream.height <= 0
+    || !Number.isFinite(durationMs) || durationMs < 14900
+    || !Number.isInteger(decodedFrames) || decodedFrames < 2) {
+    return { ok: false, reason: "video metadata is incomplete or shorter than 15 seconds" };
+  }
+  const frameProbe = spawnSync("ffmpeg", [
+    "-nostdin", "-v", "error", "-i", path,
+    "-map", "0:v:0", "-vf", "fps=2", "-f", "framemd5", "-",
+  ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  if (frameProbe.status !== 0) return { ok: false, reason: "video frames could not be decoded" };
+  const sampledHashes = frameProbe.stdout
+    .split("\n")
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => line.split(",").at(-1)?.trim())
+    .filter(Boolean);
+  return {
+    ok: sampledHashes.length >= 15 && new Set(sampledHashes).size >= 3,
+    durationMs,
+    decodedFrames,
+    sampledFrames: sampledHashes.length,
+    distinctSampledFrames: new Set(sampledHashes).size,
+  };
+}
+
 function textSha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -285,8 +342,9 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
 async function validateAiBinaryGameplay(root, directory, taskId, evidence, issues) {
   const ai = evidence.ai_binary_gameplay;
   const videoArtifact = await regularArtifact(root, directory, ai?.video?.path);
-  if (!ai || !videoArtifact.ok || !(videoArtifact.size > 0) || !SHA256_PATTERN.test(ai.video?.sha256 ?? "") || videoArtifact.sha256 !== ai.video.sha256 || ai.video.path !== evidence.candidate?.clip?.path || ai.video.sha256 !== evidence.candidate?.clip?.sha256) {
-    issues.push(issue("AI_VIDEO", "AI Binary completion needs a nonempty digest-bound video identical to the candidate capture clip.", "evidence.json"));
+  const videoProbe = videoArtifact.ok ? probeMovingVideo(videoArtifact.path) : { ok: false };
+  if (!ai || !videoArtifact.ok || !(videoArtifact.size > 0) || !videoProbe.ok || !SHA256_PATTERN.test(ai.video?.sha256 ?? "") || videoArtifact.sha256 !== ai.video.sha256 || ai.video.path !== evidence.candidate?.clip?.path || ai.video.sha256 !== evidence.candidate?.clip?.sha256) {
+    issues.push(issue("AI_VIDEO", "AI Binary completion needs a digest-bound, decodable video of at least 15 seconds with actual moving frames, identical to the candidate capture clip.", "evidence.json"));
   }
 
   const expectedAnswerSha256 = ai?.expected_answer_sha256;
@@ -296,6 +354,30 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
   }
 
   const telemetry = await readArtifactJson(root, directory, ai?.telemetry);
+  const distanceTrace = Array.isArray(telemetry?.distance_trace) ? telemetry.distance_trace : [];
+  const distanceTraceValid = distanceTrace.length === telemetry?.frame_count
+    && distanceTrace.every((sample, index) => Number.isInteger(sample?.frame) && sample.frame === index
+      && Number.isFinite(sample?.at_ms) && sample.at_ms >= 0 && sample.at_ms <= telemetry.duration_ms
+      && Number.isFinite(sample?.distance_mm)
+      && (index === 0 || sample.at_ms > distanceTrace[index - 1].at_ms)
+      && (index === 0 || sample.distance_mm > distanceTrace[index - 1].distance_mm));
+  const ringProbe = telemetry?.ring_probe;
+  const ringProbeValid = Number.isFinite(ringProbe?.before_area_px2) && ringProbe.before_area_px2 > 0
+    && Number.isFinite(ringProbe?.after_area_px2) && ringProbe.after_area_px2 >= ringProbe.before_area_px2 * 4
+    && Number.isFinite(ringProbe?.started_at_ms) && ringProbe.started_at_ms >= 0
+    && Number.isFinite(ringProbe?.completed_at_ms) && ringProbe.completed_at_ms >= ringProbe.started_at_ms
+    && ringProbe.completed_at_ms <= telemetry?.duration_ms;
+  const steerProbe = telemetry?.steer_probe;
+  const steerLatencyMs = steerProbe?.response_at_ms - steerProbe?.input_at_ms;
+  const steerDisplacementRatio = Math.abs(steerProbe?.end_x_px - steerProbe?.start_x_px) / steerProbe?.viewport_width_px;
+  const steerProbeValid = Number.isFinite(steerProbe?.input_at_ms) && steerProbe.input_at_ms >= 0
+    && Number.isFinite(steerProbe?.response_at_ms) && steerLatencyMs >= 0 && steerLatencyMs <= 100
+    && Number.isFinite(steerProbe?.completed_at_ms) && steerProbe.completed_at_ms >= steerProbe.response_at_ms
+    && steerProbe.completed_at_ms - steerProbe.input_at_ms <= 300
+    && Number.isFinite(steerProbe?.viewport_width_px) && steerProbe.viewport_width_px > 0
+    && Number.isFinite(steerProbe?.start_x_px) && Number.isFinite(steerProbe?.end_x_px)
+    && steerDisplacementRatio >= 0.1
+    && steerProbe.completed_at_ms <= telemetry?.duration_ms;
   if (!telemetry
     || telemetry.schema_version !== "ai-binary-telemetry.v1"
     || telemetry.task_id !== taskId
@@ -308,13 +390,21 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || telemetry.frame_count <= 0
     || !Number.isFinite(telemetry.duration_ms)
     || telemetry.duration_ms < 15000
+    || !videoProbe.ok
+    || Math.abs(telemetry.duration_ms - videoProbe.durationMs) > 250
     || telemetry.distance_increases_every_frame !== true
+    || !distanceTraceValid
     || !Number.isFinite(telemetry.max_still_frame_ms)
+    || telemetry.max_still_frame_ms < 0
     || telemetry.max_still_frame_ms > 500
     || !Number.isFinite(telemetry.input_response_ms)
+    || telemetry.input_response_ms < 0
     || telemetry.input_response_ms > 100
+    || Math.abs(telemetry.input_response_ms - steerLatencyMs) > 0.001
+    || !ringProbeValid
+    || !steerProbeValid
     || JSON.stringify(telemetry.encounter_order) !== JSON.stringify(["ring", "obstacle", "node"])) {
-    issues.push(issue("AI_TELEMETRY", "AI Binary completion needs a passed, source/build/video-bound telemetry receipt with monotonic distance, <=500ms still interval, <=100ms input response, and ring/obstacle/node order.", "evidence.json"));
+    issues.push(issue("AI_TELEMETRY", "AI Binary completion needs source/build/video-bound per-frame monotonic distance, a >=4x Ring-area probe, >=10%-viewport steering within 300ms, a 0-500ms still interval, a 0-100ms input response, and ring/obstacle/node order.", "evidence.json"));
   }
 
   const ledger = await readArtifactJson(root, directory, ai?.event_ledger);
@@ -330,6 +420,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || !Array.isArray(ledger.events)
     || ledger.events.length < 4
     || eventTimes.some((time) => !Number.isFinite(time))
+    || eventTimes.some((time) => time < 0 || time > telemetry?.duration_ms)
     || eventTimes.some((time, index) => index > 0 && time < eventTimes[index - 1])
     || !["ring", "obstacle", "node", "progress"].every((kind) => eventClasses.has(kind))) {
     issues.push(issue("AI_EVENT_LEDGER", "AI Binary completion needs a source/build/video-bound event ledger covering ring, obstacle, node, and progress.", "evidence.json"));
@@ -359,13 +450,19 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     issues.push(issue("AI_REVIEW_FAIL", "Every AI review and every required binary comprehension answer must pass.", "evidence.json"));
   }
   const descriptions = reviews.map((review) => normalizedDescription(review?.plain_description));
+  const descriptionFingerprints = reviews.map((review) => descriptionFingerprint(review?.plain_description));
+  const expectedDescriptionFingerprint = descriptionFingerprint(R5_EXPECTED_DESCRIPTION);
   if (descriptions.some((description) => !meaningful(description) || description.length < 12)
-    || new Set(descriptions).size !== 3
-    || (SHA256_PATTERN.test(expectedAnswerSha256 ?? "") && descriptions.some((description) => textSha256(description) === expectedAnswerSha256))) {
+    || descriptionFingerprints.some((fingerprint) => fingerprint.length < 8)
+    || new Set(descriptionFingerprints).size !== 3
+    || descriptions.some((description) => textSha256(description) === expectedAnswerSha256)
+    || descriptionFingerprints.some((fingerprint) => fingerprint === expectedDescriptionFingerprint)) {
     issues.push(issue("AI_REVIEW_DESCRIPTION", "AI review descriptions must be nonempty, mutually distinct, and not a copy of the expected answer.", "evidence.json"));
   }
 
   const remediation = await readArtifactJson(root, directory, ai?.remediation);
+  const remediationValues = ["motion", "player", "objective", "pulse", "progress"].map((key) => remediation?.remediation_map?.[key]);
+  const remediationFingerprints = remediationValues.map(descriptionFingerprint);
   if (!remediation
     || remediation.schema_version !== "ai-binary-remediation.v1"
     || remediation.task_id !== taskId
@@ -375,9 +472,11 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || !Number.isFinite(Date.parse(remediation.recorded_at ?? ""))
     || remediation.decision !== "accept"
     || !meaningful(remediation.observations)
+    || normalizedDescription(remediation.observations).length < 40
     || !remediation.remediation_map
     || typeof remediation.remediation_map !== "object"
-    || !["motion", "player", "objective", "pulse", "progress"].every((key) => meaningful(remediation.remediation_map[key]))
+    || remediationValues.some((value) => !meaningful(value) || normalizedDescription(value).length < 24)
+    || new Set(remediationFingerprints).size !== remediationFingerprints.length
     || !Array.isArray(remediation.review_ids)
     || remediation.review_ids.length !== 3
     || new Set(remediation.review_ids.map(normalizedDescription)).size !== 3
@@ -593,7 +692,7 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
 
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
-    if (acceptance === "ai-binary" && (markdownTableRows(optionalHumanText).some((row) => /^fail$/i.test(row[5] ?? "")) || /Decision:\s*(?:reject|fail)\b|\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
+    if (acceptance === "ai-binary" && (hasHumanReject(evidence.human) || markdownTableRows(optionalHumanText).some((row) => /^fail$/i.test(row[5] ?? "")) || /Decision:\s*(?:reject|fail)\b|\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject still blocks the candidate; AI Binary mode may omit Human evidence but cannot override an existing Reject.", "human-test.md"));
     }
     const researchOnlyAiClosure = acceptance === "ai-binary" && evidence.gates?.complete === "research-only-ai-accepted";

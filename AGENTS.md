@@ -17,7 +17,7 @@ This repository implements the Notion-defined game `さみしき星のまたた�
 - QX-R5-001 through QX-R5-007 use the `ai_binary_gameplay` acceptance mode. Human raw rows, Human scores, and an Owner receipt are not completion requirements for Research, Graybox, or AI-comprehension gates in this isolated pre-Human candidate workflow.
 - This exception does not override or erase a Human Reject. Human play acceptance, rights/legal acceptance, Main integration, final public release, and contest submission remain separate Human or external gates.
 - The 15-second loop is the active Gameplay contract. Do not import the legacy 180-second renderer, six-phase journey, PRP, or a new graphics library into `/r5-minimum` before QX-R5-005 passes.
-- AI Binary completion uses `npm run research:validate -- <task-id> --stage complete --acceptance ai-binary` and requires telemetry, a moving video, an event ledger, a remediation decision, and three distinct artifact-only blind AI reviews bound to one source, build, and video digest.
+- AI Binary completion uses `npm run research:validate -- <task-id> --stage complete --acceptance ai-binary` and requires telemetry, a directly decoded moving video of at least 15 seconds, an event ledger, a substantive remediation decision, and three distinct artifact-only blind AI reviews bound to one source, build, and video digest. Telemetry must contain the complete monotonic per-frame distance trace, a Ring-area growth probe of at least 4x, and a steering probe that moves at least 10% of the viewport within 300ms while responding within 100ms.
 - The default and release command remains `--acceptance human-release`; its raw Human rows and responsible Owner receipt stay fail-closed.
 
 ## Evidence-driven quality gate
