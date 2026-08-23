@@ -146,8 +146,9 @@ function containsHumanFailureText(value) {
   const compact = securityFingerprint(normalizedDescription(value));
   return containsReject(value)
     || /(?:pass|passed|accept|accepted|approve|approved)(?:is|was)?false/.test(compact)
-    || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|hasnt|havent|couldnt|wouldnt|wont|cant|not)(?:pass|passes|passed|passing|accept|accepts|accepted|accepting|approve|approves|approved|approving|success|successful|succeed|succeeds|succeeded|succeeding)/.test(compact)
-    || /(?:承認|合格)(?:され)?ず|未承認/.test(compact);
+    || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|hasnt|havent|couldnt|wouldnt|wont|cant|not)(?:a)?(?:pass|passes|passed|passing|accept|accepts|accepted|accepting|approve|approves|approved|approving|success|successful|succeed|succeeds|succeeded|succeeding|granted)/.test(compact)
+    || /notgranted/.test(compact)
+    || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認/.test(compact);
 }
 
 function communicatesR5Gameplay(value) {
@@ -179,13 +180,14 @@ function communicatesR5Gameplay(value) {
     && (englishRingMatch.index <= englishActorMotionMatch.index + englishActorMotionMatch[0].length
       || englishActorToRingConnector.test(text.slice(englishActorMotionMatch.index + englishActorMotionMatch[0].length, englishRingMatch.index)))
     && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
-    && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index));
+    && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index))
+    && /^[.!?]+$/.test(text.slice(englishPulseMatch.index + englishPulseMatch[0].length));
   const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗/.test(text);
   const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ)(?:が|は|を)?(?:(?![がは]).){0,20}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRing = /(?:リング|輪|門|ゲート|円)を?(?:くぐ|通|抜け)/;
   const japaneseObstacle = /(?:岩|障害|壁|危険)を?(?:避け|かわし)/;
-  const japanesePulse = /(?:芽|植物|ノード|対象)(?:へ|に)(?:光|パルス|生命)を?(?:渡|送|届け|当て|光らせ|起動|照ら)/;
+  const japanesePulse = /(?:芽|植物|ノード|対象)(?:へ|に)(?:光|パルス|生命)を?(?:渡(?:す|し)?|送(?:る|り)?(?:起動)?|届け(?:る)?|当て(?:る)?|光らせ(?:る)?|起動(?:する)?|照ら(?:す|し)?)/;
   const japaneseActorMotionMatch = japaneseActorMotion.exec(text);
   const japaneseRingMatch = japaneseRing.exec(text);
   const japaneseObstacleMatch = japaneseObstacle.exec(text);
@@ -196,7 +198,8 @@ function communicatesR5Gameplay(value) {
     && japaneseObstacleMatch.index < japanesePulseMatch.index
     && japaneseConnector.test(text.slice(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japaneseRingMatch.index))
     && japaneseConnector.test(text.slice(japaneseRingMatch.index + japaneseRingMatch[0].length, japaneseObstacleMatch.index))
-    && japaneseConnector.test(text.slice(japaneseObstacleMatch.index + japaneseObstacleMatch[0].length, japanesePulseMatch.index));
+    && japaneseConnector.test(text.slice(japaneseObstacleMatch.index + japaneseObstacleMatch[0].length, japanesePulseMatch.index))
+    && /^(?:(?:遊び|ゲーム)です|ます|します)?[。！？]$/.test(text.slice(japanesePulseMatch.index + japanesePulseMatch[0].length));
   const japaneseSubjectSwap = Boolean(japaneseActorMotionMatch && japanesePulseMatch
     && /[がはもで]/.test(text.slice(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japanesePulseMatch.index + japanesePulseMatch[0].length)));
   const sentenceLike = hasJapanese
@@ -255,7 +258,7 @@ function containsHumanFailureArtifact(value) {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers|descriptor|descriptors)$/;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers|descriptor|descriptors|audience|audiences)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|descriptors|classification|reviewmetadata|auditmetadata)$/;
   const entries = Object.entries(value);
   const containsHumanMarker = (child) => {
