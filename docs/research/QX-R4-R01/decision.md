@@ -21,7 +21,7 @@ Expected measurable improvement: this task itself targets 6 official games, at l
 
 Known side effects: repository growth from three project-owned PNGs and one 12-second WebM; no runtime dependency, public deployment, simulation, or Production asset change.
 
-Human evidence still required: yes, two people unfamiliar with the plan.
+Human gameplay/release evidence: still pending and not supplied by this research-only ledger. The former two-person R4 frame condition is retained as historical context, not as R01's current completion gate.
 
 ## Binding
 

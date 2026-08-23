@@ -140,7 +140,12 @@ function communicatesR5Gameplay(value) {
     /\b(?:rock|hazard|obstacle|barrier|boulder)\b|岩|障害|壁|危険/iu,
     /\b(?:pulse|energize|energizing|energy|light|sprout|plant|node|target|charge|activate|bloom)\b|パルス|光|芽|植物|ノード|対象|生命|起動/iu,
   ];
-  return concepts.filter((pattern) => pattern.test(text)).length >= 4;
+  const latinWords = text.match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
+  const hasJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(text);
+  const sentenceLike = hasJapanese
+    ? text.length >= 20 && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text)
+    : latinWords.length >= 10 && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text);
+  return concepts.filter((pattern) => pattern.test(text)).length >= 4 && sentenceLike;
 }
 
 function valueContainsReject(value) {
@@ -179,6 +184,26 @@ function hasHumanRejectAnywhere(value) {
     });
   };
   return visit(value);
+}
+
+function humanArtifactReferences(value) {
+  const references = [];
+  const visit = (current, inheritedHumanContext = false, depth = 0) => {
+    if (!current || typeof current !== "object") return;
+    const entries = Object.entries(current);
+    const labeledHuman = inheritedHumanContext || entries.some(([key, child]) => {
+      const normalizedKey = descriptionFingerprint(key);
+      return /^(?:label|type|kind|category|scope|subject)$/.test(normalizedKey) && descriptionFingerprint(child).includes("human");
+    });
+    if (labeledHuman && meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
+    for (const [key, child] of entries) {
+      const normalizedKey = descriptionFingerprint(key);
+      if (depth === 0 && normalizedKey === "baseline") continue;
+      if (child && typeof child === "object") visit(child, labeledHuman || normalizedKey.includes("human"), depth + 1);
+    }
+  };
+  visit(value);
+  return [...new Map(references.map((reference) => [`${reference.path}|${reference.sha256}`, reference])).values()];
 }
 
 function probeMovingVideo(path) {
@@ -1031,8 +1056,12 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
 
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
-    if (acceptance === "ai-binary" && (hasHumanRejectAnywhere(evidence) || containsReject(optionalHumanText) || /\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
-      issues.push(issue("HUMAN_REJECT", "A preserved Human Reject still blocks the candidate; AI Binary mode may omit Human evidence but cannot override an existing Reject.", "human-test.md"));
+    const referencedHumanTexts = await Promise.all(humanArtifactReferences(evidence).map((reference) => readArtifactText(root, directory, reference)));
+    if (hasHumanRejectAnywhere(evidence)
+      || containsReject(optionalHumanText)
+      || /\bHUMAN_REJECT\b/i.test(optionalHumanText)
+      || referencedHumanTexts.some((text) => containsReject(text))) {
+      issues.push(issue("HUMAN_REJECT", "A preserved Human Reject blocks both acceptance modes, including digest-bound Human-labeled evidence outside the canonical Human file.", "human-test.md"));
     }
     const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";
     if (researchOnlyAiClosure) {

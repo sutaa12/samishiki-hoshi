@@ -70,4 +70,5 @@ Rollback: `be0eb51661df90bc21bdb471a8a626078ff92ce3`
 
 - Research: passed after `npm run research:validate -- QX-R4-R01`
 - Implementation: not applicable; this task changes no Production runtime
-- Completion: `HUMAN_PENDING` until the two-viewer frame-identification receipt exists
+- R01 research ledger: `research-only-ai-accepted` under the one-time R5 migration receipt
+- Human gameplay/release acceptance: `PENDING`; the withdrawn two-viewer R4 condition is not an R01 research-ledger completion requirement
