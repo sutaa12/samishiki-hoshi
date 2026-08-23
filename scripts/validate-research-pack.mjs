@@ -109,10 +109,14 @@ function descriptionFingerprint(value) {
   return normalizedDescription(value).replace(/[\p{P}\p{S}\p{Z}\s]+/gu, "");
 }
 
+function containsReject(value) {
+  const words = normalizedDescription(value).replace(/[\p{P}\p{S}]+/gu, " ");
+  return /\b(?:fail(?:ed|ure)?|reject(?:ed|ion)?)\b/i.test(words);
+}
+
 function hasHumanReject(human) {
-  const rejected = new Set(["fail", "failed", "reject", "rejected"]);
-  return rejected.has(normalizedDescription(human?.status))
-    || rejected.has(normalizedDescription(human?.owner_decision))
+  return containsReject(human?.status)
+    || containsReject(human?.owner_decision)
     || (Number.isInteger(human?.reject_count) && human.reject_count > 0);
 }
 
@@ -139,13 +143,13 @@ function probeMovingVideo(path) {
   if (stream?.codec_type !== "video"
     || !Number.isInteger(stream.width) || stream.width <= 0
     || !Number.isInteger(stream.height) || stream.height <= 0
-    || !Number.isFinite(durationMs) || durationMs < 14900
+    || !Number.isFinite(durationMs) || durationMs < 15000
     || !Number.isInteger(decodedFrames) || decodedFrames < 2) {
     return { ok: false, reason: "video metadata is incomplete or shorter than 15 seconds" };
   }
   const frameProbe = spawnSync("ffmpeg", [
     "-nostdin", "-v", "error", "-i", path,
-    "-map", "0:v:0", "-vf", "fps=2", "-f", "framemd5", "-",
+    "-map", "0:v:0", "-vf", "fps=10", "-f", "framemd5", "-",
   ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
   if (frameProbe.status !== 0) return { ok: false, reason: "video frames could not be decoded" };
   const sampledHashes = frameProbe.stdout
@@ -153,12 +157,30 @@ function probeMovingVideo(path) {
     .filter((line) => line && !line.startsWith("#"))
     .map((line) => line.split(",").at(-1)?.trim())
     .filter(Boolean);
+  let longestIdenticalRun = 0;
+  let currentIdenticalRun = 0;
+  let changedTransitions = 0;
+  for (let index = 0; index < sampledHashes.length; index += 1) {
+    if (index === 0 || sampledHashes[index] !== sampledHashes[index - 1]) {
+      if (index > 0) changedTransitions += 1;
+      currentIdenticalRun = 1;
+    } else {
+      currentIdenticalRun += 1;
+    }
+    longestIdenticalRun = Math.max(longestIdenticalRun, currentIdenticalRun);
+  }
+  const transitionRatio = sampledHashes.length > 1 ? changedTransitions / (sampledHashes.length - 1) : 0;
   return {
-    ok: sampledHashes.length >= 15 && new Set(sampledHashes).size >= 3,
+    ok: sampledHashes.length >= 149
+      && new Set(sampledHashes).size >= 120
+      && longestIdenticalRun <= 5
+      && transitionRatio >= 0.8,
     durationMs,
     decodedFrames,
     sampledFrames: sampledHashes.length,
     distinctSampledFrames: new Set(sampledHashes).size,
+    longestIdenticalRun,
+    transitionRatio,
   };
 }
 
@@ -253,6 +275,16 @@ async function readArtifactJson(root, packDirectory, reference) {
   }
 }
 
+async function readArtifactText(root, packDirectory, reference) {
+  if (!(await validArtifactRef(root, packDirectory, reference))) return null;
+  const artifact = await regularArtifact(root, packDirectory, reference.path);
+  try {
+    return await readFile(artifact.path, "utf8");
+  } catch {
+    return null;
+  }
+}
+
 async function mediaFiles(directory) {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -316,9 +348,48 @@ const AI_REVIEW_BOOLEAN_FIELDS = [
   "progressUnderstood",
 ];
 
+const AI_REMEDIATION_ROUTES = {
+  motion: {
+    failed_answer: "continuousForwardMotion",
+    first_fix: ["near_object_speed", "ttc", "z_motion", "fov", "ground_marks"],
+    prohibited_first: ["bloom", "fog", "background_detail"],
+  },
+  player: {
+    failed_answer: "playerIdentified",
+    first_fix: ["screen_size", "position", "silhouette", "local_contrast"],
+    prohibited_first: ["strong_player_glow"],
+  },
+  objective: {
+    failed_answer: "ringActionUnderstood|obstacleActionUnderstood",
+    first_fix: ["one_objective_per_screen", "target_shape", "short_verb_ui"],
+    prohibited_first: ["long_explanation"],
+  },
+  pulse: {
+    failed_answer: "pulseTargetUnderstood|resultUnderstood",
+    first_fix: ["light_path", "node_deformation", "local_ecology", "progress"],
+    prohibited_first: ["full_screen_flash"],
+  },
+  progress: {
+    failed_answer: "progressUnderstood",
+    first_fix: ["encounter_completion", "landmark_approach", "one_third_progress"],
+    prohibited_first: ["time_only_scene_change"],
+  },
+};
+
 async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues) {
   const closure = await readArtifactJson(root, directory, evidence.research_only_ai_closure);
+  const reviewText = closure ? await readArtifactText(root, directory, closure.independent_review) : null;
+  const reviewScore = /Score:\s*(\d+)\/32\b/i.exec(reviewText ?? "");
+  const reviewVerdicts = (reviewText ?? "").match(/^Verdict:\s*(?:ACCEPT|REJECT)\b/gim) ?? [];
+  const reviewScores = (reviewText ?? "").match(/^Score:\s*\d+\/32\b/gim) ?? [];
+  const acceptedReview = reviewVerdicts.length === 1
+    && reviewScores.length === 1
+    && /^Verdict:\s*ACCEPT\b/i.test(reviewVerdicts[0])
+    && /research stage only/i.test(reviewText ?? "")
+    && Number(reviewScore?.[1]) >= 28
+    && /Reviewer severities:\s*S0\s+0,\s*S1\s+0,\s*S2\s+0\b/i.test(reviewText ?? "");
   if (!closure
+    || taskId !== "QX-R4-R01"
     || closure.schema_version !== "research-only-ai-closure.v1"
     || closure.task_id !== taskId
     || closure.result !== "research-only-ai-accepted"
@@ -329,13 +400,15 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     || closure.baseline_build_sha256 !== evidence.baseline?.build_sha256
     || closure.research_validation_sha256 !== evidence.research_validation?.sha256
     || closure.automated_review_result !== "accepted-research-stage-only"
+    || closure.automated_review_score !== `${reviewScore?.[1]}/32`
     || closure.automated_review_open_s0_s2 !== 0
     || !(await validArtifactRef(root, directory, closure.independent_review))
+    || !acceptedReview
     || closure.next_task !== "QX-R5-001"
     || evidence.candidate?.kind !== "research-only-no-runtime-change"
     || evidence.candidate?.source_sha256 !== evidence.baseline?.source_sha256
     || evidence.candidate?.build_sha256 !== evidence.baseline?.build_sha256) {
-    issues.push(issue("RESEARCH_ONLY_AI_CLOSURE", "Research-only AI closure needs a digest-bound migration receipt, no Production-improvement claim, no Human requirement, matching baseline source/build/research validation, and QX-R5-001 as the next task.", "evidence.json"));
+    issues.push(issue("RESEARCH_ONLY_AI_CLOSURE", "Only QX-R4-R01 may use the research-only AI migration, and it needs a digest-bound ACCEPT review scoring >=28/32 with zero S0-S2, no Production-improvement claim, no Human requirement, matching baseline source/build/research validation, and QX-R5-001 as the next task.", "evidence.json"));
   }
 }
 
@@ -356,16 +429,20 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
   const telemetry = await readArtifactJson(root, directory, ai?.telemetry);
   const distanceTrace = Array.isArray(telemetry?.distance_trace) ? telemetry.distance_trace : [];
   const distanceTraceValid = distanceTrace.length === telemetry?.frame_count
+    && telemetry?.frame_count === videoProbe.decodedFrames
     && distanceTrace.every((sample, index) => Number.isInteger(sample?.frame) && sample.frame === index
       && Number.isFinite(sample?.at_ms) && sample.at_ms >= 0 && sample.at_ms <= telemetry.duration_ms
       && Number.isFinite(sample?.distance_mm)
       && (index === 0 || sample.at_ms > distanceTrace[index - 1].at_ms)
-      && (index === 0 || sample.distance_mm > distanceTrace[index - 1].distance_mm));
+      && (index === 0 || sample.distance_mm > distanceTrace[index - 1].distance_mm))
+    && distanceTrace[0]?.at_ms <= 50
+    && telemetry?.duration_ms - distanceTrace.at(-1)?.at_ms <= 50;
   const ringProbe = telemetry?.ring_probe;
   const ringProbeValid = Number.isFinite(ringProbe?.before_area_px2) && ringProbe.before_area_px2 > 0
     && Number.isFinite(ringProbe?.after_area_px2) && ringProbe.after_area_px2 >= ringProbe.before_area_px2 * 4
     && Number.isFinite(ringProbe?.started_at_ms) && ringProbe.started_at_ms >= 0
     && Number.isFinite(ringProbe?.completed_at_ms) && ringProbe.completed_at_ms >= ringProbe.started_at_ms
+    && ringProbe.completed_at_ms - ringProbe.started_at_ms <= 2500
     && ringProbe.completed_at_ms <= telemetry?.duration_ms;
   const steerProbe = telemetry?.steer_probe;
   const steerLatencyMs = steerProbe?.response_at_ms - steerProbe?.input_at_ms;
@@ -375,7 +452,8 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     && Number.isFinite(steerProbe?.completed_at_ms) && steerProbe.completed_at_ms >= steerProbe.response_at_ms
     && steerProbe.completed_at_ms - steerProbe.input_at_ms <= 300
     && Number.isFinite(steerProbe?.viewport_width_px) && steerProbe.viewport_width_px > 0
-    && Number.isFinite(steerProbe?.start_x_px) && Number.isFinite(steerProbe?.end_x_px)
+    && Number.isFinite(steerProbe?.start_x_px) && Number.isFinite(steerProbe?.response_x_px) && Number.isFinite(steerProbe?.end_x_px)
+    && Math.abs(steerProbe.response_x_px - steerProbe.start_x_px) >= 12
     && steerDisplacementRatio >= 0.1
     && steerProbe.completed_at_ms <= telemetry?.duration_ms;
   if (!telemetry
@@ -404,12 +482,20 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || !ringProbeValid
     || !steerProbeValid
     || JSON.stringify(telemetry.encounter_order) !== JSON.stringify(["ring", "obstacle", "node"])) {
-    issues.push(issue("AI_TELEMETRY", "AI Binary completion needs source/build/video-bound per-frame monotonic distance, a >=4x Ring-area probe, >=10%-viewport steering within 300ms, a 0-500ms still interval, a 0-100ms input response, and ring/obstacle/node order.", "evidence.json"));
+    issues.push(issue("AI_TELEMETRY", "AI Binary completion needs source/build/video-bound telemetry for every decoded frame, monotonic distance across the full clip, >=4x Ring area within 2.5s, >=12px movement within a 0-100ms response, >=10%-viewport steering within 300ms, a 0-500ms still interval, and ring/obstacle/node order.", "evidence.json"));
   }
 
   const ledger = await readArtifactJson(root, directory, ai?.event_ledger);
-  const eventClasses = new Set((ledger?.events ?? []).map((event) => event?.event_class));
+  const eventClasses = (ledger?.events ?? []).map((event) => event?.event_class);
   const eventTimes = (ledger?.events ?? []).map((event) => event?.at_ms);
+  const ringEventIndex = eventClasses.indexOf("ring_success");
+  const rockEventIndex = eventClasses.findIndex((eventClass) => eventClass === "rock_avoid" || eventClass === "rock_contact");
+  const nodeEventIndex = eventClasses.indexOf("node_pulse");
+  const progressEventIndex = eventClasses.indexOf("progress_update");
+  const eventOrderValid = ringEventIndex >= 0
+    && rockEventIndex > ringEventIndex
+    && nodeEventIndex > rockEventIndex
+    && progressEventIndex > nodeEventIndex;
   if (!ledger
     || ledger.schema_version !== "ai-binary-event-ledger.v1"
     || ledger.task_id !== taskId
@@ -422,8 +508,8 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || eventTimes.some((time) => !Number.isFinite(time))
     || eventTimes.some((time) => time < 0 || time > telemetry?.duration_ms)
     || eventTimes.some((time, index) => index > 0 && time < eventTimes[index - 1])
-    || !["ring", "obstacle", "node", "progress"].every((kind) => eventClasses.has(kind))) {
-    issues.push(issue("AI_EVENT_LEDGER", "AI Binary completion needs a source/build/video-bound event ledger covering ring, obstacle, node, and progress.", "evidence.json"));
+    || !eventOrderValid) {
+    issues.push(issue("AI_EVENT_LEDGER", "AI Binary completion needs a source/build/video-bound chronological ledger of ring_success, rock_avoid or rock_contact, node_pulse, then progress_update.", "evidence.json"));
   }
 
   const reviewRefs = Array.isArray(ai?.reviews) ? ai.reviews : [];
@@ -456,13 +542,12 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || descriptionFingerprints.some((fingerprint) => fingerprint.length < 8)
     || new Set(descriptionFingerprints).size !== 3
     || descriptions.some((description) => textSha256(description) === expectedAnswerSha256)
-    || descriptionFingerprints.some((fingerprint) => fingerprint === expectedDescriptionFingerprint)) {
+    || descriptionFingerprints.some((fingerprint) => fingerprint.includes(expectedDescriptionFingerprint))) {
     issues.push(issue("AI_REVIEW_DESCRIPTION", "AI review descriptions must be nonempty, mutually distinct, and not a copy of the expected answer.", "evidence.json"));
   }
 
   const remediation = await readArtifactJson(root, directory, ai?.remediation);
-  const remediationValues = ["motion", "player", "objective", "pulse", "progress"].map((key) => remediation?.remediation_map?.[key]);
-  const remediationFingerprints = remediationValues.map(descriptionFingerprint);
+  const remediationRoutesMatch = JSON.stringify(remediation?.remediation_map) === JSON.stringify(AI_REMEDIATION_ROUTES);
   if (!remediation
     || remediation.schema_version !== "ai-binary-remediation.v1"
     || remediation.task_id !== taskId
@@ -475,13 +560,12 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || normalizedDescription(remediation.observations).length < 40
     || !remediation.remediation_map
     || typeof remediation.remediation_map !== "object"
-    || remediationValues.some((value) => !meaningful(value) || normalizedDescription(value).length < 24)
-    || new Set(remediationFingerprints).size !== remediationFingerprints.length
+    || !remediationRoutesMatch
     || !Array.isArray(remediation.review_ids)
     || remediation.review_ids.length !== 3
     || new Set(remediation.review_ids.map(normalizedDescription)).size !== 3
     || reviewerIds.some((reviewerId) => !remediation.review_ids.map(normalizedDescription).includes(reviewerId))) {
-    issues.push(issue("AI_REMEDIATION", "AI Binary completion needs a source/build/video-bound remediation decision covering the same three Reviewer IDs.", "evidence.json"));
+    issues.push(issue("AI_REMEDIATION", "AI Binary completion needs a source/build/video-bound remediation decision covering the same three Reviewer IDs and the exact Page 19 first-fix/prohibited-first routing map.", "evidence.json"));
   }
 }
 
@@ -692,7 +776,8 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
 
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
-    if (acceptance === "ai-binary" && (hasHumanReject(evidence.human) || markdownTableRows(optionalHumanText).some((row) => /^fail$/i.test(row[5] ?? "")) || /Decision:\s*(?:reject|fail)\b|\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
+    const humanDecisionReject = optionalHumanText.split("\n").some((line) => /^\s*Decision\s*:/i.test(line) && containsReject(line));
+    if (acceptance === "ai-binary" && (hasHumanReject(evidence.human) || markdownTableRows(optionalHumanText).some((row) => containsReject(row[5])) || humanDecisionReject || /\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject still blocks the candidate; AI Binary mode may omit Human evidence but cannot override an existing Reject.", "human-test.md"));
     }
     const researchOnlyAiClosure = acceptance === "ai-binary" && evidence.gates?.complete === "research-only-ai-accepted";

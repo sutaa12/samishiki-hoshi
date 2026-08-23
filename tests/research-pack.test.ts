@@ -69,7 +69,7 @@ async function prepareValidAiBinaryPack(root: string) {
   const screenshot = await artifact("candidate-shot.bin", "candidate screenshot");
   const videoPath = ".quality-gates/QX-R4-R00/candidate-video.webm";
   execFileSync("ffmpeg", [
-    "-nostdin", "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=2:duration=15",
+    "-nostdin", "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30:duration=15",
     "-c:v", "libvpx-vp9", "-an", join(root, videoPath),
   ]);
   const videoBytes = await readFile(join(root, videoPath));
@@ -122,14 +122,14 @@ async function prepareValidAiBinaryPack(root: string) {
     subject_build_sha256: build.sha256,
     subject_video_sha256: video.sha256,
     recorded_at: "2026-08-23T07:30:00Z",
-    frame_count: 900,
+    frame_count: 450,
     duration_ms: 15000,
     distance_increases_every_frame: true,
-    distance_trace: Array.from({ length: 900 }, (_, frame) => ({ frame, at_ms: frame * (15000 / 900), distance_mm: frame * 2 })),
+    distance_trace: Array.from({ length: 450 }, (_, frame) => ({ frame, at_ms: frame * (1000 / 30), distance_mm: frame * 2 })),
     max_still_frame_ms: 400,
     input_response_ms: 80,
     ring_probe: { before_area_px2: 100, after_area_px2: 425, started_at_ms: 3500, completed_at_ms: 4300 },
-    steer_probe: { input_at_ms: 5000, response_at_ms: 5080, completed_at_ms: 5280, start_x_px: 200, end_x_px: 250, viewport_width_px: 400 },
+    steer_probe: { input_at_ms: 5000, response_at_ms: 5080, completed_at_ms: 5280, start_x_px: 200, response_x_px: 216, end_x_px: 250, viewport_width_px: 400 },
     encounter_order: ["ring", "obstacle", "node"],
   });
   const eventLedger = await artifact("event-ledger.json", {
@@ -139,7 +139,7 @@ async function prepareValidAiBinaryPack(root: string) {
     subject_build_sha256: build.sha256,
     subject_video_sha256: video.sha256,
     recorded_at: "2026-08-23T07:30:00Z",
-    events: [{ event_class: "ring", at_ms: 4000 }, { event_class: "obstacle", at_ms: 8000 }, { event_class: "node", at_ms: 11000 }, { event_class: "progress", at_ms: 14000 }],
+    events: [{ event_class: "ring_success", at_ms: 4000 }, { event_class: "rock_avoid", at_ms: 8000 }, { event_class: "node_pulse", at_ms: 11000 }, { event_class: "progress_update", at_ms: 14000 }],
   });
   const descriptions = [
     "A droplet steers through a hoop before avoiding a solid hazard and energizing a plant.",
@@ -172,11 +172,11 @@ async function prepareValidAiBinaryPack(root: string) {
     decision: "accept",
     observations: "All three independent reviews passed; preserve fail-to-module routing for later iterations.",
     remediation_map: {
-      motion: "Return to Conveyor Rail speed, TTC, FOV, and Near markers.",
-      player: "Return to Player screen size, position, silhouette, and local contrast.",
-      objective: "Return to one-purpose framing, target shape, and short verb UI.",
-      pulse: "Return to the light path, Node deformation, local ecology, and Progress feedback.",
-      progress: "Return to encounter completion, landmark approach, and 1/3 Progress changes.",
+      motion: { failed_answer: "continuousForwardMotion", first_fix: ["near_object_speed", "ttc", "z_motion", "fov", "ground_marks"], prohibited_first: ["bloom", "fog", "background_detail"] },
+      player: { failed_answer: "playerIdentified", first_fix: ["screen_size", "position", "silhouette", "local_contrast"], prohibited_first: ["strong_player_glow"] },
+      objective: { failed_answer: "ringActionUnderstood|obstacleActionUnderstood", first_fix: ["one_objective_per_screen", "target_shape", "short_verb_ui"], prohibited_first: ["long_explanation"] },
+      pulse: { failed_answer: "pulseTargetUnderstood|resultUnderstood", first_fix: ["light_path", "node_deformation", "local_ecology", "progress"], prohibited_first: ["full_screen_flash"] },
+      progress: { failed_answer: "progressUnderstood", first_fix: ["encounter_completion", "landmark_approach", "one_third_progress"], prohibited_first: ["time_only_scene_change"] },
     },
     review_ids: ["blind-1", "blind-2", "blind-3"],
   });
@@ -259,7 +259,7 @@ describe("evidence-driven Research Pack", () => {
     expect(skill).toContain("ai_binary_gameplay:");
     expect(skill).toContain("requires_three_blind_ai_reviews: true");
     expect(skill).toContain("validator must decode the video itself");
-    expect(skill).toContain("one indexed, timestamped `distance_mm` sample for every recorded frame");
+    expect(skill).toContain("one indexed, timestamped `distance_mm` sample for every decoded video frame");
     expect(skill).toContain("Reject preserved in either optional Human Markdown or `evidence.json`");
   });
 
@@ -386,7 +386,7 @@ describe("evidence-driven Research Pack", () => {
   it("does not let AI Binary mode override a preserved Human Reject", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
-    await writeFile(join(fixture.pack, "human-test.md"), "# Human test\n\nDecision: reject\n", "utf8");
+    await writeFile(join(fixture.pack, "human-test.md"), "# Human test\n\nDecision: rejected\n", "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
@@ -396,7 +396,7 @@ describe("evidence-driven Research Pack", () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
-    evidence.human = { status: "rejected", owner_decision: "reject", raw_answer_count: 1, reject_count: 1 };
+    evidence.human = { status: "human reject", owner_decision: "pending", raw_answer_count: 1, reject_count: 0 };
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
@@ -408,6 +408,44 @@ describe("evidence-driven Research Pack", () => {
     const fixture = await prepareValidAiBinaryPack(root);
     const bytes = Buffer.from("not a decodable moving video");
     await writeFile(join(root, fixture.video.path), bytes);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.candidate.clip.sha256 = sha256(bytes);
+    evidence.ai_binary_gameplay.video.sha256 = sha256(bytes);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_VIDEO");
+  });
+
+  it("rejects a decodable video shorter than 15 seconds", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    execFileSync("ffmpeg", [
+      "-nostdin", "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=10:duration=14.9",
+      "-c:v", "libvpx-vp9", "-an", join(root, fixture.video.path),
+    ]);
+    const bytes = await readFile(join(root, fixture.video.path));
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.candidate.clip.sha256 = sha256(bytes);
+    evidence.ai_binary_gameplay.video.sha256 = sha256(bytes);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_VIDEO");
+  });
+
+  it("rejects a 15-second slideshow made from three static color plates", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    execFileSync("ffmpeg", [
+      "-nostdin", "-y", "-v", "error",
+      "-f", "lavfi", "-i", "color=c=red:s=64x64:r=30:d=5",
+      "-f", "lavfi", "-i", "color=c=green:s=64x64:r=30:d=5",
+      "-f", "lavfi", "-i", "color=c=blue:s=64x64:r=30:d=5",
+      "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0,format=yuv420p[v]",
+      "-map", "[v]", "-c:v", "libvpx-vp9", "-an", join(root, fixture.video.path),
+    ]);
+    const bytes = await readFile(join(root, fixture.video.path));
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
     evidence.candidate.clip.sha256 = sha256(bytes);
     evidence.ai_binary_gameplay.video.sha256 = sha256(bytes);
@@ -526,6 +564,22 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
   });
 
+  it("rejects the canonical description even when a prefix is added", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const reviewPath = join(root, fixture.reviews[0].path);
+    const review = JSON.parse(await readFile(reviewPath, "utf8"));
+    review.plain_description = "動画では、小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム";
+    const text = `${JSON.stringify(review, null, 2)}\n`;
+    await writeFile(reviewPath, text, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.ai_binary_gameplay.reviews[0].sha256 = sha256(text);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
   it("rejects negative timing and missing semantic telemetry bounds", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -534,6 +588,8 @@ describe("evidence-driven Research Pack", () => {
     telemetry.max_still_frame_ms = -1;
     telemetry.input_response_ms = -1;
     telemetry.ring_probe.after_area_px2 = telemetry.ring_probe.before_area_px2 * 3;
+    telemetry.ring_probe.completed_at_ms = telemetry.ring_probe.started_at_ms + 10000;
+    telemetry.steer_probe.response_x_px = telemetry.steer_probe.start_x_px + 5;
     telemetry.steer_probe.end_x_px = telemetry.steer_probe.start_x_px + telemetry.steer_probe.viewport_width_px * 0.05;
     const text = `${JSON.stringify(telemetry, null, 2)}\n`;
     await writeFile(telemetryPath, text, "utf8");
@@ -545,12 +601,56 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_TELEMETRY");
   });
 
+  it("rejects a one-sample distance trace for a multi-frame video", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const telemetryPath = join(root, fixture.telemetry.path);
+    const telemetry = JSON.parse(await readFile(telemetryPath, "utf8"));
+    telemetry.frame_count = 1;
+    telemetry.distance_trace = [{ frame: 0, at_ms: 0, distance_mm: 0 }];
+    const text = `${JSON.stringify(telemetry, null, 2)}\n`;
+    await writeFile(telemetryPath, text, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.ai_binary_gameplay.telemetry.sha256 = sha256(text);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_TELEMETRY");
+  });
+
+  it("rejects a reversed semantic Event ledger", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const ledgerPath = join(root, evidence.ai_binary_gameplay.event_ledger.path);
+    const ledger = JSON.parse(await readFile(ledgerPath, "utf8"));
+    ledger.events = [
+      { event_class: "node_pulse", at_ms: 4000 },
+      { event_class: "rock_avoid", at_ms: 8000 },
+      { event_class: "ring_success", at_ms: 11000 },
+      { event_class: "progress_update", at_ms: 14000 },
+    ];
+    const text = `${JSON.stringify(ledger, null, 2)}\n`;
+    await writeFile(ledgerPath, text, "utf8");
+    evidence.ai_binary_gameplay.event_ledger.sha256 = sha256(text);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EVENT_LEDGER");
+  });
+
   it("rejects a shape-only remediation map", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
     const remediationPath = join(root, fixture.remediation.path);
     const remediation = JSON.parse(await readFile(remediationPath, "utf8"));
-    remediation.remediation_map = { motion: "x", player: "y", objective: "z", pulse: "q", progress: "r" };
+    remediation.remediation_map = {
+      motion: "x".repeat(24),
+      player: "y".repeat(24),
+      objective: "z".repeat(24),
+      pulse: "q".repeat(24),
+      progress: "r".repeat(24),
+    };
     const text = `${JSON.stringify(remediation, null, 2)}\n`;
     await writeFile(remediationPath, text, "utf8");
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
@@ -599,6 +699,45 @@ describe("evidence-driven Research Pack", () => {
     expect(human.status).toBe(1);
     expect(JSON.parse(human.stdout).issues.map((entry: { code: string }) => entry.code)).toEqual(expect.arrayContaining(["COMPLETE_GATE", "HUMAN_GATE"]));
   }, 15_000);
+
+  it("rejects a research-only closure whose bound independent review is a rejection", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const reviewPath = join(root, ".quality-gates/QX-R4-R01/independent-review-round4.md");
+    const reviewText = "# Synthetic review\n\nVerdict: REJECT — research stage only\nScore: 0/32\nReviewer severities: S0 0, S1 0, S2 1, S3 0\n";
+    await writeFile(reviewPath, reviewText, "utf8");
+    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+    const closure = JSON.parse(await readFile(closurePath, "utf8"));
+    closure.independent_review.sha256 = sha256(reviewText);
+    const closureText = `${JSON.stringify(closure, null, 2)}\n`;
+    await writeFile(closurePath, closureText, "utf8");
+    const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    evidence.research_only_ai_closure.sha256 = sha256(closureText);
+    await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
+  it("does not allow an R5 task to use the R01-only migration exception", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    await rename(join(root, "docs/research/QX-R4-R01"), join(root, "docs/research/QX-R5-003"));
+    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+    const closure = JSON.parse(await readFile(closurePath, "utf8"));
+    closure.task_id = "QX-R5-003";
+    const closureText = `${JSON.stringify(closure, null, 2)}\n`;
+    await writeFile(closurePath, closureText, "utf8");
+    const evidencePath = join(root, "docs/research/QX-R5-003/evidence.json");
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    evidence.task_id = "QX-R5-003";
+    evidence.research_only_ai_closure.sha256 = sha256(closureText);
+    await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R5-003", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
 
   it("rejects a validation receipt recorded before its capture", async () => {
     const root = await makeRoot();
