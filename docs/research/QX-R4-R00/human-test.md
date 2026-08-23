@@ -23,7 +23,12 @@ Blind labels: not applicable to a process-only foundation task
 
 Status: not applicable to QX-R4-R00 process-only acceptance. Future Graphics, Shape, Gameplay, and UX packs must preserve participant label, cohort, timestamps, pointer trace when collected, exact free-form answer, and binary result.
 
+| Participant | Cohort | StartedAt | CompletedAt | Exact free-form answer | BinaryResult | TraceArtifact |
+| --- | --- | --- | --- | --- | --- | --- |
+
 ## Human owner decision
 
+Owner: not applicable to this process-only task
 Decision: not applicable to QX-R4-R00. This file is a validated sample; it cannot be reused as a Human pass for another task.
+Evidence: none; the R4 Human Gate remains pending
 Reason: R00 changes no player-facing behavior. R4 Human gates remain pending.

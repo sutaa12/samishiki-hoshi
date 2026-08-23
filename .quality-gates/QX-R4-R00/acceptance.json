@@ -30,7 +30,7 @@
       "command": "npm run test:research",
       "exit_code": 0,
       "result": "passed",
-      "observations": "8/8 research-pack tests passed, including empty, community-only, valid sample, unknown license, baseline SHA, rollback, completion-evidence, and overwrite protection cases."
+      "observations": "11/11 research-pack tests passed, including empty, community-only, valid sample, unknown license, baseline SHA, rollback, completion-evidence, overwrite protection, forged human completion, moving/duplicate sources, and reusable SHA-256 binding cases."
     },
     {
       "command": "node scripts/validate-research-pack.mjs QX-R4-R00",
@@ -48,7 +48,7 @@
       "command": "npm run verify",
       "exit_code": 0,
       "result": "passed",
-      "observations": "Typecheck, lint, 96/96 suites and 788/788 tests, and Production build passed."
+      "observations": "Typecheck, lint, 96/96 suites and 791/791 tests, and Production build passed."
     },
     {
       "command": "Playwright selected Production regression: production-v2, rail-camera-phase-continuity, rail-flight, desktop project",
@@ -60,7 +60,7 @@
   "artifacts": {
     "vitest_report": {
       "path": ".quality-gates/qx-r4-r00-vitest-accepted.json",
-      "sha256": "d93408f4c766404c84aa7cc2bf0a2dd902440cde698bb1ebbc8a316726f1fdb8"
+      "sha256": "613b51fa5100a6522581adb5468bcd13f8abc4ad3fa22643dd70f08621f29821"
     },
     "production_report": {
       "path": ".quality-gates/qx-r4-r00-production-regression-accepted.json",
@@ -99,12 +99,14 @@
     "css_file_count": 14,
     "gameplay_hash_baseline": "1d537378",
     "full_dist_note": "The complete Vinext dist is not byte-identical because generated BUILD_ID and framework chunk identifiers are nondeterministic. Acceptance therefore binds exact runtime-source scope plus normalized client-asset and CSS manifests, while preserving the actual candidate dist digest separately.",
-    "subject_build_sha256": "0a57fa79d2f6ea09056d72ba2670f39cd779c0b98e2b1ddaca4c05a439766e45"
+    "subject_build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
+    "subject_build_artifact": ".quality-gates/QX-R4-R00/production-stable-assets.sha256",
+    "subject_build_hash_procedure": "SHA-256 of the committed sorted Production CSS and client asset manifest, whose entries are exact at baseline and candidate."
   },
   "diagnostics": {
     "legacy_journey_test": "The isolated test expecting data-webgl=true fails with data-webgl=false at both baseline and candidate. It is preserved as a historical diagnostic and is not counted as a candidate regression."
   },
-  "severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
+  "severity_counts": {"S0": 0, "S1": 0, "S2": 3, "S3": 0},
   "known_limitations": [
     "This process-only task is not a human gameplay acceptance.",
     "R4 player-facing Human Gate, rights, Main merge, and replacement Sites deployment remain frozen."
@@ -115,7 +117,10 @@
     "instructions": "Create a revert commit for QX-R4-R00 or resume from the rollback commit; do not rewrite shared history."
   },
   "independent_review": {
-    "status": "pending",
-    "artifact": ".quality-gates/QX-R4-R00/independent-review.md"
+    "status": "remediation-review-pending",
+    "rounds": [
+      {"round": 1, "verdict": "rejected", "artifact": ".quality-gates/QX-R4-R00/independent-review-round1.md", "open_s2": 3},
+      {"round": 2, "verdict": "pending", "artifact": ".quality-gates/QX-R4-R00/independent-review-round2.md"}
+    ]
   }
 }

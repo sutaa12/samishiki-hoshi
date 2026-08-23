@@ -23,9 +23,15 @@ Blind labels: Current={{CURRENT_LABEL}}, Candidate={{CANDIDATE_LABEL}}
 
 Status: pending
 
-Preserve participant label, cohort, timestamps, cursor/pointer trace when collected, exact free-form answer, and binary result. Never replace a negative answer with an AI interpretation or an average score.
+| Participant | Cohort | StartedAt | CompletedAt | Exact free-form answer | BinaryResult | TraceArtifact |
+| --- | --- | --- | --- | --- | --- | --- |
+| {{PARTICIPANT_LABEL}} | {{COHORT}} | {{STARTED_AT}} | {{COMPLETED_AT}} | {{FREE_ANSWER}} | {{PASS_OR_FAIL}} | {{TRACE_ARTIFACT}} |
+
+Preserve participant label, cohort, timestamps, cursor/pointer trace, exact free-form answer, and binary result. Never replace a negative answer with an AI interpretation or an average score.
 
 ## Human owner decision
 
+Owner: {{HUMAN_OWNER_ROLE}}
 Decision: pending
+Evidence: {{HUMAN_OWNER_EVIDENCE}}
 Reason: {{HUMAN_DECISION_REASON}}

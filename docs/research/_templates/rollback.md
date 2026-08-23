@@ -15,5 +15,6 @@ Use a new revert commit or restore the prior accepted branch/Sites version. Do n
 ## Verification
 
 - Expected gameplay hash: {{GAMEPLAY_HASH}}
-- Expected Production build digest: {{PRODUCTION_BUILD_DIGEST}}
+- Expected source archive SHA-256: {{ROLLBACK_SOURCE_SHA256}}
+- Expected Production build SHA-256: {{ROLLBACK_BUILD_SHA256}}
 - Expected Sites rollback version, when applicable: {{SITES_ROLLBACK_VERSION}}

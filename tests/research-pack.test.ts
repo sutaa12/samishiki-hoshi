@@ -95,6 +95,64 @@ describe("evidence-driven Research Pack", () => {
     );
   });
 
+  it("rejects forged completion flags without structured raw answers or owner evidence", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const path = join(root, "docs/research/QX-R4-R00/evidence.json");
+    const evidence = JSON.parse(await readFile(path, "utf8")) as {
+      human: { status: string; raw_answer_count: number; owner_decision: string; owner_evidence: string | null };
+      gates: { complete: string };
+    };
+    evidence.human.status = "passed";
+    evidence.human.raw_answer_count = 1;
+    evidence.human.owner_decision = "pass";
+    evidence.human.owner_evidence = "human-test.md";
+    evidence.gates.complete = "passed";
+    await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const humanPath = join(root, "docs/research/QX-R4-R00/human-test.md");
+    const human = (await readFile(humanPath, "utf8"))
+      .replace("Owner: not applicable to this process-only task", "Owner: Human Acceptance Owner")
+      .replace("Decision: not applicable to QX-R4-R00. This file is a validated sample; it cannot be reused as a Human pass for another task.", "Decision: pass");
+    await writeFile(humanPath, human, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["HUMAN_RAW"]));
+  });
+
+  it("rejects moving GitHub labels and duplicate or unofficial comparables", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const referencesPath = join(root, "docs/research/QX-R4-R00/references.csv");
+    await writeFile(referencesPath, (await readFile(referencesPath, "utf8")).replace("v8.17.1,MIT", "latest,MIT"), "utf8");
+    const scorecardPath = join(root, "docs/research/QX-R4-R00/library-scorecard.md");
+    await writeFile(scorecardPath, (await readFile(scorecardPath, "utf8")).replace("| v8.17.1 | MIT |", "| latest | MIT |"), "utf8");
+    const comparablePath = join(root, "docs/research/QX-R4-R00/comparable-games.csv");
+    const comparable = (await readFile(comparablePath, "utf8"))
+      .replace("ABZU,https://www.playstation.com/en-cz/games/abzu/,Official", "Journey,https://www.playstation.com/en-gb/games/journey/,Community");
+    await writeFile(comparablePath, comparable, "utf8");
+    const result = runValidator(root, "QX-R4-R00");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["GITHUB_PIN", "LIBRARY_PIN", "COMPARABLE_OFFICIAL", "COMPARABLE_DISTINCT"]));
+  });
+
+  it("requires reusable source, build, and rollback SHA-256 bindings", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const path = join(root, "docs/research/QX-R4-R00/evidence.json");
+    const evidence = JSON.parse(await readFile(path, "utf8")) as {
+      baseline: { source_sha256?: string; build_sha256?: string };
+      rollback: { source_sha256?: string; build_sha256?: string };
+    };
+    delete evidence.baseline.source_sha256;
+    delete evidence.baseline.build_sha256;
+    delete evidence.rollback.source_sha256;
+    delete evidence.rollback.build_sha256;
+    await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["BASELINE_SHA256", "ROLLBACK_SHA256"]));
+  });
+
   it("fails an unknown library license", async () => {
     const root = await makeRoot();
     await copySample(root);

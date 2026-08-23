@@ -28,7 +28,7 @@ The initializer refuses to overwrite an existing pack. Fix evidence rather than 
 4. Use Reddit, forums, and player reviews only to discover hypotheses. Corroborate every community observation with a stronger source and a local measurement.
 5. Capture the Current build under the exact device, viewport, backend, quality, camera, input, time, and exposure intended for the Candidate comparison.
 
-The standard minimum is two primary sources, two GitHub evidence items, three comparable games, six frames or timecodes, two community observations, one same-condition Current capture, and one rejected alternative. A large task requires five comparable games and twelve frames or timecodes.
+The standard minimum is two distinct primary sources, two distinct GitHub evidence items pinned to a semantic version or full commit, three distinct comparable games from HTTPS official sources, six distinct official frames or timecodes, two distinct community observations, one same-condition Current capture, and one rejected alternative. A large task requires five comparable games and twelve frames or timecodes. Moving labels such as `latest`, `main`, and `master`, duplicate rows, or self-declared non-official comparable sources fail validation.
 
 Generate separate queries rather than blending evidence classes:
 
@@ -83,6 +83,6 @@ Bind screenshots, clips, input traces, frame/load/memory measurements, raw human
 npm run research:validate -- <task-id> --stage complete
 ```
 
-Completion requires numeric hard gates, no performance/load/memory regression, a human decision supported by raw answers, and a rollback commit. Human Reject remains final for that candidate; begin a new Research iteration rather than averaging it away or replacing it with AI review.
+Completion requires numeric hard gates with existing evidence artifacts; numeric before/after load, frame, and memory payloads; no regression; timestamped raw human-answer rows with existing trace artifacts; a separate owner decision artifact; and a rollback commit. The validator recomputes the exact Git archive SHA-256 and hashes the persisted build artifact instead of trusting `passed` flags or copied digests. Human Reject remains final for that candidate; begin a new Research iteration rather than averaging it away or replacing it with AI review. Local receipt shape validation does not replace the responsible human or an external trust root.
 
 Templates live in `docs/research/_templates/`: `research-card.md`, `references.csv`, `comparable-games.csv`, `frame-analysis.csv`, `library-scorecard.md`, `current-baseline.md`, `decision.md`, `rollback.md`, `ablation.md`, `human-test.md`, and `evidence.json`. Third-party video remains URL/timecode-only unless explicit reuse rights are recorded. Keep local automation, human acceptance, rights, reference hardware, Main integration, Sites deployment, and contest submission as separate gates.

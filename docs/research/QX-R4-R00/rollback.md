@@ -15,5 +15,6 @@ Create a new revert commit for the QX-R4-R00 implementation or resume from `0a63
 ## Verification
 
 - Expected gameplay hash: `1d537378`
-- Expected Production build archive SHA-256: `605e45b3a8f434f3f99446944dc3828712eec976c40f98fee3792a030b293257`
+- Expected source archive SHA-256: 29c6dafed74c63c7fb03bcd5099c88830cd52742770b983252c2d46e204024eb
+- Expected Production build SHA-256: 03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25
 - Expected Sites rollback version: version 2 remains the current public human-test candidate; R00 must not deploy a replacement.

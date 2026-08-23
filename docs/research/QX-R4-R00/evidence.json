@@ -7,11 +7,18 @@
     "source_commit": "acb0687c7c226a6f0bcc07bbb47e3ec4064636cf",
     "source_tree": "9ff5155f7b6cf9c05d0a7c3e271fba3f10351c97",
     "source_sha256": "723851ea77cc339fdb462c187d932cae4c3b5188ab6cda2f82184e42fa83c82b",
+    "build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
+    "build_artifact": ".quality-gates/QX-R4-R00/production-stable-assets.sha256",
+    "build_hash_procedure": "SHA-256 of the sorted, repository-persisted Production CSS and client asset manifest; the manifest entries are identical at baseline and candidate.",
     "branch": "codex/qx-r4-r00-evidence-protocol",
     "worktree": "/Users/snari/Documents/GitProject/LonelyStar-qx-r4-r00"
   },
   "baseline": {
     "source_commit": "0a63c462557aad29f947a88460b0380538782d53",
+    "source_sha256": "29c6dafed74c63c7fb03bcd5099c88830cd52742770b983252c2d46e204024eb",
+    "build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
+    "build_artifact": ".quality-gates/QX-R4-R00/production-stable-assets.sha256",
+    "build_hash_procedure": "SHA-256 of the sorted, repository-persisted Production CSS and client asset manifest; the manifest entries are identical at baseline and candidate.",
     "screenshot": ".quality-gates/screenshots/qx-r3-006-moving-master-start.png",
     "clip": ".quality-gates/qx-r3-006-moving-master-12s.webm",
     "metrics": ".quality-gates/qx-r3-006-playwright-o2-accepted.json",
@@ -35,24 +42,28 @@
   "metrics": {
     "status": "passed",
     "performance_no_regression": true,
-    "load": "Runtime dependency map is unchanged and the package lock is byte-identical to the accepted baseline.",
-    "frame": "No runtime source changed; 9/9 selected Production browser checks and 788/788 Vitest checks passed.",
-    "memory": "No runtime ownership path changed; client assets and CSS match the accepted baseline by normalized SHA-256 manifest."
+    "load": {"baseline": 0, "candidate": 0, "unit": "runtime dependency changes", "regression": false, "evidence": ".quality-gates/QX-R4-R00/acceptance.json", "observation": "Dependency map and package lock are unchanged."},
+    "frame": {"baseline": 0, "candidate": 0, "unit": "runtime source changes", "regression": false, "evidence": ".quality-gates/qx-r4-r00-production-regression-accepted.json", "observation": "No runtime source changed and 9/9 selected Production checks passed."},
+    "memory": {"baseline": 0, "candidate": 0, "unit": "runtime ownership-path changes", "regression": false, "evidence": ".quality-gates/QX-R4-R00/production-stable-assets.sha256", "observation": "No runtime ownership path changed; stable Production asset manifest matches baseline."}
   },
   "human": {
     "status": "not-applicable-process-only",
     "raw_answer_count": 0,
     "owner_decision": "not-applicable",
-    "raw_answers": "human-test.md"
+    "raw_answers": "human-test.md",
+    "owner_evidence": null
   },
   "rollback": {
     "commit": "0a63c462557aad29f947a88460b0380538782d53",
+    "source_sha256": "29c6dafed74c63c7fb03bcd5099c88830cd52742770b983252c2d46e204024eb",
+    "build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
+    "artifact": "rollback.md",
     "condition": "Any false pass, missing evidence class, gameplay hash drift, or Production build drift.",
     "instructions": "rollback.md"
   },
   "gates": {
     "research": "passed",
-    "r00_explicit_acceptance": "independent-review-pending",
+    "r00_explicit_acceptance": "remediation-review-pending",
     "complete": "pending"
   },
   "artifacts": {

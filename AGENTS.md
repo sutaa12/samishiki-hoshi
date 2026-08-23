@@ -16,13 +16,13 @@ This repository implements the Notion-defined game `さみしき星のまたた�
 Before changing graphics, geometry, camera, controls, onboarding, feedback, or adding a third-party library:
 
 1. Create `docs/research/<task-id>/research-card.md` with `npm run research:init -- <task-id>`.
-2. Use at least two primary sources, two maintained GitHub evidence items, three comparable games, six annotated frames or timecodes, and two community observations. Large tasks require five comparable games and twelve frames or timecodes.
+2. Use at least two distinct primary sources, two distinct maintained GitHub items pinned to semantic versions or full commits, three distinct comparable games from official HTTPS sources, six distinct official frames or timecodes, and two distinct community observations. Large tasks require five comparable games and twelve frames or timecodes.
 3. Separate observed facts, inference, and testable hypotheses in every evidence record.
 4. Record license, locked version or commit, load/frame/memory cost, fallback, and rollback for every library candidate.
 5. Implement one hypothesis in an isolated worktree or behind a feature flag. Do not combine unrelated visual, camera, speed, and post-effect hypotheses in one spike.
 6. Compare Current and Candidate under the same camera, input, device, viewport, exposure, backend, and quality.
 7. Run `npm run research:validate -- <task-id>` before implementation and `npm run research:validate -- <task-id> --stage complete` before claiming completion.
-8. Do not mark the task complete without measurable improvement, a committed Evidence Pack, and raw human evidence bound to the same source SHA.
+8. Do not mark the task complete without measurable improvement, a committed Evidence Pack, recomputed source/build SHA-256 bindings, numeric metric payloads, timestamped raw human rows and trace artifacts, and a responsible-owner decision artifact bound to the same candidate.
 9. Reddit, forum posts, AI vision, automated screenshots, object counts, effect counts, and test pass counts cannot override a Human Reject.
 
 External video frames may be inspected only in the minimum amount needed for analysis. Store third-party URLs and timecodes, not redistributed media, unless the repository has explicit reuse rights.
