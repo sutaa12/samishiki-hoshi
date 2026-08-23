@@ -346,7 +346,7 @@ function hasMalformedHumanProvenanceId(value) {
 function isPositiveClaimScalar(candidate) {
   if (candidate === true || (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0)) return true;
   const normalized = normalizedDescription(candidate);
-  return /^(?:true|yes|on|[1-9]\d*|pass|passed|approve|approved|accept|accepted|grant|granted|ready|complete|completed|done|ok|success|successful|succeeded)$/.test(normalized);
+  return /^(?:true|yes|on|[1-9]\d*|pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|ok|success|successful|succeeded)$/.test(normalized);
 }
 
 function hasPositiveResultClaim(value) {
@@ -382,51 +382,65 @@ function hasAiBinaryExternalPassClaim(value) {
     if (typeof candidate !== "string") return false;
     const compact = securityFingerprint(normalizedDescription(candidate));
     return externalKey.test(compact)
-      && /(?:pass|passed|approve|approved|accept|accepted|grant|granted|ready|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
-      && !/(?:not|never|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,24})(?:pass|passed|approve|approved|accept|accepted|grant|granted|ready|complete|completed|done|success|successful|succeeded)/.test(compact);
+      && /(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
+      && !/(?:not|never|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,24})(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|success|successful|succeeded)/.test(compact);
   };
-  const visit = (current, inheritedExternal = false, depth = 0) => {
+  const visit = (current, inheritedExternal = false, depth = 0, keyTrail = "") => {
     if (!current || typeof current !== "object") return false;
     const objectExternal = inheritedExternal || declaresHumanContext(current);
     return Object.entries(current).some(([key, child]) => {
       if (depth === 0 && key === "baseline") return false;
-      const scoped = objectExternal || externalKey.test(descriptionFingerprint(key));
+      const normalizedKey = descriptionFingerprint(key);
+      const nextKeyTrail = `${keyTrail}${normalizedKey}`;
+      const scoped = objectExternal || externalKey.test(normalizedKey) || externalKey.test(nextKeyTrail);
       if (scoped && isPositiveClaimScalar(child)) return true;
       if (containsExternalPassProse(child)) return true;
-      return child && typeof child === "object" ? visit(child, scoped, depth + 1) : false;
+      return child && typeof child === "object" ? visit(child, scoped, depth + 1, nextKeyTrail) : false;
     });
   };
   return visit(value);
 }
 
-function hasMalformedHumanResult(value) {
+function hasMalformedExternalResult(value) {
+  const externalKey = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
   const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict)$/;
   const validScalar = (candidate) => typeof candidate === "boolean"
     || (typeof candidate === "number" && Number.isFinite(candidate))
     || (typeof candidate === "string" && descriptionFingerprint(candidate).length > 0);
-  const visit = (current, inheritedHumanContext = false, depth = 0) => {
+  const visit = (current, inheritedExternalContext = false, depth = 0, keyTrail = "") => {
     if (!current || typeof current !== "object") return false;
-    const labeledHuman = inheritedHumanContext || declaresHumanContext(current);
+    const labeledExternal = inheritedExternalContext || declaresHumanContext(current);
     return Object.entries(current).some(([key, child]) => {
       if (depth === 0 && key === "baseline") return false;
       const normalizedKey = descriptionFingerprint(key);
-      const childHumanContext = labeledHuman || normalizedKey.includes("human");
-      if (childHumanContext && resultKey.test(normalizedKey) && !validScalar(child)) return true;
-      return child && typeof child === "object" ? visit(child, childHumanContext, depth + 1) : false;
+      const nextKeyTrail = `${keyTrail}${normalizedKey}`;
+      const childExternalContext = labeledExternal || externalKey.test(normalizedKey) || externalKey.test(nextKeyTrail);
+      if (childExternalContext && resultKey.test(normalizedKey) && !validScalar(child)) return true;
+      return child && typeof child === "object" ? visit(child, childExternalContext, depth + 1, nextKeyTrail) : false;
     });
   };
   return visit(value);
 }
 
-function hasHumanRejectAnywhere(value) {
+function hasHumanRejectAnywhere(value, skipHistoricalBaseline = false) {
+  const joinedStrings = (current) => {
+    const strings = [];
+    const collect = (child) => {
+      if (typeof child === "string") strings.push(child);
+      else if (Array.isArray(child)) child.forEach(collect);
+      else if (child && typeof child === "object") Object.values(child).forEach(collect);
+    };
+    collect(current);
+    return strings.join("");
+  };
   const visit = (current, inheritedHumanContext = false, depth = 0) => {
     if (!current || typeof current !== "object") return false;
     const entries = Object.entries(current);
     const labeledHuman = inheritedHumanContext || declaresHumanContext(current);
-    if (labeledHuman && hasHumanReject(current)) return true;
+    if (labeledHuman && (hasHumanReject(current) || containsHumanFailureText(joinedStrings(current)))) return true;
     return entries.some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
-      if (depth === 0 && key === "baseline") return false;
+      if (skipHistoricalBaseline && depth === 0 && key === "baseline") return false;
       const childHumanContext = labeledHuman || normalizedKey.includes("human");
       if (child && typeof child === "object") return visit(child, childHumanContext, depth + 1);
       return childHumanContext && hasHumanReject({ [key]: child });
@@ -435,7 +449,7 @@ function hasHumanRejectAnywhere(value) {
   return visit(value);
 }
 
-function humanArtifactReferences(value) {
+function humanArtifactReferences(value, skipHistoricalBaseline = false) {
   const references = [];
   const invalid = [];
   const visit = (current, inheritedHumanContext = false, depth = 0) => {
@@ -449,7 +463,7 @@ function humanArtifactReferences(value) {
     }
     for (const [key, child] of entries) {
       const normalizedKey = descriptionFingerprint(key);
-      if (depth === 0 && key === "baseline") continue;
+      if (skipHistoricalBaseline && depth === 0 && key === "baseline") continue;
       if (child && typeof child === "object") visit(child, labeledHuman || normalizedKey.includes("human"), depth + 1);
     }
   };
@@ -911,6 +925,18 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     || closure.production_improvement_claimed !== false
     || closure.human_gate_required !== false
     || !Number.isFinite(Date.parse(closure.recorded_at ?? ""))
+    || !meaningful(closure.issuer)
+    || !meaningful(closure.policy_source)
+    || !meaningful(closure.withdrawn_gate)
+    || !meaningful(closure.retained_boundary)
+    || !meaningful(closure.rollback_condition)
+    || hasAiBinaryExternalPassClaim({
+      withdrawn_gate: closure.withdrawn_gate,
+      issuer: closure.issuer,
+      policy_source: closure.policy_source,
+      rollback_condition: closure.rollback_condition,
+    })
+    || hasMalformedExternalResult(closure)
     || closure.baseline_source_commit !== evidence.baseline?.source_commit
     || closure.baseline_source_sha256 !== evidence.baseline?.source_sha256
     || closure.baseline_build_sha256 !== evidence.baseline?.build_sha256
@@ -1141,6 +1167,7 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
   const directory = resolve(root, "docs/research", taskId);
   const issues = [];
   const files = new Map();
+  const packArtifacts = [];
 
   if (acceptance === "ai-binary" && taskId !== "QX-R4-R01" && !/^QX-R5-00[1-7]$/.test(taskId)) {
     issues.push(issue("AI_ACCEPTANCE_SCOPE", "AI Binary acceptance is restricted to QX-R5-001 through QX-R5-007, plus the dedicated QX-R4-R01 research-only migration.", "evidence.json"));
@@ -1156,6 +1183,7 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     }
     try {
       const fileText = await readFile(artifact.path, "utf8");
+      packArtifacts.push(artifact);
       files.set(file, fileText);
       if (!fileText.trim()) issues.push(issue("EMPTY_FILE", `${file} is empty.`, file));
     } catch {
@@ -1166,7 +1194,10 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const optionalHuman = await regularArtifact(root, directory, "human-test.md");
     if (optionalHuman.ok) {
       const optionalHumanText = await readFile(optionalHuman.path, "utf8");
-      if (optionalHumanText.trim()) files.set("human-test.md", optionalHumanText);
+      if (optionalHumanText.trim()) {
+        packArtifacts.push(optionalHuman);
+        files.set("human-test.md", optionalHumanText);
+      }
     } else if (!/ENOENT|no such file/i.test(optionalHuman.reason ?? "")) {
       issues.push(issue("PACK_FILE_TYPE", "Optional human-test.md must be a repository-contained regular non-symlink file when present.", "human-test.md"));
     }
@@ -1338,6 +1369,7 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
   }
   if (!files.get("decision.md").includes("Rejected:")) issues.push(issue("DECISION_REJECT", "decision.md must preserve a rejected option and reason.", "decision.md"));
   if (!new RegExp(`Rollback commit:\\s*${evidence.rollback?.commit ?? "invalid"}`).test(files.get("rollback.md"))) issues.push(issue("ROLLBACK_FILE", "rollback.md must bind the exact evidence rollback and baseline commit.", "rollback.md"));
+  if (evidence.rollback?.artifact !== "rollback.md" || evidence.rollback?.instructions !== "rollback.md") issues.push(issue("ROLLBACK_ARTIFACT", "Rollback artifact and instructions must resolve to the required regular pack file rollback.md; alternate or bare alias paths are not accepted.", "evidence.json"));
   if (!new RegExp(`Expected source archive SHA-256:\\s*${evidence.rollback?.source_sha256 ?? "invalid"}`).test(files.get("rollback.md")) || !new RegExp(`Expected Production build SHA-256:\\s*${evidence.rollback?.build_sha256 ?? "invalid"}`).test(files.get("rollback.md"))) {
     issues.push(issue("ROLLBACK_FILE_SHA256", "rollback.md must match the rollback source and build SHA-256 values.", "rollback.md"));
   }
@@ -1347,6 +1379,7 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
   if (!files.get("current-baseline.md").includes(`Source commit: ${evidence.source_commit}`)) issues.push(issue("BASELINE_FILE_BINDING", "current-baseline.md must bind the evidence.json source commit.", "current-baseline.md"));
 
   if (stage === "complete") {
+    const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";
     const optionalHumanText = files.get("human-test.md") ?? "";
     const artifactReferences = allArtifactReferences(evidence);
     const artifactStates = await Promise.all(artifactReferences.map(async (reference) => ({
@@ -1354,16 +1387,16 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
       artifact: await regularArtifact(root, directory, reference.path),
     })));
     const pathsByIdentity = new Map();
-    for (const state of artifactStates) {
-      if (!state.artifact.ok) continue;
-      const paths = pathsByIdentity.get(state.artifact.identity) ?? new Set();
-      paths.add(state.artifact.path);
-      pathsByIdentity.set(state.artifact.identity, paths);
+    for (const artifact of [...packArtifacts, ...artifactStates.map((state) => state.artifact)]) {
+      if (!artifact.ok) continue;
+      const paths = pathsByIdentity.get(artifact.identity) ?? new Set();
+      paths.add(artifact.path);
+      pathsByIdentity.set(artifact.identity, paths);
     }
     if ([...pathsByIdentity.values()].some((paths) => paths.size > 1)) {
       issues.push(issue("ARTIFACT_IDENTITY_REUSE", "Referenced evidence artifacts must not use different paths or hard links for the same physical file identity.", "evidence.json"));
     }
-    const humanArtifacts = humanArtifactReferences(evidence);
+    const humanArtifacts = humanArtifactReferences(evidence, researchOnlyAiClosure);
     const referencedHumanStates = await Promise.all(humanArtifacts.references.map(async (reference) => {
       const artifact = await regularArtifact(root, directory, reference.path);
       const valid = artifact.ok && artifact.sha256 === reference.sha256;
@@ -1391,21 +1424,20 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     if (hasMalformedHumanProvenanceId(evidence)) {
       issues.push(issue("HUMAN_PROVENANCE_ID", "Human participant, tester, and evaluator IDs must be nonempty strings or nonnegative integers; malformed provenance fails closed.", "evidence.json"));
     }
-    if (hasMalformedHumanResult(evidence)) {
-      issues.push(issue("HUMAN_RESULT_METADATA", "Human result, status, outcome, decision, verdict, and pass metadata must be meaningful scalar values; malformed metadata fails closed.", "evidence.json"));
+    if (hasMalformedExternalResult(evidence)) {
+      issues.push(issue("EXTERNAL_RESULT_METADATA", "Human, Owner, Legal, Main, Sites, Contest, submission, and release result metadata must use meaningful scalar values; malformed metadata fails closed.", "evidence.json"));
     }
     if (acceptance === "ai-binary" && (hasAiBinaryExternalPassClaim(evidence)
       || containsHumanPassArtifact(optionalHumanText, "human-test.md")
       || referencedHumanTexts.some((text, index) => containsHumanPassArtifact(text, humanArtifacts.references[index]?.path)))) {
       issues.push(issue("AI_EXTERNAL_GATE_CLAIM", "AI Binary evidence cannot claim Human, Owner, Legal, Main, Sites, Contest, submission, or release readiness as passed.", "evidence.json"));
     }
-    if (hasHumanRejectAnywhere(evidence)
+    if (hasHumanRejectAnywhere(evidence, researchOnlyAiClosure)
       || containsHumanFailureArtifact(optionalHumanText, "human-test.md")
       || /\bHUMAN_REJECT\b/i.test(optionalHumanText)
       || referencedHumanTexts.some((text, index) => containsHumanFailureArtifact(text, humanArtifacts.references[index]?.path))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject blocks both acceptance modes, including digest-bound Human-labeled evidence outside the canonical Human file.", "human-test.md"));
     }
-    const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";
     if (researchOnlyAiClosure) {
       await validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues);
     } else {

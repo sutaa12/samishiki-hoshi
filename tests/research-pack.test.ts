@@ -824,6 +824,28 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
   });
 
+  it("rejects fragmented Human rejection text", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.human = { notes: ["re", "jected"] };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it("rejects a preserved baseline Human rejection for R5 candidates", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.baseline.human = { status: "rejected" };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
   it("rejects a malformed Human-labeled artifact reference", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -958,6 +980,22 @@ describe("evidence-driven Research Pack", () => {
     const receiptText = `${JSON.stringify(receipt, null, 2)}\n`;
     await writeFile(receiptPath, receiptText, "utf8");
     evidence.candidate.capture_receipt.sha256 = sha256(receiptText);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_IDENTITY_REUSE");
+  });
+
+  it("rejects a required rollback file hard-linked to referenced evidence", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const rollbackPath = join(fixture.pack, "rollback.md");
+    const rollbackText = await readFile(rollbackPath, "utf8");
+    const screenshotPath = join(root, evidence.baseline.screenshot.path);
+    await rm(screenshotPath);
+    await link(rollbackPath, screenshotPath);
+    evidence.baseline.screenshot.sha256 = sha256(rollbackText);
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
@@ -1402,6 +1440,8 @@ describe("evidence-driven Research Pack", () => {
     ["neutral-key Human release prose", { audit_note: "Human release status: passed" }],
     ["granted Human decision", { human: { decision: "granted" } }],
     ["positive numeric Human claim", { human: { passed: 2 } }],
+    ["external publication lifecycle claims", { legal: { status: "cleared" }, main: { status: "merged" }, sites: { status: "published" }, contest: { status: "submitted" }, release: { status: "shipped" } }],
+    ["split Human key claim", { hu: { man: { status: "passed" } } }],
   ])("rejects %s in AI Binary evidence", async (_label, claim) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1421,7 +1461,18 @@ describe("evidence-driven Research Pack", () => {
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
-    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_RESULT_METADATA");
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("EXTERNAL_RESULT_METADATA");
+  });
+
+  it("rejects malformed non-Human external result metadata", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.owner = { decision: null };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("EXTERNAL_RESULT_METADATA");
   });
 
   it.each([
@@ -1784,6 +1835,21 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
   });
 
+  it("rejects malformed or externally contradictory R01 closure metadata", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+    const closure = JSON.parse(await readFile(closurePath, "utf8"));
+    closure.withdrawn_gate = "Human acceptance complete; Legal cleared; Main merged; Sites published; Contest submitted; release shipped.";
+    closure.issuer = "";
+    closure.policy_source = "";
+    closure.rollback_condition = "";
+    await bindR01Closure(root, closure);
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
   it("rejects an R01 build archive that does not reproduce its manifest", async () => {
     const root = await makeRoot();
     await copyR01(root);
@@ -2113,7 +2179,7 @@ describe("evidence-driven Research Pack", () => {
     await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00");
     expect(result.status).toBe(1);
-    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["BASELINE_BUILD_BINDING", "ROLLBACK_SHA256"]));
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["BASELINE_BUILD_BINDING", "ROLLBACK_SHA256", "ROLLBACK_ARTIFACT"]));
   });
 
   it("rejects a symlinked required Research Pack file", async () => {
