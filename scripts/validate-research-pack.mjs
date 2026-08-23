@@ -137,6 +137,29 @@ function isOrderedSubsequence(needle, haystack) {
   return false;
 }
 
+function descriptionsAreNearDuplicates(values) {
+  const comparable = values.map((value) => securityFingerprint(
+    normalizedDescription(value)
+      .replace(/\b(?:a|an|the|small|tiny|little|water|shining|blue)\b/g, "")
+      .replace(/(?:この|小さな|ちいさな|青い|光る)/g, ""),
+  ));
+  const trigrams = (value) => new Set(Array.from({ length: Math.max(0, value.length - 2) }, (_, index) => value.slice(index, index + 3)));
+  for (let left = 0; left < comparable.length; left += 1) {
+    for (let right = left + 1; right < comparable.length; right += 1) {
+      const a = comparable[left];
+      const b = comparable[right];
+      if (!a || !b) return true;
+      if (a === b || (Math.min(a.length, b.length) >= 20 && (a.includes(b) || b.includes(a)))) return true;
+      const aTrigrams = trigrams(a);
+      const bTrigrams = trigrams(b);
+      const overlap = [...aTrigrams].filter((token) => bTrigrams.has(token)).length;
+      const union = new Set([...aTrigrams, ...bTrigrams]).size;
+      if (union > 0 && overlap / union >= 0.78) return true;
+    }
+  }
+  return false;
+}
+
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
   return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|disapprov(?:e|ed|ing|al)|withh(?:old|olds|olding|eld)|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
@@ -149,8 +172,10 @@ function containsHumanFailureText(value) {
     || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|hasnt|havent|couldnt|wouldnt|wont|cant|not)(?:a)?(?:pass|passes|passed|passing|accept|accepts|accepted|accepting|approve|approves|approved|approving|success|successful|succeed|succeeds|succeeded|succeeding|granted)/.test(compact)
     || /(?:didnot|doesnot|didnt|doesnt|not)(?:meet|satisfy|reach)(?:the)?(?:acceptance|criteria|criterion|standard|requirements?)/.test(compact)
     || /(?:acceptance|criteria|criterion|standard|requirements?)(?:(?:was|were|is|are)not|(?:wasnt|werent|isnt|arent))(?:met|satisfied|reached)/.test(compact)
+    || /(?:acceptance|criteria|criterion|standard|requirements?)(?:have|has|had)notbeen(?:met|satisfied|reached)/.test(compact)
+    || /(?:acceptance|criteria|criterion|standard|requirements?)(?:remain|remains|remained)unmet/.test(compact)
     || /notgranted/.test(compact)
-    || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認|満たさなかった/.test(compact);
+    || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認|満たさなかった|満たしていない|満たせなかった/.test(compact);
 }
 
 function communicatesR5Gameplay(value) {
@@ -164,7 +189,7 @@ function communicatesR5Gameplay(value) {
   ];
   const latinWords = text.match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
   const hasJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(text);
-  const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not|automatic(?:ally)?|autopilot|auto-pilot|self-driving)\b/.test(text);
+  const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not|automatic(?:ally)?|autopilot|auto-pilot|self-driving|independently|autonomously)\b|\bon\s+its\s+own\b|\bby\s+itself\b/.test(text);
   const englishActorMotion = /^(?:(?:a|an|the)\s+)?(?:(?:small|tiny|little|water|shining|blue)\s+){0,3}(?:droplet|drop|player|avatar|character|orb|bead)\b(?:\s+(?:continuously|steadily|sideways|forward|laterally)){0,3}\s+(?:(?:is|keeps?|can)\s+)?(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/;
   const englishWrongActor = /\b(?:rock|ring|hoop|gate|hazard|obstacle|barrier|boulder|plant|sprout|node|target|pulse|light)\b\s+(?:(?:it|then|also)\s+)?(?:steers?|moves?|advances?|travels?|guides?|controls?|dodges?|veers?|navigates?|clears?|avoids?|energizes?|pulses?|passes?|activates?|charges?|sends?)\b/;
   const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b(?:\s+(?:continuously|steadily|sideways|forward|laterally))*\s+through\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
@@ -189,7 +214,7 @@ function communicatesR5Gameplay(value) {
     && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
     && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index))
     && /^[.!?]+$/.test(text.slice(englishPulseMatch.index + englishPulseMatch[0].length));
-  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|自動|オート|自律|勝手/.test(text);
+  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|自動|オート|自律|勝手|自ら|自分で|ひとりで|一人で|単独で/.test(text);
   const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ)(?:が|は|を)?(?:(?![がは]).){0,20}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRing = /(?:リング|輪|門|ゲート|円)を?(?:くぐ|通|抜け)/;
@@ -265,7 +290,9 @@ function containsHumanFailureArtifact(value) {
   if (containsHumanFailureText(value)) return true;
   if (typeof value !== "string") return false;
   try {
-    return hasHumanReject(JSON.parse(value));
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return true;
+    return hasHumanReject(parsed);
   } catch {
     return false;
   }
@@ -275,6 +302,7 @@ function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
   const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|descriptors|classification|reviewmetadata|auditmetadata)$/;
+  const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid)$/;
   const entries = Object.entries(value);
   const containsHumanMarker = (child) => {
     if (typeof child === "string") return descriptionFingerprint(child).includes("human");
@@ -282,6 +310,7 @@ function declaresHumanContext(value) {
     if (child && typeof child === "object") return Object.values(child).some(containsHumanMarker);
     return false;
   };
+  if (entries.some(([key, child]) => humanProvenanceIdKey.test(descriptionFingerprint(key)) && meaningful(child))) return true;
   if (entries.some(([key, child]) => descriptorKey.test(descriptionFingerprint(key)) && containsHumanMarker(child))) return true;
   return entries.some(([key, child]) => metadataKey.test(descriptionFingerprint(key)) && child && typeof child === "object" && declaresHumanContext(child));
 }
@@ -305,11 +334,16 @@ function hasHumanRejectAnywhere(value) {
 
 function humanArtifactReferences(value) {
   const references = [];
+  const invalid = [];
   const visit = (current, inheritedHumanContext = false, depth = 0) => {
     if (!current || typeof current !== "object") return;
     const entries = Object.entries(current);
     const labeledHuman = inheritedHumanContext || declaresHumanContext(current);
-    if (labeledHuman && meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
+    const referenceShaped = Object.hasOwn(current, "path") || Object.hasOwn(current, "sha256");
+    if (labeledHuman && referenceShaped) {
+      if (meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
+      else invalid.push(current);
+    }
     for (const [key, child] of entries) {
       const normalizedKey = descriptionFingerprint(key);
       if (depth === 0 && key === "baseline") continue;
@@ -317,7 +351,10 @@ function humanArtifactReferences(value) {
     }
   };
   visit(value);
-  return [...new Map(references.map((reference) => [`${reference.path}|${reference.sha256}`, reference])).values()];
+  return {
+    references: [...new Map(references.map((reference) => [`${reference.path}|${reference.sha256}`, reference])).values()],
+    invalid,
+  };
 }
 
 function probeMovingVideo(path) {
@@ -952,6 +989,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || descriptionFingerprints.some((fingerprint) => fingerprint.length < 8)
     || reviews.some((review) => !communicatesR5Gameplay(review?.plain_description))
     || new Set(descriptionFingerprints).size !== 3
+    || descriptionsAreNearDuplicates(descriptions)
     || descriptions.some((description) => textSha256(description) === expectedAnswerSha256)
     || descriptionFingerprints.some((fingerprint) => fingerprint.includes(expectedDescriptionFingerprint) || isOrderedSubsequence(expectedDescriptionFingerprint, fingerprint))) {
     issues.push(issue("AI_REVIEW_DESCRIPTION", "AI review descriptions must be nonempty, mutually distinct, and not a copy of the expected answer.", "evidence.json"));
@@ -1194,7 +1232,11 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
 
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
-    const referencedHumanTexts = await Promise.all(humanArtifactReferences(evidence).map((reference) => readArtifactText(root, directory, reference)));
+    const humanArtifacts = humanArtifactReferences(evidence);
+    const referencedHumanTexts = await Promise.all(humanArtifacts.references.map((reference) => readArtifactText(root, directory, reference)));
+    if (humanArtifacts.invalid.length > 0) {
+      issues.push(issue("HUMAN_ARTIFACT_REFERENCE", "Every Human-labeled artifact reference must provide a nonempty path and exact SHA-256 digest; malformed references fail closed.", "evidence.json"));
+    }
     if (hasHumanRejectAnywhere(evidence)
       || containsHumanFailureArtifact(optionalHumanText)
       || /\bHUMAN_REJECT\b/i.test(optionalHumanText)

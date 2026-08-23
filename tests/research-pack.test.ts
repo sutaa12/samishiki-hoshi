@@ -738,6 +738,7 @@ describe("evidence-driven Research Pack", () => {
     ["nested plural Human descriptors", { audit_record: { descriptors: [{ roles: ["Human"] }], structured_result: { passed: false } } }],
     ["nested Human audience context", { audit_record: { context: { audience: "Human" }, result: { passed: false } } }],
     ["Human reviewer ID and generic result", { audit_record: { reviewer_id: "Human-42", result: false } }],
+    ["Human participant ID and generic result", { audit_record: { participant_id: "P-001", result: false } }],
     ["is_rejected", { preserved_human_evidence: { is_rejected: true } }],
     ["rejection_positive", { preserved_human_evidence: { rejection_positive: true } }],
   ])("rejects preserved Human evidence outside the canonical subtree: %s", async (_label, preserved) => {
@@ -781,6 +782,8 @@ describe("evidence-driven Research Pack", () => {
     ["Japanese approval denial prose", "承認されませんでした。\n"],
     ["acceptance not met prose", "Decision: did not meet acceptance.\n"],
     ["passive acceptance criteria prose", "The acceptance criteria were not met.\n"],
+    ["perfect passive requirements prose", "The requirements have not been met.\n"],
+    ["remaining unmet prose", "The acceptance criteria remain unmet.\n"],
     ["withheld approval prose", "Approval was withheld.\n"],
     ["Japanese criteria not met prose", "基準を満たさなかった。\n"],
   ])("rejects Human-labeled supplemental text with %s", async (_label, supplementalText) => {
@@ -796,6 +799,15 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
   });
 
+  it("rejects passive Human failure prose in the optional canonical Human file", async () => {
+    const root = await makeRoot();
+    await prepareValidAiBinaryPack(root);
+    await writeFile(join(root, `docs/research/${AI_TASK_ID}/human-test.md`), "The requirements have not been met.\n", "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
   it("applies the general Human rejection detector in human-release mode", async () => {
     const root = await makeRoot();
     await copySample(root);
@@ -805,6 +817,36 @@ describe("evidence-driven Research Pack", () => {
     evidence.gates.complete = "passed";
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "human-release");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it("rejects a malformed Human-labeled artifact reference", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.audit_record = {
+      metadata: { review_type: "Human" },
+      evidence: { path: ".quality-gates/QX-R4-R00/preserved-human-result.txt", sha256: "malformed" },
+    };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_ARTIFACT_REFERENCE");
+  });
+
+  it.each(["false\n", "0\n", "null\n", "[]\n"])("rejects a scalar or array Human artifact: %s", async (supplementalText) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const supplementalPath = ".quality-gates/QX-R4-R00/preserved-human-result.json";
+    await writeFile(join(root, supplementalPath), supplementalText, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.audit_record = {
+      metadata: { review_type: "Human" },
+      evidence: { path: supplementalPath, sha256: sha256(supplementalText) },
+    };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
   });
@@ -1110,6 +1152,8 @@ describe("evidence-driven Research Pack", () => {
     ["Japanese automatic motion", "水滴が自動で移動してリングをくぐり、岩を避け、芽へ光を渡す遊びです。"],
     ["Japanese auto motion", "雫がオートで移動してゲートを抜け、壁をかわし、ノードに光を送ります。"],
     ["Japanese motion without player agency", "水滴が進んでリングをくぐり、岩を避け、芽へ光を渡す遊びです。"],
+    ["Japanese reflexive operation", "水滴が自ら操作してリングをくぐり、岩を避け、芽へ光を渡す遊びです。"],
+    ["independent motion", "A droplet independently steers through a ring, avoids a rock, and energizes a plant."],
   ])("rejects %s in an AI gameplay description", async (_label, description) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1120,6 +1164,29 @@ describe("evidence-driven Research Pack", () => {
     const reviewText = `${JSON.stringify(review, null, 2)}\n`;
     await writeFile(reviewPath, reviewText, "utf8");
     evidence.ai_binary_gameplay.reviews[0].sha256 = sha256(reviewText);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects AI descriptions that differ only by decorative adjectives", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "A droplet steers through a ring, avoids a rock, and energizes a plant.",
+      "A tiny droplet steers through a ring, avoids a rock, and energizes a plant.",
+      "A small droplet steers through a ring, avoids a rock, and energizes a plant.",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
