@@ -1,0 +1,182 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.6.0/bin/node",
+      "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/node_modules/.bin/playwright",
+      "test",
+      "tests/e2e/journey.spec.ts:21",
+      "--project=desktop-chromium"
+    ],
+    "configFile": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/playwright.config.ts",
+    "rootDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop-chromium",
+        "name": "desktop-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/.quality-gates/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/snari/Documents/GitProject/LonelyStar-qx-r4-r00/.quality-gates/qx-r4-r00-baseline-journey-diagnostic.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 45263",
+      "url": "http://localhost:45263",
+      "reuseExistingServer": false,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "journey.spec.ts",
+      "file": "journey.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "desktop steering, pulse, settings, and human motif checkpoint",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chromium",
+              "projectName": "desktop-chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 9913,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('game-shell')\nExpected: \u001b[32m\"\u001b[7mtru\u001b[27me\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mfals\u001b[27me\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('game-shell')\u001b[22m\n\u001b[2m    20 × locator resolved to <main data-score=\"0\" data-shot=\"S05\" data-pulses=\"0\" data-phase=\"LIFE\" data-mistakes=\"4\" data-answer-at=\"\" data-restarts=\"0\" class=\"game-shell\" data-webgl=\"false\" data-life-chain=\"0\" data-qa-replay-id=\"\" data-assist-level=\"1\" data-finished=\"false\" data-flow-purity=\"640\" data-render-pulses=\"0\" data-story-time=\"24.00\" data-render-phase-to=\"\" data-testid=\"game-shell\" data-gameplay-events=\"5\" data-input-held-keys=\"0\" data-input-pointer-id=\"\" data-render-answer-at=\"\" data-render-programs=\"0\" data-positio…>…</main>\u001b[22m\n\u001b[2m       - unexpected value \"false\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('game-shell')\nExpected: \u001b[32m\"\u001b[7mtru\u001b[27me\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mfals\u001b[27me\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('game-shell')\u001b[22m\n\u001b[2m    20 × locator resolved to <main data-score=\"0\" data-shot=\"S05\" data-pulses=\"0\" data-phase=\"LIFE\" data-mistakes=\"4\" data-answer-at=\"\" data-restarts=\"0\" class=\"game-shell\" data-webgl=\"false\" data-life-chain=\"0\" data-qa-replay-id=\"\" data-assist-level=\"1\" data-finished=\"false\" data-flow-purity=\"640\" data-render-pulses=\"0\" data-story-time=\"24.00\" data-render-phase-to=\"\" data-testid=\"game-shell\" data-gameplay-events=\"5\" data-input-held-keys=\"0\" data-input-pointer-id=\"\" data-render-answer-at=\"\" data-render-programs=\"0\" data-positio…>…</main>\u001b[22m\n\u001b[2m       - unexpected value \"false\"\u001b[22m\n\n    at /Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e/journey.spec.ts:27:23",
+                    "location": {
+                      "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e/journey.spec.ts",
+                      "column": 23,
+                      "line": 27
+                    },
+                    "snippet": "  25 |   const shell = page.getByTestId(\"game-shell\");\n  26 |   await expect(page.getByTestId(\"qa-metrics\")).toBeVisible();\n> 27 |   await expect(shell).toHaveAttribute(\"data-webgl\", \"true\");\n     |                       ^\n  28 |   await page.getByRole(\"button\", { name: \"旅をはじめる\" }).click();\n  29 |   await expect(shell).toHaveAttribute(\"data-shot\", \"S05\");\n  30 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e/journey.spec.ts",
+                        "column": 23,
+                        "line": 27
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('game-shell')\nExpected: \u001b[32m\"\u001b[7mtru\u001b[27me\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mfals\u001b[27me\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('game-shell')\u001b[22m\n\u001b[2m    20 × locator resolved to <main data-score=\"0\" data-shot=\"S05\" data-pulses=\"0\" data-phase=\"LIFE\" data-mistakes=\"4\" data-answer-at=\"\" data-restarts=\"0\" class=\"game-shell\" data-webgl=\"false\" data-life-chain=\"0\" data-qa-replay-id=\"\" data-assist-level=\"1\" data-finished=\"false\" data-flow-purity=\"640\" data-render-pulses=\"0\" data-story-time=\"24.00\" data-render-phase-to=\"\" data-testid=\"game-shell\" data-gameplay-events=\"5\" data-input-held-keys=\"0\" data-input-pointer-id=\"\" data-render-answer-at=\"\" data-render-programs=\"0\" data-positio…>…</main>\u001b[22m\n\u001b[2m       - unexpected value \"false\"\u001b[22m\n\n\n  25 |   const shell = page.getByTestId(\"game-shell\");\n  26 |   await expect(page.getByTestId(\"qa-metrics\")).toBeVisible();\n> 27 |   await expect(shell).toHaveAttribute(\"data-webgl\", \"true\");\n     |                       ^\n  28 |   await page.getByRole(\"button\", { name: \"旅をはじめる\" }).click();\n  29 |   await expect(shell).toHaveAttribute(\"data-shot\", \"S05\");\n  30 |\n    at /Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e/journey.spec.ts:27:23"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-23T02:42:57.016Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/.quality-gates/playwright-output/journey-desktop-steering-p-38cb6--and-human-motif-checkpoint-desktop-chromium/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/.quality-gates/playwright-output/journey-desktop-steering-p-38cb6--and-human-motif-checkpoint-desktop-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/.quality-gates/playwright-output/journey-desktop-steering-p-38cb6--and-human-motif-checkpoint-desktop-chromium/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/snari/Documents/GitProject/LonelyStar-qx-r3-006/tests/e2e/journey.spec.ts",
+                    "column": 23,
+                    "line": 27
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "bf222bad70f76648f722-5bf6292c2183824cca08",
+          "file": "journey.spec.ts",
+          "line": 21,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-23T02:42:50.652Z",
+    "duration": 16541.98,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

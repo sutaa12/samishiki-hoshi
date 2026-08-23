@@ -1,0 +1,121 @@
+{
+  "schema_version": "qx-r4-r00-acceptance.v1",
+  "task_id": "QX-R4-R00",
+  "recorded_at": "2026-08-23T12:00:00+09:00",
+  "issuer": "Codex implementation verifier",
+  "result": "independent-review-pending",
+  "subject": {
+    "implementation_commit": "acb0687c7c226a6f0bcc07bbb47e3ec4064636cf",
+    "implementation_tree": "9ff5155f7b6cf9c05d0a7c3e271fba3f10351c97",
+    "subject_source_sha256": "723851ea77cc339fdb462c187d932cae4c3b5188ab6cda2f82184e42fa83c82b",
+    "baseline_commit": "0a63c462557aad29f947a88460b0380538782d53",
+    "baseline_source_sha256": "29c6dafed74c63c7fb03bcd5099c88830cd52742770b983252c2d46e204024eb",
+    "branch": "codex/qx-r4-r00-evidence-protocol"
+  },
+  "requirements": {
+    "notion_page": "18 | Codex Evidence-Driven Game Quality Protocol",
+    "notion_task": "QX-R4-R00",
+    "outputs": [
+      "AGENTS.md contract",
+      "project-local Codex Skill",
+      "eleven Research and Evidence Pack templates",
+      "sample Research Pack",
+      "safe initializer",
+      "fail-closed validator",
+      "automated negative and positive tests"
+    ]
+  },
+  "commands": [
+    {
+      "command": "npm run test:research",
+      "exit_code": 0,
+      "result": "passed",
+      "observations": "8/8 research-pack tests passed, including empty, community-only, valid sample, unknown license, baseline SHA, rollback, completion-evidence, and overwrite protection cases."
+    },
+    {
+      "command": "node scripts/validate-research-pack.mjs QX-R4-R00",
+      "exit_code": 0,
+      "result": "passed",
+      "observations": "3 Primary, 2 GitHub, 2 Community, 3 comparable games, and 6 frame identifiers accepted."
+    },
+    {
+      "command": "quick_validate.py .openai/skills/evidence-driven-game-quality",
+      "exit_code": 0,
+      "result": "passed",
+      "observations": "Skill is valid; PyYAML was installed only into an isolated temporary validator directory."
+    },
+    {
+      "command": "npm run verify",
+      "exit_code": 0,
+      "result": "passed",
+      "observations": "Typecheck, lint, 96/96 suites and 788/788 tests, and Production build passed."
+    },
+    {
+      "command": "Playwright selected Production regression: production-v2, rail-camera-phase-continuity, rail-flight, desktop project",
+      "exit_code": 0,
+      "result": "passed",
+      "observations": "9 expected, 9 passed, 0 unexpected, 0 skipped, 0 flaky."
+    }
+  ],
+  "artifacts": {
+    "vitest_report": {
+      "path": ".quality-gates/qx-r4-r00-vitest-accepted.json",
+      "sha256": "d93408f4c766404c84aa7cc2bf0a2dd902440cde698bb1ebbc8a316726f1fdb8"
+    },
+    "production_report": {
+      "path": ".quality-gates/qx-r4-r00-production-regression-accepted.json",
+      "sha256": "ff3b02b0d3927ed478e93f0dac89b4f9597d15da885e63bf516130157f4aad58"
+    },
+    "baseline_journey_diagnostic": {
+      "path": ".quality-gates/qx-r4-r00-baseline-journey-diagnostic.json",
+      "sha256": "bca3ffbee53b8783ecdb60a315b11681b32033063cf63a9622effd4093b8e5f1"
+    },
+    "candidate_journey_diagnostic": {
+      "path": ".quality-gates/qx-r4-r00-candidate-journey-diagnostic.json",
+      "sha256": "a23b26a620b2638bfb943ad1dac76fc98270a1ec16171a20ccc95933d1beeab4"
+    },
+    "skill": {
+      "path": ".openai/skills/evidence-driven-game-quality/SKILL.md",
+      "sha256": "30dc013da50e9b24205a944d2aacc04eeec4b95800efab13ab9cfccc7a7d2586"
+    }
+  },
+  "runtime_regression": {
+    "runtime_or_hosting_files_changed": 0,
+    "checked_paths": [
+      "app",
+      "src",
+      "public",
+      "package-lock.json",
+      ".openai/hosting.json",
+      "vite.config.ts",
+      "vinext.config.ts",
+      "postcss.config.mjs"
+    ],
+    "package_lock_sha256": "6711ba750c0c2e1a3a50d20464a24e2cdd4bd1e7236516f9d69a85f0ff3391d8",
+    "dependency_map_sha256_baseline_and_candidate": "c64e6a02def7ebc3074dc575ef6ca7e7b678009be206f2438d4d5775fddebf0f",
+    "client_asset_manifest_sha256_baseline_and_candidate": "80d7308ea7865766f337b709cef585b8b900d8ebe6914d4eae957b17637351d3",
+    "client_asset_file_count": 10,
+    "css_manifest_sha256_baseline_and_candidate": "15a2cc54b4a053e7f17ee7bf85b5f9b8aa8fe39bf68f548c1838a48e0fe2fcdc",
+    "css_file_count": 14,
+    "gameplay_hash_baseline": "1d537378",
+    "full_dist_note": "The complete Vinext dist is not byte-identical because generated BUILD_ID and framework chunk identifiers are nondeterministic. Acceptance therefore binds exact runtime-source scope plus normalized client-asset and CSS manifests, while preserving the actual candidate dist digest separately.",
+    "subject_build_sha256": "0a57fa79d2f6ea09056d72ba2670f39cd779c0b98e2b1ddaca4c05a439766e45"
+  },
+  "diagnostics": {
+    "legacy_journey_test": "The isolated test expecting data-webgl=true fails with data-webgl=false at both baseline and candidate. It is preserved as a historical diagnostic and is not counted as a candidate regression."
+  },
+  "severity_counts": {"S0": 0, "S1": 0, "S2": 0, "S3": 0},
+  "known_limitations": [
+    "This process-only task is not a human gameplay acceptance.",
+    "R4 player-facing Human Gate, rights, Main merge, and replacement Sites deployment remain frozen."
+  ],
+  "rollback": {
+    "condition": "Any false validator pass, missing required evidence class, gameplay hash drift, or player-runtime Production asset drift.",
+    "commit": "0a63c462557aad29f947a88460b0380538782d53",
+    "instructions": "Create a revert commit for QX-R4-R00 or resume from the rollback commit; do not rewrite shared history."
+  },
+  "independent_review": {
+    "status": "pending",
+    "artifact": ".quality-gates/QX-R4-R00/independent-review.md"
+  }
+}

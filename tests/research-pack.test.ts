@@ -68,8 +68,27 @@ describe("evidence-driven Research Pack", () => {
     });
   });
 
-  it("keeps completion blocked without numeric and raw human evidence", () => {
-    const result = runValidator(projectRoot.pathname, "QX-R4-R00", "complete");
+  it("keeps completion blocked without numeric and raw human evidence", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const path = join(root, "docs/research/QX-R4-R00/evidence.json");
+    const evidence = JSON.parse(await readFile(path, "utf8")) as {
+      numeric_hard_gates: Array<{ result: string }>;
+      metrics: { status: string; performance_no_regression: boolean };
+      human: { status: string; raw_answer_count: number; owner_decision: string };
+      gates: { complete: string };
+    };
+    evidence.numeric_hard_gates.forEach((gate) => {
+      gate.result = "pending";
+    });
+    evidence.metrics.status = "pending";
+    evidence.metrics.performance_no_regression = false;
+    evidence.human.status = "pending";
+    evidence.human.raw_answer_count = 0;
+    evidence.human.owner_decision = "pending";
+    evidence.gates.complete = "pending";
+    await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toEqual(
       expect.arrayContaining(["COMPLETE_GATE", "METRICS_GATE", "HARD_GATE", "HUMAN_GATE"]),
