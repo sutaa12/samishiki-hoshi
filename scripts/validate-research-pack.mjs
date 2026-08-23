@@ -333,7 +333,7 @@ function declaresHumanContext(value) {
 function declaresExternalContext(value) {
   if (!value || typeof value !== "object") return false;
   const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|authority|authorities|approvedby|approver|approvers|descriptor|descriptors|audience|audiences)$/;
-  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready)/;
+  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース)/;
   const containsExternalMarker = (child) => {
     if (typeof child === "string") return externalMarker.test(descriptionFingerprint(child));
     if (Array.isArray(child)) return child.some(containsExternalMarker);
@@ -361,7 +361,7 @@ function hasMalformedHumanProvenanceId(value) {
 function isPositiveClaimScalar(candidate) {
   if (candidate === true || (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0)) return true;
   const normalized = normalizedDescription(candidate);
-  return /^(?:true|yes|on|[1-9]\d*|pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|ok|success|successful|succeeded)$/.test(normalized);
+  return /^(?:true|yes|on|[1-9]\d*|pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|ok|success|successful|succeeded|合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)$/.test(normalized);
 }
 
 function hasPositiveResultClaim(value) {
@@ -392,15 +392,17 @@ function containsHumanPassArtifact(value, path = "") {
 }
 
 function hasAiBinaryExternalPassClaim(value) {
-  const externalKey = /^(?:human|owner|legal|main|sites|contest|submission|release|releaseready)/;
-  const externalText = /(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready)/;
-  const containsExternalPassProse = (candidate) => {
+  const externalKey = /^(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース)/;
+  const externalText = /(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース)/;
+  const containsExternalPassProse = (candidate, inheritedExternal = false) => {
     if (typeof candidate !== "string") return false;
     return normalizedDescription(candidate).split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((clause) => {
       const compact = securityFingerprint(clause);
-      return externalText.test(compact)
-        && /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
-        && !/(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,80})(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/.test(compact);
+      const positive = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
+        || /(?:合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)/.test(compact);
+      const negative = /(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,80})(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/.test(compact)
+        || /(?:未|不|非|保留|拒否|却下|失敗|待ち|していない|されていない|できない|不可)(?:.{0,40})(?:合格|承認|通過|公開|提出|リリース|完了|成功)/.test(compact);
+      return (inheritedExternal || externalText.test(compact)) && positive && !negative;
     });
   };
   const visit = (current, inheritedExternal = false, depth = 0, keyTrail = "") => {
@@ -412,7 +414,7 @@ function hasAiBinaryExternalPassClaim(value) {
       const nextKeyTrail = `${keyTrail}${normalizedKey}`;
       const scoped = objectExternal || externalKey.test(normalizedKey) || externalKey.test(nextKeyTrail);
       if (scoped && isPositiveClaimScalar(child)) return true;
-      if (containsExternalPassProse(child)) return true;
+      if (containsExternalPassProse(child, scoped)) return true;
       return child && typeof child === "object" ? visit(child, scoped, depth + 1, nextKeyTrail) : false;
     });
   };
@@ -420,11 +422,11 @@ function hasAiBinaryExternalPassClaim(value) {
 }
 
 function hasMalformedExternalResult(value) {
-  const externalKey = /^(?:human|owner|legal|main|sites|contest|submission|release|releaseready)/;
-  const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict)$/;
+  const externalKey = /^(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース)/;
+  const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict|状態|結果|判定|決定|評決)$/;
   const validScalar = (candidate) => typeof candidate === "boolean"
     || (typeof candidate === "number" && Number.isFinite(candidate))
-    || (typeof candidate === "string" && descriptionFingerprint(candidate).length > 0);
+    || (typeof candidate === "string" && /^(?:true|false|yes|no|on|off|\d+|pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|ok|success|successful|succeeded|pending|fail|failed|reject|rejected|deny|denied|blocked|unmet|withheld|unreviewed|incomplete|notrequired|notrequiredresearchonlyaiaccepted|notready|合格|不合格|承認済み|未承認|通過|未通過|公開済み|未公開|提出済み|未提出|リリース済み|未リリース|完了|未完了|成功|失敗)$/.test(descriptionFingerprint(candidate)));
   const visit = (current, inheritedExternalContext = false, depth = 0, keyTrail = "") => {
     if (!current || typeof current !== "object") return false;
     const labeledExternal = inheritedExternalContext || declaresHumanContext(current) || declaresExternalContext(current);

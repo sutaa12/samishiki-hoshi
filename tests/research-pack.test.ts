@@ -1551,6 +1551,10 @@ describe("evidence-driven Research Pack", () => {
     ["split Human key claim", { hu: { man: { status: "passed" } } }],
     ["pending Human while Sites succeeds", { audit_note: "Human acceptance pending while Sites publication succeeded." }],
     ["bare Rights gate pass", { audit_record: { gate: "Rights", status: "passed" } }],
+    ["direct Rights status", { rights: { status: "passed" } }],
+    ["Japanese Human status", { human: { status: "合格" } }],
+    ["Japanese gate and verdict", { audit_record: { gate: "人間", 判定: "合格" } }],
+    ["qualified Sites status", { sites: { status: "passed after smoke test" } }],
   ])("rejects %s in AI Binary evidence", async (_label, claim) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1578,6 +1582,28 @@ describe("evidence-driven Research Pack", () => {
     const fixture = await prepareValidAiBinaryPack(root);
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
     evidence.owner = { decision: null };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("EXTERNAL_RESULT_METADATA");
+  });
+
+  it("fails closed on an unknown external result status", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.sites = { status: "green" };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("EXTERNAL_RESULT_METADATA");
+  });
+
+  it("fails closed on an unknown Japanese external result status", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.人間 = { 状態: "緑" };
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
