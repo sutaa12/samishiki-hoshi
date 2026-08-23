@@ -2,7 +2,7 @@
 
 Task ID: QX-R4-R01
 Candidate source commit: no runtime candidate; corpus commit will be recorded after commit
-Current source commit: 1323ade4c4c9197609f88593dbf6510b7c088f9b
+Current source commit: be0eb51661df90bc21bdb471a8a626078ff92ce3
 Blind labels: Current=unlabeled current frames; Reference=official URL/frame locators
 
 ## Cohorts

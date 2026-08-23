@@ -3,7 +3,7 @@
 Task ID: QX-R4-R01
 Owner agent: Codex
 Date: 2026-08-23
-Source commit: 1323ade4c4c9197609f88593dbf6510b7c088f9b
+Source commit: be0eb51661df90bc21bdb471a8a626078ff92ce3
 Candidate branch/worktree: codex/qx-r4-r01-reference-corpus
 Scale: large
 
@@ -19,7 +19,7 @@ Under one fixed 1920x1080 WebGL2/high capture condition, the current EARTH and S
 ## Current baseline
 
 - URL or build: committed source served at `http://localhost:4174/`; no public deployment changed
-- Source SHA: 1323ade4c4c9197609f88593dbf6510b7c088f9b
+- Source SHA: be0eb51661df90bc21bdb471a8a626078ff92ce3
 - Device: macOS desktop Chromium through Playwright 1.62.1
 - Viewport: 1920x1080, DPR 1
 - Backend and quality: WebGL2, high, full motion, standard contrast, seed 20260818
@@ -34,7 +34,7 @@ Under one fixed 1920x1080 WebGL2/high capture condition, the current EARTH and S
 
 ## Similar games
 
-`comparable-games.csv` and `frame-analysis.csv` contain 13 URL/timecode or official-frame locators. No third-party screenshot or video is redistributed.
+`comparable-games.csv` and `frame-analysis.csv` contain 13 URL/timecode or official-frame locators. `annotation-method.md` defines normalized occupancy, uncertainty, and the rule that stills cannot yield TTC or feedback timing. No third-party screenshot or video is redistributed.
 
 ## GitHub candidates
 
@@ -54,7 +54,7 @@ Budget: 6 official games, 13 annotated frames, one reproducible capture pass, an
 
 Fallback: retain the current Production build and use the CSV corpus only as planning evidence.
 
-Rollback: `1323ade4c4c9197609f88593dbf6510b7c088f9b`
+Rollback: `be0eb51661df90bc21bdb471a8a626078ff92ce3`
 
 ## Acceptance
 

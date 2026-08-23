@@ -2,12 +2,12 @@
   "schema_version": "research-pack.v1",
   "task_id": "QX-R4-R01",
   "scale": "large",
-  "source_commit": "1323ade4c4c9197609f88593dbf6510b7c088f9b",
+  "source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
   "candidate": {
     "kind": "research-only-no-runtime-change",
-    "source_commit": "1323ade4c4c9197609f88593dbf6510b7c088f9b",
-    "source_sha256": "7b89aef037af74af47e0af20121ae7ef04e7d41cf3b37941d656d390c032f397",
-    "build_sha256": "56cad6377aa570f785580998e42c27db8ff57880c796b96df52329197d841a5c",
+    "source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
+    "source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
+    "build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
     "build_artifact": ".quality-gates/QX-R4-R01/production-complete-files.sha256",
     "build_hash_procedure": "Run npm run build from the clean source commit, then npm run build:manifest over every regular file under dist and SHA-256 the complete manifest.",
     "screenshot": null,
@@ -19,15 +19,15 @@
     "worktree": "/Users/snari/Documents/GitProject/LonelyStar-qx-r4-r00"
   },
   "baseline": {
-    "source_commit": "1323ade4c4c9197609f88593dbf6510b7c088f9b",
-    "source_sha256": "7b89aef037af74af47e0af20121ae7ef04e7d41cf3b37941d656d390c032f397",
-    "build_sha256": "56cad6377aa570f785580998e42c27db8ff57880c796b96df52329197d841a5c",
+    "source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
+    "source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
+    "build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
     "build_artifact": ".quality-gates/QX-R4-R01/production-complete-files.sha256",
     "build_hash_procedure": "Run npm run build from the clean source commit, then npm run build:manifest over every regular file under dist and SHA-256 the complete manifest.",
-    "gameplay_hash": "LIFE@11.43=e3f6eb11;EARTH@49.10=705b4853;SOLITUDE@143.08=b32248a0",
-    "screenshot": {"path": ".quality-gates/QX-R4-R01/current-earth-48s.png", "sha256": "ad4d21762c94536f50f77a2fa8e9980abd8423fda6a8db73a2aefbdc00bcf47b"},
-    "clip": {"path": ".quality-gates/QX-R4-R01/current-earth-moving-12s.webm", "sha256": "5442ebb9f1f0517741a5a1a84451285e8336f92913e67899593a8f202e681fd3"},
-    "metrics": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "9dee4fc55a2e0613b9175a5a65d57d22c8505b4972e3beeaf4108b0f51024b85"},
+    "gameplay_hash": "LIFE@[11.05,11.42]=[6349ca8e,1f1a2cc7];EARTH@[48.95,49.07]=[36cccfbf,a2b5274b];SOLITUDE@143.03=9997894d",
+    "screenshot": {"path": ".quality-gates/QX-R4-R01/current-earth-48s.png", "sha256": "9bb4df6bfaafddc8c7393e274257381abc99d3c95495a94a8e0e464517c44db1"},
+    "clip": {"path": ".quality-gates/QX-R4-R01/current-earth-moving-12s.webm", "sha256": "5b43f26458ec0ff9bbd18e6e34e35a7e44d115d3c654b5d976ca745c0e8d5b96"},
+    "metrics": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "c494024c7776c16b4199945bca80ed25c46e3a72f42e0349a5fc84d03b96b537"},
     "human_findings": {"path": "docs/research/QX-R4-R01/baseline-human-findings.md", "sha256": "a6f3e4e108d85fdc0f462124a5732ba0e989e5206e726c2debb8df6e2cb83036"}
   },
   "options": [
@@ -43,7 +43,7 @@
   "numeric_hard_gates": [
     {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "4bab449a52004e2fb53abed0e815e8e9742b27a951444a780bc08bcccbea2915"}},
     {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "57688a3261c80d9dd9c890419a7b9415a327a8cc2dddf6de83f2b51ab4eebef3"}},
-    {"id": "current_same_condition_captures", "target": {"operator": "gte", "value": 1, "unit": "captures"}, "observed": 3, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "9dee4fc55a2e0613b9175a5a65d57d22c8505b4972e3beeaf4108b0f51024b85"}},
+    {"id": "current_same_condition_captures", "target": {"operator": "gte", "value": 1, "unit": "captures"}, "observed": 3, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R01/current-capture-metrics.json", "sha256": "c494024c7776c16b4199945bca80ed25c46e3a72f42e0349a5fc84d03b96b537"}},
     {"id": "redistributed_third_party_media", "target": {"operator": "eq", "value": 0, "unit": "files"}, "observed": 0, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/rights.md", "sha256": "110f91e4a69042c7aeb49571f91bbcd056805d4fdcc446957c78efd0b3dabf35"}}
   ],
   "metrics": {
@@ -61,10 +61,10 @@
     "owner_evidence": null
   },
   "rollback": {
-    "commit": "1323ade4c4c9197609f88593dbf6510b7c088f9b",
-    "source_sha256": "7b89aef037af74af47e0af20121ae7ef04e7d41cf3b37941d656d390c032f397",
-    "build_sha256": "56cad6377aa570f785580998e42c27db8ff57880c796b96df52329197d841a5c",
-    "gameplay_hash": "LIFE@11.43=e3f6eb11;EARTH@49.10=705b4853;SOLITUDE@143.08=b32248a0",
+    "commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
+    "source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
+    "build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
+    "gameplay_hash": "LIFE@[11.05,11.42]=[6349ca8e,1f1a2cc7];EARTH@[48.95,49.07]=[36cccfbf,a2b5274b];SOLITUDE@143.03=9997894d",
     "artifact": "rollback.md",
     "condition": "Revert if external media is committed, human evidence is forged, Production drifts, or a digest fails.",
     "instructions": "rollback.md"
