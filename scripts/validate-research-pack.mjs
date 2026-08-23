@@ -193,7 +193,7 @@ function descriptionsAreNearDuplicates(values) {
 
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
-  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|disapprov(?:e|ed|ing|al)|withh(?:old|olds|olding|eld)|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
+  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|disapprov(?:e|ed|ing|al)|withh(?:old|olds|olding|eld)|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo|rechazad[oa]s?|denegad[oa]s?|fallid[oa]s?|suspendid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
 }
 
 function containsHumanFailureText(value) {
@@ -295,7 +295,7 @@ function hasHumanReject(human) {
     return normalized === false || normalized === 0 || normalized === "false" || normalized === "no" || normalized === "off" || normalized === "0";
   };
   const successKeyPattern = /(?:pass|accept|approve|approval|success|successful|合格|承認)/;
-  const genericResultKeyPattern = /^(?:result|status|outcome|decision|verdict)$/;
+  const genericResultKeyPattern = /^(?:result|status|outcome|decision|verdict|estado|resultado|decisi[oó]n|veredicto|statut|r[eé]sultat|d[eé]cision|urteil|ergebnis|entscheidung|状態|結果|判定|決定|評決)$/;
   const visit = (value, inheritedFailureKey = false, inheritedSuccessKey = false, inheritedResultKey = false) => {
     if (!value || typeof value !== "object") return false;
     return Object.entries(value).some(([key, child]) => {
@@ -443,10 +443,10 @@ function hasAiBinaryExternalPassClaim(value) {
 
 function hasMalformedExternalResult(value) {
   const externalKey = /^(?:human|humana?|humaine?|mensch(?:lich)?|owner|propietari[oa]|propri[eé]taire|eigent[uü]mer|legal|juridique|rechtlich|rights(?:acceptance)?|derechos|droits|rechte|main|sites?|sitio|seite|contest|concurso|concours|wettbewerb|submission|env[ií]o|soumission|einreichung|release|releaseready|lanzamiento|sortie|ver[oö]ffentlichung|freigabe|deploy(?:ment|ed)?|despliegue|d[eé]ploiement|bereitstellung|hosting|hosted|publication|publicaci[oó]n|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
-  const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict|状態|結果|判定|決定|評決)$/;
+  const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict|estado|resultado|decisi[oó]n|veredicto|statut|r[eé]sultat|d[eé]cision|urteil|ergebnis|entscheidung|状態|結果|判定|決定|評決)$/;
   const validScalar = (candidate) => typeof candidate === "boolean"
-    || (typeof candidate === "number" && Number.isFinite(candidate))
-    || (typeof candidate === "string" && /^(?:true|false|yes|no|on|off|\d+|pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|ok|success|successful|succeeded|pending|fail|failed|reject|rejected|deny|denied|blocked|unmet|withheld|unreviewed|incomplete|notrequired|notrequiredresearchonlyaiaccepted|notready|合格|不合格|承認済み|未承認|通過|未通過|公開済み|未公開|提出済み|未提出|リリース済み|未リリース|完了|未完了|成功|失敗)$/.test(descriptionFingerprint(candidate)));
+    || (typeof candidate === "number" && (candidate === 0 || candidate === 1))
+    || (typeof candidate === "string" && /^(?:true|false|yes|no|on|off|0|1|pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready|complete|completed|done|ok|success|successful|succeeded|pending|fail|failed|reject|rejected|deny|denied|blocked|unmet|withheld|unreviewed|incomplete|notrequired|notrequiredresearchonlyaiaccepted|notready|aprobad[oa]s?|aceptad[oa]s?|rechazad[oa]s?|denegad[oa]s?|fallid[oa]s?|pendiente|approuv[eé]e?s?|accept[eé]e?s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|bestanden|genehmigt|abgelehnt|durchgefallen|fehlgeschlagen|合格|不合格|承認済み|未承認|通過|未通過|公開済み|未公開|提出済み|未提出|リリース済み|未リリース|完了|未完了|成功|失敗)$/.test(descriptionFingerprint(candidate)));
   const visit = (current, inheritedExternalContext = false, depth = 0, keyTrail = "") => {
     if (!current || typeof current !== "object") return false;
     const labeledExternal = inheritedExternalContext || declaresHumanContext(current) || declaresExternalContext(current);
