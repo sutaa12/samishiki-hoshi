@@ -1,8 +1,8 @@
 {
   "schema_version": "numeric-hard-gates.v1",
   "task_id": "QX-R4-R00",
-  "candidate_source_commit": "a4ca39249e38b23431f4fb43aa15426c91dccd46",
-  "candidate_source_sha256": "e233f453731ac0aa765b1c28ad6bd6f41c0d14b336065cb1145dddd8927083fa",
+  "candidate_source_commit": "88b4ddf5f8d708cf73602549bfd5ed44efe85c45",
+  "candidate_source_sha256": "1725dc553d621312363fc42d48092ccc260b558c4a63f0deb70d809d2cdebc00",
   "candidate_build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
   "gates": {
     "empty-pack": {"observed": 1, "unit": "process exit code", "result": "passed"},
