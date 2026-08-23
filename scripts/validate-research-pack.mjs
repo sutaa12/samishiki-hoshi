@@ -313,7 +313,7 @@ function containsHumanFailureArtifact(value, path = "") {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|gates|reviewer|reviewers|reviewerid|revieweridentifier|participant|participantid|tester|testerid|evaluator|evaluatorid|descriptor|descriptors|audience|audiences)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|descriptors|classification|reviewmetadata|auditmetadata)$/;
   const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid)$/;
   const entries = Object.entries(value);
@@ -344,9 +344,9 @@ function hasMalformedHumanProvenanceId(value) {
 }
 
 function isPositiveClaimScalar(candidate) {
-  if (candidate === true || candidate === 1) return true;
+  if (candidate === true || (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0)) return true;
   const normalized = normalizedDescription(candidate);
-  return /^(?:true|yes|on|1|pass|passed|approve|approved|accept|accepted|ready|complete|completed|success|successful|succeeded)$/.test(normalized);
+  return /^(?:true|yes|on|[1-9]\d*|pass|passed|approve|approved|accept|accepted|grant|granted|ready|complete|completed|done|ok|success|successful|succeeded)$/.test(normalized);
 }
 
 function hasPositiveResultClaim(value) {
@@ -378,6 +378,13 @@ function containsHumanPassArtifact(value, path = "") {
 
 function hasAiBinaryExternalPassClaim(value) {
   const externalKey = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
+  const containsExternalPassProse = (candidate) => {
+    if (typeof candidate !== "string") return false;
+    const compact = securityFingerprint(normalizedDescription(candidate));
+    return externalKey.test(compact)
+      && /(?:pass|passed|approve|approved|accept|accepted|grant|granted|ready|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
+      && !/(?:not|never|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,24})(?:pass|passed|approve|approved|accept|accepted|grant|granted|ready|complete|completed|done|success|successful|succeeded)/.test(compact);
+  };
   const visit = (current, inheritedExternal = false, depth = 0) => {
     if (!current || typeof current !== "object") return false;
     const objectExternal = inheritedExternal || declaresHumanContext(current);
@@ -385,7 +392,27 @@ function hasAiBinaryExternalPassClaim(value) {
       if (depth === 0 && key === "baseline") return false;
       const scoped = objectExternal || externalKey.test(descriptionFingerprint(key));
       if (scoped && isPositiveClaimScalar(child)) return true;
+      if (containsExternalPassProse(child)) return true;
       return child && typeof child === "object" ? visit(child, scoped, depth + 1) : false;
+    });
+  };
+  return visit(value);
+}
+
+function hasMalformedHumanResult(value) {
+  const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict)$/;
+  const validScalar = (candidate) => typeof candidate === "boolean"
+    || (typeof candidate === "number" && Number.isFinite(candidate))
+    || (typeof candidate === "string" && descriptionFingerprint(candidate).length > 0);
+  const visit = (current, inheritedHumanContext = false, depth = 0) => {
+    if (!current || typeof current !== "object") return false;
+    const labeledHuman = inheritedHumanContext || declaresHumanContext(current);
+    return Object.entries(current).some(([key, child]) => {
+      if (depth === 0 && key === "baseline") return false;
+      const normalizedKey = descriptionFingerprint(key);
+      const childHumanContext = labeledHuman || normalizedKey.includes("human");
+      if (childHumanContext && resultKey.test(normalizedKey) && !validScalar(child)) return true;
+      return child && typeof child === "object" ? visit(child, childHumanContext, depth + 1) : false;
     });
   };
   return visit(value);
@@ -431,6 +458,19 @@ function humanArtifactReferences(value) {
     references: [...new Map(references.map((reference) => [`${reference.path}|${reference.sha256}`, reference])).values()],
     invalid,
   };
+}
+
+function allArtifactReferences(value) {
+  const references = [];
+  const visit = (current) => {
+    if (!current || typeof current !== "object") return;
+    if (meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
+    for (const child of Object.values(current)) {
+      if (child && typeof child === "object") visit(child);
+    }
+  };
+  visit(value);
+  return [...new Map(references.map((reference) => [`${reference.path}|${reference.sha256}`, reference])).values()];
 }
 
 function probeMovingVideo(path) {
@@ -1308,6 +1348,21 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
 
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
+    const artifactReferences = allArtifactReferences(evidence);
+    const artifactStates = await Promise.all(artifactReferences.map(async (reference) => ({
+      reference,
+      artifact: await regularArtifact(root, directory, reference.path),
+    })));
+    const pathsByIdentity = new Map();
+    for (const state of artifactStates) {
+      if (!state.artifact.ok) continue;
+      const paths = pathsByIdentity.get(state.artifact.identity) ?? new Set();
+      paths.add(state.artifact.path);
+      pathsByIdentity.set(state.artifact.identity, paths);
+    }
+    if ([...pathsByIdentity.values()].some((paths) => paths.size > 1)) {
+      issues.push(issue("ARTIFACT_IDENTITY_REUSE", "Referenced evidence artifacts must not use different paths or hard links for the same physical file identity.", "evidence.json"));
+    }
     const humanArtifacts = humanArtifactReferences(evidence);
     const referencedHumanStates = await Promise.all(humanArtifacts.references.map(async (reference) => {
       const artifact = await regularArtifact(root, directory, reference.path);
@@ -1335,6 +1390,9 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     }
     if (hasMalformedHumanProvenanceId(evidence)) {
       issues.push(issue("HUMAN_PROVENANCE_ID", "Human participant, tester, and evaluator IDs must be nonempty strings or nonnegative integers; malformed provenance fails closed.", "evidence.json"));
+    }
+    if (hasMalformedHumanResult(evidence)) {
+      issues.push(issue("HUMAN_RESULT_METADATA", "Human result, status, outcome, decision, verdict, and pass metadata must be meaningful scalar values; malformed metadata fails closed.", "evidence.json"));
     }
     if (acceptance === "ai-binary" && (hasAiBinaryExternalPassClaim(evidence)
       || containsHumanPassArtifact(optionalHumanText, "human-test.md")

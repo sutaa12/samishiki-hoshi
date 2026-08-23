@@ -927,6 +927,43 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_ARTIFACT_REFERENCE");
   });
 
+  it("rejects a Human artifact hard-linked to the candidate capture receipt", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const source = join(root, evidence.candidate.capture_receipt.path);
+    const aliasPath = ".quality-gates/QX-R4-R00/human-capture-receipt-alias.json";
+    await link(source, join(root, aliasPath));
+    evidence.audit_record = {
+      metadata: { review_type: "Human" },
+      evidence: { path: aliasPath, sha256: evidence.candidate.capture_receipt.sha256 },
+    };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_IDENTITY_REUSE");
+  });
+
+  it("rejects a candidate screenshot hard-linked to an AI review", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const screenshotPath = join(root, evidence.candidate.screenshot.path);
+    await rm(screenshotPath);
+    await link(join(root, fixture.reviews[0].path), screenshotPath);
+    evidence.candidate.screenshot.sha256 = evidence.ai_binary_gameplay.reviews[0].sha256;
+    const receiptPath = join(root, evidence.candidate.capture_receipt.path);
+    const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+    receipt.artifacts.screenshot.sha256 = evidence.candidate.screenshot.sha256;
+    const receiptText = `${JSON.stringify(receipt, null, 2)}\n`;
+    await writeFile(receiptPath, receiptText, "utf8");
+    evidence.candidate.capture_receipt.sha256 = sha256(receiptText);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_IDENTITY_REUSE");
+  });
+
   it("rejects distinct but meaningless AI descriptions", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1361,6 +1398,10 @@ describe("evidence-driven Research Pack", () => {
     ["descriptor-derived Human decision", { audit_record: { metadata: { review_type: "Human" }, decision: "passed" } }],
     ["numeric Human passed claim", { human: { passed: 1 } }],
     ["string Human passed claim", { human: { passed: "yes" } }],
+    ["gate-derived Human release status", { audit_record: { gate: "Human Release", status: "passed" } }],
+    ["neutral-key Human release prose", { audit_note: "Human release status: passed" }],
+    ["granted Human decision", { human: { decision: "granted" } }],
+    ["positive numeric Human claim", { human: { passed: 2 } }],
   ])("rejects %s in AI Binary evidence", async (_label, claim) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1370,6 +1411,17 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_EXTERNAL_GATE_CLAIM");
+  });
+
+  it("rejects malformed Human result metadata", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.human = { status: null };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_RESULT_METADATA");
   });
 
   it.each([
