@@ -9,7 +9,7 @@
   "research_snapshot_source_sha256": "690ce2be64c6cf11b1cfcfce18b79ffcb2f3d04033fc18e3fb53b968b041dc17",
   "runtime_source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
   "runtime_source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
-  "subject_build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
+  "subject_build_sha256": "ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360",
   "commands": [
     {"command": "npm run capture:reference -- --task QX-R4-R01 --source-commit be0eb51661df90bc21bdb471a8a626078ff92ce3", "exit_code": 0, "errors": 0, "observations": "Harness rejected external server ownership, launched the clean source itself, and captured 3 PNGs plus a 72-frame 12-second WebM with before/after pixel-time intervals."},
     {"command": "npm run build", "exit_code": 0, "errors": 0, "observations": "Clean source-bound Vinext Production build completed; known chunk-size warning only."},

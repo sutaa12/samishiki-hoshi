@@ -31,6 +31,25 @@ async function copyR01(root: string) {
   await cp(new URL("../.quality-gates/QX-R4-R00/production-stable-assets.sha256", import.meta.url), join(root, ".quality-gates/QX-R4-R00/production-stable-assets.sha256"));
 }
 
+async function bindR01Closure(root: string, closure: Record<string, unknown>) {
+  const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+  const closureText = `${JSON.stringify(closure, null, 2)}\n`;
+  await writeFile(closurePath, closureText, "utf8");
+  const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
+  const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+  evidence.research_only_ai_closure.sha256 = sha256(closureText);
+  await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+}
+
+async function bindR01Assessment(root: string, reviewText: string) {
+  const reviewPath = join(root, ".quality-gates/QX-R4-R01/r5-migration-assessment.md");
+  await writeFile(reviewPath, reviewText, "utf8");
+  const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+  const closure = JSON.parse(await readFile(closurePath, "utf8"));
+  closure.independent_review.sha256 = sha256(reviewText);
+  await bindR01Closure(root, closure);
+}
+
 function runValidator(root: string, taskId: string, stage = "research", acceptance = "human-release") {
   const effectiveTaskId = acceptance === "ai-binary" && taskId === "QX-R4-R00" ? AI_TASK_ID : taskId;
   const result = spawnSync(process.execPath, [validator.pathname, effectiveTaskId, "--root", root, "--stage", stage, "--acceptance", acceptance], { encoding: "utf8" });
@@ -632,6 +651,53 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_TELEMETRY");
   });
 
+  it("rejects contradictory or extra telemetry fields", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const telemetryPath = join(root, fixture.telemetry.path);
+    const telemetry = JSON.parse(await readFile(telemetryPath, "utf8"));
+    telemetry.verdict = "REJECT";
+    telemetry.accepted = false;
+    const telemetryText = `${JSON.stringify(telemetry, null, 2)}\n`;
+    await writeFile(telemetryPath, telemetryText, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.ai_binary_gameplay.telemetry.sha256 = sha256(telemetryText);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_TELEMETRY");
+  });
+
+  it.each([
+    ["Unicode-confusable reject", { status: "r\u0435ject" }],
+    ["positive rejected_count", { rejected_count: 1 }],
+  ])("rejects preserved Human evidence hidden by %s", async (_label, human) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.human = human;
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it("rejects a format-only Reviewer ID", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const reviewPath = join(root, fixture.reviews[2].path);
+    const review = JSON.parse(await readFile(reviewPath, "utf8"));
+    review.reviewer_id = "\u200B";
+    const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+    await writeFile(reviewPath, reviewText, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.ai_binary_gameplay.reviews[2].sha256 = sha256(reviewText);
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_ID");
+  });
+
   it("rejects a build manifest whose physical file digest does not recompute", async () => {
     const root = await makeRoot();
     await prepareValidAiBinaryPack(root);
@@ -914,41 +980,84 @@ describe("evidence-driven Research Pack", () => {
     expect(JSON.parse(human.stdout).issues.map((entry: { code: string }) => entry.code)).toEqual(expect.arrayContaining(["COMPLETE_GATE", "HUMAN_GATE"]));
   }, 15_000);
 
-  it("rejects a research-only closure whose bound independent review is a rejection", async () => {
+  it("does not let R01 bypass its dedicated migration through ordinary AI completion", async () => {
     const root = await makeRoot();
-    await copyR01(root);
-    const reviewPath = join(root, ".quality-gates/QX-R4-R01/independent-review-round4.md");
-    const reviewText = "# Synthetic review\n\nVerdict: REJECT — research stage only\nScore: 0/32\nReviewer severities: S0 0, S1 0, S2 1, S3 0\n";
-    await writeFile(reviewPath, reviewText, "utf8");
-    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
-    const closure = JSON.parse(await readFile(closurePath, "utf8"));
-    closure.independent_review.sha256 = sha256(reviewText);
-    const closureText = `${JSON.stringify(closure, null, 2)}\n`;
-    await writeFile(closurePath, closureText, "utf8");
-    const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
+    const fixture = await prepareValidAiBinaryPack(root);
+    const r01Pack = join(root, "docs/research/QX-R4-R01");
+    await rename(fixture.pack, r01Pack);
+    const evidencePath = join(r01Pack, "evidence.json");
     const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-    evidence.research_only_ai_closure.sha256 = sha256(closureText);
+    evidence.task_id = "QX-R4-R01";
+    evidence.gates.complete = "passed";
+    delete evidence.research_only_ai_closure;
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
   });
 
-  it("rejects a contradictory R01 review hidden behind Markdown prefixes or open-severity prose", async () => {
+  it("rejects R01 candidate identity drift or a Production-improvement claim", async () => {
     const root = await makeRoot();
     await copyR01(root);
-    const reviewPath = join(root, ".quality-gates/QX-R4-R01/independent-review-round4.md");
-    const reviewText = "# Synthetic review\n\nVerdict: ACCEPT — research stage only\nScore: 30/32\nReviewer severities: S0 0, S1 0, S2 0, S3 0\n\n> - **Ver**dict: REJECT\n\n- **Score:** 0/32\n\n> Open **S2** findings: 1\n\n## S2 blocker\n";
-    await writeFile(reviewPath, reviewText, "utf8");
-    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
-    const closure = JSON.parse(await readFile(closurePath, "utf8"));
-    closure.independent_review.sha256 = sha256(reviewText);
-    const closureText = `${JSON.stringify(closure, null, 2)}\n`;
-    await writeFile(closurePath, closureText, "utf8");
     const evidencePath = join(root, "docs/research/QX-R4-R01/evidence.json");
     const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-    evidence.research_only_ai_closure.sha256 = sha256(closureText);
+    evidence.candidate.source_commit = "bae8d1f0000000000000000000000000000000000";
+    evidence.candidate.production_improvement_claimed = true;
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
+  it("rejects an R01 build archive that does not reproduce its manifest", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const archivePath = join(root, ".quality-gates/QX-R4-R01/production-build-be0eb516.tar.gz");
+    const archiveText = "not a build archive\n";
+    await writeFile(archivePath, archiveText, "utf8");
+    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+    const closure = JSON.parse(await readFile(closurePath, "utf8"));
+    closure.build_archive.sha256 = sha256(archiveText);
+    await bindR01Closure(root, closure);
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
+  it("rejects a research-only closure whose bound independent review is a rejection", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const reviewPath = join(root, ".quality-gates/QX-R4-R01/r5-migration-assessment.md");
+    const reviewText = `${await readFile(reviewPath, "utf8")}\nVerdict: R E J E C T\nS 2 findings: 1\n`;
+    await bindR01Assessment(root, reviewText);
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
+  it("rejects contradictory R01 gate rows and release claims", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const reviewPath = join(root, ".quality-gates/QX-R4-R01/r5-migration-assessment.md");
+    const reviewText = `${await readFile(reviewPath, "utf8")}\n| Human acceptance | PASSED |\n| Sites publication and health | PASSED |\n\nrelease_ready: true\n`;
+    await bindR01Assessment(root, reviewText);
+    const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+  });
+
+  it("rejects replacing the preserved historical review with an unrelated artifact", async () => {
+    const root = await makeRoot();
+    await copyR01(root);
+    const unrelatedPath = join(root, ".quality-gates/QX-R4-R01/current-capture-metrics.json");
+    const unrelatedText = await readFile(unrelatedPath, "utf8");
+    const closurePath = join(root, ".quality-gates/QX-R4-R01/research-only-ai-closure.json");
+    const closure = JSON.parse(await readFile(closurePath, "utf8"));
+    closure.historical_research_review = {
+      path: ".quality-gates/QX-R4-R01/current-capture-metrics.json",
+      sha256: sha256(unrelatedText),
+    };
+    await bindR01Closure(root, closure);
     const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
@@ -970,7 +1079,7 @@ describe("evidence-driven Research Pack", () => {
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R5-003", "complete", "ai-binary");
     expect(result.status).toBe(1);
-    expect(result.report.issues?.map((entry) => entry.code)).toContain("RESEARCH_ONLY_AI_CLOSURE");
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("COMPLETE_GATE");
   });
 
   it("rejects a validation receipt recorded before its capture", async () => {

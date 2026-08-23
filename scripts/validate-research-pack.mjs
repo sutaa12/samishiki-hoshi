@@ -2,8 +2,9 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, readdir, readFile, realpath, stat } from "node:fs/promises";
-import { extname, isAbsolute, relative, resolve } from "node:path";
+import { lstat, mkdtemp, readdir, readFile, realpath, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
 
 const TASK_ID_PATTERN = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -105,12 +106,26 @@ function normalizedDescription(value) {
   return typeof value === "string" ? value.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ") : "";
 }
 
+const SECURITY_CONFUSABLES = new Map(Object.entries({
+  "а": "a", "е": "e", "і": "i", "ј": "j", "к": "k", "о": "o", "р": "p", "с": "c", "т": "t", "х": "x", "у": "y",
+  "Α": "a", "Β": "b", "Ε": "e", "Ι": "i", "Κ": "k", "Μ": "m", "Ν": "n", "Ο": "o", "Ρ": "p", "Τ": "t", "Χ": "x", "Υ": "y",
+  "α": "a", "β": "b", "ε": "e", "ι": "i", "κ": "k", "ο": "o", "ρ": "p", "τ": "t", "χ": "x", "υ": "y",
+}));
+
+function securityFingerprint(value) {
+  if (typeof value !== "string") return "";
+  return [...value.normalize("NFKD").toLowerCase()]
+    .map((character) => SECURITY_CONFUSABLES.get(character) ?? character)
+    .join("")
+    .replace(/[\p{P}\p{S}\p{Z}\p{Cf}\p{M}\s]+/gu, "");
+}
+
 function descriptionFingerprint(value) {
-  return normalizedDescription(value).replace(/[\p{P}\p{S}\p{Z}\p{Cf}\p{M}\s]+/gu, "");
+  return securityFingerprint(normalizedDescription(value));
 }
 
 function containsReject(value) {
-  const compact = normalizedDescription(value).normalize("NFKD").replace(/[\p{P}\p{S}\p{Z}\p{Cf}\p{M}\s]+/gu, "");
+  const compact = securityFingerprint(normalizedDescription(value));
   return /fail(?:ed|ure)?|reject(?:ed|ion)?/i.test(compact) || /拒否|不合格|却下|失敗/.test(compact);
 }
 
@@ -126,7 +141,7 @@ function hasHumanReject(human) {
     if (!value || typeof value !== "object") return false;
     return Object.entries(value).some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
-      if ((normalizedKey.includes("rejectcount") || normalizedKey.includes("rejectioncount")) && Number.isFinite(Number(child)) && Number(child) > 0) return true;
+      if (/reject(?:ed|ion)?count/.test(normalizedKey) && Number.isFinite(Number(child)) && Number(child) > 0) return true;
       return child && typeof child === "object" ? hasPositiveRejectCount(child) : false;
     });
   };
@@ -261,6 +276,31 @@ function normalizedDistinct(...values) {
 function hasExactKeys(value, keys) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value)
     && JSON.stringify(Object.keys(value).toSorted()) === JSON.stringify([...keys].toSorted()));
+}
+
+async function manifestMatchesArchive(root, directory, manifestReference, archiveReference) {
+  const manifest = await regularArtifact(root, directory, manifestReference);
+  const archive = await regularArtifact(root, directory, archiveReference?.path);
+  if (!manifest.ok || !archive.ok || archive.sha256 !== archiveReference?.sha256) return false;
+  const lines = (await readFile(manifest.path, "utf8")).trim().split("\n");
+  const entries = lines.map((line) => /^([0-9a-f]{64})\s{2}\.\/([^/].*)$/.exec(line));
+  if (entries.length === 0 || entries.some((entry) => !entry || entry[2].split("/").some((segment) => !segment || segment === "." || segment === ".."))) return false;
+  const listed = spawnSync("tar", ["-tzf", archive.path], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+  if (listed.status !== 0) return false;
+  const archiveFiles = listed.stdout.split("\n").filter((path) => path && !path.endsWith("/"));
+  const expectedFiles = entries.map((entry) => `dist/${entry[2]}`);
+  if (archiveFiles.some((path) => !path.startsWith("dist/") || path.split("/").some((segment) => segment === ".."))
+    || JSON.stringify([...archiveFiles].sort()) !== JSON.stringify([...expectedFiles].sort())) return false;
+  const extractionRoot = await mkdtemp(join(tmpdir(), "lonely-star-build-verify-"));
+  try {
+    const extracted = spawnSync("tar", ["-xzf", archive.path, "-C", extractionRoot], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+    if (extracted.status !== 0) return false;
+    const artifacts = await Promise.all(entries.map((entry) => regularArtifact(extractionRoot, extractionRoot, `dist/${entry[2]}`)));
+    return artifacts.every((artifact, index) => artifact.ok && artifact.sha256 === entries[index][1])
+      && new Set(artifacts.map((artifact) => artifact.identity)).size === artifacts.length;
+  } finally {
+    await rm(extractionRoot, { recursive: true, force: true });
+  }
 }
 
 function validLargePlayerOccupancy(value) {
@@ -457,22 +497,41 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
   const reviewScore = /\bScore\s*:\s*(\d+)\/32\b/i.exec(normalizedReviewText);
   const reviewVerdicts = normalizedReviewText.match(/\bVerdict\s*:\s*(?:ACCEPT|REJECT)\b/gim) ?? [];
   const reviewScores = normalizedReviewText.match(/\bScore\s*:\s*\d+\/32\b/gim) ?? [];
-  const contradictorySeverity = /(?:open\s+)?S[0-2](?:\s+findings?)?\s*[:=]?\s*[1-9]\d*\b/i.test(normalizedReviewText)
-    || /^#{1,6}\s*S[0-2]\b/im.test(normalizedReviewText)
-    || /\bS[0-2]\s+(?:blocker|finding)\b/i.test(normalizedReviewText);
+  const contradictorySeverity = /(?:open\s*)?S\s*[0-2](?:\s*findings?)?\s*[:=]?\s*[1-9]\d*\b/i.test(normalizedReviewText)
+    || /^#{1,6}\s*S\s*[0-2]\b/im.test(normalizedReviewText)
+    || /\bS\s*[0-2]\s+(?:blocker|finding)\b/i.test(normalizedReviewText);
+  const expectedGateStates = new Map([
+    ["QX-R4-R01 research-only ledger", "research-only-ai-accepted"],
+    ["Production gameplay improvement", "NOT_CLAIMED"],
+    ["Human acceptance", "PENDING"],
+    ["Owner release decision", "PENDING"],
+    ["Legal acceptance", "PENDING"],
+    ["Main integration", "PENDING"],
+    ["Sites publication and health", "PENDING"],
+    ["Contest submission or acceptance", "PENDING"],
+    ["Next executable task", "QX-R5-001"],
+  ]);
+  const reviewTableRows = (reviewText ?? "").split("\n")
+    .filter((line) => line.trim().startsWith("|") && !/^\|\s*-/.test(line.trim()))
+    .map((line) => line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.replaceAll("`", "").trim()));
+  const gateStatesValid = [...expectedGateStates].every(([gate, expected]) => {
+    const matching = reviewTableRows.filter((row) => row[0] === gate);
+    return matching.length === 1 && matching[0][1] === expected;
+  });
+  const forbiddenClaim = /release\s*[_ -]?ready\s*[:=]\s*true|production\s*[_ -]?improvement\s*[_ -]?claimed\s*[:=]\s*true/i.test(normalizedReviewText);
+  const buildArchiveValid = closure ? await manifestMatchesArchive(root, directory, evidence.candidate?.build_artifact, closure.build_archive) : false;
   const migrationSubjectBound = Boolean(closure && reviewText
     && closure.independent_review?.path === ".quality-gates/QX-R4-R01/r5-migration-assessment.md"
+    && closure.historical_research_review?.path === ".quality-gates/QX-R4-R01/independent-review-round4.md"
     && reviewText.includes("Subject task: `QX-R4-R01`")
     && reviewText.includes("Target classification: `research-only-ai-accepted`")
+    && reviewText.includes(`Runtime source commit | \`${closure.baseline_source_commit}\``)
     && reviewText.includes(`Runtime source SHA-256 | \`${closure.baseline_source_sha256}\``)
     && reviewText.includes(`Subject build SHA-256 | \`${closure.baseline_build_sha256}\``)
+    && reviewText.includes(`Preserved build archive | \`${closure.build_archive?.sha256}\``)
     && reviewText.includes(`Research-validation artifact | \`${closure.research_validation_sha256}\``)
     && reviewText.includes(`Historical round-4 review artifact | \`${closure.historical_research_review?.sha256}\``)
-    && /Human acceptance \| `PENDING`/i.test(reviewText)
-    && /Legal acceptance \| `PENDING`/i.test(reviewText)
-    && /Main integration \| `PENDING`/i.test(reviewText)
-    && /Sites publication and health \| `PENDING`/i.test(reviewText)
-    && /Contest submission or acceptance \| `PENDING`/i.test(reviewText));
+    && gateStatesValid);
   const acceptedReview = reviewVerdicts.length === 1
     && reviewScores.length === 1
     && /\bVerdict\s*:\s*ACCEPT\b/i.test(reviewVerdicts[0])
@@ -480,15 +539,20 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     && Number(reviewScore?.[1]) >= 28
     && /Reviewer severities\s*:\s*S0\s+0,\s*S1\s+0,\s*S2\s+0\b/i.test(normalizedReviewText)
     && !contradictorySeverity
+    && !containsReject(reviewText)
+    && !forbiddenClaim
     && !/must not be marked complete|HUMAN_PENDING/i.test(normalizedReviewText);
   if (!closure
     || taskId !== "QX-R4-R01"
+    || evidence.gates?.complete !== "research-only-ai-accepted"
+    || !hasExactKeys(closure, ["schema_version", "task_id", "result", "recorded_at", "issuer", "policy_source", "production_improvement_claimed", "human_gate_required", "baseline_source_commit", "baseline_source_sha256", "baseline_build_sha256", "build_archive", "research_validation_sha256", "automated_review_result", "automated_review_score", "automated_review_open_s0_s2", "independent_review", "historical_research_review", "withdrawn_gate", "retained_boundary", "next_task", "rollback_condition"])
     || closure.schema_version !== "research-only-ai-closure.v1"
     || closure.task_id !== taskId
     || closure.result !== "research-only-ai-accepted"
     || closure.production_improvement_claimed !== false
     || closure.human_gate_required !== false
     || !Number.isFinite(Date.parse(closure.recorded_at ?? ""))
+    || closure.baseline_source_commit !== evidence.baseline?.source_commit
     || closure.baseline_source_sha256 !== evidence.baseline?.source_sha256
     || closure.baseline_build_sha256 !== evidence.baseline?.build_sha256
     || closure.research_validation_sha256 !== evidence.research_validation?.sha256
@@ -497,13 +561,19 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     || closure.automated_review_open_s0_s2 !== 0
     || !(await validArtifactRef(root, directory, closure.independent_review))
     || !(await validArtifactRef(root, directory, closure.historical_research_review))
+    || !buildArchiveValid
     || !acceptedReview
     || !migrationSubjectBound
     || closure.next_task !== "QX-R5-001"
     || !/cannot prove.*Gameplay quality.*Human acceptance.*legal acceptance.*release readiness.*contest acceptance/i.test(closure.retained_boundary ?? "")
+    || !hasExactKeys(evidence.candidate, ["kind", "source_commit", "source_sha256", "build_sha256", "build_artifact", "build_hash_procedure", "screenshot", "clip", "input_trace", "capture_receipt", "build_command_receipt", "branch", "worktree"])
     || evidence.candidate?.kind !== "research-only-no-runtime-change"
+    || evidence.candidate?.source_commit !== evidence.baseline?.source_commit
     || evidence.candidate?.source_sha256 !== evidence.baseline?.source_sha256
-    || evidence.candidate?.build_sha256 !== evidence.baseline?.build_sha256) {
+    || evidence.candidate?.build_sha256 !== evidence.baseline?.build_sha256
+    || evidence.candidate?.build_artifact !== evidence.baseline?.build_artifact
+    || !isGitCommit(root, evidence.candidate?.source_commit)
+    || gitArchiveSha256(root, evidence.candidate?.source_commit) !== evidence.candidate?.source_sha256) {
     issues.push(issue("RESEARCH_ONLY_AI_CLOSURE", "Only QX-R4-R01 may use the research-only AI migration, and it needs a digest-bound ACCEPT review scoring >=28/32 with zero S0-S2, no Production-improvement claim, no Human requirement, matching baseline source/build/research validation, and QX-R5-001 as the next task.", "evidence.json"));
   }
 }
@@ -570,6 +640,11 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     && steerDisplacementRatio >= 0.1
     && steerProbe.completed_at_ms <= telemetry?.duration_ms;
   if (!telemetry
+    || !hasExactKeys(telemetry, ["schema_version", "task_id", "result", "subject_source_sha256", "subject_build_sha256", "subject_video_sha256", "recorded_at", "frame_count", "duration_ms", "distance_increases_every_frame", "distance_trace", "max_still_frame_ms", "input_response_ms", "ring_probe", "steer_probe", "encounter_order"])
+    || distanceTrace.some((sample) => !hasExactKeys(sample, ["frame", "at_ms", "distance_mm"]))
+    || !hasExactKeys(ringProbe, ["before_area_px2", "after_area_px2", "started_at_ms", "completed_at_ms"])
+    || !hasExactKeys(steerProbe, ["input_at_ms", "response_at_ms", "completed_at_ms", "start_x_px", "response_x_px", "end_x_px", "viewport_width_px"])
+    || valueContainsReject(telemetry)
     || telemetry.schema_version !== "ai-binary-telemetry.v1"
     || telemetry.task_id !== taskId
     || telemetry.result !== "passed"
@@ -636,7 +711,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     issues.push(issue("AI_REVIEW_COUNT", "AI Binary completion needs exactly three distinct digest-bound review artifacts.", "evidence.json"));
   }
   const reviewerIds = reviews.map((review) => descriptionFingerprint(review?.reviewer_id));
-  if (reviews.some((review) => !meaningful(review?.reviewer_id)) || new Set(reviewerIds).size !== 3) {
+  if (reviews.some((review, index) => !meaningful(review?.reviewer_id) || reviewerIds[index].length === 0) || new Set(reviewerIds).size !== 3) {
     issues.push(issue("AI_REVIEW_ID", "AI Binary reviews need three different nonempty Reviewer IDs.", "evidence.json"));
   }
   if (reviews.some((review) => !review
@@ -905,7 +980,7 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     if (acceptance === "ai-binary" && (hasHumanReject(evidence.human) || containsReject(optionalHumanText) || /\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject still blocks the candidate; AI Binary mode may omit Human evidence but cannot override an existing Reject.", "human-test.md"));
     }
-    const researchOnlyAiClosure = acceptance === "ai-binary" && evidence.gates?.complete === "research-only-ai-accepted";
+    const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";
     if (researchOnlyAiClosure) {
       await validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues);
     } else {

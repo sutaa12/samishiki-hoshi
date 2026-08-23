@@ -16,5 +16,5 @@ Create a new revert commit for the R01 documentation/capture commit or restore t
 
 - Expected gameplay hash: `LIFE_11.05-11.42_6349ca8e-1f1a2cc7;EARTH_48.95-49.07_36cccfbf-a2b5274b;SOLITUDE_143.03_9997894d`
 - Expected source archive SHA-256: b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da
-- Expected Production build SHA-256: 7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d
+- Expected Production build SHA-256: ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360
 - Expected Sites rollback version, when applicable: prior public Sites version remains the explicit rollback boundary; R01 creates no deployment

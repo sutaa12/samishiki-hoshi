@@ -15,13 +15,12 @@ Reviewer severities: S0 0, S1 0, S2 0, S3 0
 
 | Subject | SHA-256 or identifier |
 | --- | --- |
-| Evidence artifact | `7fcb0414030b1d3e9f98ad4aa288495cd060f47081fa0f3786364ba6b26d770f` |
-| Closure artifact before review rebinding | `f4c0dde9b24f48e409ef8a8ad42e30e9fbff2c629e7f8fff15175a6ae6d90e08` |
-| Research-validation artifact | `6561475d17170dde7b37a0bf41a9bcc6bf8c86227c1ef811c4927f48f29b779e` |
+| Research-validation artifact | `ce5b365fdcd34969bf36f97ca1330a15126b127f46875e4d1179abc688c60e54` |
 | Historical round-4 review artifact | `4b6b14b9ba94708815e4677eea0d663f4a21c962405f225b0121a077272bfc79` |
 | Runtime source commit | `be0eb51661df90bc21bdb471a8a626078ff92ce3` |
 | Runtime source SHA-256 | `b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da` |
-| Subject build SHA-256 | `7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d` |
+| Subject build SHA-256 | `ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360` |
+| Preserved build archive | `67f49b71723963ef312926a359c6d6b40a38e2a948280d1f3daedc1427445db4` |
 | Research snapshot commit | `aa791ef16abe759823e4399d836429abcf464fbe` |
 | Research snapshot SHA-256 | `690ce2be64c6cf11b1cfcfce18b79ffcb2f3d04033fc18e3fb53b968b041dc17` |
 | R00 Production-stable manifest | `03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25` |
@@ -54,11 +53,10 @@ Reviewer severities: S0 0, S1 0, S2 0, S3 0
 
 ## Limitations
 
-- Source and build identities were verified for exact cross-receipt equality, not re-derived from forbidden runtime source or the out-of-scope complete build manifest.
-- The R00 Production-stable manifest contains 24 well-formed entries with unique paths; its container digest is reported above, but no broader Production claim is inferred from it.
+- Source identity was re-derived from the exact Git commit archive. The complete 106-entry build manifest was recomputed against the preserved build archive; no broader Production-improvement claim is inferred from that historical build.
 - The validator was not executed because full execution would traverse artifacts and repository state outside the permitted review scope. Only its current R01 migration predicate was read.
 - No Git history, diff, status, runtime files, prior QX-R5-000A reviews, team state, deployment, Main, Sites, or user-conversation evidence was inspected.
-- This assessment preceded creation of its own persisted file digest. Downstream closure and evidence references are refreshed mechanically without broadening the classification.
+- This assessment is digest-bound by the closure receipt. The closure is in turn digest-bound by the Evidence Pack without creating a circular self-reference.
 
 ## Sources
 

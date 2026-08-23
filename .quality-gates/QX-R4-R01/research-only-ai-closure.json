@@ -7,15 +7,20 @@
   "policy_source": "Notion Page 19 R5 Minimum Communicative Game Reset",
   "production_improvement_claimed": false,
   "human_gate_required": false,
+  "baseline_source_commit": "be0eb51661df90bc21bdb471a8a626078ff92ce3",
   "baseline_source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
-  "baseline_build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
-  "research_validation_sha256": "6561475d17170dde7b37a0bf41a9bcc6bf8c86227c1ef811c4927f48f29b779e",
+  "baseline_build_sha256": "ac56d9b0010acdea7cfb559e9b7954103a4c266b94f12ba907f94ed78de33360",
+  "build_archive": {
+    "path": ".quality-gates/QX-R4-R01/production-build-be0eb516.tar.gz",
+    "sha256": "67f49b71723963ef312926a359c6d6b40a38e2a948280d1f3daedc1427445db4"
+  },
+  "research_validation_sha256": "ce5b365fdcd34969bf36f97ca1330a15126b127f46875e4d1179abc688c60e54",
   "automated_review_result": "accepted-research-stage-only",
   "automated_review_score": "32/32",
   "automated_review_open_s0_s2": 0,
   "independent_review": {
     "path": ".quality-gates/QX-R4-R01/r5-migration-assessment.md",
-    "sha256": "97db72c9552a9b3298f53f06a2107c08ce1e432eb27eb78083985a4dcb4117b1"
+    "sha256": "4f13b2b94c52c3a92b77a31e7c7e10cb0afeaa0872a04696f9acd4d1fce3b0c7"
   },
   "historical_research_review": {
     "path": ".quality-gates/QX-R4-R01/independent-review-round4.md",
