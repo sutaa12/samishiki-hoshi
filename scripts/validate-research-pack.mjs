@@ -132,6 +132,14 @@ function containsReject(value) {
   return /fail(?:ed|ure)?|reject(?:ed|ion)?/i.test(compact) || /拒否|不合格|却下|失敗/.test(compact);
 }
 
+function containsHumanFailureText(value) {
+  const compact = securityFingerprint(normalizedDescription(value));
+  return containsReject(value)
+    || /(?:pass|passed|accept|accepted|approve|approved)(?:is|was)?false/.test(compact)
+    || /(?:didnot|doesnot|donot|not)(?:pass|passed|accept|accepted|approve|approved)/.test(compact)
+    || /(?:承認|合格)(?:され)?ず|未承認/.test(compact);
+}
+
 function communicatesR5Gameplay(value) {
   const text = normalizedDescription(value);
   const concepts = [
@@ -143,11 +151,23 @@ function communicatesR5Gameplay(value) {
   ];
   const latinWords = text.match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
   const hasJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(text);
-  const englishActions = text.match(/\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|dodges?|dodging|veers?|veering|navigates?|navigating|clears?|clearing|avoids?|avoiding|energizes?|energizing|pulses?|pulsing|passes?|passing|activates?|activating|charges?|charging|sends?|sending)\b/g) ?? [];
-  const japaneseActions = text.match(/動か(?:す|し|して)|移動(?:する|し|して)|進(?:む|み|んで)|避け(?:る|て)?|くぐ(?:る|り|って)|通(?:る|り|って)|渡(?:す|し|して)|光らせ(?:る|て)|起動(?:する|し|して)|照ら(?:す|し|して)/g) ?? [];
+  const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not)\b/.test(text);
+  const englishRelations = [
+    /\b(?:droplet|drop|water|player|avatar|character|orb|bead)\b[^.!?]{0,60}\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/,
+    /\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|clears?|clearing|passes?|passing|goes?|going)\b[^.!?]{0,28}\b(?:ring|hoop|gate|circle|arch|loop)\b/,
+    /\b(?:avoids?|avoiding|dodges?|dodging|veers?\s+(?:around|past)|steers?\s+(?:around|past))\b[^.!?]{0,28}\b(?:rock|hazard|obstacle|barrier|boulder)\b/,
+    /(?:\b(?:energizes?|energizing|pulses?|pulsing|activates?|activating|charges?|charging)\b[^.!?]{0,28}\b(?:sprout|plant|node|target)\b|\b(?:sends?|sending|passes?|passing|delivers?|delivering)\b[^.!?]{0,20}\b(?:light|energy|pulse)\b[^.!?]{0,28}\b(?:sprout|plant|node|target)\b)/,
+  ];
+  const japaneseNegative = /ない|ず|ません|できない|失敗/.test(text);
+  const japaneseRelations = [
+    /(?:水滴|雫|プレイヤー|自機|キャラ).{0,30}(?:動か|移動|進|操作|操縦|避け)/,
+    /(?:(?:くぐ|通|抜け).{0,16}(?:リング|輪|門|ゲート|円)|(?:リング|輪|門|ゲート|円).{0,16}(?:くぐ|通|抜け))/,
+    /(?:(?:避け|かわし).{0,16}(?:岩|障害|壁|危険)|(?:岩|障害|壁|危険).{0,16}(?:避け|かわし))/,
+    /(?:(?:渡|送|届け|当て|光らせ|起動|照ら).{0,20}(?:芽|植物|ノード|対象)|(?:光|パルス|生命).{0,20}(?:芽|植物|ノード|対象).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら)|(?:芽|植物|ノード|対象).{0,20}(?:光|パルス|生命).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら))/,
+  ];
   const sentenceLike = hasJapanese
-    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && japaneseActions.length >= 3
-    : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && englishActions.length >= 3;
+    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && japaneseRelations.every((pattern) => pattern.test(text))
+    : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && !englishNegative && englishRelations.every((pattern) => pattern.test(text));
   return concepts.filter((pattern) => pattern.test(text)).length >= 4 && sentenceLike;
 }
 
@@ -166,7 +186,7 @@ function hasHumanReject(human) {
   };
   const isNegative = (value) => {
     const normalized = normalizedScalar(value);
-    return normalized === false || normalized === "false" || normalized === "no" || normalized === "0";
+    return normalized === false || normalized === 0 || normalized === "false" || normalized === "no" || normalized === "0";
   };
   const visit = (value) => {
     if (!value || typeof value !== "object") return false;
@@ -177,7 +197,23 @@ function hasHumanReject(human) {
       return child && typeof child === "object" ? visit(child) : false;
     });
   };
-  return valueContainsReject(human) || visit(human);
+  const containsFailureString = (value) => {
+    if (typeof value === "string") return containsHumanFailureText(value);
+    if (Array.isArray(value)) return value.some(containsFailureString);
+    if (value && typeof value === "object") return Object.values(value).some(containsFailureString);
+    return false;
+  };
+  return containsFailureString(human) || visit(human);
+}
+
+function containsHumanFailureArtifact(value) {
+  if (containsHumanFailureText(value)) return true;
+  if (typeof value !== "string") return false;
+  try {
+    return hasHumanReject(JSON.parse(value));
+  } catch {
+    return false;
+  }
 }
 
 function declaresHumanContext(value) {
@@ -1099,9 +1135,9 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const optionalHumanText = files.get("human-test.md") ?? "";
     const referencedHumanTexts = await Promise.all(humanArtifactReferences(evidence).map((reference) => readArtifactText(root, directory, reference)));
     if (hasHumanRejectAnywhere(evidence)
-      || containsReject(optionalHumanText)
+      || containsHumanFailureArtifact(optionalHumanText)
       || /\bHUMAN_REJECT\b/i.test(optionalHumanText)
-      || referencedHumanTexts.some((text) => containsReject(text))) {
+      || referencedHumanTexts.some((text) => containsHumanFailureArtifact(text))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject blocks both acceptance modes, including digest-bound Human-labeled evidence outside the canonical Human file.", "human-test.md"));
     }
     const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";
