@@ -23,9 +23,9 @@ Blind labels: Current={{CURRENT_LABEL}}, Candidate={{CANDIDATE_LABEL}}
 
 Status: pending
 
-| Participant | Cohort | StartedAt | CompletedAt | Exact free-form answer | BinaryResult | TraceArtifact |
-| --- | --- | --- | --- | --- | --- | --- |
-| {{PARTICIPANT_LABEL}} | {{COHORT}} | {{STARTED_AT}} | {{COMPLETED_AT}} | {{FREE_ANSWER}} | {{PASS_OR_FAIL}} | {{TRACE_ARTIFACT}} |
+| Participant | Cohort | StartedAt | CompletedAt | Exact free-form answer | BinaryResult | TraceArtifact | TraceSHA256 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| {{PARTICIPANT_LABEL}} | {{COHORT}} | {{STARTED_AT}} | {{COMPLETED_AT}} | {{FREE_ANSWER}} | {{PASS_OR_FAIL}} | {{TRACE_ARTIFACT}} | {{TRACE_SHA256}} |
 
 Preserve participant label, cohort, timestamps, cursor/pointer trace, exact free-form answer, and binary result. Never replace a negative answer with an AI interpretation or an average score.
 

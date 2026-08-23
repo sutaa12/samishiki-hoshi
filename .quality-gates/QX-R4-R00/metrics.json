@@ -1,0 +1,12 @@
+{
+  "schema_version": "quality-metrics.v1",
+  "task_id": "QX-R4-R00",
+  "candidate_source_commit": "f0ed03ee82818e3f3f78258daf738ae0cee373b0",
+  "candidate_source_sha256": "21a821025714b980aa04729361840945341842ef1b6d88a1cec44179a6367f27",
+  "candidate_build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
+  "metrics": {
+    "load": {"baseline": 0, "candidate": 0, "unit": "runtime dependency changes", "source": "package-lock.json and dependency-map comparison"},
+    "frame": {"baseline": 0, "candidate": 0, "unit": "unexpected selected Production checks", "source": ".quality-gates/qx-r4-r00-production-regression-accepted.json"},
+    "memory": {"baseline": 0, "candidate": 0, "unit": "runtime ownership-path changes", "source": "runtime diff and stable Production asset manifest"}
+  }
+}

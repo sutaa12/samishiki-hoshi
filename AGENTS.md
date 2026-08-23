@@ -22,7 +22,7 @@ Before changing graphics, geometry, camera, controls, onboarding, feedback, or a
 5. Implement one hypothesis in an isolated worktree or behind a feature flag. Do not combine unrelated visual, camera, speed, and post-effect hypotheses in one spike.
 6. Compare Current and Candidate under the same camera, input, device, viewport, exposure, backend, and quality.
 7. Run `npm run research:validate -- <task-id>` before implementation and `npm run research:validate -- <task-id> --stage complete` before claiming completion.
-8. Do not mark the task complete without measurable improvement, a committed Evidence Pack, recomputed source/build SHA-256 bindings, numeric metric payloads, timestamped raw human rows and trace artifacts, and a responsible-owner decision artifact bound to the same candidate.
+8. Do not mark the task complete without measurable improvement, a committed Evidence Pack, recomputed source/build SHA-256 bindings, computed numeric comparisons backed by digest-bound receipts, distinct timestamped raw-human/trace files, and a separate responsible-owner receipt bound to the same candidate. Evidence paths must be repository-contained regular non-symlink files.
 9. Reddit, forum posts, AI vision, automated screenshots, object counts, effect counts, and test pass counts cannot override a Human Reject.
 
 External video frames may be inspected only in the minimum amount needed for analysis. Store third-party URLs and timecodes, not redistributed media, unless the repository has explicit reuse rights.

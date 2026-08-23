@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -24,6 +25,10 @@ async function copySample(root: string) {
 function runValidator(root: string, taskId: string, stage = "research") {
   const result = spawnSync(process.execPath, [validator.pathname, taskId, "--root", root, "--stage", stage], { encoding: "utf8" });
   return { ...result, report: JSON.parse(result.stdout || "{}") as { ok?: boolean; issues?: Array<{ code: string }> } };
+}
+
+function sha256(text: string) {
+  return createHash("sha256").update(text).digest("hex");
 }
 
 afterEach(async () => {
@@ -64,7 +69,7 @@ describe("evidence-driven Research Pack", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       ok: true,
       task_id: "QX-R4-R00",
-      counts: { primary: 3, github: 2, community: 2, comparable_games: 3, frames: 6 },
+      counts: { primary: 6, github: 2, community: 2, comparable_games: 3, frames: 6 },
     });
   });
 
@@ -100,23 +105,89 @@ describe("evidence-driven Research Pack", () => {
     await copySample(root);
     const path = join(root, "docs/research/QX-R4-R00/evidence.json");
     const evidence = JSON.parse(await readFile(path, "utf8")) as {
-      human: { status: string; raw_answer_count: number; owner_decision: string; owner_evidence: string | null };
+      candidate: { source_commit: string; source_sha256: string; build_sha256: string };
+      human: { status: string; raw_answer_count: number; owner_decision: string; raw_answers: { path: string; sha256: string } | null; owner_evidence: { path: string; sha256: string } | null };
       gates: { complete: string };
     };
+    const reusedReceipt = JSON.stringify({
+      schema_version: "human-owner-decision.v1",
+      task_id: "QX-R4-R00",
+      decision: "pass",
+      owner_role: "Human Acceptance Owner",
+      signed_at: "2026-08-23T12:00:00+09:00",
+      candidate_source_commit: evidence.candidate.source_commit,
+      candidate_source_sha256: evidence.candidate.source_sha256,
+      candidate_build_sha256: evidence.candidate.build_sha256,
+      raw_answer_count: 1,
+    });
+    const reusedPath = join(root, "docs/research/QX-R4-R00/reused-evidence.json");
+    await writeFile(reusedPath, reusedReceipt, "utf8");
+    const reusedRef = { path: "reused-evidence.json", sha256: sha256(reusedReceipt) };
     evidence.human.status = "passed";
     evidence.human.raw_answer_count = 1;
     evidence.human.owner_decision = "pass";
-    evidence.human.owner_evidence = "human-test.md";
+    evidence.human.raw_answers = reusedRef;
+    evidence.human.owner_evidence = reusedRef;
     evidence.gates.complete = "passed";
     await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const humanPath = join(root, "docs/research/QX-R4-R00/human-test.md");
     const human = (await readFile(humanPath, "utf8"))
       .replace("Owner: not applicable to this process-only task", "Owner: Human Acceptance Owner")
-      .replace("Decision: not applicable to QX-R4-R00. This file is a validated sample; it cannot be reused as a Human pass for another task.", "Decision: pass");
+      .replace("Decision: not applicable to QX-R4-R00. This file is a validated sample; it cannot be reused as a Human pass for another task.", "Decision: pass")
+      .replace("| --- | --- | --- | --- | --- | --- | --- | --- |", `| --- | --- | --- | --- | --- | --- | --- | --- |\n| P01 | novice | 2026-08-23T12:00:00+09:00 | 2026-08-23T12:03:00+09:00 | Exact answer | pass | reused-evidence.json | ${reusedRef.sha256} |`);
     await writeFile(humanPath, human, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["HUMAN_RAW"]));
+  });
+
+  it("computes metric direction and numeric hard-gate outcomes", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const path = join(root, "docs/research/QX-R4-R00/evidence.json");
+    const evidence = JSON.parse(await readFile(path, "utf8")) as {
+      metrics: { load: { baseline: number; candidate: number; direction: string; max_regression_pct: number; regression: boolean } };
+      numeric_hard_gates: Array<{ target: { operator: string; value: number }; observed: number; result: string }>;
+      gates: { complete: string };
+    };
+    evidence.metrics.load = { ...evidence.metrics.load, baseline: 1, candidate: 999999, direction: "lower-is-better", max_regression_pct: 0, regression: false };
+    evidence.numeric_hard_gates[0].target = { ...evidence.numeric_hard_gates[0].target, operator: "lte", value: 0 };
+    evidence.numeric_hard_gates[0].observed = 1;
+    evidence.numeric_hard_gates[0].result = "passed";
+    evidence.gates.complete = "passed";
+    await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["METRICS_GATE", "HARD_GATE"]));
+  });
+
+  it("rejects directories and symlinks as evidence artifacts", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const pack = join(root, "docs/research/QX-R4-R00");
+    await symlink("rollback.md", join(pack, "rollback-link.md"));
+    const path = join(pack, "evidence.json");
+    const evidence = JSON.parse(await readFile(path, "utf8")) as { rollback: { artifact: string }; baseline: { build_artifact: string } };
+    evidence.rollback.artifact = "rollback-link.md";
+    evidence.baseline.build_artifact = "docs/";
+    await writeFile(path, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["BASELINE_BUILD_BINDING", "ROLLBACK_SHA256"]));
+  });
+
+  it("rejects invalid scale and an official label without matching Primary proof", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const evidencePath = join(root, "docs/research/QX-R4-R00/evidence.json");
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8")) as { scale: string };
+    evidence.scale = "gigantic";
+    await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const comparablePath = join(root, "docs/research/QX-R4-R00/comparable-games.csv");
+    await writeFile(comparablePath, (await readFile(comparablePath, "utf8")).replace("https://www.playstation.com/en-gb/games/journey/", "https://example.com/not-official"), "utf8");
+    const result = runValidator(root, "QX-R4-R00");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["SCALE", "COMPARABLE_OFFICIAL_PROOF"]));
   });
 
   it("rejects moving GitHub labels and duplicate or unofficial comparables", async () => {

@@ -32,20 +32,20 @@
     "rationale": "{{DECISION_RATIONALE}}"
   },
   "numeric_hard_gates": [
-    {"id": "{{HARD_GATE_ID}}", "target": "{{HARD_GATE_TARGET}}", "result": "pending", "evidence": "{{HARD_GATE_EVIDENCE}}"}
+    {"id": "{{HARD_GATE_ID}}", "target": {"operator": "lte", "value": null, "unit": "{{HARD_GATE_UNIT}}"}, "observed": null, "result": "pending", "evidence": {"path": "{{HARD_GATE_EVIDENCE}}", "sha256": "{{HARD_GATE_EVIDENCE_SHA256}}"}}
   ],
   "metrics": {
     "status": "pending",
     "performance_no_regression": false,
-    "load": {"baseline": null, "candidate": null, "unit": "{{LOAD_UNIT}}", "regression": null, "evidence": "{{LOAD_EVIDENCE}}", "observation": "{{LOAD_OBSERVATION}}"},
-    "frame": {"baseline": null, "candidate": null, "unit": "{{FRAME_UNIT}}", "regression": null, "evidence": "{{FRAME_EVIDENCE}}", "observation": "{{FRAME_OBSERVATION}}"},
-    "memory": {"baseline": null, "candidate": null, "unit": "{{MEMORY_UNIT}}", "regression": null, "evidence": "{{MEMORY_EVIDENCE}}", "observation": "{{MEMORY_OBSERVATION}}"}
+    "load": {"baseline": null, "candidate": null, "unit": "{{LOAD_UNIT}}", "direction": "lower-is-better", "max_regression_pct": null, "regression": null, "evidence": {"path": "{{LOAD_EVIDENCE}}", "sha256": "{{LOAD_EVIDENCE_SHA256}}"}, "observation": "{{LOAD_OBSERVATION}}"},
+    "frame": {"baseline": null, "candidate": null, "unit": "{{FRAME_UNIT}}", "direction": "lower-is-better", "max_regression_pct": null, "regression": null, "evidence": {"path": "{{FRAME_EVIDENCE}}", "sha256": "{{FRAME_EVIDENCE_SHA256}}"}, "observation": "{{FRAME_OBSERVATION}}"},
+    "memory": {"baseline": null, "candidate": null, "unit": "{{MEMORY_UNIT}}", "direction": "lower-is-better", "max_regression_pct": null, "regression": null, "evidence": {"path": "{{MEMORY_EVIDENCE}}", "sha256": "{{MEMORY_EVIDENCE_SHA256}}"}, "observation": "{{MEMORY_OBSERVATION}}"}
   },
   "human": {
     "status": "pending",
     "raw_answer_count": 0,
     "owner_decision": "pending",
-    "raw_answers": "human-test.md",
+    "raw_answers": null,
     "owner_evidence": null
   },
   "rollback": {

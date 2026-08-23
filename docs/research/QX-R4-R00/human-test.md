@@ -23,8 +23,8 @@ Blind labels: not applicable to a process-only foundation task
 
 Status: not applicable to QX-R4-R00 process-only acceptance. Future Graphics, Shape, Gameplay, and UX packs must preserve participant label, cohort, timestamps, pointer trace when collected, exact free-form answer, and binary result.
 
-| Participant | Cohort | StartedAt | CompletedAt | Exact free-form answer | BinaryResult | TraceArtifact |
-| --- | --- | --- | --- | --- | --- | --- |
+| Participant | Cohort | StartedAt | CompletedAt | Exact free-form answer | BinaryResult | TraceArtifact | TraceSHA256 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 
 ## Human owner decision
 

@@ -2,8 +2,8 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { lstat, readFile, realpath, stat } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 
 const TASK_ID_PATTERN = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -105,32 +105,76 @@ function isHttpsUrl(value) {
   }
 }
 
-async function artifactExists(root, packDirectory, artifact) {
-  if (!meaningful(artifact)) return false;
-  const path = resolve(artifact.includes("/") ? root : packDirectory, artifact);
-  if (!path.startsWith(`${resolve(root)}/`)) return false;
+function canonicalUrl(value) {
   try {
-    await access(path);
-    return true;
+    const url = new URL(value);
+    if (url.protocol !== "https:") return null;
+    url.hash = "";
+    url.search = "";
+    url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    return url.toString();
   } catch {
-    return false;
+    return null;
   }
 }
 
 function artifactPath(root, packDirectory, artifact) {
   if (!meaningful(artifact)) return null;
   const path = resolve(artifact.includes("/") ? root : packDirectory, artifact);
-  return path.startsWith(`${resolve(root)}/`) ? path : null;
+  const rootPath = resolve(root);
+  const within = relative(rootPath, path);
+  return within && !within.startsWith("..") && !isAbsolute(within) ? path : null;
 }
 
-async function artifactSha256(root, packDirectory, artifact) {
+async function regularArtifact(root, packDirectory, artifact) {
   const path = artifactPath(root, packDirectory, artifact);
-  if (!path) return null;
+  if (!path) return { ok: false, reason: "path is missing or outside the repository", path: null, sha256: null };
   try {
-    return createHash("sha256").update(await readFile(path)).digest("hex");
+    const lexical = await lstat(path);
+    if (lexical.isSymbolicLink() || !lexical.isFile()) return { ok: false, reason: "path is not a regular non-symlink file", path, sha256: null };
+    const resolvedPath = await realpath(path);
+    const rootPath = await realpath(root);
+    const within = relative(rootPath, resolvedPath);
+    if (!within || within.startsWith("..") || isAbsolute(within) || !(await stat(resolvedPath)).isFile()) return { ok: false, reason: "resolved path is outside the repository or not a regular file", path, sha256: null };
+    return { ok: true, reason: null, path: resolvedPath, sha256: createHash("sha256").update(await readFile(resolvedPath)).digest("hex") };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : String(error), path, sha256: null };
+  }
+}
+
+async function validArtifactRef(root, packDirectory, reference) {
+  if (!reference || typeof reference !== "object" || !meaningful(reference.path) || !SHA256_PATTERN.test(reference.sha256 ?? "")) return false;
+  const artifact = await regularArtifact(root, packDirectory, reference.path);
+  return artifact.ok && artifact.sha256 === reference.sha256;
+}
+
+async function readArtifactJson(root, packDirectory, reference) {
+  if (!(await validArtifactRef(root, packDirectory, reference))) return null;
+  const artifact = await regularArtifact(root, packDirectory, reference.path);
+  try {
+    return JSON.parse(await readFile(artifact.path, "utf8"));
   } catch {
     return null;
   }
+}
+
+function comparisonPasses(target, observed) {
+  if (!target || typeof target !== "object" || !Number.isFinite(target.value) || !meaningful(target.unit) || !Number.isFinite(observed)) return false;
+  if (target.operator === "eq") return observed === target.value;
+  if (target.operator === "lte") return observed <= target.value;
+  if (target.operator === "gte") return observed >= target.value;
+  return false;
+}
+
+function metricPasses(metric) {
+  if (!metric || !Number.isFinite(metric.baseline) || !Number.isFinite(metric.candidate) || !Number.isFinite(metric.max_regression_pct) || metric.max_regression_pct < 0 || !meaningful(metric.unit) || !meaningful(metric.observation)) return false;
+  const tolerance = metric.max_regression_pct / 100;
+  let noRegression = false;
+  if (metric.direction === "lower-is-better") noRegression = metric.candidate <= metric.baseline * (1 + tolerance);
+  else if (metric.direction === "higher-is-better") noRegression = metric.candidate >= metric.baseline * (1 - tolerance);
+  else if (metric.direction === "equal-only") noRegression = metric.candidate === metric.baseline;
+  return noRegression && metric.regression === false;
 }
 
 function gitArchiveSha256(root, commit) {
@@ -208,7 +252,8 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     issues.push(issue("INVALID_JSON", `evidence.json is invalid: ${error instanceof Error ? error.message : String(error)}`, "evidence.json"));
     evidence = {};
   }
-  const scale = evidence.scale === "large" ? "large" : "standard";
+  const scale = evidence.scale;
+  if (!new Set(["standard", "large"]).has(scale)) issues.push(issue("SCALE", "evidence.json scale must be standard or large.", "evidence.json"));
   const minimumGames = scale === "large" ? 5 : 3;
   const minimumFrames = scale === "large" ? 12 : 6;
   if (comparableGames.length < minimumGames) {
@@ -218,20 +263,25 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     issues.push(issue("FRAME_COUNT", `${scale} research requires ${minimumFrames} annotated frames or timecodes; found ${frames.length}.`, "frame-analysis.csv"));
   }
   for (const [index, row] of comparableGames.entries()) {
-    for (const field of ["Game", "Source", "SourceKind", "Publisher", "Observed", "Inference", "AdoptOrReject"]) {
+    for (const field of ["Game", "Source", "SourceKind", "OfficialEvidenceID", "Publisher", "Observed", "Inference", "AdoptOrReject"]) {
       if (!meaningful(row[field])) issues.push(issue("COMPARABLE_FIELD", `comparable-games.csv row ${index + 2} needs ${field}.`, "comparable-games.csv"));
     }
     if (row.SourceKind !== "Official" || !isHttpsUrl(row.Source)) issues.push(issue("COMPARABLE_OFFICIAL", `comparable-games.csv row ${index + 2} must use an HTTPS Official source.`, "comparable-games.csv"));
+    const proof = primary.find((entry) => entry.ID === row.OfficialEvidenceID);
+    if (!proof || canonicalUrl(proof.URL) !== canonicalUrl(row.Source) || !meaningful(proof.ObservedFact)) issues.push(issue("COMPARABLE_OFFICIAL_PROOF", `comparable-games.csv row ${index + 2} must cite a Primary evidence ID with the same canonical official URL.`, "comparable-games.csv"));
   }
-  if (!uniqueNonempty(comparableGames, "Game") || !uniqueNonempty(comparableGames, "Source")) issues.push(issue("COMPARABLE_DISTINCT", "Comparable games and official source URLs must be distinct.", "comparable-games.csv"));
+  const comparableCanonicalUrls = comparableGames.map((row) => canonicalUrl(row.Source));
+  if (!uniqueNonempty(comparableGames, "Game") || comparableCanonicalUrls.some((url) => !url) || new Set(comparableCanonicalUrls).size !== comparableCanonicalUrls.length) issues.push(issue("COMPARABLE_DISTINCT", "Comparable games and canonical official source URLs must be distinct.", "comparable-games.csv"));
   for (const [index, row] of frames.entries()) {
     for (const field of ["FrameID", "Game", "Source", "SourceKind", "TimecodeOrFrame", "Observed", "Inference", "TestableHypothesis", "Rights"]) {
       if (!meaningful(row[field])) issues.push(issue("FRAME_FIELD", `frame-analysis.csv row ${index + 2} needs ${field}.`, "frame-analysis.csv"));
     }
     if (row.SourceKind !== "Official" || !isHttpsUrl(row.Source)) issues.push(issue("FRAME_OFFICIAL", `frame-analysis.csv row ${index + 2} must use an HTTPS Official source.`, "frame-analysis.csv"));
+    const comparable = comparableGames.find((entry) => entry.Game === row.Game && canonicalUrl(entry.Source) === canonicalUrl(row.Source));
+    if (!comparable) issues.push(issue("FRAME_OFFICIAL_PROOF", `frame-analysis.csv row ${index + 2} must match an officially proven comparable-game source.`, "frame-analysis.csv"));
   }
   if (!uniqueNonempty(frames, "FrameID")) issues.push(issue("FRAME_DISTINCT", "Frame identifiers must be distinct.", "frame-analysis.csv"));
-  const frameLocators = frames.map((row) => `${row.Game?.trim().toLowerCase()}|${row.Source?.trim().toLowerCase()}|${row.TimecodeOrFrame?.trim().toLowerCase()}`);
+  const frameLocators = frames.map((row) => `${row.Game?.trim().toLowerCase()}|${canonicalUrl(row.Source)}|${row.TimecodeOrFrame?.trim().toLowerCase()}`);
   if (new Set(frameLocators).size !== frameLocators.length) issues.push(issue("FRAME_DISTINCT", "Game, source, and timecode/frame tuples must be distinct.", "frame-analysis.csv"));
 
   if (evidence.schema_version !== "research-pack.v1") issues.push(issue("SCHEMA", "evidence.json schema_version must be research-pack.v1.", "evidence.json"));
@@ -239,9 +289,10 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   if (!SHA_PATTERN.test(evidence.source_commit ?? "")) issues.push(issue("SOURCE_SHA", "evidence.json source_commit must be a full Git SHA.", "evidence.json"));
   if (!SHA_PATTERN.test(evidence.baseline?.source_commit ?? "")) issues.push(issue("BASELINE_SHA", "Baseline source_commit must be a full Git SHA.", "evidence.json"));
   if (!SHA256_PATTERN.test(evidence.baseline?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.baseline?.build_sha256 ?? "")) issues.push(issue("BASELINE_SHA256", "Baseline needs exact 64-character source and build SHA-256 values.", "evidence.json"));
-  if (!meaningful(evidence.baseline?.build_hash_procedure) || !(await artifactExists(root, directory, evidence.baseline?.build_artifact))) issues.push(issue("BASELINE_BUILD_BINDING", "Baseline needs a reproducible build-hash procedure and an existing build evidence artifact.", "evidence.json"));
+  const baselineBuildArtifact = await regularArtifact(root, directory, evidence.baseline?.build_artifact);
+  if (!meaningful(evidence.baseline?.build_hash_procedure) || !baselineBuildArtifact.ok) issues.push(issue("BASELINE_BUILD_BINDING", "Baseline needs a reproducible build-hash procedure and a repository-contained regular build evidence file.", "evidence.json"));
   if (gitArchiveSha256(root, evidence.baseline?.source_commit) !== evidence.baseline?.source_sha256) issues.push(issue("BASELINE_SOURCE_DIGEST", "Baseline source SHA-256 must match the exact git archive for baseline.source_commit.", "evidence.json"));
-  if ((await artifactSha256(root, directory, evidence.baseline?.build_artifact)) !== evidence.baseline?.build_sha256) issues.push(issue("BASELINE_BUILD_DIGEST", "Baseline build SHA-256 must match the persisted build artifact.", "evidence.json"));
+  if (baselineBuildArtifact.sha256 !== evidence.baseline?.build_sha256) issues.push(issue("BASELINE_BUILD_DIGEST", "Baseline build SHA-256 must match the persisted build artifact.", "evidence.json"));
   if (evidence.baseline?.source_commit !== evidence.source_commit) issues.push(issue("BASELINE_BINDING", "Baseline and Research Pack must bind to the same source SHA before a Candidate is created.", "evidence.json"));
   if (!meaningful(evidence.baseline?.screenshot) || !meaningful(evidence.baseline?.clip) || !meaningful(evidence.baseline?.metrics) || !meaningful(evidence.baseline?.human_findings)) {
     issues.push(issue("BASELINE_EVIDENCE", "Baseline needs screenshot, moving clip, metrics, and raw human findings.", "evidence.json"));
@@ -253,7 +304,7 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   if (!SHA_PATTERN.test(evidence.rollback?.commit ?? "") || !meaningful(evidence.rollback?.condition) || !meaningful(evidence.rollback?.instructions)) {
     issues.push(issue("ROLLBACK", "Rollback needs a full commit, trigger condition, and instructions.", "evidence.json"));
   }
-  if (!SHA256_PATTERN.test(evidence.rollback?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.rollback?.build_sha256 ?? "") || !(await artifactExists(root, directory, evidence.rollback?.artifact))) {
+  if (!SHA256_PATTERN.test(evidence.rollback?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.rollback?.build_sha256 ?? "") || !(await regularArtifact(root, directory, evidence.rollback?.artifact)).ok) {
     issues.push(issue("ROLLBACK_SHA256", "Rollback needs source/build SHA-256 values and an existing rollback artifact.", "evidence.json"));
   }
   if (evidence.rollback?.commit !== evidence.baseline?.source_commit || evidence.rollback?.source_sha256 !== evidence.baseline?.source_sha256 || evidence.rollback?.build_sha256 !== evidence.baseline?.build_sha256) issues.push(issue("ROLLBACK_BINDING", "Rollback commit and source/build SHA-256 values must match the accepted baseline.", "evidence.json"));
@@ -279,16 +330,20 @@ export async function validateResearchPack(root, taskId, stage = "research") {
 
   if (stage === "complete") {
     if (evidence.gates?.complete !== "passed") issues.push(issue("COMPLETE_GATE", "evidence.json gates.complete must be passed.", "evidence.json"));
-    const metricPayloads = [evidence.metrics?.load, evidence.metrics?.frame, evidence.metrics?.memory];
-    if (evidence.metrics?.status !== "passed" || evidence.metrics?.performance_no_regression !== true || metricPayloads.some((metric) => !Number.isFinite(metric?.baseline) || !Number.isFinite(metric?.candidate) || metric?.regression !== false || !meaningful(metric?.unit) || !meaningful(metric?.evidence) || !meaningful(metric?.observation))) issues.push(issue("METRICS_GATE", "Complete evidence needs numeric baseline/candidate load, frame, and memory payloads, units, observations, evidence, and no regression.", "evidence.json"));
-    for (const metric of metricPayloads) {
-      if (metric && !(await artifactExists(root, directory, metric.evidence))) issues.push(issue("METRICS_ARTIFACT", `Metric evidence artifact does not exist: ${metric.evidence ?? "missing"}.`, "evidence.json"));
+    const metricEntries = [["load", evidence.metrics?.load], ["frame", evidence.metrics?.frame], ["memory", evidence.metrics?.memory]];
+    const metricPayloads = metricEntries.map(([, metric]) => metric);
+    if (evidence.metrics?.status !== "passed" || evidence.metrics?.performance_no_regression !== true || metricPayloads.some((metric) => !metricPasses(metric))) issues.push(issue("METRICS_GATE", "Complete evidence needs computed numeric load, frame, and memory comparisons with explicit direction and tolerance.", "evidence.json"));
+    for (const [metricId, metric] of metricEntries) {
+      const receipt = await readArtifactJson(root, directory, metric?.evidence);
+      if (!receipt || receipt.schema_version !== "quality-metrics.v1" || receipt.task_id !== taskId || receipt.candidate_source_commit !== evidence.candidate?.source_commit || receipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || receipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || receipt.metrics?.[metricId]?.baseline !== metric?.baseline || receipt.metrics?.[metricId]?.candidate !== metric?.candidate || receipt.metrics?.[metricId]?.unit !== metric?.unit) issues.push(issue("METRICS_ARTIFACT", `Metric evidence must be a digest-bound quality-metrics.v1 receipt matching the candidate and ${metricId} values.`, "evidence.json"));
     }
-    if (!Array.isArray(evidence.numeric_hard_gates) || evidence.numeric_hard_gates.length === 0 || evidence.numeric_hard_gates.some((gate) => gate.result !== "passed" || !meaningful(gate.target) || !meaningful(gate.evidence))) {
-      issues.push(issue("HARD_GATE", "Every numeric hard gate must pass with evidence.", "evidence.json"));
+    if (!Array.isArray(evidence.numeric_hard_gates) || evidence.numeric_hard_gates.length === 0 || evidence.numeric_hard_gates.some((gate) => gate.result !== "passed" || !comparisonPasses(gate.target, gate.observed))) {
+      issues.push(issue("HARD_GATE", "Every numeric hard gate must satisfy an eq/lte/gte target using a numeric observation.", "evidence.json"));
     }
     for (const gate of evidence.numeric_hard_gates ?? []) {
-      if (!(await artifactExists(root, directory, gate.evidence))) issues.push(issue("HARD_GATE_ARTIFACT", `Hard-gate evidence artifact does not exist: ${gate.evidence ?? "missing"}.`, "evidence.json"));
+      const receipt = await readArtifactJson(root, directory, gate.evidence);
+      const received = receipt?.gates?.[gate.id];
+      if (!receipt || receipt.schema_version !== "numeric-hard-gates.v1" || receipt.task_id !== taskId || receipt.candidate_source_commit !== evidence.candidate?.source_commit || receipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || receipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || received?.observed !== gate.observed || received?.unit !== gate.target?.unit || received?.result !== "passed") issues.push(issue("HARD_GATE_ARTIFACT", `Hard-gate evidence must be a digest-bound numeric-hard-gates.v1 receipt matching the candidate and ${gate.id} observation.`, "evidence.json"));
     }
     if (evidence.human?.status !== "passed" || evidence.human?.owner_decision !== "pass" || !(evidence.human?.raw_answer_count > 0)) {
       issues.push(issue("HUMAN_GATE", "Complete evidence needs a human pass and at least one preserved raw answer.", "evidence.json"));
@@ -297,18 +352,25 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     const validHumanRows = humanRows.filter((row) => {
       const started = Date.parse(row[2] ?? "");
       const completed = Date.parse(row[3] ?? "");
-      return row.length >= 7 && row.slice(0, 5).every(meaningful) && Number.isFinite(started) && Number.isFinite(completed) && completed >= started && /^(?:pass|fail)$/i.test(row[5] ?? "") && meaningful(row[6]);
+      return row.length >= 8 && row.slice(0, 5).every(meaningful) && Number.isFinite(started) && Number.isFinite(completed) && completed >= started && /^(?:pass|fail)$/i.test(row[5] ?? "") && meaningful(row[6]) && SHA256_PATTERN.test(row[7] ?? "");
     });
-    let traceArtifactsExist = validHumanRows.length === humanRows.length;
-    for (const row of validHumanRows) traceArtifactsExist &&= await artifactExists(root, directory, row[6]);
-    if (humanRows.length === 0 || validHumanRows.length !== humanRows.length || !traceArtifactsExist || evidence.human?.raw_answer_count !== humanRows.length || !(await artifactExists(root, directory, evidence.human?.raw_answers))) issues.push(issue("HUMAN_RAW", "Complete evidence needs counted, timestamped structured raw human rows and existing trace/raw-answer artifacts.", "human-test.md"));
+    const tracePaths = validHumanRows.map((row) => row[6]);
+    let traceArtifactsValid = validHumanRows.length === humanRows.length && new Set(tracePaths).size === tracePaths.length;
+    for (const row of validHumanRows) traceArtifactsValid &&= await validArtifactRef(root, directory, { path: row[6], sha256: row[7] });
+    const rawRefValid = await validArtifactRef(root, directory, evidence.human?.raw_answers);
+    const rawPath = evidence.human?.raw_answers?.path;
+    const ownerPath = evidence.human?.owner_evidence?.path;
+    const evidencePathsSeparate = meaningful(rawPath) && meaningful(ownerPath) && rawPath !== ownerPath && !tracePaths.includes(rawPath) && !tracePaths.includes(ownerPath);
+    if (humanRows.length === 0 || validHumanRows.length !== humanRows.length || !traceArtifactsValid || !rawRefValid || !evidencePathsSeparate || evidence.human?.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_RAW", "Complete evidence needs counted, timestamped raw rows plus distinct digest-bound raw, trace, and owner files.", "human-test.md"));
     if (/Status:\s*pending|Decision:\s*pending/i.test(files.get("human-test.md"))) issues.push(issue("HUMAN_RAW", "human-test.md still records a pending human result.", "human-test.md"));
-    if (!/Owner:\s*[^\n]+/i.test(files.get("human-test.md")) || !/Decision:\s*pass\b/i.test(files.get("human-test.md")) || !(await artifactExists(root, directory, evidence.human?.owner_evidence))) issues.push(issue("HUMAN_OWNER", "Complete evidence needs a named owner role, pass decision, and an existing owner-evidence artifact.", "human-test.md"));
-    if (!SHA_PATTERN.test(evidence.candidate?.source_commit ?? "") || !SHA256_PATTERN.test(evidence.candidate?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.candidate?.build_sha256 ?? "") || !meaningful(evidence.candidate?.build_hash_procedure) || !(await artifactExists(root, directory, evidence.candidate?.build_artifact))) {
+    const ownerReceipt = await readArtifactJson(root, directory, evidence.human?.owner_evidence);
+    if (!/Owner:\s*[^\n]+/i.test(files.get("human-test.md")) || !/Decision:\s*pass\b/i.test(files.get("human-test.md")) || !ownerReceipt || ownerReceipt.schema_version !== "human-owner-decision.v1" || ownerReceipt.task_id !== taskId || ownerReceipt.decision !== "pass" || !meaningful(ownerReceipt.owner_role) || !Number.isFinite(Date.parse(ownerReceipt.signed_at ?? "")) || ownerReceipt.candidate_source_commit !== evidence.candidate?.source_commit || ownerReceipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || ownerReceipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || ownerReceipt.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_OWNER", "Complete evidence needs a distinct digest-bound owner receipt tied to the task, candidate source/build, raw-answer count, owner role, and signed pass.", "human-test.md"));
+    const candidateBuildArtifact = await regularArtifact(root, directory, evidence.candidate?.build_artifact);
+    if (!SHA_PATTERN.test(evidence.candidate?.source_commit ?? "") || !SHA256_PATTERN.test(evidence.candidate?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.candidate?.build_sha256 ?? "") || !meaningful(evidence.candidate?.build_hash_procedure) || !candidateBuildArtifact.ok) {
       issues.push(issue("CANDIDATE_SHA256", "Complete evidence needs candidate commit, source/build SHA-256 values, a reproducible build-hash procedure, and an existing build artifact.", "evidence.json"));
     }
     if (gitArchiveSha256(root, evidence.candidate?.source_commit) !== evidence.candidate?.source_sha256) issues.push(issue("CANDIDATE_SOURCE_DIGEST", "Candidate source SHA-256 must match the exact git archive for candidate.source_commit.", "evidence.json"));
-    if ((await artifactSha256(root, directory, evidence.candidate?.build_artifact)) !== evidence.candidate?.build_sha256) issues.push(issue("CANDIDATE_BUILD_DIGEST", "Candidate build SHA-256 must match the persisted build artifact.", "evidence.json"));
+    if (candidateBuildArtifact.sha256 !== evidence.candidate?.build_sha256) issues.push(issue("CANDIDATE_BUILD_DIGEST", "Candidate build SHA-256 must match the persisted build artifact.", "evidence.json"));
     if (/\| Candidate \|[\s\S]*\| pending \|/i.test(files.get("ablation.md"))) issues.push(issue("ABLATION", "Candidate ablation result cannot remain pending.", "ablation.md"));
   }
 
