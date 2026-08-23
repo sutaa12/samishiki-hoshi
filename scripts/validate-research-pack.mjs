@@ -129,7 +129,7 @@ function descriptionFingerprint(value) {
 
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
-  return /fail(?:ed|ure)?|reject(?:ed|ion)?/i.test(compact) || /拒否|不合格|却下|失敗/.test(compact);
+  return /fail(?:ed|ure)?|reject(?:ed|ion)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|veto(?:ed)?|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
 }
 
 function containsHumanFailureText(value) {
@@ -152,22 +152,26 @@ function communicatesR5Gameplay(value) {
   const latinWords = text.match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
   const hasJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(text);
   const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not)\b/.test(text);
+  const englishActorMotion = /^(?:(?:a|an|the)\s+)?(?:(?:small|tiny|little|water|shining|blue)\s+){0,3}(?:droplet|drop|player|avatar|character|orb|bead)\b(?:\s+(?:continuously|steadily|sideways|forward|automatically|laterally)){0,3}\s+(?:(?:is|keeps?|can)\s+)?(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/;
+  const englishWrongActor = /\b(?:rock|ring|hoop|gate|hazard|obstacle|barrier|boulder|plant|sprout|node|target|pulse|light)\b\s+(?:(?:it|then|also)\s+)?(?:steers?|moves?|advances?|travels?|guides?|controls?|dodges?|veers?|navigates?|clears?|avoids?|energizes?|pulses?|passes?|activates?|charges?|sends?)\b/;
   const englishRelations = [
-    /\b(?:droplet|drop|water|player|avatar|character|orb|bead)\b[^.!?]{0,60}\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/,
+    englishActorMotion,
     /\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|clears?|clearing|passes?|passing|goes?|going)\b[^.!?]{0,28}\b(?:ring|hoop|gate|circle|arch|loop)\b/,
     /\b(?:avoids?|avoiding|dodges?|dodging|veers?\s+(?:around|past)|steers?\s+(?:around|past))\b[^.!?]{0,28}\b(?:rock|hazard|obstacle|barrier|boulder)\b/,
     /(?:\b(?:energizes?|energizing|pulses?|pulsing|activates?|activating|charges?|charging)\b[^.!?]{0,28}\b(?:sprout|plant|node|target)\b|\b(?:sends?|sending|passes?|passing|delivers?|delivering)\b[^.!?]{0,20}\b(?:light|energy|pulse)\b[^.!?]{0,28}\b(?:sprout|plant|node|target)\b)/,
   ];
   const japaneseNegative = /ない|ず|ません|できない|失敗/.test(text);
+  const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ).{0,24}(?:動か|移動|進|操作|操縦|避け)/;
+  const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRelations = [
-    /(?:水滴|雫|プレイヤー|自機|キャラ).{0,30}(?:動か|移動|進|操作|操縦|避け)/,
+    japaneseActorMotion,
     /(?:(?:くぐ|通|抜け).{0,16}(?:リング|輪|門|ゲート|円)|(?:リング|輪|門|ゲート|円).{0,16}(?:くぐ|通|抜け))/,
     /(?:(?:避け|かわし).{0,16}(?:岩|障害|壁|危険)|(?:岩|障害|壁|危険).{0,16}(?:避け|かわし))/,
     /(?:(?:渡|送|届け|当て|光らせ|起動|照ら).{0,20}(?:芽|植物|ノード|対象)|(?:光|パルス|生命).{0,20}(?:芽|植物|ノード|対象).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら)|(?:芽|植物|ノード|対象).{0,20}(?:光|パルス|生命).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら))/,
   ];
   const sentenceLike = hasJapanese
-    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && japaneseRelations.every((pattern) => pattern.test(text))
-    : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && !englishNegative && englishRelations.every((pattern) => pattern.test(text));
+    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && !japaneseWrongActor.test(text) && japaneseRelations.every((pattern) => pattern.test(text))
+    : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && !englishNegative && !englishWrongActor.test(text) && englishRelations.every((pattern) => pattern.test(text));
   return concepts.filter((pattern) => pattern.test(text)).length >= 4 && sentenceLike;
 }
 
@@ -218,7 +222,7 @@ function containsHumanFailureArtifact(value) {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|type|kind|category|scope|subject)$/;
+  const descriptorKey = /(?:label|type|kind|category|scope|subject|role|reviewer)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|classification|reviewmetadata|auditmetadata)$/;
   const entries = Object.entries(value);
   if (entries.some(([key, child]) => descriptorKey.test(descriptionFingerprint(key)) && descriptionFingerprint(child).includes("human"))) return true;

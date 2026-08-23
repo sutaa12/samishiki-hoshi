@@ -700,6 +700,10 @@ describe("evidence-driven Research Pack", () => {
     ["Japanese reject count", { 拒否数: 1 }],
     ["NFKC positive rejected_count", { rejected_count: "１" }],
     ["negative Human decision text", { decision: "did not pass" }],
+    ["denied Human decision text", { decision: "denied" }],
+    ["declined Human decision text", { decision: "declined" }],
+    ["unsuccessful Human outcome", { outcome: "unsuccessful" }],
+    ["blocked Human outcome", { outcome: "blocked" }],
   ])("rejects preserved Human evidence hidden by %s", async (_label, human) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -735,7 +739,7 @@ describe("evidence-driven Research Pack", () => {
     const markdownPath = ".quality-gates/QX-R4-R00/preserved-human-result.md";
     await writeFile(join(root, markdownPath), markdown, "utf8");
     const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
-    evidence.audit_record = { review_type: "Human", evidence: { path: markdownPath, sha256: sha256(markdown) } };
+    evidence.audit_record = { reviewer_role: "Human", evidence: { path: markdownPath, sha256: sha256(markdown) } };
     await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
@@ -822,6 +826,29 @@ describe("evidence-driven Research Pack", () => {
       "The player moves through a ring while a rock moves, then a pulse moves.",
       "A droplet moves through a hoop while an obstacle moves, then light moves.",
       "The player moves through a ring, never avoids the rock, and then sends no light into a plant.",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects gameplay descriptions that assign the actions to the wrong actor", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "A rock carries the droplet; the rock moves through a ring, avoids another rock, and energizes a plant.",
+      "A ring guides the player; the ring moves through a hoop, avoids a rock, and sends light into a sprout.",
+      "A plant follows the droplet; the plant moves through a gate, dodges a boulder, and pulses a target.",
     ];
     for (const [index, description] of descriptions.entries()) {
       const reviewPath = join(root, fixture.reviews[index].path);
