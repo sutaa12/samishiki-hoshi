@@ -139,7 +139,7 @@ function isOrderedSubsequence(needle, haystack) {
 
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
-  return /fail(?:ed|ure)?|reject(?:ed|ion)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|veto(?:ed)?|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
+  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
 }
 
 function containsHumanFailureText(value) {
@@ -197,8 +197,10 @@ function communicatesR5Gameplay(value) {
     && japaneseConnector.test(text.slice(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japaneseRingMatch.index))
     && japaneseConnector.test(text.slice(japaneseRingMatch.index + japaneseRingMatch[0].length, japaneseObstacleMatch.index))
     && japaneseConnector.test(text.slice(japaneseObstacleMatch.index + japaneseObstacleMatch[0].length, japanesePulseMatch.index));
+  const japaneseSubjectSwap = Boolean(japaneseActorMotionMatch && japanesePulseMatch
+    && /[がは]/.test(text.slice(japaneseActorMotionMatch.index + japaneseActorMotionMatch[0].length, japanesePulseMatch.index + japanesePulseMatch[0].length)));
   const sentenceLike = hasJapanese
-    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && !japaneseWrongActor.test(text) && japaneseRelationsValid
+    ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && !japaneseWrongActor.test(text) && !japaneseSubjectSwap && japaneseRelationsValid
     : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && !englishNegative && !englishWrongActor.test(text) && englishRelationsValid;
   return concepts.filter((pattern) => pattern.test(text)).length >= 4 && sentenceLike;
 }
