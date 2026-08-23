@@ -143,12 +143,17 @@ function descriptionsAreNearDuplicates(values) {
       .replace(/\b(?:a|an|the|small|tiny|little|water|shining|blue)\b/g, "")
       .replace(/(?:この|小さな|ちいさな|青い|光る)/g, ""),
   ));
+  const structuralVocabulary = /^(?:droplet|drop|water|player|avatar|character|orb|bead|steer|steers|steering|move|moves|moving|advance|advances|advancing|travel|travels|traveling|guide|guides|guiding|control|controls|controlling|veer|veers|veering|navigate|navigates|navigating|through|clear|clears|clearing|ring|hoop|gate|circle|arch|loop|avoid|avoids|avoiding|dodge|dodges|dodging|around|past|rock|hazard|obstacle|barrier|boulder|energize|energizes|energizing|pulse|pulses|pulsing|activate|activates|activating|charge|charges|charging|send|sends|sending|pass|passes|passing|deliver|delivers|delivering|light|energy|into|to|toward|towards|sprout|plant|node|target)$/;
+  const structures = values.map((value) => (normalizedDescription(value).match(/[a-z]+/g) ?? [])
+    .filter((token) => structuralVocabulary.test(token))
+    .join("|"));
   const trigrams = (value) => new Set(Array.from({ length: Math.max(0, value.length - 2) }, (_, index) => value.slice(index, index + 3)));
   for (let left = 0; left < comparable.length; left += 1) {
     for (let right = left + 1; right < comparable.length; right += 1) {
       const a = comparable[left];
       const b = comparable[right];
       if (!a || !b) return true;
+      if (structures[left].length >= 20 && structures[left] === structures[right]) return true;
       if (a === b || (Math.min(a.length, b.length) >= 20 && (a.includes(b) || b.includes(a)))) return true;
       const aTrigrams = trigrams(a);
       const bTrigrams = trigrams(b);
@@ -189,7 +194,7 @@ function communicatesR5Gameplay(value) {
   ];
   const latinWords = text.match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
   const hasJapanese = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(text);
-  const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not|automatic(?:ally)?|autopilot|auto-pilot|self-driving|independently|autonomously)\b|\bon\s+its\s+own\b|\bby\s+itself\b/.test(text);
+  const englishNegative = /\b(?:never|neither|nor|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not|automatic(?:ally)?|autopilot|auto-pilot|self-driving|independently|autonomously|itself)\b|\bon\s+its\s+own\b|\bby\s+itself\b/.test(text);
   const englishActorMotion = /^(?:(?:a|an|the)\s+)?(?:(?:small|tiny|little|water|shining|blue)\s+){0,3}(?:droplet|drop|player|avatar|character|orb|bead)\b(?:\s+(?:continuously|steadily|sideways|forward|laterally)){0,3}\s+(?:(?:is|keeps?|can)\s+)?(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/;
   const englishWrongActor = /\b(?:rock|ring|hoop|gate|hazard|obstacle|barrier|boulder|plant|sprout|node|target|pulse|light)\b\s+(?:(?:it|then|also)\s+)?(?:steers?|moves?|advances?|travels?|guides?|controls?|dodges?|veers?|navigates?|clears?|avoids?|energizes?|pulses?|passes?|activates?|charges?|sends?)\b/;
   const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b(?:\s+(?:continuously|steadily|sideways|forward|laterally))*\s+through\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
@@ -214,7 +219,7 @@ function communicatesR5Gameplay(value) {
     && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
     && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index))
     && /^[.!?]+$/.test(text.slice(englishPulseMatch.index + englishPulseMatch[0].length));
-  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|自動|オート|自律|勝手|自ら|自分で|ひとりで|一人で|単独で/.test(text);
+  const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗|自動|オート|自律|勝手|自ら|自身で|自己で|自分で|ひとりで|一人で|単独で/.test(text);
   const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ)(?:が|は|を)?(?:(?![がは]).){0,20}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRing = /(?:リング|輪|門|ゲート|円)を?(?:くぐ|通|抜け)/;
@@ -286,15 +291,16 @@ function hasHumanReject(human) {
   return containsFailureString(human) || visit(human);
 }
 
-function containsHumanFailureArtifact(value) {
+function containsHumanFailureArtifact(value, path = "") {
   if (containsHumanFailureText(value)) return true;
   if (typeof value !== "string") return false;
+  const jsonLike = extname(path).toLowerCase() === ".json" || /^[{[]/.test(value.trim());
   try {
     const parsed = JSON.parse(value);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return true;
     return hasHumanReject(parsed);
   } catch {
-    return false;
+    return jsonLike;
   }
 }
 
@@ -310,9 +316,23 @@ function declaresHumanContext(value) {
     if (child && typeof child === "object") return Object.values(child).some(containsHumanMarker);
     return false;
   };
-  if (entries.some(([key, child]) => humanProvenanceIdKey.test(descriptionFingerprint(key)) && meaningful(child))) return true;
+  if (entries.some(([key]) => humanProvenanceIdKey.test(descriptionFingerprint(key)))) return true;
   if (entries.some(([key, child]) => descriptorKey.test(descriptionFingerprint(key)) && containsHumanMarker(child))) return true;
   return entries.some(([key, child]) => metadataKey.test(descriptionFingerprint(key)) && child && typeof child === "object" && declaresHumanContext(child));
+}
+
+function hasMalformedHumanProvenanceId(value) {
+  const humanProvenanceIdKey = /^(?:participantid|testerid|evaluatorid)$/;
+  const validId = (candidate) => meaningful(candidate) || (Number.isSafeInteger(candidate) && candidate >= 0);
+  const visit = (current, depth = 0) => {
+    if (!current || typeof current !== "object") return false;
+    return Object.entries(current).some(([key, child]) => {
+      if (depth === 0 && key === "baseline") return false;
+      if (humanProvenanceIdKey.test(descriptionFingerprint(key))) return !validId(child);
+      return child && typeof child === "object" ? visit(child, depth + 1) : false;
+    });
+  };
+  return visit(value);
 }
 
 function hasHumanRejectAnywhere(value) {
@@ -1237,10 +1257,13 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     if (humanArtifacts.invalid.length > 0) {
       issues.push(issue("HUMAN_ARTIFACT_REFERENCE", "Every Human-labeled artifact reference must provide a nonempty path and exact SHA-256 digest; malformed references fail closed.", "evidence.json"));
     }
+    if (hasMalformedHumanProvenanceId(evidence)) {
+      issues.push(issue("HUMAN_PROVENANCE_ID", "Human participant, tester, and evaluator IDs must be nonempty strings or nonnegative integers; malformed provenance fails closed.", "evidence.json"));
+    }
     if (hasHumanRejectAnywhere(evidence)
-      || containsHumanFailureArtifact(optionalHumanText)
+      || containsHumanFailureArtifact(optionalHumanText, "human-test.md")
       || /\bHUMAN_REJECT\b/i.test(optionalHumanText)
-      || referencedHumanTexts.some((text) => containsHumanFailureArtifact(text))) {
+      || referencedHumanTexts.some((text, index) => containsHumanFailureArtifact(text, humanArtifacts.references[index]?.path))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject blocks both acceptance modes, including digest-bound Human-labeled evidence outside the canonical Human file.", "human-test.md"));
     }
     const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";

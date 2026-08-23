@@ -835,7 +835,7 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_ARTIFACT_REFERENCE");
   });
 
-  it.each(["false\n", "0\n", "null\n", "[]\n"])("rejects a scalar or array Human artifact: %s", async (supplementalText) => {
+  it.each(["false\n", "0\n", "null\n", "[]\n", "{\"result\":false\n"])("rejects a scalar, array, or malformed Human artifact: %s", async (supplementalText) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
     const supplementalPath = ".quality-gates/QX-R4-R00/preserved-human-result.json";
@@ -849,6 +849,34 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it("uses a numeric participant ID to discover a digest-bound Human failure", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const supplementalText = "{\"result\":false}\n";
+    const supplementalPath = ".quality-gates/QX-R4-R00/numeric-participant-result.json";
+    await writeFile(join(root, supplementalPath), supplementalText, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.audit_record = {
+      participant_id: 7,
+      evidence: { path: supplementalPath, sha256: sha256(supplementalText) },
+    };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it.each([null, -1, 1.5, ""])("rejects a malformed Human provenance ID: %s", async (participantId) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.audit_record = { participant_id: participantId };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_PROVENANCE_ID");
   });
 
   it("rejects distinct but meaningless AI descriptions", async () => {
@@ -1153,6 +1181,7 @@ describe("evidence-driven Research Pack", () => {
     ["Japanese auto motion", "雫がオートで移動してゲートを抜け、壁をかわし、ノードに光を送ります。"],
     ["Japanese motion without player agency", "水滴が進んでリングをくぐり、岩を避け、芽へ光を渡す遊びです。"],
     ["Japanese reflexive operation", "水滴が自ら操作してリングをくぐり、岩を避け、芽へ光を渡す遊びです。"],
+    ["Japanese self operation", "水滴が自身で操作してリングをくぐり、岩を避け、芽へ光を渡す遊びです。"],
     ["independent motion", "A droplet independently steers through a ring, avoids a rock, and energizes a plant."],
   ])("rejects %s in an AI gameplay description", async (_label, description) => {
     const root = await makeRoot();
@@ -1170,6 +1199,29 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
   });
 
+  it("rejects descriptions that negate required actions with neither", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "A droplet steers through neither ring, avoids a rock, and energizes a plant.",
+      "The player moves sideways, clears a ring, dodges neither rock, then sends light into a sprout.",
+      "A small water character navigates through a gate, avoids an obstacle, and pulses neither target.",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
   it("rejects AI descriptions that differ only by decorative adjectives", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1178,6 +1230,29 @@ describe("evidence-driven Research Pack", () => {
       "A droplet steers through a ring, avoids a rock, and energizes a plant.",
       "A tiny droplet steers through a ring, avoids a rock, and energizes a plant.",
       "A small droplet steers through a ring, avoids a rock, and energizes a plant.",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects copied description skeletons hidden by arbitrary modifiers", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "A droplet steers through a bright ring, avoids a jagged rock, and energizes a green plant.",
+      "A droplet steers through a silver ring, avoids a massive rock, and energizes a young plant.",
+      "A droplet steers through a quiet ring, avoids a rough rock, and energizes a vivid plant.",
     ];
     for (const [index, description] of descriptions.entries()) {
       const reviewPath = join(root, fixture.reviews[index].path);
