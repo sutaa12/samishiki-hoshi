@@ -683,6 +683,17 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
   });
 
+  it("rejects preserved Human evidence outside the canonical evidence.human subtree", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.preserved_human_evidence = { rejection: true };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
   it("rejects a format-only Reviewer ID", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1050,7 +1061,7 @@ describe("evidence-driven Research Pack", () => {
     const root = await makeRoot();
     await copyR01(root);
     const reviewPath = join(root, ".quality-gates/QX-R4-R01/r5-migration-assessment.md");
-    const reviewText = `${await readFile(reviewPath, "utf8")}\nHuman acceptance: PASSED\nAI acceptance pass: false\n`;
+    const reviewText = `${await readFile(reviewPath, "utf8")}\nAdditional gate statement: Human gate is COMPLETE.\nProduction gameplay is materially improved.\n`;
     await bindR01Assessment(root, reviewText);
     const result = runValidator(root, "QX-R4-R01", "complete", "ai-binary");
     expect(result.status).toBe(1);

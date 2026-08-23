@@ -13,6 +13,7 @@ const PIN_PATTERN = /^(?:[0-9a-f]{40}|v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$/;
 const PLACEHOLDER_PATTERN = /\{\{[^}]+\}\}|REPLACE_(?:ME|WITH_[A-Z_]+)|\bTBD\b/;
 const EXTERNAL_MEDIA_EXTENSIONS = new Set([".apng", ".avif", ".gif", ".jpeg", ".jpg", ".m4a", ".mp3", ".mp4", ".ogg", ".png", ".wav", ".webm", ".webp"]);
 const R5_EXPECTED_DESCRIPTION = "小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム";
+const R01_MIGRATION_ASSESSMENT_SHA256 = "4f13b2b94c52c3a92b77a31e7c7e10cb0afeaa0872a04696f9acd4d1fce3b0c7";
 const REQUIRED_FILES = [
   "research-card.md",
   "references.csv",
@@ -147,6 +148,15 @@ function hasHumanReject(human) {
     });
   };
   return valueContainsReject(human) || hasPositiveRejectCount(human);
+}
+
+function hasHumanRejectAnywhere(value) {
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value).some(([key, child]) => {
+    const normalizedKey = descriptionFingerprint(key);
+    if (normalizedKey.includes("human") && hasHumanReject({ [key]: child })) return true;
+    return child && typeof child === "object" ? hasHumanRejectAnywhere(child) : false;
+  });
 }
 
 function probeMovingVideo(path) {
@@ -567,6 +577,7 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     || closure.automated_review_score !== `${reviewScore?.[1]}/32`
     || closure.automated_review_open_s0_s2 !== 0
     || !(await validArtifactRef(root, directory, closure.independent_review))
+    || closure.independent_review?.sha256 !== R01_MIGRATION_ASSESSMENT_SHA256
     || !(await validArtifactRef(root, directory, closure.historical_research_review))
     || closure.historical_research_review?.path !== researchValidation?.independent_review_artifact?.path
     || closure.historical_research_review?.sha256 !== researchValidation?.independent_review_artifact?.sha256
@@ -990,7 +1001,7 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
 
   if (stage === "complete") {
     const optionalHumanText = files.get("human-test.md") ?? "";
-    if (acceptance === "ai-binary" && (hasHumanReject(evidence.human) || containsReject(optionalHumanText) || /\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
+    if (acceptance === "ai-binary" && (hasHumanRejectAnywhere(evidence) || containsReject(optionalHumanText) || /\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
       issues.push(issue("HUMAN_REJECT", "A preserved Human Reject still blocks the candidate; AI Binary mode may omit Human evidence but cannot override an existing Reject.", "human-test.md"));
     }
     const researchOnlyAiClosure = acceptance === "ai-binary" && taskId === "QX-R4-R01";
