@@ -4,9 +4,9 @@
   "scale": "standard",
   "source_commit": "0a63c462557aad29f947a88460b0380538782d53",
   "candidate": {
-    "source_commit": "f0ed03ee82818e3f3f78258daf738ae0cee373b0",
-    "source_tree": "ec36f2c1c56da4dc81c153f586132ca4f9ae1758",
-    "source_sha256": "21a821025714b980aa04729361840945341842ef1b6d88a1cec44179a6367f27",
+    "source_commit": "a4ca39249e38b23431f4fb43aa15426c91dccd46",
+    "source_tree": "5bce6d06a589e70e84cd056bb60b587321558d00",
+    "source_sha256": "e233f453731ac0aa765b1c28ad6bd6f41c0d14b336065cb1145dddd8927083fa",
     "build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
     "build_artifact": ".quality-gates/QX-R4-R00/production-stable-assets.sha256",
     "build_hash_procedure": "SHA-256 of the sorted, repository-persisted Production CSS and client asset manifest; the manifest entries are identical at baseline and candidate.",
@@ -34,17 +34,17 @@
     "rationale": "Use native Node scripts, Markdown/CSV/JSON templates, and subprocess tests so the protocol is executable without touching runtime dependencies."
   },
   "numeric_hard_gates": [
-    {"id": "empty-pack", "target": {"operator": "gte", "value": 1, "unit": "process exit code"}, "observed": 1, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R00/numeric-hard-gates.json", "sha256": "b3c4fca14378a4af611639cb9abed2e96d3d1bef060565e34f54fbacd8168857"}},
-    {"id": "community-only", "target": {"operator": "gte", "value": 1, "unit": "process exit code"}, "observed": 1, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R00/numeric-hard-gates.json", "sha256": "b3c4fca14378a4af611639cb9abed2e96d3d1bef060565e34f54fbacd8168857"}},
-    {"id": "sample-pack", "target": {"operator": "eq", "value": 0, "unit": "process exit code"}, "observed": 0, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R00/numeric-hard-gates.json", "sha256": "b3c4fca14378a4af611639cb9abed2e96d3d1bef060565e34f54fbacd8168857"}},
-    {"id": "runtime-equality", "target": {"operator": "eq", "value": 0, "unit": "stable Production asset differences"}, "observed": 0, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R00/numeric-hard-gates.json", "sha256": "b3c4fca14378a4af611639cb9abed2e96d3d1bef060565e34f54fbacd8168857"}}
+    {"id": "empty-pack", "target": {"operator": "gte", "value": 1, "unit": "process exit code"}, "observed": 1, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R00/numeric-hard-gates.json", "sha256": "c1fc7bdb27204c157900ac14dfff99dc72ea251a475bfda00c1d1a781d2bb5b5"}},
+    {"id": "community-only", "target": {"operator": "gte", "value": 1, "unit": "process exit code"}, "observed": 1, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R00/numeric-hard-gates.json", "sha256": "c1fc7bdb27204c157900ac14dfff99dc72ea251a475bfda00c1d1a781d2bb5b5"}},
+    {"id": "sample-pack", "target": {"operator": "eq", "value": 0, "unit": "process exit code"}, "observed": 0, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R00/numeric-hard-gates.json", "sha256": "c1fc7bdb27204c157900ac14dfff99dc72ea251a475bfda00c1d1a781d2bb5b5"}},
+    {"id": "runtime-equality", "target": {"operator": "eq", "value": 0, "unit": "stable Production asset differences"}, "observed": 0, "result": "passed", "evidence": {"path": ".quality-gates/QX-R4-R00/numeric-hard-gates.json", "sha256": "c1fc7bdb27204c157900ac14dfff99dc72ea251a475bfda00c1d1a781d2bb5b5"}}
   ],
   "metrics": {
     "status": "passed",
     "performance_no_regression": true,
-    "load": {"baseline": 0, "candidate": 0, "unit": "runtime dependency changes", "direction": "equal-only", "max_regression_pct": 0, "regression": false, "evidence": {"path": ".quality-gates/QX-R4-R00/metrics.json", "sha256": "4297a79c0f7947116c59c87ead023273ad175dd6a3e857a7e445ed1cf3e25ca8"}, "observation": "Dependency map and package lock are unchanged."},
-    "frame": {"baseline": 0, "candidate": 0, "unit": "unexpected selected Production checks", "direction": "equal-only", "max_regression_pct": 0, "regression": false, "evidence": {"path": ".quality-gates/QX-R4-R00/metrics.json", "sha256": "4297a79c0f7947116c59c87ead023273ad175dd6a3e857a7e445ed1cf3e25ca8"}, "observation": "No runtime source changed and 9/9 selected Production checks passed."},
-    "memory": {"baseline": 0, "candidate": 0, "unit": "runtime ownership-path changes", "direction": "equal-only", "max_regression_pct": 0, "regression": false, "evidence": {"path": ".quality-gates/QX-R4-R00/metrics.json", "sha256": "4297a79c0f7947116c59c87ead023273ad175dd6a3e857a7e445ed1cf3e25ca8"}, "observation": "No runtime ownership path changed; stable Production asset manifest matches baseline."}
+    "load": {"baseline": 0, "candidate": 0, "unit": "runtime dependency changes", "direction": "equal-only", "max_regression_pct": 0, "regression": false, "evidence": {"path": ".quality-gates/QX-R4-R00/metrics.json", "sha256": "fc5228c9402a06e3d06996b9c13cbcb5417d0f76dd5e761946b8a1c44b116f66"}, "observation": "Dependency map and package lock are unchanged."},
+    "frame": {"baseline": 0, "candidate": 0, "unit": "unexpected selected Production checks", "direction": "equal-only", "max_regression_pct": 0, "regression": false, "evidence": {"path": ".quality-gates/QX-R4-R00/metrics.json", "sha256": "fc5228c9402a06e3d06996b9c13cbcb5417d0f76dd5e761946b8a1c44b116f66"}, "observation": "No runtime source changed and 9/9 selected Production checks passed."},
+    "memory": {"baseline": 0, "candidate": 0, "unit": "runtime ownership-path changes", "direction": "equal-only", "max_regression_pct": 0, "regression": false, "evidence": {"path": ".quality-gates/QX-R4-R00/metrics.json", "sha256": "fc5228c9402a06e3d06996b9c13cbcb5417d0f76dd5e761946b8a1c44b116f66"}, "observation": "No runtime ownership path changed; stable Production asset manifest matches baseline."}
   },
   "human": {
     "status": "not-applicable-process-only",

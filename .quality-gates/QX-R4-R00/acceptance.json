@@ -5,9 +5,9 @@
   "issuer": "Codex implementation verifier",
   "result": "independent-review-pending",
   "subject": {
-    "implementation_commit": "f0ed03ee82818e3f3f78258daf738ae0cee373b0",
-    "implementation_tree": "ec36f2c1c56da4dc81c153f586132ca4f9ae1758",
-    "subject_source_sha256": "21a821025714b980aa04729361840945341842ef1b6d88a1cec44179a6367f27",
+    "implementation_commit": "a4ca39249e38b23431f4fb43aa15426c91dccd46",
+    "implementation_tree": "5bce6d06a589e70e84cd056bb60b587321558d00",
+    "subject_source_sha256": "e233f453731ac0aa765b1c28ad6bd6f41c0d14b336065cb1145dddd8927083fa",
     "baseline_commit": "0a63c462557aad29f947a88460b0380538782d53",
     "baseline_source_sha256": "29c6dafed74c63c7fb03bcd5099c88830cd52742770b983252c2d46e204024eb",
     "branch": "codex/qx-r4-r00-evidence-protocol"
@@ -76,7 +76,7 @@
     },
     "skill": {
       "path": ".openai/skills/evidence-driven-game-quality/SKILL.md",
-      "sha256": "5bd363c4ccc358f7e8c588773400456541683309b1a3692f3819bca24665fc32"
+      "sha256": "a3370f10c1ebb61dd6d5c48d97b596ab384d0fa95b736bb281a58124b43c2915"
     }
   },
   "runtime_regression": {

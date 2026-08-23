@@ -1,7 +1,7 @@
 # Human test
 
 Task ID: QX-R4-R00
-Candidate source commit: f0ed03ee82818e3f3f78258daf738ae0cee373b0
+Candidate source commit: a4ca39249e38b23431f4fb43aa15426c91dccd46
 Current source commit: 0a63c462557aad29f947a88460b0380538782d53
 Blind labels: not applicable to a process-only foundation task
 
