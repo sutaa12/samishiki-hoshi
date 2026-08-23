@@ -127,6 +127,16 @@ function descriptionFingerprint(value) {
   return securityFingerprint(normalizedDescription(value));
 }
 
+function isOrderedSubsequence(needle, haystack) {
+  if (!needle || !haystack) return false;
+  let needleIndex = 0;
+  for (const character of haystack) {
+    if (character === needle[needleIndex]) needleIndex += 1;
+    if (needleIndex === needle.length) return true;
+  }
+  return false;
+}
+
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
   return /fail(?:ed|ure)?|reject(?:ed|ion)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|veto(?:ed)?|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
@@ -154,12 +164,22 @@ function communicatesR5Gameplay(value) {
   const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not)\b/.test(text);
   const englishActorMotion = /^(?:(?:a|an|the)\s+)?(?:(?:small|tiny|little|water|shining|blue)\s+){0,3}(?:droplet|drop|player|avatar|character|orb|bead)\b(?:\s+(?:continuously|steadily|sideways|forward|automatically|laterally)){0,3}\s+(?:(?:is|keeps?|can)\s+)?(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/;
   const englishWrongActor = /\b(?:rock|ring|hoop|gate|hazard|obstacle|barrier|boulder|plant|sprout|node|target|pulse|light)\b\s+(?:(?:it|then|also)\s+)?(?:steers?|moves?|advances?|travels?|guides?|controls?|dodges?|veers?|navigates?|clears?|avoids?|energizes?|pulses?|passes?|activates?|charges?|sends?)\b/;
-  const englishRelations = [
-    englishActorMotion,
-    /\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|clears?|clearing|passes?|passing|goes?|going)\b[^.!?]{0,28}\b(?:ring|hoop|gate|circle|arch|loop)\b/,
-    /\b(?:avoids?|avoiding|dodges?|dodging|veers?\s+(?:around|past)|steers?\s+(?:around|past))\b[^.!?]{0,28}\b(?:rock|hazard|obstacle|barrier|boulder)\b/,
-    /(?:\b(?:energizes?|energizing|pulses?|pulsing|activates?|activating|charges?|charging)\b[^.!?]{0,28}\b(?:sprout|plant|node|target)\b|\b(?:sends?|sending|passes?|passing|delivers?|delivering)\b[^.!?]{0,20}\b(?:light|energy|pulse)\b[^.!?]{0,28}\b(?:sprout|plant|node|target)\b)/,
-  ];
+  const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b[^,;.!?]{0,18}\bthrough\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
+  const englishObstacle = /\b(?:avoids?|avoiding|dodges?|dodging|veers?\s+(?:around|past)|steers?\s+(?:around|past))\b[^,;.!?]{0,28}\b(?:rock|hazard|obstacle|barrier|boulder)\b/;
+  const englishPulse = /(?:\b(?:energizes?|energizing|pulses?|pulsing|activates?|activating|charges?|charging)\b[^,;.!?]{0,28}\b(?:sprout|plant|node|target)\b|\b(?:sends?|sending|passes?|passing|delivers?|delivering)\b[^,;.!?]{0,20}\b(?:light|energy|pulse)\b[^,;.!?]{0,28}\b(?:sprout|plant|node|target)\b)/;
+  const englishRingMatch = englishRing.exec(text);
+  const englishObstacleMatch = englishObstacle.exec(text);
+  const englishPulseMatch = englishPulse.exec(text);
+  const englishActorMotionMatch = englishActorMotion.exec(text);
+  const englishConnector = /^[\s,]*(?:(?:and|then|before|after)[\s,]*)?$/;
+  const englishActorToRingConnector = /^[\s,]*(?:(?:sideways|forward|continuously|steadily|laterally)[\s,]*)?(?:(?:and|then)[\s,]*)?$/;
+  const englishRelationsValid = Boolean(englishActorMotionMatch && englishRingMatch && englishObstacleMatch && englishPulseMatch)
+    && englishRingMatch.index < englishObstacleMatch.index
+    && englishObstacleMatch.index < englishPulseMatch.index
+    && (englishRingMatch.index <= englishActorMotionMatch.index + englishActorMotionMatch[0].length
+      || englishActorToRingConnector.test(text.slice(englishActorMotionMatch.index + englishActorMotionMatch[0].length, englishRingMatch.index)))
+    && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
+    && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index));
   const japaneseNegative = /ない|ず|ません|できない|失敗/.test(text);
   const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ).{0,24}(?:動か|移動|進|操作|操縦|避け)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
@@ -171,7 +191,7 @@ function communicatesR5Gameplay(value) {
   ];
   const sentenceLike = hasJapanese
     ? text.length >= 20 && /[。！？]$/.test(text) && /を|へ|から|して|ながら|あと|後|前|次|そして|つぎ/.test(text) && !japaneseNegative && !japaneseWrongActor.test(text) && japaneseRelations.every((pattern) => pattern.test(text))
-    : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && !englishNegative && !englishWrongActor.test(text) && englishRelations.every((pattern) => pattern.test(text));
+    : latinWords.length >= 10 && /[.!?]$/.test(text) && /\b(?:through|before|after|then|toward|towards|while|into|until|and)\b/.test(text) && !englishNegative && !englishWrongActor.test(text) && englishRelationsValid;
   return concepts.filter((pattern) => pattern.test(text)).length >= 4 && sentenceLike;
 }
 
@@ -222,10 +242,16 @@ function containsHumanFailureArtifact(value) {
 
 function declaresHumanContext(value) {
   if (!value || typeof value !== "object") return false;
-  const descriptorKey = /(?:label|type|kind|category|scope|subject|role|reviewer)$/;
+  const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|reviewer|reviewers)$/;
   const metadataKey = /^(?:metadata|meta|context|descriptor|classification|reviewmetadata|auditmetadata)$/;
   const entries = Object.entries(value);
-  if (entries.some(([key, child]) => descriptorKey.test(descriptionFingerprint(key)) && descriptionFingerprint(child).includes("human"))) return true;
+  const containsHumanMarker = (child) => {
+    if (typeof child === "string") return descriptionFingerprint(child).includes("human");
+    if (Array.isArray(child)) return child.some(containsHumanMarker);
+    if (child && typeof child === "object") return Object.values(child).some(containsHumanMarker);
+    return false;
+  };
+  if (entries.some(([key, child]) => descriptorKey.test(descriptionFingerprint(key)) && containsHumanMarker(child))) return true;
   return entries.some(([key, child]) => metadataKey.test(descriptionFingerprint(key)) && child && typeof child === "object" && declaresHumanContext(child));
 }
 
@@ -237,7 +263,7 @@ function hasHumanRejectAnywhere(value) {
     if (labeledHuman && hasHumanReject(current)) return true;
     return entries.some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
-      if (depth === 0 && normalizedKey === "baseline") return false;
+      if (depth === 0 && key === "baseline") return false;
       const childHumanContext = labeledHuman || normalizedKey.includes("human");
       if (child && typeof child === "object") return visit(child, childHumanContext, depth + 1);
       return childHumanContext && hasHumanReject({ [key]: child });
@@ -255,7 +281,7 @@ function humanArtifactReferences(value) {
     if (labeledHuman && meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
     for (const [key, child] of entries) {
       const normalizedKey = descriptionFingerprint(key);
-      if (depth === 0 && normalizedKey === "baseline") continue;
+      if (depth === 0 && key === "baseline") continue;
       if (child && typeof child === "object") visit(child, labeledHuman || normalizedKey.includes("human"), depth + 1);
     }
   };
@@ -896,7 +922,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || reviews.some((review) => !communicatesR5Gameplay(review?.plain_description))
     || new Set(descriptionFingerprints).size !== 3
     || descriptions.some((description) => textSha256(description) === expectedAnswerSha256)
-    || descriptionFingerprints.some((fingerprint) => fingerprint.includes(expectedDescriptionFingerprint))) {
+    || descriptionFingerprints.some((fingerprint) => fingerprint.includes(expectedDescriptionFingerprint) || isOrderedSubsequence(expectedDescriptionFingerprint, fingerprint))) {
     issues.push(issue("AI_REVIEW_DESCRIPTION", "AI review descriptions must be nonempty, mutually distinct, and not a copy of the expected answer.", "evidence.json"));
   }
 

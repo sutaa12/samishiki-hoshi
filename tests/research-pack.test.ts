@@ -719,6 +719,9 @@ describe("evidence-driven Research Pack", () => {
     ["Human label sibling", { audit_record: { label: "Human", payload: { rejected: true } } }],
     ["Human review_type sibling", { audit_record: { review_type: "Human", payload: { failed: true } } }],
     ["nested Human metadata sibling", { audit_record: { metadata: { label: "Human" }, payload: { passed: false } } }],
+    ["non-historical baseline alias", { "base line": { reviewer_role: "Human", status: "declined" } }],
+    ["nested Human reviewer role", { audit_record: { reviewer: { role: "Human" }, status: "denied" } }],
+    ["plural Human reviewer roles", { audit_record: { reviewer_roles: ["Human"], status: "refused" } }],
     ["is_rejected", { preserved_human_evidence: { is_rejected: true } }],
     ["rejection_positive", { preserved_human_evidence: { rejection_positive: true } }],
   ])("rejects preserved Human evidence outside the canonical subtree: %s", async (_label, preserved) => {
@@ -849,6 +852,52 @@ describe("evidence-driven Research Pack", () => {
       "A rock carries the droplet; the rock moves through a ring, avoids another rock, and energizes a plant.",
       "A ring guides the player; the ring moves through a hoop, avoids a rock, and sends light into a sprout.",
       "A plant follows the droplet; the plant moves through a gate, dodges a boulder, and pulses a target.",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects non-traversal and late wrong-subject gameplay descriptions", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "A droplet moves beside a ring, avoids a rock, and sends light into a plant.",
+      "A player advances and a camera moves through a hoop, dodges a boulder, then energizes a sprout.",
+      "A droplet moves through a gate and avoids a rock while the camera sends light into a plant.",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects canonical Japanese descriptions disguised by internal modifiers", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "小さな青い水滴を左右に動かし、光るリングをくぐり、大きな岩を避け、芽へ優しい光を渡すゲームです。",
+      "小さな透明な水滴を左右に動かし、丸いリングをくぐり、硬い岩を避け、芽へ暖かな光を渡すゲームです。",
+      "小さな輝く水滴を左右に動かし、大きいリングをくぐり、黒い岩を避け、芽へ明るい光を渡すゲームです。",
     ];
     for (const [index, description] of descriptions.entries()) {
       const reviewPath = join(root, fixture.reviews[index].path);
