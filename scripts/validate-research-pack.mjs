@@ -139,7 +139,7 @@ function isOrderedSubsequence(needle, haystack) {
 
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
-  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|disapprov(?:e|ed|ing|al)|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
+  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|disapprov(?:e|ed|ing|al)|withh(?:old|olds|olding|eld)|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
 }
 
 function containsHumanFailureText(value) {
@@ -147,8 +147,9 @@ function containsHumanFailureText(value) {
   return containsReject(value)
     || /(?:pass|passed|accept|accepted|approve|approved)(?:is|was)?false/.test(compact)
     || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|hasnt|havent|couldnt|wouldnt|wont|cant|not)(?:a)?(?:pass|passes|passed|passing|accept|accepts|accepted|accepting|approve|approves|approved|approving|success|successful|succeed|succeeds|succeeded|succeeding|granted)/.test(compact)
+    || /(?:didnot|doesnot|didnt|doesnt|not)(?:meet|satisfy|reach)(?:the)?(?:acceptance|criteria|criterion|standard|requirements?)/.test(compact)
     || /notgranted/.test(compact)
-    || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認/.test(compact);
+    || /(?:承認|合格)(?:(?:され)?ず|(?:され)?ません(?:で|て)した|(?:され)?なかった)|未承認|満たさなかった/.test(compact);
 }
 
 function communicatesR5Gameplay(value) {
@@ -172,7 +173,7 @@ function communicatesR5Gameplay(value) {
   const englishObstacleMatch = englishObstacle.exec(text);
   const englishPulseMatch = englishPulse.exec(text);
   const englishActorMotionMatch = englishActorMotion.exec(text);
-  const englishConnector = /^[\s,]*(?:(?:and|then|before|after)[\s,]*)?$/;
+  const englishConnector = /^[\s,]*(?:(?:and|then|before)[\s,]*)?$/;
   const englishActorToRingConnector = /^[\s,]*(?:(?:sideways|forward|continuously|steadily|laterally)[\s,]*)?(?:(?:and|then)[\s,]*)?$/;
   const englishRelationsValid = Boolean(englishActorMotionMatch && englishRingMatch && englishObstacleMatch && englishPulseMatch)
     && englishRingMatch.index < englishObstacleMatch.index

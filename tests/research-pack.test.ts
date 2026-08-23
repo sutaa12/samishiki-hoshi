@@ -776,6 +776,9 @@ describe("evidence-driven Research Pack", () => {
     ["contracted success prose", "Decision: wasn’t successful.\n"],
     ["not granted prose", "Approval was not granted.\n"],
     ["Japanese approval denial prose", "承認されませんでした。\n"],
+    ["acceptance not met prose", "Decision: did not meet acceptance.\n"],
+    ["withheld approval prose", "Approval was withheld.\n"],
+    ["Japanese criteria not met prose", "基準を満たさなかった。\n"],
   ])("rejects Human-labeled supplemental text with %s", async (_label, supplementalText) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1058,6 +1061,29 @@ describe("evidence-driven Research Pack", () => {
       "A droplet moves through a ring, avoids a rock, and energizes a plant, while the camera controls the droplet.",
       "The player moves sideways, clears a ring, dodges a rock, then sends light into a sprout; afterward an autopilot controls everything.",
       "水滴を動かしてリングをくぐり、岩を避け、芽へ光を渡し、その後カメラが全部を操作します。",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects descriptions whose after connectors reverse event time", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "A droplet moves through a ring after avoiding a rock and energizing a plant.",
+      "The player moves through a hoop before avoiding a boulder after sending light to a sprout.",
+      "A small water character advances through a gate after dodging an obstacle before pulsing a target.",
     ];
     for (const [index, description] of descriptions.entries()) {
       const reviewPath = join(root, fixture.reviews[index].path);
