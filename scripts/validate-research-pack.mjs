@@ -139,14 +139,14 @@ function isOrderedSubsequence(needle, haystack) {
 
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
-  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
+  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
 }
 
 function containsHumanFailureText(value) {
   const compact = securityFingerprint(normalizedDescription(value));
   return containsReject(value)
     || /(?:pass|passed|accept|accepted|approve|approved)(?:is|was)?false/.test(compact)
-    || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|couldnt|wouldnt|wont|cant|not)(?:pass|passed|accept|accepted|approve|approved)/.test(compact)
+    || /(?:didnot|doesnot|donot|didnt|doesnt|dont|isnt|wasnt|werent|hasnt|havent|couldnt|wouldnt|wont|cant|not)(?:pass|passes|passed|passing|accept|accepts|accepted|accepting|approve|approves|approved|approving)/.test(compact)
     || /(?:承認|合格)(?:され)?ず|未承認/.test(compact);
 }
 
@@ -166,7 +166,7 @@ function communicatesR5Gameplay(value) {
   const englishWrongActor = /\b(?:rock|ring|hoop|gate|hazard|obstacle|barrier|boulder|plant|sprout|node|target|pulse|light)\b\s+(?:(?:it|then|also)\s+)?(?:steers?|moves?|advances?|travels?|guides?|controls?|dodges?|veers?|navigates?|clears?|avoids?|energizes?|pulses?|passes?|activates?|charges?|sends?)\b/;
   const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b(?:\s+(?:continuously|steadily|sideways|forward|automatically|laterally))*\s+through\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
   const englishObstacle = /\b(?:avoids?|avoiding|dodges?|dodging|veers?\s+(?:around|past)|steers?\s+(?:around|past))\b[^,;.!?]{0,28}\b(?:rock|hazard|obstacle|barrier|boulder)\b/;
-  const englishPulse = /(?:\b(?:energizes?|energizing|pulses?|pulsing|activates?|activating|charges?|charging)\b[^,;.!?]{0,28}\b(?:sprout|plant|node|target)\b|\b(?:sends?|sending|passes?|passing|delivers?|delivering)\b[^,;.!?]{0,20}\b(?:light|energy|pulse)\b[^,;.!?]{0,28}\b(?:sprout|plant|node|target)\b)/;
+  const englishPulse = /(?:\b(?:energizes?|energizing|pulses?|pulsing|activates?|activating|charges?|charging)\b[^,;.!?]{0,28}\b(?:sprout|plant|node|target)\b|\b(?:sends?|sending|passes?|passing|delivers?|delivering)\b[^,;.!?]{0,12}\b(?:light|energy|pulse)\b\s+(?:into|to|toward|towards)\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:sprout|plant|node|target)\b)/;
   const englishRingMatch = englishRing.exec(text);
   const englishObstacleMatch = englishObstacle.exec(text);
   const englishPulseMatch = englishPulse.exec(text);
@@ -185,7 +185,7 @@ function communicatesR5Gameplay(value) {
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRing = /(?:(?:くぐ|通|抜け).{0,16}(?:リング|輪|門|ゲート|円)|(?:リング|輪|門|ゲート|円).{0,16}(?:くぐ|通|抜け))/;
   const japaneseObstacle = /(?:(?:避け|かわし).{0,16}(?:岩|障害|壁|危険)|(?:岩|障害|壁|危険).{0,16}(?:避け|かわし))/;
-  const japanesePulse = /(?:(?:渡|送|届け|当て|光らせ|起動|照ら).{0,20}(?:芽|植物|ノード|対象)|(?:光|パルス|生命).{0,20}(?:芽|植物|ノード|対象).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら)|(?:芽|植物|ノード|対象).{0,20}(?:光|パルス|生命).{0,16}(?:渡|送|届け|当て|光らせ|起動|照ら))/;
+  const japanesePulse = /(?:(?:芽|植物|ノード|対象)(?:へ|に).{0,8}(?:光|パルス|生命).{0,8}(?:渡|送|届け|当て|光らせ|起動|照ら)|(?:光|パルス|生命).{0,8}(?:芽|植物|ノード|対象)(?:へ|に).{0,8}(?:渡|送|届け|当て|光らせ|起動|照ら))/;
   const japaneseActorMotionMatch = japaneseActorMotion.exec(text);
   const japaneseRingMatch = japaneseRing.exec(text);
   const japaneseObstacleMatch = japaneseObstacle.exec(text);
@@ -216,11 +216,11 @@ function hasHumanReject(human) {
   const normalizedScalar = (value) => typeof value === "string" ? value.normalize("NFKC").trim().toLowerCase() : value;
   const isPositive = (value) => {
     const normalized = normalizedScalar(value);
-    return normalized === true || (Number.isFinite(Number(normalized)) && Number(normalized) > 0);
+    return normalized === true || normalized === "true" || normalized === "yes" || normalized === "on" || (Number.isFinite(Number(normalized)) && Number(normalized) > 0);
   };
   const isNegative = (value) => {
     const normalized = normalizedScalar(value);
-    return normalized === false || normalized === 0 || normalized === "false" || normalized === "no" || normalized === "0";
+    return normalized === false || normalized === 0 || normalized === "false" || normalized === "no" || normalized === "off" || normalized === "0";
   };
   const visit = (value) => {
     if (!value || typeof value !== "object") return false;
