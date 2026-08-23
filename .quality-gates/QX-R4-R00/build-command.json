@@ -1,8 +1,8 @@
 {
   "schema_version": "build-command.v1",
   "task_id": "QX-R4-R00",
-  "candidate_source_commit": "88b4ddf5f8d708cf73602549bfd5ed44efe85c45",
-  "candidate_source_sha256": "1725dc553d621312363fc42d48092ccc260b558c4a63f0deb70d809d2cdebc00",
+  "candidate_source_commit": "a65058ec1eab14bcd53d4acdc892e090617adf49",
+  "candidate_source_sha256": "c5572c46604c6ebfecb77b54eeba3dff6b3ff9e3a49270331a49621cc5e83505",
   "candidate_build_sha256": "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25",
   "command": "npm run build",
   "exit_code": 0,
