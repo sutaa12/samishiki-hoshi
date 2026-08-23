@@ -1,0 +1,24 @@
+{
+  "schema_version": "research-only-ai-closure.v1",
+  "task_id": "QX-R4-R01",
+  "result": "research-only-ai-accepted",
+  "recorded_at": "2026-08-23T16:50:30+09:00",
+  "issuer": "Codex QX-R5-000A migration verifier",
+  "policy_source": "Notion Page 19 R5 Minimum Communicative Game Reset",
+  "production_improvement_claimed": false,
+  "human_gate_required": false,
+  "baseline_source_sha256": "b727c78ed8512b37abe6bbac45c588dcadcfddf182201b79f7b18d4db61e31da",
+  "baseline_build_sha256": "7d63a266780901a57c32c59c7f79920e255f909d907474e652571d9f987ad37d",
+  "research_validation_sha256": "6561475d17170dde7b37a0bf41a9bcc6bf8c86227c1ef811c4927f48f29b779e",
+  "automated_review_result": "accepted-research-stage-only",
+  "automated_review_score": "30/32",
+  "automated_review_open_s0_s2": 0,
+  "independent_review": {
+    "path": ".quality-gates/QX-R4-R01/independent-review-round4.md",
+    "sha256": "4b6b14b9ba94708815e4677eea0d663f4a21c962405f225b0121a077272bfc79"
+  },
+  "withdrawn_gate": "Two-person frame identification was incorrectly attached to a research-only task that made no runtime candidate or Production-improvement claim.",
+  "retained_boundary": "R01 evidence may inform R5 design but cannot prove current or future Gameplay quality, Human acceptance, legal acceptance, release readiness, or contest acceptance.",
+  "next_task": "QX-R5-001",
+  "rollback_condition": "Reopen R01 if its corpus, rights boundary, runtime/source binding, or independent research-stage acceptance is invalidated."
+}

@@ -4,12 +4,21 @@ This repository implements the Notion-defined game `さみしき星のまたた�
 
 ## Source-of-truth precedence
 
-1. Evidence and acceptance protocol in Notion page 18 (`Codex Evidence-Driven Game Quality Protocol`) and R4 hard gates in page 16.
-2. Graphics, renderer, material, temporal, backend, and Hero Slice constraints in Notion page 13 (`写実グラフィック・Mega Demo参照・レンダリング設計`).
-3. Product and generation constraints in Notion pages 02, 08, 09, 10, 11, and 12.
-4. Visual targets and production process in pages 01, 03, 05, 06, and 07.
-5. The executable specification and rebaseline plan in `docs/SPEC.md` and `docs/GFX_REBASELINE_PLAN.md`.
+1. Notion page 19 (`R5 Minimum Communicative Game Reset`) is the R5 Gameplay source of truth.
+2. Notion page 18 (`Codex Evidence-Driven Game Quality Protocol`), with page 19's R5 AI Binary policy taking precedence where the two differ.
+3. Notion page 16 (`Human Reject再設計`) for the accepted failure analysis and measurable failure thresholds.
+4. Notion page 17 (`Perceptual Realism Pipeline`), frozen until QX-R5-005 passes.
+5. Existing long-term product, narrative, renderer, generation, visual-production, and executable specifications in Notion pages 01–13, `docs/SPEC.md`, and `docs/GFX_REBASELINE_PLAN.md`.
 6. Tests and implementation. If these conflict with a higher source, fix the lower source and record the decision.
+
+## R5 isolation and AI Binary acceptance
+
+- QX-R5-001 through QX-R5-005 live only under `/r5-minimum`, `app/r5-minimum/`, `src/game/r5/`, `src/gfx/r5/`, and `tests/r5/` until their declared integration gate passes.
+- QX-R5-001 through QX-R5-007 use the `ai_binary_gameplay` acceptance mode. Human raw rows, Human scores, and an Owner receipt are not completion requirements for Research, Graybox, or AI-comprehension gates in this isolated pre-Human candidate workflow.
+- This exception does not override or erase a Human Reject. Human play acceptance, rights/legal acceptance, Main integration, final public release, and contest submission remain separate Human or external gates.
+- The 15-second loop is the active Gameplay contract. Do not import the legacy 180-second renderer, six-phase journey, PRP, or a new graphics library into `/r5-minimum` before QX-R5-005 passes.
+- AI Binary completion uses `npm run research:validate -- <task-id> --stage complete --acceptance ai-binary` and requires telemetry, a moving video, an event ledger, a remediation decision, and three distinct artifact-only blind AI reviews bound to one source, build, and video digest.
+- The default and release command remains `--acceptance human-release`; its raw Human rows and responsible Owner receipt stay fail-closed.
 
 ## Evidence-driven quality gate
 
@@ -22,12 +31,12 @@ Before changing graphics, geometry, camera, controls, onboarding, feedback, or a
 5. Implement one hypothesis in an isolated worktree or behind a feature flag. Do not combine unrelated visual, camera, speed, and post-effect hypotheses in one spike.
 6. Compare Current and Candidate under the same camera, input, device, viewport, exposure, backend, and quality.
 7. Run `npm run research:validate -- <task-id>` before implementation and `npm run research:validate -- <task-id> --stage complete` before claiming completion.
-8. Do not mark the task complete without measurable improvement, a committed Evidence Pack, digest-bound Current/Candidate screenshot, moving clip and input trace evidence, a candidate-bound successful build receipt, Git-commit-bound recomputed source/build SHA-256 values, computed numeric comparisons backed by receipts, all-pass timestamped raw-human rows with distinct trace realpaths, and a separate responsible-owner receipt bound to the same candidate. Any Human Reject blocks completion. Rollback document commit, gameplay hash, source/build SHA-256, and Sites boundary must match the accepted baseline. Required Pack files and evidence paths must be repository-contained regular non-symlink files.
+8. In `human_release` mode, do not mark the task complete without measurable improvement, a committed Evidence Pack, digest-bound Current/Candidate screenshot, moving clip and input trace evidence, a candidate-bound successful build receipt, Git-commit-bound recomputed source/build SHA-256 values, computed numeric comparisons backed by receipts, all-pass timestamped raw-human rows with distinct trace realpaths, and a separate responsible-owner receipt bound to the same candidate. Any Human Reject blocks completion. In `ai_binary_gameplay` mode, replace only the Human rows/Owner requirement with the R5 telemetry/video/event/remediation/three-review gate described above. Rollback document commit, gameplay hash, source/build SHA-256, and Sites boundary must match the accepted baseline in both modes. Required Pack files and evidence paths must be repository-contained regular non-symlink files.
 9. Reddit, forum posts, AI vision, automated screenshots, object counts, effect counts, and test pass counts cannot override a Human Reject.
 
 External video frames may be inspected only in the minimum amount needed for analysis. Store third-party URLs and timecodes, not redistributed media, unless the repository has explicit reuse rights.
 
-The project-local workflow is `.openai/skills/evidence-driven-game-quality/SKILL.md`. QX-R4-R00 must pass before any new graphics library, geometry generator, or post effect enters Production.
+The project-local workflow is `.openai/skills/evidence-driven-game-quality/SKILL.md`. QX-R4-R00 has passed. R5 now follows page 19's critical path; new graphics libraries, PRP, and post effects remain frozen until QX-R5-005 passes.
 
 ## R4 isolation and release boundary
 

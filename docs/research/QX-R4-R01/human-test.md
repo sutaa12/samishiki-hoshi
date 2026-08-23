@@ -24,13 +24,13 @@ The participant must answer from the visible frame. Preserve exact free-form wor
 
 ## Raw answers
 
-Status: `HUMAN_PENDING`
+Status: `WITHDRAWN_FROM_R01_COMPLETION`
 
-No participant response has been collected for R01. This is intentionally not represented as a passing row.
+No participant response was collected for R01. Notion Page 19 and QX-R5-000A withdrew this gate because R01 is a research-only corpus and makes no Production-improvement claim. This is not represented as a Human pass.
 
 ## Human owner decision
 
-Owner: Human Acceptance Owner
-Decision: pending
-Evidence: `human-frame-test.md` defines the URL/frame-only packet and receipt fields
-Reason: R01 acceptance requires at least two uninformed human viewers; automated image analysis cannot sign this gate
+Owner: not required for R01 research-only closure
+Decision: not required; final Human release authority is unchanged
+Evidence: `.quality-gates/QX-R4-R01/research-only-ai-closure.json`
+Reason: Gameplay comprehension moved to the implemented R5 15-second video; R01 cannot claim Gameplay or release quality

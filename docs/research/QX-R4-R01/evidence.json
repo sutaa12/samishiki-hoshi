@@ -40,6 +40,7 @@
     "rationale": "Use official URL/timecode evidence plus project-owned captures to define measurable future constraints while keeping Production unchanged."
   },
   "research_validation": {"path": ".quality-gates/QX-R4-R01/research-validation.json", "sha256": "6561475d17170dde7b37a0bf41a9bcc6bf8c86227c1ef811c4927f48f29b779e"},
+  "research_only_ai_closure": {"path": ".quality-gates/QX-R4-R01/research-only-ai-closure.json", "sha256": "f4c0dde9b24f48e409ef8a8ad42e30e9fbff2c629e7f8fff15175a6ae6d90e08"},
   "numeric_hard_gates": [
     {"id": "official_comparable_games", "target": {"operator": "gte", "value": 5, "unit": "games"}, "observed": 6, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/comparable-games.csv", "sha256": "4bab449a52004e2fb53abed0e815e8e9742b27a951444a780bc08bcccbea2915"}},
     {"id": "official_annotated_frames", "target": {"operator": "gte", "value": 12, "unit": "frames"}, "observed": 13, "result": "passed", "evidence": {"path": "docs/research/QX-R4-R01/frame-analysis.csv", "sha256": "57688a3261c80d9dd9c890419a7b9415a327a8cc2dddf6de83f2b51ab4eebef3"}},
@@ -54,9 +55,9 @@
     "memory": {"baseline": null, "candidate": null, "unit": "megabytes", "direction": "lower-is-better", "max_regression_pct": null, "regression": null, "evidence": null, "observation": "R01 has no runtime candidate."}
   },
   "human": {
-    "status": "pending",
+    "status": "not-required-research-only-ai-accepted",
     "raw_answer_count": 0,
-    "owner_decision": "pending",
+    "owner_decision": "not-required",
     "raw_answers": null,
     "owner_evidence": null
   },
@@ -71,7 +72,7 @@
   },
   "gates": {
     "research": "passed",
-    "complete": "pending"
+    "complete": "research-only-ai-accepted"
   },
   "artifacts": {
     "references": "references.csv",
@@ -86,6 +87,7 @@
     "rights": "rights.md",
     "annotation_method": "annotation-method.md",
     "research_validation": ".quality-gates/QX-R4-R01/research-validation.json",
+    "research_only_ai_closure": ".quality-gates/QX-R4-R01/research-only-ai-closure.json",
     "rollback": "rollback.md"
   }
 }

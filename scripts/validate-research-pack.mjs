@@ -11,6 +11,7 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const PIN_PATTERN = /^(?:[0-9a-f]{40}|v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$/;
 const PLACEHOLDER_PATTERN = /\{\{[^}]+\}\}|REPLACE_(?:ME|WITH_[A-Z_]+)|\bTBD\b/;
 const EXTERNAL_MEDIA_EXTENSIONS = new Set([".apng", ".avif", ".gif", ".jpeg", ".jpg", ".m4a", ".mp3", ".mp4", ".ogg", ".png", ".wav", ".webm", ".webp"]);
+const R5_EXPECTED_DESCRIPTION = "小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム";
 const REQUIRED_FILES = [
   "research-card.md",
   "references.csv",
@@ -29,6 +30,7 @@ function parseArguments(argv) {
   let root = process.cwd();
   let taskId;
   let stage = "research";
+  let acceptance = "human-release";
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--root") {
@@ -36,6 +38,9 @@ function parseArguments(argv) {
       index += 1;
     } else if (argument === "--stage") {
       stage = argv[index + 1] ?? "";
+      index += 1;
+    } else if (argument === "--acceptance") {
+      acceptance = argv[index + 1] ?? "";
       index += 1;
     } else if (!taskId) {
       taskId = argument;
@@ -49,7 +54,10 @@ function parseArguments(argv) {
   if (!new Set(["research", "complete"]).has(stage)) {
     throw new Error("Stage must be research or complete.");
   }
-  return { root: resolve(root), taskId, stage };
+  if (!new Set(["human-release", "ai-binary"]).has(acceptance)) {
+    throw new Error("Acceptance must be human-release or ai-binary.");
+  }
+  return { root: resolve(root), taskId, stage, acceptance };
 }
 
 function parseCsv(text) {
@@ -91,6 +99,14 @@ function parseCsv(text) {
 
 function meaningful(value) {
   return typeof value === "string" && value.trim().length > 0 && !PLACEHOLDER_PATTERN.test(value);
+}
+
+function normalizedDescription(value) {
+  return typeof value === "string" ? value.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ") : "";
+}
+
+function textSha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 function uniqueNonempty(rows, field) {
@@ -158,7 +174,7 @@ async function regularArtifact(root, packDirectory, artifact) {
     const rootPath = await realpath(root);
     const within = relative(rootPath, resolvedPath);
     if (!within || within.startsWith("..") || isAbsolute(within) || !(await stat(resolvedPath)).isFile()) return { ok: false, reason: "resolved path is outside the repository or not a regular file", path, sha256: null };
-    return { ok: true, reason: null, path: resolvedPath, sha256: createHash("sha256").update(await readFile(resolvedPath)).digest("hex") };
+    return { ok: true, reason: null, path: resolvedPath, size: lexical.size, sha256: createHash("sha256").update(await readFile(resolvedPath)).digest("hex") };
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : String(error), path, sha256: null };
   }
@@ -233,12 +249,150 @@ function markdownTableRows(text) {
     .map((line) => line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim()));
 }
 
-export async function validateResearchPack(root, taskId, stage = "research") {
+const AI_REVIEW_BOOLEAN_FIELDS = [
+  "playerIdentified",
+  "continuousForwardMotion",
+  "ringActionUnderstood",
+  "obstacleActionUnderstood",
+  "pulseTargetUnderstood",
+  "resultUnderstood",
+  "progressUnderstood",
+];
+
+async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues) {
+  const closure = await readArtifactJson(root, directory, evidence.research_only_ai_closure);
+  if (!closure
+    || closure.schema_version !== "research-only-ai-closure.v1"
+    || closure.task_id !== taskId
+    || closure.result !== "research-only-ai-accepted"
+    || closure.production_improvement_claimed !== false
+    || closure.human_gate_required !== false
+    || !Number.isFinite(Date.parse(closure.recorded_at ?? ""))
+    || closure.baseline_source_sha256 !== evidence.baseline?.source_sha256
+    || closure.baseline_build_sha256 !== evidence.baseline?.build_sha256
+    || closure.research_validation_sha256 !== evidence.research_validation?.sha256
+    || closure.automated_review_result !== "accepted-research-stage-only"
+    || closure.automated_review_open_s0_s2 !== 0
+    || !(await validArtifactRef(root, directory, closure.independent_review))
+    || closure.next_task !== "QX-R5-001"
+    || evidence.candidate?.kind !== "research-only-no-runtime-change"
+    || evidence.candidate?.source_sha256 !== evidence.baseline?.source_sha256
+    || evidence.candidate?.build_sha256 !== evidence.baseline?.build_sha256) {
+    issues.push(issue("RESEARCH_ONLY_AI_CLOSURE", "Research-only AI closure needs a digest-bound migration receipt, no Production-improvement claim, no Human requirement, matching baseline source/build/research validation, and QX-R5-001 as the next task.", "evidence.json"));
+  }
+}
+
+async function validateAiBinaryGameplay(root, directory, taskId, evidence, issues) {
+  const ai = evidence.ai_binary_gameplay;
+  const videoArtifact = await regularArtifact(root, directory, ai?.video?.path);
+  if (!ai || !videoArtifact.ok || !(videoArtifact.size > 0) || !SHA256_PATTERN.test(ai.video?.sha256 ?? "") || videoArtifact.sha256 !== ai.video.sha256 || ai.video.path !== evidence.candidate?.clip?.path || ai.video.sha256 !== evidence.candidate?.clip?.sha256) {
+    issues.push(issue("AI_VIDEO", "AI Binary completion needs a nonempty digest-bound video identical to the candidate capture clip.", "evidence.json"));
+  }
+
+  const expectedAnswerSha256 = ai?.expected_answer_sha256;
+  const canonicalExpectedAnswerSha256 = textSha256(normalizedDescription(R5_EXPECTED_DESCRIPTION));
+  if (expectedAnswerSha256 !== canonicalExpectedAnswerSha256) {
+    issues.push(issue("AI_REVIEW_DESCRIPTION", "AI Binary evidence must use the canonical Page 19 expected-answer SHA-256 so copied descriptions fail closed.", "evidence.json"));
+  }
+
+  const telemetry = await readArtifactJson(root, directory, ai?.telemetry);
+  if (!telemetry
+    || telemetry.schema_version !== "ai-binary-telemetry.v1"
+    || telemetry.task_id !== taskId
+    || telemetry.result !== "passed"
+    || telemetry.subject_source_sha256 !== evidence.candidate?.source_sha256
+    || telemetry.subject_build_sha256 !== evidence.candidate?.build_sha256
+    || telemetry.subject_video_sha256 !== ai?.video?.sha256
+    || !Number.isFinite(Date.parse(telemetry.recorded_at ?? ""))
+    || !Number.isInteger(telemetry.frame_count)
+    || telemetry.frame_count <= 0
+    || !Number.isFinite(telemetry.duration_ms)
+    || telemetry.duration_ms < 15000
+    || telemetry.distance_increases_every_frame !== true
+    || !Number.isFinite(telemetry.max_still_frame_ms)
+    || telemetry.max_still_frame_ms > 500
+    || !Number.isFinite(telemetry.input_response_ms)
+    || telemetry.input_response_ms > 100
+    || JSON.stringify(telemetry.encounter_order) !== JSON.stringify(["ring", "obstacle", "node"])) {
+    issues.push(issue("AI_TELEMETRY", "AI Binary completion needs a passed, source/build/video-bound telemetry receipt with monotonic distance, <=500ms still interval, <=100ms input response, and ring/obstacle/node order.", "evidence.json"));
+  }
+
+  const ledger = await readArtifactJson(root, directory, ai?.event_ledger);
+  const eventClasses = new Set((ledger?.events ?? []).map((event) => event?.event_class));
+  const eventTimes = (ledger?.events ?? []).map((event) => event?.at_ms);
+  if (!ledger
+    || ledger.schema_version !== "ai-binary-event-ledger.v1"
+    || ledger.task_id !== taskId
+    || ledger.subject_source_sha256 !== evidence.candidate?.source_sha256
+    || ledger.subject_build_sha256 !== evidence.candidate?.build_sha256
+    || ledger.subject_video_sha256 !== ai?.video?.sha256
+    || !Number.isFinite(Date.parse(ledger.recorded_at ?? ""))
+    || !Array.isArray(ledger.events)
+    || ledger.events.length < 4
+    || eventTimes.some((time) => !Number.isFinite(time))
+    || eventTimes.some((time, index) => index > 0 && time < eventTimes[index - 1])
+    || !["ring", "obstacle", "node", "progress"].every((kind) => eventClasses.has(kind))) {
+    issues.push(issue("AI_EVENT_LEDGER", "AI Binary completion needs a source/build/video-bound event ledger covering ring, obstacle, node, and progress.", "evidence.json"));
+  }
+
+  const reviewRefs = Array.isArray(ai?.reviews) ? ai.reviews : [];
+  const reviewArtifacts = await Promise.all(reviewRefs.map((reference) => regularArtifact(root, directory, reference?.path)));
+  const reviews = await Promise.all(reviewRefs.map((reference) => readArtifactJson(root, directory, reference)));
+  if (reviewRefs.length !== 3 || reviewArtifacts.some((artifact) => !artifact.ok) || new Set(reviewArtifacts.map((artifact) => artifact.path)).size !== 3) {
+    issues.push(issue("AI_REVIEW_COUNT", "AI Binary completion needs exactly three distinct digest-bound review artifacts.", "evidence.json"));
+  }
+  const reviewerIds = reviews.map((review) => normalizedDescription(review?.reviewer_id));
+  if (reviews.some((review) => !meaningful(review?.reviewer_id)) || new Set(reviewerIds).size !== 3) {
+    issues.push(issue("AI_REVIEW_ID", "AI Binary reviews need three different nonempty Reviewer IDs.", "evidence.json"));
+  }
+  if (reviews.some((review) => !review
+    || review.schema_version !== "ai-binary-review.v1"
+    || review.task_id !== taskId
+    || review.subject_source_sha256 !== evidence.candidate?.source_sha256
+    || review.subject_build_sha256 !== evidence.candidate?.build_sha256
+    || review.subject_video_sha256 !== ai?.video?.sha256
+    || review.isolation !== "artifact-only-blind"
+    || !Number.isFinite(Date.parse(review.reviewed_at ?? "")))) {
+    issues.push(issue("AI_REVIEW_BINDING", "Every AI review must bind the same task/source/build/video and record artifact-only blindness plus a valid review time.", "evidence.json"));
+  }
+  if (reviews.some((review) => review?.pass !== true || AI_REVIEW_BOOLEAN_FIELDS.some((field) => review?.answers?.[field] !== true))) {
+    issues.push(issue("AI_REVIEW_FAIL", "Every AI review and every required binary comprehension answer must pass.", "evidence.json"));
+  }
+  const descriptions = reviews.map((review) => normalizedDescription(review?.plain_description));
+  if (descriptions.some((description) => !meaningful(description) || description.length < 12)
+    || new Set(descriptions).size !== 3
+    || (SHA256_PATTERN.test(expectedAnswerSha256 ?? "") && descriptions.some((description) => textSha256(description) === expectedAnswerSha256))) {
+    issues.push(issue("AI_REVIEW_DESCRIPTION", "AI review descriptions must be nonempty, mutually distinct, and not a copy of the expected answer.", "evidence.json"));
+  }
+
+  const remediation = await readArtifactJson(root, directory, ai?.remediation);
+  if (!remediation
+    || remediation.schema_version !== "ai-binary-remediation.v1"
+    || remediation.task_id !== taskId
+    || remediation.subject_source_sha256 !== evidence.candidate?.source_sha256
+    || remediation.subject_build_sha256 !== evidence.candidate?.build_sha256
+    || remediation.subject_video_sha256 !== ai?.video?.sha256
+    || !Number.isFinite(Date.parse(remediation.recorded_at ?? ""))
+    || remediation.decision !== "accept"
+    || !meaningful(remediation.observations)
+    || !remediation.remediation_map
+    || typeof remediation.remediation_map !== "object"
+    || !["motion", "player", "objective", "pulse", "progress"].every((key) => meaningful(remediation.remediation_map[key]))
+    || !Array.isArray(remediation.review_ids)
+    || remediation.review_ids.length !== 3
+    || new Set(remediation.review_ids.map(normalizedDescription)).size !== 3
+    || reviewerIds.some((reviewerId) => !remediation.review_ids.map(normalizedDescription).includes(reviewerId))) {
+    issues.push(issue("AI_REMEDIATION", "AI Binary completion needs a source/build/video-bound remediation decision covering the same three Reviewer IDs.", "evidence.json"));
+  }
+}
+
+export async function validateResearchPack(root, taskId, stage = "research", acceptance = "human-release") {
   const directory = resolve(root, "docs/research", taskId);
   const issues = [];
   const files = new Map();
 
-  for (const file of REQUIRED_FILES) {
+  const requiredFiles = acceptance === "ai-binary" ? REQUIRED_FILES.filter((file) => file !== "human-test.md") : REQUIRED_FILES;
+  for (const file of requiredFiles) {
     const artifact = await regularArtifact(root, directory, file);
     if (!artifact.ok) {
       const missing = /ENOENT|no such file/i.test(artifact.reason ?? "");
@@ -251,6 +405,15 @@ export async function validateResearchPack(root, taskId, stage = "research") {
       if (!fileText.trim()) issues.push(issue("EMPTY_FILE", `${file} is empty.`, file));
     } catch {
       issues.push(issue("MISSING_FILE", `${file} is required.`, file));
+    }
+  }
+  if (acceptance === "ai-binary" && !files.has("human-test.md")) {
+    const optionalHuman = await regularArtifact(root, directory, "human-test.md");
+    if (optionalHuman.ok) {
+      const optionalHumanText = await readFile(optionalHuman.path, "utf8");
+      if (optionalHumanText.trim()) files.set("human-test.md", optionalHumanText);
+    } else if (!/ENOENT|no such file/i.test(optionalHuman.reason ?? "")) {
+      issues.push(issue("PACK_FILE_TYPE", "Optional human-test.md must be a repository-contained regular non-symlink file when present.", "human-test.md"));
     }
   }
   if (issues.some((entry) => entry.code === "MISSING_FILE" || entry.code === "PACK_FILE_TYPE")) {
@@ -354,10 +517,11 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   if (gitArchiveSha256(root, evidence.baseline?.source_commit) !== evidence.baseline?.source_sha256) issues.push(issue("BASELINE_SOURCE_DIGEST", "Baseline source SHA-256 must match the exact git archive for baseline.source_commit.", "evidence.json"));
   if (baselineBuildArtifact.sha256 !== evidence.baseline?.build_sha256) issues.push(issue("BASELINE_BUILD_DIGEST", "Baseline build SHA-256 must match the persisted build artifact.", "evidence.json"));
   if (evidence.baseline?.source_commit !== evidence.source_commit) issues.push(issue("BASELINE_BINDING", "Baseline and Research Pack must bind to the same source SHA before a Candidate is created.", "evidence.json"));
-  const baselineCaptureEntries = [["screenshot", evidence.baseline?.screenshot], ["clip", evidence.baseline?.clip], ["metrics", evidence.baseline?.metrics], ["human findings", evidence.baseline?.human_findings]];
+  const baselineCaptureEntries = [["screenshot", evidence.baseline?.screenshot], ["clip", evidence.baseline?.clip], ["metrics", evidence.baseline?.metrics]];
+  if (acceptance === "human-release") baselineCaptureEntries.push(["human findings", evidence.baseline?.human_findings]);
   const baselineCaptureArtifacts = await Promise.all(baselineCaptureEntries.map(([, reference]) => regularArtifact(root, directory, reference?.path)));
   const baselineCaptureRealpaths = baselineCaptureArtifacts.map((artifact) => artifact.path);
-  if (!meaningful(evidence.baseline?.gameplay_hash) || baselineCaptureEntries.some(([, reference], index) => !SHA256_PATTERN.test(reference?.sha256 ?? "") || !baselineCaptureArtifacts[index].ok || baselineCaptureArtifacts[index].sha256 !== reference.sha256) || new Set(baselineCaptureRealpaths).size !== baselineCaptureRealpaths.length) issues.push(issue("BASELINE_EVIDENCE", "Baseline needs a gameplay hash plus distinct digest-bound screenshot, moving clip, metrics, and raw human findings files.", "evidence.json"));
+  if (!meaningful(evidence.baseline?.gameplay_hash) || baselineCaptureEntries.some(([, reference], index) => !SHA256_PATTERN.test(reference?.sha256 ?? "") || !baselineCaptureArtifacts[index].ok || baselineCaptureArtifacts[index].sha256 !== reference.sha256) || new Set(baselineCaptureRealpaths).size !== baselineCaptureRealpaths.length) issues.push(issue("BASELINE_EVIDENCE", `Baseline needs a gameplay hash plus distinct digest-bound screenshot, moving clip, metrics${acceptance === "human-release" ? ", and raw human findings" : ""} files.`, "evidence.json"));
   if (!Array.isArray(evidence.options) || !evidence.options.some((option) => option.decision === "rejected" && meaningful(option.reason))) {
     issues.push(issue("REJECTED_ALTERNATIVE", "Record at least one rejected alternative and its reason.", "evidence.json"));
   }
@@ -428,7 +592,15 @@ export async function validateResearchPack(root, taskId, stage = "research") {
   if (!files.get("current-baseline.md").includes(`Source commit: ${evidence.source_commit}`)) issues.push(issue("BASELINE_FILE_BINDING", "current-baseline.md must bind the evidence.json source commit.", "current-baseline.md"));
 
   if (stage === "complete") {
-    if (evidence.gates?.complete !== "passed") issues.push(issue("COMPLETE_GATE", "evidence.json gates.complete must be passed.", "evidence.json"));
+    const optionalHumanText = files.get("human-test.md") ?? "";
+    if (acceptance === "ai-binary" && (markdownTableRows(optionalHumanText).some((row) => /^fail$/i.test(row[5] ?? "")) || /Decision:\s*(?:reject|fail)\b|\bHUMAN_REJECT\b/i.test(optionalHumanText))) {
+      issues.push(issue("HUMAN_REJECT", "A preserved Human Reject still blocks the candidate; AI Binary mode may omit Human evidence but cannot override an existing Reject.", "human-test.md"));
+    }
+    const researchOnlyAiClosure = acceptance === "ai-binary" && evidence.gates?.complete === "research-only-ai-accepted";
+    if (researchOnlyAiClosure) {
+      await validateResearchOnlyAiClosure(root, directory, taskId, evidence, issues);
+    } else {
+    if (evidence.gates?.complete !== "passed") issues.push(issue("COMPLETE_GATE", "evidence.json gates.complete must be passed, or research-only-ai-accepted with a valid migration receipt in AI Binary mode.", "evidence.json"));
     const metricEntries = [["load", evidence.metrics?.load], ["frame", evidence.metrics?.frame], ["memory", evidence.metrics?.memory]];
     const metricPayloads = metricEntries.map(([, metric]) => metric);
     if (evidence.metrics?.status !== "passed" || evidence.metrics?.performance_no_regression !== true || metricPayloads.some((metric) => !metricPasses(metric))) issues.push(issue("METRICS_GATE", "Complete evidence needs computed numeric load, frame, and memory comparisons with explicit direction and tolerance.", "evidence.json"));
@@ -453,29 +625,33 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     if (!candidateCaptureRefsValid || !captureReceiptValid) issues.push(issue("CANDIDATE_CAPTURE", "Complete evidence needs distinct digest-bound screenshot, moving clip, and input-trace files plus a candidate-bound capture-set.v1 receipt.", "evidence.json"));
     const buildReceipt = await readArtifactJson(root, directory, evidence.candidate?.build_command_receipt);
     if (!buildReceipt || buildReceipt.schema_version !== "build-command.v1" || buildReceipt.task_id !== taskId || buildReceipt.candidate_source_commit !== evidence.candidate?.source_commit || buildReceipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || buildReceipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || buildReceipt.command !== "npm run build" || buildReceipt.exit_code !== 0 || !Number.isFinite(Date.parse(buildReceipt.recorded_at ?? "")) || !meaningful(buildReceipt.observations)) issues.push(issue("BUILD_COMMAND", "Complete evidence needs a digest-bound successful npm run build receipt tied to the candidate source/build.", "evidence.json"));
-    if (evidence.human?.status !== "passed" || evidence.human?.owner_decision !== "pass" || !(evidence.human?.raw_answer_count >= 2)) {
+    if (acceptance === "human-release") {
+      if (evidence.human?.status !== "passed" || evidence.human?.owner_decision !== "pass" || !(evidence.human?.raw_answer_count >= 2)) {
       issues.push(issue("HUMAN_GATE", "Complete evidence needs a human pass and at least two preserved raw answers.", "evidence.json"));
+      }
+      const humanRows = markdownTableRows(files.get("human-test.md"));
+      const validHumanRows = humanRows.filter((row) => {
+        const started = Date.parse(row[2] ?? "");
+        const completed = Date.parse(row[3] ?? "");
+        return row.length >= 8 && row.slice(0, 5).every(meaningful) && Number.isFinite(started) && Number.isFinite(completed) && completed >= started && /^pass$/i.test(row[5] ?? "") && meaningful(row[6]) && SHA256_PATTERN.test(row[7] ?? "");
+      });
+      if (humanRows.some((row) => /^fail$/i.test(row[5] ?? ""))) issues.push(issue("HUMAN_REJECT", "Any preserved Human Reject row blocks completion for this candidate.", "human-test.md"));
+      const traceArtifacts = await Promise.all(validHumanRows.map((row) => regularArtifact(root, directory, row[6])));
+      const traceRealpaths = traceArtifacts.map((artifact) => artifact.path);
+      const traceArtifactsValid = validHumanRows.length === humanRows.length && traceArtifacts.every((artifact, index) => artifact.ok && artifact.sha256 === validHumanRows[index][7]) && new Set(traceRealpaths).size === traceRealpaths.length;
+      const rawRefValid = await validArtifactRef(root, directory, evidence.human?.raw_answers);
+      const rawArtifact = await regularArtifact(root, directory, evidence.human?.raw_answers?.path);
+      const ownerArtifact = await regularArtifact(root, directory, evidence.human?.owner_evidence?.path);
+      const allHumanRealpaths = [rawArtifact.path, ownerArtifact.path, ...traceRealpaths];
+      const evidencePathsSeparate = rawRefValid && ownerArtifact.ok && allHumanRealpaths.every(Boolean) && new Set(allHumanRealpaths).size === allHumanRealpaths.length;
+      const distinctParticipants = new Set(validHumanRows.map((row) => row[0]?.trim().toLowerCase())).size === validHumanRows.length;
+      if (humanRows.length < 2 || validHumanRows.length !== humanRows.length || !distinctParticipants || !traceArtifactsValid || !rawRefValid || !evidencePathsSeparate || evidence.human?.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_RAW", "Complete evidence needs at least two distinct participants with counted, timestamped raw rows plus distinct digest-bound raw, trace, and owner files.", "human-test.md"));
+      if (/Status:\s*pending|Decision:\s*pending/i.test(files.get("human-test.md"))) issues.push(issue("HUMAN_RAW", "human-test.md still records a pending human result.", "human-test.md"));
+      const ownerReceipt = await readArtifactJson(root, directory, evidence.human?.owner_evidence);
+      if (!/Owner:\s*[^\n]+/i.test(files.get("human-test.md")) || !/Decision:\s*pass\b/i.test(files.get("human-test.md")) || !ownerReceipt || ownerReceipt.schema_version !== "human-owner-decision.v1" || ownerReceipt.task_id !== taskId || ownerReceipt.decision !== "pass" || !meaningful(ownerReceipt.owner_role) || !Number.isFinite(Date.parse(ownerReceipt.signed_at ?? "")) || ownerReceipt.candidate_source_commit !== evidence.candidate?.source_commit || ownerReceipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || ownerReceipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || ownerReceipt.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_OWNER", "Complete evidence needs a distinct digest-bound owner receipt tied to the task, candidate source/build, raw-answer count, owner role, and signed pass.", "human-test.md"));
+    } else {
+      await validateAiBinaryGameplay(root, directory, taskId, evidence, issues);
     }
-    const humanRows = markdownTableRows(files.get("human-test.md"));
-    const validHumanRows = humanRows.filter((row) => {
-      const started = Date.parse(row[2] ?? "");
-      const completed = Date.parse(row[3] ?? "");
-      return row.length >= 8 && row.slice(0, 5).every(meaningful) && Number.isFinite(started) && Number.isFinite(completed) && completed >= started && /^pass$/i.test(row[5] ?? "") && meaningful(row[6]) && SHA256_PATTERN.test(row[7] ?? "");
-    });
-    if (humanRows.some((row) => /^fail$/i.test(row[5] ?? ""))) issues.push(issue("HUMAN_REJECT", "Any preserved Human Reject row blocks completion for this candidate.", "human-test.md"));
-    const traceArtifacts = await Promise.all(validHumanRows.map((row) => regularArtifact(root, directory, row[6])));
-    const traceRealpaths = traceArtifacts.map((artifact) => artifact.path);
-    const traceArtifactsValid = validHumanRows.length === humanRows.length && traceArtifacts.every((artifact, index) => artifact.ok && artifact.sha256 === validHumanRows[index][7]) && new Set(traceRealpaths).size === traceRealpaths.length;
-    const rawRefValid = await validArtifactRef(root, directory, evidence.human?.raw_answers);
-    const rawArtifact = await regularArtifact(root, directory, evidence.human?.raw_answers?.path);
-    const ownerArtifact = await regularArtifact(root, directory, evidence.human?.owner_evidence?.path);
-    const allHumanRealpaths = [rawArtifact.path, ownerArtifact.path, ...traceRealpaths];
-    const evidencePathsSeparate = rawRefValid && ownerArtifact.ok && allHumanRealpaths.every(Boolean) && new Set(allHumanRealpaths).size === allHumanRealpaths.length;
-    const distinctParticipants = new Set(validHumanRows.map((row) => row[0]?.trim().toLowerCase())).size === validHumanRows.length;
-    if (humanRows.length < 2 || validHumanRows.length !== humanRows.length || !distinctParticipants || !traceArtifactsValid || !rawRefValid || !evidencePathsSeparate || evidence.human?.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_RAW", "Complete evidence needs at least two distinct participants with counted, timestamped raw rows plus distinct digest-bound raw, trace, and owner files.", "human-test.md"));
-    if (/Status:\s*pending|Decision:\s*pending/i.test(files.get("human-test.md"))) issues.push(issue("HUMAN_RAW", "human-test.md still records a pending human result.", "human-test.md"));
-    const ownerReceipt = await readArtifactJson(root, directory, evidence.human?.owner_evidence);
-    if (!/Owner:\s*[^\n]+/i.test(files.get("human-test.md")) || !/Decision:\s*pass\b/i.test(files.get("human-test.md")) || !ownerReceipt || ownerReceipt.schema_version !== "human-owner-decision.v1" || ownerReceipt.task_id !== taskId || ownerReceipt.decision !== "pass" || !meaningful(ownerReceipt.owner_role) || !Number.isFinite(Date.parse(ownerReceipt.signed_at ?? "")) || ownerReceipt.candidate_source_commit !== evidence.candidate?.source_commit || ownerReceipt.candidate_source_sha256 !== evidence.candidate?.source_sha256 || ownerReceipt.candidate_build_sha256 !== evidence.candidate?.build_sha256 || ownerReceipt.raw_answer_count !== humanRows.length) issues.push(issue("HUMAN_OWNER", "Complete evidence needs a distinct digest-bound owner receipt tied to the task, candidate source/build, raw-answer count, owner role, and signed pass.", "human-test.md"));
     const candidateBuildArtifact = await regularArtifact(root, directory, evidence.candidate?.build_artifact);
     if (!isGitCommit(root, evidence.candidate?.source_commit) || !SHA256_PATTERN.test(evidence.candidate?.source_sha256 ?? "") || !SHA256_PATTERN.test(evidence.candidate?.build_sha256 ?? "") || !meaningful(evidence.candidate?.build_hash_procedure) || !candidateBuildArtifact.ok) {
       issues.push(issue("CANDIDATE_SHA256", "Complete evidence needs candidate commit, source/build SHA-256 values, a reproducible build-hash procedure, and an existing build artifact.", "evidence.json"));
@@ -483,6 +659,7 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     if (gitArchiveSha256(root, evidence.candidate?.source_commit) !== evidence.candidate?.source_sha256) issues.push(issue("CANDIDATE_SOURCE_DIGEST", "Candidate source SHA-256 must match the exact git archive for candidate.source_commit.", "evidence.json"));
     if (candidateBuildArtifact.sha256 !== evidence.candidate?.build_sha256) issues.push(issue("CANDIDATE_BUILD_DIGEST", "Candidate build SHA-256 must match the persisted build artifact.", "evidence.json"));
     if (/\| Candidate \|[\s\S]*\| pending \|/i.test(files.get("ablation.md"))) issues.push(issue("ABLATION", "Candidate ablation result cannot remain pending.", "ablation.md"));
+    }
   }
 
   const counts = {
@@ -492,13 +669,13 @@ export async function validateResearchPack(root, taskId, stage = "research") {
     comparable_games: comparableGames.length,
     frames: frames.length,
   };
-  return { ok: issues.length === 0, task_id: taskId, stage, scale, counts, issues };
+  return { ok: issues.length === 0, task_id: taskId, stage, acceptance, scale, counts, issues };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
-    const { root, taskId, stage } = parseArguments(process.argv.slice(2));
-    const result = await validateResearchPack(root, taskId, stage);
+    const { root, taskId, stage, acceptance } = parseArguments(process.argv.slice(2));
+    const result = await validateResearchPack(root, taskId, stage, acceptance);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (!result.ok) process.exitCode = 1;
   } catch (error) {
