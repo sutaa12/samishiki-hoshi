@@ -1024,6 +1024,8 @@ describe("evidence-driven Research Pack", () => {
     ["sibling Human authority and rejected status", "authority-receipt.json", `${JSON.stringify({ authority: "Human", status: "REJECT" })}\n`, "HUMAN_REJECT"],
     ["sibling Sites gate and published status", "sites-gate-receipt.json", `${JSON.stringify({ gate: "Sites", status: "published" })}\n`, "AI_EXTERNAL_GATE_CLAIM"],
     ["mixed successful and pending prose clauses", "mixed-gate-receipt.md", "Sites publication succeeded; Human acceptance pending.\n", "AI_EXTERNAL_GATE_CLAIM"],
+    ["Japanese Human rejection", "japanese-human.md", "人間の判定：不合格\n", "HUMAN_REJECT"],
+    ["Japanese Sites success", "japanese-sites.md", "サイト公開：完了\n", "AI_EXTERNAL_GATE_CLAIM"],
   ])("semantically scans %s", async (_label, name, receipt, code) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1035,6 +1037,34 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain(code);
+  });
+
+  it("semantically scans string-form artifact-map entries", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const receipt = "Human status: REJECT\nSites publication succeeded.\n";
+    const receiptPath = ".quality-gates/QX-R4-R00/string-map-gates.md";
+    await writeFile(join(root, receiptPath), receipt, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.artifacts.supplemental_gate_receipt = receiptPath;
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toEqual(expect.arrayContaining(["HUMAN_REJECT", "AI_EXTERNAL_GATE_CLAIM"]));
+  });
+
+  it("rejects alternate-encoded textual evidence", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const bytes = Buffer.from("Human status: REJECT\nSites publication succeeded.\n", "utf16le");
+    const receiptPath = ".quality-gates/QX-R4-R00/utf16-gates.json";
+    await writeFile(join(root, receiptPath), bytes);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    evidence.supplemental_gate_receipt = { path: receiptPath, sha256: sha256(bytes) };
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_TEXT_ENCODING");
   });
 
   it("does not grant the pinned R01 semantic exception to an R5 task", async () => {
@@ -1555,6 +1585,7 @@ describe("evidence-driven Research Pack", () => {
     ["Japanese Human status", { human: { status: "合格" } }],
     ["Japanese gate and verdict", { audit_record: { gate: "人間", 判定: "合格" } }],
     ["qualified Sites status", { sites: { status: "passed after smoke test" } }],
+    ["deployment alias status", { deployment: { status: "succeeded after public smoke test" } }],
   ])("rejects %s in AI Binary evidence", async (_label, claim) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);

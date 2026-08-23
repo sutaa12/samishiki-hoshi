@@ -12,10 +12,16 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const PIN_PATTERN = /^(?:[0-9a-f]{40}|v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$/;
 const PLACEHOLDER_PATTERN = /\{\{[^}]+\}\}|REPLACE_(?:ME|WITH_[A-Z_]+)|\bTBD\b/;
 const EXTERNAL_MEDIA_EXTENSIONS = new Set([".apng", ".avif", ".gif", ".jpeg", ".jpg", ".m4a", ".mp3", ".mp4", ".ogg", ".png", ".wav", ".webm", ".webp"]);
+const TEXTUAL_EVIDENCE_EXTENSIONS = new Set([".csv", ".html", ".json", ".jsonl", ".log", ".md", ".ndjson", ".text", ".txt", ".xml", ".yaml", ".yml"]);
 const R5_EXPECTED_DESCRIPTION = "小さな水滴を左右に動かし、リングをくぐり、岩を避け、芽へ光を渡すゲーム";
 const R01_MIGRATION_ASSESSMENT_SHA256 = "23125b75bc1ecdfa12bf0d9a2833829e554f0e778f3bf1195184673e97183f9f";
 const R01_MIGRATION_POLICY_SHA256 = "59fd54dc9d948828e13ab4dca4cadac8e31cb7d9d9521ba08eded686b6b28e7e";
 const R01_HISTORICAL_HUMAN_BASELINE_SHA256 = "a6f3e4e108d85fdc0f462124a5732ba0e989e5206e726c2debb8df6e2cb83036";
+const R01_HISTORICAL_HUMAN_TEST_SHA256 = "525c9ef812f9f2c0d21a4c6dc4030b6c8e47b5ec74e1176aebbb3c94e9ea9d90";
+const R01_HISTORICAL_CURRENT_BASELINE_SHA256 = "287540389370129030f5f505eb654fddd36068b570eaa6820ad37a4f40625e53";
+const R01_HISTORICAL_DECISION_SHA256 = "9ab215037a6b192bfdc87b79b8f5a31fcedba1b7479c9b448557ecad2e7bc4aa";
+const R01_HISTORICAL_ABLATION_SHA256 = "f0b3a519a9bdfb2ee8939ed1138ff99f892e1aa40085ad6b3961df75114cf93d";
+const R01_HISTORICAL_FRAME_TEST_SHA256 = "22a5e9674161939fb0f39fd63df556f40704bf8b7f557c892ef3160faa74d74f";
 const R01_HISTORICAL_REVIEW_SHA256 = "4b6b14b9ba94708815e4677eea0d663f4a21c962405f225b0121a077272bfc79";
 const R00_PRODUCTION_STABLE_MANIFEST_SHA256 = "03e23eeb422a8292503b43da33cdead2629be3be9774c3f351b865dba5303c25";
 const REQUIRED_FILES = [
@@ -333,7 +339,7 @@ function declaresHumanContext(value) {
 function declaresExternalContext(value) {
   if (!value || typeof value !== "object") return false;
   const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|authority|authorities|approvedby|approver|approvers|descriptor|descriptors|audience|audiences)$/;
-  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース)/;
+  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
   const containsExternalMarker = (child) => {
     if (typeof child === "string") return externalMarker.test(descriptionFingerprint(child));
     if (Array.isArray(child)) return child.some(containsExternalMarker);
@@ -392,11 +398,11 @@ function containsHumanPassArtifact(value, path = "") {
 }
 
 function hasAiBinaryExternalPassClaim(value) {
-  const externalKey = /^(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース)/;
-  const externalText = /(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース)/;
+  const externalKey = /^(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
+  const externalText = /(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
   const containsExternalPassProse = (candidate, inheritedExternal = false) => {
     if (typeof candidate !== "string") return false;
-    return normalizedDescription(candidate).split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((clause) => {
+    return candidate.normalize("NFKC").split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((clause) => {
       const compact = securityFingerprint(clause);
       const positive = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
         || /(?:合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)/.test(compact);
@@ -422,7 +428,7 @@ function hasAiBinaryExternalPassClaim(value) {
 }
 
 function hasMalformedExternalResult(value) {
-  const externalKey = /^(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース)/;
+  const externalKey = /^(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
   const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict|状態|結果|判定|決定|評決)$/;
   const validScalar = (candidate) => typeof candidate === "boolean"
     || (typeof candidate === "number" && Number.isFinite(candidate))
@@ -528,27 +534,41 @@ function semanticClaimsInArtifact(text, path, taskId, sha256) {
     || (path === ".quality-gates/QX-R4-R01/independent-review-round4.md" && sha256 === R01_HISTORICAL_REVIEW_SHA256)
   );
   if (dedicatedR01SemanticArtifact) return { humanReject: false, externalPass: false };
-  const historicalR01HumanBaseline = taskId === "QX-R4-R01"
-    && path === "docs/research/QX-R4-R01/baseline-human-findings.md"
-    && sha256 === R01_HISTORICAL_HUMAN_BASELINE_SHA256;
+  const historicalR01HumanBaseline = taskId === "QX-R4-R01" && (
+    (path === "docs/research/QX-R4-R01/baseline-human-findings.md" && sha256 === R01_HISTORICAL_HUMAN_BASELINE_SHA256)
+    || (path === "human-test.md" && sha256 === R01_HISTORICAL_HUMAN_TEST_SHA256)
+    || (path === "current-baseline.md" && sha256 === R01_HISTORICAL_CURRENT_BASELINE_SHA256)
+    || (path === "decision.md" && sha256 === R01_HISTORICAL_DECISION_SHA256)
+    || (path === "ablation.md" && sha256 === R01_HISTORICAL_ABLATION_SHA256)
+    || (path === "human-frame-test.md" && sha256 === R01_HISTORICAL_FRAME_TEST_SHA256)
+  );
   let parsed = null;
   try {
     parsed = JSON.parse(text);
   } catch {
     // Plain-text evidence is inspected below using contextual markers.
   }
-  const compact = securityFingerprint(normalizedDescription(text));
-  const humanContext = /(?:human|participantid|testerid|evaluatorid|reviewerid|approvedbyhuman|approverhuman)/.test(compact);
-  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready)/;
-  const positiveMarker = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/;
-  const negativeMarker = /(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)/;
-  const externalPassLine = normalizedDescription(text).split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((line) => {
+  const humanMarker = /(?:human|participantid|testerid|evaluatorid|reviewerid|approvedbyhuman|approverhuman|人間|参加者|テスター|評価者|審査者)/;
+  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready|deploy(?:ment|ed)?|hosting|hosted|publication|publicsite|liveurl|golive|人間|所有者|法務|権利|本番|サイト|公開|コンテスト|応募|提出|リリース|デプロイ|ホスティング)/;
+  const positiveMarker = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded|合格|承認済み|承認された|通過|公開済み|公開された|提出済み|提出された|リリース済み|完了|成功)/;
+  const negativeMarker = /(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld|未|不合格|不承認|保留|拒否|却下|失敗|待ち|していない|されていない|できない|不可)/;
+  const canonicalSourceCorpus = path === "references.csv" || path === `docs/research/${taskId}/references.csv`;
+  const semanticLines = text.normalize("NFKC").split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i);
+  const externalPassLine = !canonicalSourceCorpus && semanticLines.some((line) => {
     const lineCompact = securityFingerprint(normalizedDescription(line));
     return externalMarker.test(lineCompact) && positiveMarker.test(lineCompact) && !negativeMarker.test(lineCompact);
   });
+  const csvHumanContext = extname(path).toLowerCase() === ".csv" && humanMarker.test(securityFingerprint(normalizedDescription(text)));
+  const humanRejectLine = !canonicalSourceCorpus && semanticLines.some((line) => {
+    const lineCompact = securityFingerprint(normalizedDescription(line));
+    const lineHumanContext = humanMarker.test(lineCompact) || csvHumanContext;
+    const historicalContext = /(?:r[0-4]|baseline|prior|previous|old|historical|notionpage16|旧|過去|以前|履歴)/.test(lineCompact);
+    const hypotheticalContext = /(?:if|when|without|missing|must|required|rollback|revert|could|would|should|future|beforecompletion|場合|不足|必要|将来|ロールバック)/.test(lineCompact);
+    return lineHumanContext && containsHumanFailureText(line) && !historicalContext && !hypotheticalContext;
+  });
   const humanReject = !historicalR01HumanBaseline && (parsed && typeof parsed === "object"
     ? hasHumanRejectAnywhere(parsed)
-    : humanContext && containsHumanFailureText(text));
+    : humanRejectLine);
   const externalPass = parsed && typeof parsed === "object"
     ? hasAiBinaryExternalPassClaim(parsed)
     : externalPassLine;
@@ -1455,42 +1475,60 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const artifactStates = [];
     const semanticStates = [];
     let artifactGraphInvalid = artifactReferences.invalid.length > 0;
-    while (artifactQueue.length > 0) {
-      if (visitedArtifactReferences.size >= 1024) {
-        artifactGraphInvalid = true;
-        break;
-      }
-      const reference = artifactQueue.shift();
-      const referenceKey = `${reference.path}|${reference.sha256}`;
-      if (visitedArtifactReferences.has(referenceKey)) continue;
-      visitedArtifactReferences.add(referenceKey);
-      const artifact = await regularArtifact(root, directory, reference.path);
-      artifactStates.push({ reference, artifact });
-      if (!artifact.ok || artifact.sha256 !== reference.sha256) {
-        artifactGraphInvalid = true;
-        continue;
-      }
-      let text;
+    let textualArtifactEncodingInvalid = false;
+    const decodeArtifactText = async (artifact, logicalPath) => {
+      let text = null;
       try {
         text = new TextDecoder("utf-8", { fatal: true }).decode(await readFile(artifact.path));
       } catch {
-        continue;
+        if (TEXTUAL_EVIDENCE_EXTENSIONS.has(extname(logicalPath).toLowerCase())) textualArtifactEncodingInvalid = true;
+        return null;
       }
-      semanticStates.push(semanticClaimsInArtifact(text, reference.path, taskId, reference.sha256));
+      const hasEmbeddedControlByte = [...text].some((character) => {
+        const code = character.charCodeAt(0);
+        return code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31);
+      });
+      if (TEXTUAL_EVIDENCE_EXTENSIONS.has(extname(logicalPath).toLowerCase()) && hasEmbeddedControlByte) {
+        textualArtifactEncodingInvalid = true;
+        return null;
+      }
+      return text;
+    };
+    const enqueueNestedReferences = (text) => {
       try {
-        const nestedValue = JSON.parse(text);
-        if (nestedValue && typeof nestedValue === "object") {
-          const nestedReferences = allArtifactReferences(nestedValue);
+        const nested = JSON.parse(text);
+        if (nested && typeof nested === "object") {
+          const nestedReferences = allArtifactReferences(nested);
           if (nestedReferences.invalid.length > 0) artifactGraphInvalid = true;
           artifactQueue.push(...nestedReferences.references);
         }
       } catch {
         // UTF-8 text that is not JSON has no nested structured references.
       }
-    }
-    if (artifactGraphInvalid) {
-      issues.push(issue("ARTIFACT_REFERENCE", "Every object containing path or sha256 must be a complete digest-bound reference to a repository-contained regular non-symlink file with the exact declared SHA-256.", "evidence.json"));
-    }
+    };
+    const drainArtifactQueue = async () => {
+      while (artifactQueue.length > 0) {
+        if (visitedArtifactReferences.size >= 1024) {
+          artifactGraphInvalid = true;
+          break;
+        }
+        const reference = artifactQueue.shift();
+        const referenceKey = `${reference.path}|${reference.sha256}`;
+        if (visitedArtifactReferences.has(referenceKey)) continue;
+        visitedArtifactReferences.add(referenceKey);
+        const artifact = await regularArtifact(root, directory, reference.path);
+        artifactStates.push({ reference, artifact });
+        if (!artifact.ok || artifact.sha256 !== reference.sha256) {
+          artifactGraphInvalid = true;
+          continue;
+        }
+        const text = await decodeArtifactText(artifact, reference.path);
+        if (text === null) continue;
+        semanticStates.push({ path: reference.path, ...semanticClaimsInArtifact(text, reference.path, taskId, reference.sha256) });
+        enqueueNestedReferences(text);
+      }
+    };
+    await drainArtifactQueue();
     const stringArtifactEntries = evidence.artifacts && typeof evidence.artifacts === "object" && !Array.isArray(evidence.artifacts)
       ? Object.entries(evidence.artifacts)
       : [];
@@ -1502,11 +1540,27 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
       || stringArtifactStates.some((state) => !state.optional && (!meaningful(state.path) || !state.artifact?.ok))) {
       issues.push(issue("ARTIFACT_PATH_MAP", "Every evidence.artifacts entry must resolve to a repository-contained regular non-symlink file; only the optional AI Binary human_test file may be absent.", "evidence.json"));
     }
-    if (semanticStates.some((state) => state?.humanReject)) {
-      issues.push(issue("HUMAN_REJECT", "A Human Reject in any digest-bound textual evidence artifact blocks completion; only the pinned R01 historical baseline artifact is exempt from semantic interpretation.", "evidence.json"));
+    for (const state of stringArtifactStates) {
+      if (state.optional || !state.artifact?.ok || typeof state.path !== "string") continue;
+      const text = await decodeArtifactText(state.artifact, state.path);
+      if (text === null) continue;
+      semanticStates.push({ path: state.path, ...semanticClaimsInArtifact(text, state.path, taskId, state.artifact.sha256) });
+      enqueueNestedReferences(text);
     }
-    if (acceptance === "ai-binary" && semanticStates.some((state) => state?.externalPass)) {
-      issues.push(issue("AI_EXTERNAL_GATE_CLAIM", "Digest-bound textual evidence cannot claim Human, Owner, Legal, Main, Sites, Contest, submission, or release readiness as passed in AI Binary mode.", "evidence.json"));
+    await drainArtifactQueue();
+    if (artifactGraphInvalid) {
+      issues.push(issue("ARTIFACT_REFERENCE", "Every object containing path or sha256 must be a complete digest-bound reference to a repository-contained regular non-symlink file with the exact declared SHA-256.", "evidence.json"));
+    }
+    if (textualArtifactEncodingInvalid) {
+      issues.push(issue("ARTIFACT_TEXT_ENCODING", "Textual evidence must be valid UTF-8 without embedded control bytes; undecodable or alternate-encoded text fails closed.", "evidence.json"));
+    }
+    const humanRejectArtifacts = semanticStates.filter((state) => state?.humanReject).map((state) => state.path);
+    if (humanRejectArtifacts.length > 0) {
+      issues.push(issue("HUMAN_REJECT", `A Human Reject in referenced or mapped textual evidence blocks completion; only pinned R01 historical artifacts are exempt. Found in: ${[...new Set(humanRejectArtifacts)].join(", ")}.`, "evidence.json"));
+    }
+    const externalPassArtifacts = semanticStates.filter((state) => state?.externalPass).map((state) => state.path);
+    if (acceptance === "ai-binary" && externalPassArtifacts.length > 0) {
+      issues.push(issue("AI_EXTERNAL_GATE_CLAIM", `Referenced or mapped textual evidence cannot claim Human, Owner, Legal, deployment, Sites, Contest, submission, or release readiness as passed in AI Binary mode. Found in: ${[...new Set(externalPassArtifacts)].join(", ")}.`, "evidence.json"));
     }
     const pathsByIdentity = new Map();
     for (const artifact of [...packArtifacts, ...artifactStates.map((state) => state.artifact), ...stringArtifactStates.map((state) => state.artifact).filter(Boolean)]) {
