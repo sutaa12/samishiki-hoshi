@@ -164,7 +164,7 @@ function communicatesR5Gameplay(value) {
   const englishNegative = /\b(?:never|not|no|without|cannot|can't|fails?\s+to|doesn't|does\s+not|didn't|did\s+not)\b/.test(text);
   const englishActorMotion = /^(?:(?:a|an|the)\s+)?(?:(?:small|tiny|little|water|shining|blue)\s+){0,3}(?:droplet|drop|player|avatar|character|orb|bead)\b(?:\s+(?:continuously|steadily|sideways|forward|automatically|laterally)){0,3}\s+(?:(?:is|keeps?|can)\s+)?(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|guides?|guiding|controls?|controlling|veers?|veering|navigates?|navigating)\b/;
   const englishWrongActor = /\b(?:rock|ring|hoop|gate|hazard|obstacle|barrier|boulder|plant|sprout|node|target|pulse|light)\b\s+(?:(?:it|then|also)\s+)?(?:steers?|moves?|advances?|travels?|guides?|controls?|dodges?|veers?|navigates?|clears?|avoids?|energizes?|pulses?|passes?|activates?|charges?|sends?)\b/;
-  const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b[^,;.!?]{0,18}\bthrough\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
+  const englishRing = /(?:\b(?:steers?|steering|moves?|moving|advances?|advancing|travels?|traveling|navigates?|navigating|goes?|going)\b(?:\s+(?:continuously|steadily|sideways|forward|automatically|laterally))*\s+through\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b|\b(?:clears?|clearing)\b\s+(?:(?:a|an|the)\s+)?(?:[a-z]+\s+){0,2}(?:ring|hoop|gate|circle|arch|loop)\b)/;
   const englishObstacle = /\b(?:avoids?|avoiding|dodges?|dodging|veers?\s+(?:around|past)|steers?\s+(?:around|past))\b[^,;.!?]{0,28}\b(?:rock|hazard|obstacle|barrier|boulder)\b/;
   const englishPulse = /(?:\b(?:energizes?|energizing|pulses?|pulsing|activates?|activating|charges?|charging)\b[^,;.!?]{0,28}\b(?:sprout|plant|node|target)\b|\b(?:sends?|sending|passes?|passing|delivers?|delivering)\b[^,;.!?]{0,20}\b(?:light|energy|pulse)\b[^,;.!?]{0,28}\b(?:sprout|plant|node|target)\b)/;
   const englishRingMatch = englishRing.exec(text);
@@ -181,7 +181,7 @@ function communicatesR5Gameplay(value) {
     && englishConnector.test(text.slice(englishRingMatch.index + englishRingMatch[0].length, englishObstacleMatch.index))
     && englishConnector.test(text.slice(englishObstacleMatch.index + englishObstacleMatch[0].length, englishPulseMatch.index));
   const japaneseNegative = /ない|なかった|なければ|ず|ぬ|ません|できな|不能|失敗/.test(text);
-  const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ).{0,24}?(?:動か|移動|進|操作|操縦)/;
+  const japaneseActorMotion = /^(?:(?:この|小さな|ちいさな|青い|光る))*(?:水滴|雫|プレイヤー|自機|キャラ)(?:が|は|を)?(?:(?![がは]).){0,20}?(?:動か|移動|進|操作|操縦)/;
   const japaneseWrongActor = /(?:岩|リング|輪|門|ゲート|障害|壁|植物|芽|ノード|対象|パルス|光)(?:が|は).{0,10}(?:動|移動|進|操作|避け|くぐ|通|渡|送|起動)/;
   const japaneseRing = /(?:(?:くぐ|通|抜け).{0,16}(?:リング|輪|門|ゲート|円)|(?:リング|輪|門|ゲート|円).{0,16}(?:くぐ|通|抜け))/;
   const japaneseObstacle = /(?:(?:避け|かわし).{0,16}(?:岩|障害|壁|危険)|(?:岩|障害|壁|危険).{0,16}(?:避け|かわし))/;
@@ -226,7 +226,7 @@ function hasHumanReject(human) {
     if (!value || typeof value !== "object") return false;
     return Object.entries(value).some(([key, child]) => {
       const normalizedKey = descriptionFingerprint(key);
-      if (/(?:reject|fail|拒否|不合格|却下|失敗)/.test(normalizedKey) && isPositive(child)) return true;
+      if (containsReject(normalizedKey) && isPositive(child)) return true;
       if (/(?:pass|accept|approve|合格|承認)/.test(normalizedKey) && isNegative(child)) return true;
       return child && typeof child === "object" ? visit(child) : false;
     });

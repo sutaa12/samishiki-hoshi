@@ -706,6 +706,8 @@ describe("evidence-driven Research Pack", () => {
     ["unsuccessful Human outcome", { outcome: "unsuccessful" }],
     ["blocked Human outcome", { outcome: "blocked" }],
     ["refusing Human approval", { decision: "refusing approval" }],
+    ["positive denied flag", { denied: true }],
+    ["positive refusal count", { refusal_count: 1 }],
   ])("rejects preserved Human evidence hidden by %s", async (_label, human) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -949,6 +951,29 @@ describe("evidence-driven Research Pack", () => {
       "水滴を動かしてリングをカメラがくぐり、岩を避け、芽へ光を渡す遊びです。",
       "プレイヤーを左右に移動し、輪を通り、障害をカメラが避け、植物へ光を届けます。",
       "雫を操作してゲートを抜け、壁をかわし、ノードへカメラが光を送ります。",
+    ];
+    for (const [index, description] of descriptions.entries()) {
+      const reviewPath = join(root, fixture.reviews[index].path);
+      const review = JSON.parse(await readFile(reviewPath, "utf8"));
+      review.plain_description = description;
+      const reviewText = `${JSON.stringify(review, null, 2)}\n`;
+      await writeFile(reviewPath, reviewText, "utf8");
+      evidence.ai_binary_gameplay.reviews[index].sha256 = sha256(reviewText);
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_REVIEW_DESCRIPTION");
+  });
+
+  it("rejects subject insertion inside the initial player motion", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    const descriptions = [
+      "A droplet moves a camera through a ring, avoids a rock, and sends light into a plant.",
+      "A player advances a machine through a hoop, dodges a boulder, then energizes a sprout.",
+      "水滴をカメラが動かしてリングをくぐり、岩を避け、芽へ光を渡す遊びです。",
     ];
     for (const [index, description] of descriptions.entries()) {
       const reviewPath = join(root, fixture.reviews[index].path);
