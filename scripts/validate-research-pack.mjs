@@ -110,11 +110,8 @@ function descriptionFingerprint(value) {
 }
 
 function containsReject(value) {
-  const words = normalizedDescription(value)
-    .replace(/\p{Cf}+/gu, "")
-    .replace(/[*_~`]+/g, "")
-    .replace(/[\p{P}\p{S}]+/gu, " ");
-  return /\b(?:fail(?:ed|ure)?|reject(?:ed|ion)?)\b/i.test(words) || /拒否|不合格|却下|失敗/.test(words);
+  const compact = normalizedDescription(value).normalize("NFKD").replace(/[\p{P}\p{S}\p{Z}\p{Cf}\p{M}\s]+/gu, "");
+  return /fail(?:ed|ure)?|reject(?:ed|ion)?/i.test(compact) || /拒否|不合格|却下|失敗/.test(compact);
 }
 
 function valueContainsReject(value) {
@@ -125,7 +122,15 @@ function valueContainsReject(value) {
 }
 
 function hasHumanReject(human) {
-  return valueContainsReject(human) || (Number.isFinite(Number(human?.reject_count)) && Number(human.reject_count) > 0);
+  const hasPositiveRejectCount = (value) => {
+    if (!value || typeof value !== "object") return false;
+    return Object.entries(value).some(([key, child]) => {
+      const normalizedKey = descriptionFingerprint(key);
+      if ((normalizedKey.includes("rejectcount") || normalizedKey.includes("rejectioncount")) && Number.isFinite(Number(child)) && Number(child) > 0) return true;
+      return child && typeof child === "object" ? hasPositiveRejectCount(child) : false;
+    });
+  };
+  return valueContainsReject(human) || hasPositiveRejectCount(human);
 }
 
 function probeMovingVideo(path) {
@@ -251,6 +256,11 @@ function uniqueNonempty(rows, field) {
 function normalizedDistinct(...values) {
   const normalized = values.map((value) => value?.trim().toLowerCase()).filter(Boolean);
   return normalized.length === values.length && new Set(normalized).size === values.length;
+}
+
+function hasExactKeys(value, keys) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value)
+    && JSON.stringify(Object.keys(value).toSorted()) === JSON.stringify([...keys].toSorted()));
 }
 
 function validLargePlayerOccupancy(value) {
@@ -450,6 +460,19 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
   const contradictorySeverity = /(?:open\s+)?S[0-2](?:\s+findings?)?\s*[:=]?\s*[1-9]\d*\b/i.test(normalizedReviewText)
     || /^#{1,6}\s*S[0-2]\b/im.test(normalizedReviewText)
     || /\bS[0-2]\s+(?:blocker|finding)\b/i.test(normalizedReviewText);
+  const migrationSubjectBound = Boolean(closure && reviewText
+    && closure.independent_review?.path === ".quality-gates/QX-R4-R01/r5-migration-assessment.md"
+    && reviewText.includes("Subject task: `QX-R4-R01`")
+    && reviewText.includes("Target classification: `research-only-ai-accepted`")
+    && reviewText.includes(`Runtime source SHA-256 | \`${closure.baseline_source_sha256}\``)
+    && reviewText.includes(`Subject build SHA-256 | \`${closure.baseline_build_sha256}\``)
+    && reviewText.includes(`Research-validation artifact | \`${closure.research_validation_sha256}\``)
+    && reviewText.includes(`Historical round-4 review artifact | \`${closure.historical_research_review?.sha256}\``)
+    && /Human acceptance \| `PENDING`/i.test(reviewText)
+    && /Legal acceptance \| `PENDING`/i.test(reviewText)
+    && /Main integration \| `PENDING`/i.test(reviewText)
+    && /Sites publication and health \| `PENDING`/i.test(reviewText)
+    && /Contest submission or acceptance \| `PENDING`/i.test(reviewText));
   const acceptedReview = reviewVerdicts.length === 1
     && reviewScores.length === 1
     && /\bVerdict\s*:\s*ACCEPT\b/i.test(reviewVerdicts[0])
@@ -473,8 +496,11 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
     || closure.automated_review_score !== `${reviewScore?.[1]}/32`
     || closure.automated_review_open_s0_s2 !== 0
     || !(await validArtifactRef(root, directory, closure.independent_review))
+    || !(await validArtifactRef(root, directory, closure.historical_research_review))
     || !acceptedReview
+    || !migrationSubjectBound
     || closure.next_task !== "QX-R5-001"
+    || !/cannot prove.*Gameplay quality.*Human acceptance.*legal acceptance.*release readiness.*contest acceptance/i.test(closure.retained_boundary ?? "")
     || evidence.candidate?.kind !== "research-only-no-runtime-change"
     || evidence.candidate?.source_sha256 !== evidence.baseline?.source_sha256
     || evidence.candidate?.build_sha256 !== evidence.baseline?.build_sha256) {
@@ -484,6 +510,20 @@ async function validateResearchOnlyAiClosure(root, directory, taskId, evidence, 
 
 async function validateAiBinaryGameplay(root, directory, taskId, evidence, issues) {
   const ai = evidence.ai_binary_gameplay;
+  const buildManifest = await regularArtifact(root, directory, evidence.candidate?.build_artifact);
+  let buildEntries = [];
+  if (buildManifest.ok && buildManifest.sha256 === evidence.candidate?.build_sha256) {
+    const buildText = await readFile(buildManifest.path, "utf8");
+    buildEntries = buildText.trim().split("\n").map((line) => /^([0-9a-f]{64})\s{2}(.+)$/.exec(line)).filter(Boolean);
+  }
+  const builtArtifacts = await Promise.all(buildEntries.map((match) => regularArtifact(root, directory, match[2])));
+  if (!buildManifest.ok
+    || buildManifest.sha256 !== evidence.candidate?.build_sha256
+    || buildEntries.length === 0
+    || builtArtifacts.some((artifact, index) => !artifact.ok || artifact.sha256 !== buildEntries[index][1])
+    || new Set(builtArtifacts.map((artifact) => artifact.identity)).size !== builtArtifacts.length) {
+    issues.push(issue("AI_BUILD_MANIFEST", "AI Binary completion needs a digest-bound build manifest whose SHA-256 entries recompute against distinct physical build files.", "evidence.json"));
+  }
   const videoArtifact = await regularArtifact(root, directory, ai?.video?.path);
   const videoProbe = videoArtifact.ok ? probeMovingVideo(videoArtifact.path) : { ok: false };
   if (!ai || !videoArtifact.ok || !(videoArtifact.size > 0) || !videoProbe.ok || !SHA256_PATTERN.test(ai.video?.sha256 ?? "") || videoArtifact.sha256 !== ai.video.sha256 || ai.video.path !== evidence.candidate?.clip?.path || ai.video.sha256 !== evidence.candidate?.clip?.sha256) {
@@ -570,6 +610,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     && nodeEventIndex > rockEventIndex
     && progressEventIndex > nodeEventIndex;
   if (!ledger
+    || !hasExactKeys(ledger, ["schema_version", "task_id", "result", "subject_source_sha256", "subject_build_sha256", "subject_video_sha256", "recorded_at", "events"])
     || ledger.schema_version !== "ai-binary-event-ledger.v1"
     || ledger.task_id !== taskId
     || ledger.result !== "passed"
@@ -579,6 +620,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || !Number.isFinite(Date.parse(ledger.recorded_at ?? ""))
     || !Array.isArray(ledger.events)
     || ledger.events.length !== 4
+    || ledger.events.some((event) => !hasExactKeys(event, ["event_class", "at_ms"]))
     || valueContainsReject(ledger.events)
     || eventTimes.some((time) => !Number.isFinite(time))
     || eventTimes.some((time) => time < 0 || time > telemetry?.duration_ms)
@@ -598,6 +640,8 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     issues.push(issue("AI_REVIEW_ID", "AI Binary reviews need three different nonempty Reviewer IDs.", "evidence.json"));
   }
   if (reviews.some((review) => !review
+    || !hasExactKeys(review, ["schema_version", "task_id", "reviewer_id", "pass", "subject_source_sha256", "subject_build_sha256", "subject_video_sha256", "isolation", "reviewed_at", "answers", "plain_description"])
+    || !hasExactKeys(review.answers, AI_REVIEW_BOOLEAN_FIELDS)
     || review.schema_version !== "ai-binary-review.v1"
     || review.task_id !== taskId
     || review.subject_source_sha256 !== evidence.candidate?.source_sha256
@@ -625,6 +669,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
   const remediationRoutesMatch = JSON.stringify(remediation?.remediation_map) === JSON.stringify(AI_REMEDIATION_ROUTES);
   const remediationObservationCharacters = new Set(normalizedDescription(remediation?.observations).replace(/[\p{P}\p{S}\p{Z}\s]+/gu, ""));
   if (!remediation
+    || !hasExactKeys(remediation, ["schema_version", "task_id", "subject_source_sha256", "subject_build_sha256", "subject_video_sha256", "recorded_at", "decision", "observations", "remediation_map", "review_ids"])
     || remediation.schema_version !== "ai-binary-remediation.v1"
     || remediation.task_id !== taskId
     || remediation.subject_source_sha256 !== evidence.candidate?.source_sha256
@@ -633,7 +678,7 @@ async function validateAiBinaryGameplay(root, directory, taskId, evidence, issue
     || !Number.isFinite(Date.parse(remediation.recorded_at ?? ""))
     || remediation.decision !== "accept"
     || !meaningful(remediation.observations)
-    || normalizedDescription(remediation.observations).length < 40
+    || remediation.observations !== "All three independent reviews passed; preserve the canonical Page 19 remediation routes for any later failure."
     || remediationObservationCharacters.size < 12
     || !remediation.remediation_map
     || typeof remediation.remediation_map !== "object"
@@ -650,6 +695,10 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
   const directory = resolve(root, "docs/research", taskId);
   const issues = [];
   const files = new Map();
+
+  if (acceptance === "ai-binary" && taskId !== "QX-R4-R01" && !/^QX-R5-00[1-7]$/.test(taskId)) {
+    issues.push(issue("AI_ACCEPTANCE_SCOPE", "AI Binary acceptance is restricted to QX-R5-001 through QX-R5-007, plus the dedicated QX-R4-R01 research-only migration.", "evidence.json"));
+  }
 
   const requiredFiles = acceptance === "ai-binary" ? REQUIRED_FILES.filter((file) => file !== "human-test.md") : REQUIRED_FILES;
   for (const file of requiredFiles) {
@@ -879,7 +928,10 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const candidateCaptureEntries = [["screenshot", evidence.candidate?.screenshot], ["clip", evidence.candidate?.clip], ["input_trace", evidence.candidate?.input_trace]];
     const candidateCaptureArtifacts = await Promise.all(candidateCaptureEntries.map(([, reference]) => regularArtifact(root, directory, reference?.path)));
     const candidateCaptureIdentities = candidateCaptureArtifacts.map((artifact) => artifact.identity);
-    const candidateCaptureRefsValid = candidateCaptureEntries.every(([, reference], index) => SHA256_PATTERN.test(reference?.sha256 ?? "") && candidateCaptureArtifacts[index].ok && candidateCaptureArtifacts[index].sha256 === reference.sha256) && new Set(candidateCaptureIdentities).size === candidateCaptureIdentities.length;
+    const allComparisonCaptureIdentities = [...baselineCaptureIdentities, ...candidateCaptureIdentities];
+    const candidateCaptureRefsValid = candidateCaptureEntries.every(([, reference], index) => SHA256_PATTERN.test(reference?.sha256 ?? "") && candidateCaptureArtifacts[index].ok && candidateCaptureArtifacts[index].sha256 === reference.sha256)
+      && new Set(candidateCaptureIdentities).size === candidateCaptureIdentities.length
+      && new Set(allComparisonCaptureIdentities).size === allComparisonCaptureIdentities.length;
     const captureReceipt = await readArtifactJson(root, directory, evidence.candidate?.capture_receipt);
     const captureReceiptValid = captureReceipt?.schema_version === "capture-set.v1" && captureReceipt.task_id === taskId && captureReceipt.candidate_source_commit === evidence.candidate?.source_commit && captureReceipt.candidate_source_sha256 === evidence.candidate?.source_sha256 && captureReceipt.candidate_build_sha256 === evidence.candidate?.build_sha256 && candidateCaptureEntries.every(([id, reference]) => captureReceipt.artifacts?.[id]?.path === reference?.path && captureReceipt.artifacts?.[id]?.sha256 === reference?.sha256);
     if (!candidateCaptureRefsValid || !captureReceiptValid) issues.push(issue("CANDIDATE_CAPTURE", "Complete evidence needs distinct digest-bound screenshot, moving clip, and input-trace files plus a candidate-bound capture-set.v1 receipt.", "evidence.json"));

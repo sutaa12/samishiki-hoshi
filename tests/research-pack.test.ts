@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, link, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, link, mkdir, mkdtemp, readFile, readdir, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ const projectRoot = new URL("../", import.meta.url);
 const initializer = new URL("../scripts/init-research-pack.mjs", import.meta.url);
 const validator = new URL("../scripts/validate-research-pack.mjs", import.meta.url);
 const temporaryRoots: string[] = [];
+const AI_TASK_ID = "QX-R5-001";
 
 async function makeRoot() {
   const root = await mkdtemp(join(tmpdir(), "lonely-star-research-pack-"));
@@ -31,7 +32,8 @@ async function copyR01(root: string) {
 }
 
 function runValidator(root: string, taskId: string, stage = "research", acceptance = "human-release") {
-  const result = spawnSync(process.execPath, [validator.pathname, taskId, "--root", root, "--stage", stage, "--acceptance", acceptance], { encoding: "utf8" });
+  const effectiveTaskId = acceptance === "ai-binary" && taskId === "QX-R4-R00" ? AI_TASK_ID : taskId;
+  const result = spawnSync(process.execPath, [validator.pathname, effectiveTaskId, "--root", root, "--stage", stage, "--acceptance", acceptance], { encoding: "utf8" });
   return { ...result, report: JSON.parse(result.stdout || "{}") as { ok?: boolean; issues?: Array<{ code: string }> } };
 }
 
@@ -41,7 +43,14 @@ function sha256(value: string | Buffer) {
 
 async function prepareValidAiBinaryPack(root: string) {
   await copySample(root);
-  const pack = join(root, "docs/research/QX-R4-R00");
+  const originalPack = join(root, "docs/research/QX-R4-R00");
+  const pack = join(root, `docs/research/${AI_TASK_ID}`);
+  await rename(originalPack, pack);
+  for (const name of await readdir(pack)) {
+    const path = join(pack, name);
+    const text = await readFile(path, "utf8");
+    await writeFile(path, text.replaceAll("QX-R4-R00", AI_TASK_ID), "utf8");
+  }
   await rm(join(pack, "human-test.md"));
 
   execFileSync("git", ["-C", root, "init", "-q"]);
@@ -62,7 +71,8 @@ async function prepareValidAiBinaryPack(root: string) {
     return { path, sha256: sha256(text) };
   }
 
-  const build = await artifact("ai-build.manifest", "app.js  fixture-runtime\n");
+  const runtimeFile = await artifact("runtime-app.js", "fixture-runtime\n");
+  const build = await artifact("ai-build.manifest", `${runtimeFile.sha256}  ${runtimeFile.path}\n`);
   const baselineScreenshot = await artifact("baseline-shot.bin", "baseline screenshot");
   const baselineClip = await artifact("baseline-clip.bin", "baseline clip");
   const baselineMetrics = await artifact("baseline-metrics.json", { result: "baseline" });
@@ -77,7 +87,7 @@ async function prepareValidAiBinaryPack(root: string) {
   const inputTrace = await artifact("candidate-input.json", { events: [{ at_ms: 100, input: "left" }] });
   const captureReceipt = await artifact("candidate-capture.json", {
     schema_version: "capture-set.v1",
-    task_id: "QX-R4-R00",
+    task_id: AI_TASK_ID,
     candidate_source_commit: commit,
     candidate_source_sha256: sourceSha,
     candidate_build_sha256: build.sha256,
@@ -85,7 +95,7 @@ async function prepareValidAiBinaryPack(root: string) {
   });
   const buildReceipt = await artifact("candidate-build.json", {
     schema_version: "build-command.v1",
-    task_id: "QX-R4-R00",
+    task_id: AI_TASK_ID,
     candidate_source_commit: commit,
     candidate_source_sha256: sourceSha,
     candidate_build_sha256: build.sha256,
@@ -96,7 +106,7 @@ async function prepareValidAiBinaryPack(root: string) {
   });
   const metricsReceipt = await artifact("metrics.json", {
     schema_version: "quality-metrics.v1",
-    task_id: "QX-R4-R00",
+    task_id: AI_TASK_ID,
     candidate_source_commit: commit,
     candidate_source_sha256: sourceSha,
     candidate_build_sha256: build.sha256,
@@ -108,7 +118,7 @@ async function prepareValidAiBinaryPack(root: string) {
   });
   const hardGateReceipt = await artifact("hard-gates.json", {
     schema_version: "numeric-hard-gates.v1",
-    task_id: "QX-R4-R00",
+    task_id: AI_TASK_ID,
     candidate_source_commit: commit,
     candidate_source_sha256: sourceSha,
     candidate_build_sha256: build.sha256,
@@ -116,7 +126,7 @@ async function prepareValidAiBinaryPack(root: string) {
   });
   const telemetry = await artifact("telemetry.json", {
     schema_version: "ai-binary-telemetry.v1",
-    task_id: "QX-R4-R00",
+    task_id: AI_TASK_ID,
     result: "passed",
     subject_source_sha256: sourceSha,
     subject_build_sha256: build.sha256,
@@ -134,7 +144,7 @@ async function prepareValidAiBinaryPack(root: string) {
   });
   const eventLedger = await artifact("event-ledger.json", {
     schema_version: "ai-binary-event-ledger.v1",
-    task_id: "QX-R4-R00",
+    task_id: AI_TASK_ID,
     result: "passed",
     subject_source_sha256: sourceSha,
     subject_build_sha256: build.sha256,
@@ -151,7 +161,7 @@ async function prepareValidAiBinaryPack(root: string) {
   for (let index = 0; index < 3; index += 1) {
     reviews.push(await artifact(`review-${index + 1}.json`, {
       schema_version: "ai-binary-review.v1",
-      task_id: "QX-R4-R00",
+      task_id: AI_TASK_ID,
       reviewer_id: `blind-${index + 1}`,
       pass: true,
       subject_source_sha256: sourceSha,
@@ -165,13 +175,13 @@ async function prepareValidAiBinaryPack(root: string) {
   }
   const remediation = await artifact("remediation.json", {
     schema_version: "ai-binary-remediation.v1",
-    task_id: "QX-R4-R00",
+    task_id: AI_TASK_ID,
     subject_source_sha256: sourceSha,
     subject_build_sha256: build.sha256,
     subject_video_sha256: video.sha256,
     recorded_at: "2026-08-23T07:35:00Z",
     decision: "accept",
-    observations: "All three independent reviews passed; preserve fail-to-module routing for later iterations.",
+    observations: "All three independent reviews passed; preserve the canonical Page 19 remediation routes for any later failure.",
     remediation_map: {
       motion: { failed_answer: "continuousForwardMotion", first_fix: ["near_object_speed", "ttc", "z_motion", "fov", "ground_marks"], prohibited_first: ["bloom", "fog", "background_detail"] },
       player: { failed_answer: "playerIdentified", first_fix: ["screen_size", "position", "silhouette", "local_contrast"], prohibited_first: ["strong_player_glow"] },
@@ -376,10 +386,18 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report).toMatchObject({ ok: true, acceptance: "ai-binary" });
   });
 
+  it("rejects AI Binary acceptance outside QX-R5-001 through QX-R5-007 and the R01 migration", async () => {
+    const root = await makeRoot();
+    await copySample(root);
+    const result = spawnSync(process.execPath, [validator.pathname, "QX-R4-R00", "--root", root, "--stage", "complete", "--acceptance", "ai-binary"], { encoding: "utf8" });
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout).issues.map((entry: { code: string }) => entry.code)).toContain("AI_ACCEPTANCE_SCOPE");
+  });
+
   it("keeps Human release fail-closed when the Human file is absent", async () => {
     const root = await makeRoot();
     await prepareValidAiBinaryPack(root);
-    const result = runValidator(root, "QX-R4-R00", "complete", "human-release");
+    const result = runValidator(root, AI_TASK_ID, "complete", "human-release");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("MISSING_FILE");
   });
@@ -612,6 +630,15 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_TELEMETRY");
+  });
+
+  it("rejects a build manifest whose physical file digest does not recompute", async () => {
+    const root = await makeRoot();
+    await prepareValidAiBinaryPack(root);
+    await writeFile(join(root, ".quality-gates/QX-R4-R00/runtime-app.js"), "tampered runtime\n", "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("AI_BUILD_MANIFEST");
   });
 
   it("rejects copied or duplicate AI free descriptions", async () => {
