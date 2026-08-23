@@ -1069,6 +1069,24 @@ describe("evidence-driven Research Pack", () => {
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
   });
 
+  it("rejects an excessively deep object graph without overflowing", async () => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    let nested: Record<string, unknown> = {};
+    const rootNested = nested;
+    for (let depth = 0; depth < 140; depth += 1) {
+      const child: Record<string, unknown> = {};
+      nested.child = child;
+      nested = child;
+    }
+    evidence.supplemental_nested = rootNested;
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("ARTIFACT_REFERENCE");
+  });
+
   it("rejects malformed digest-reference-shaped objects", async () => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);
@@ -1531,6 +1549,8 @@ describe("evidence-driven Research Pack", () => {
     ["positive numeric Human claim", { human: { passed: 2 } }],
     ["external publication lifecycle claims", { legal: { status: "cleared" }, main: { status: "merged" }, sites: { status: "published" }, contest: { status: "submitted" }, release: { status: "shipped" } }],
     ["split Human key claim", { hu: { man: { status: "passed" } } }],
+    ["pending Human while Sites succeeds", { audit_note: "Human acceptance pending while Sites publication succeeded." }],
+    ["bare Rights gate pass", { audit_record: { gate: "Rights", status: "passed" } }],
   ])("rejects %s in AI Binary evidence", async (_label, claim) => {
     const root = await makeRoot();
     const fixture = await prepareValidAiBinaryPack(root);

@@ -333,7 +333,7 @@ function declaresHumanContext(value) {
 function declaresExternalContext(value) {
   if (!value || typeof value !== "object") return false;
   const descriptorKey = /(?:label|labels|type|types|kind|kinds|category|categories|scope|scopes|subject|subjects|role|roles|gate|authority|authorities|approvedby|approver|approvers|descriptor|descriptors|audience|audiences)$/;
-  const externalMarker = /(?:human|owner|legal|rightsacceptance|mainintegration|sites|contest|submission|release|releaseready)/;
+  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready)/;
   const containsExternalMarker = (child) => {
     if (typeof child === "string") return externalMarker.test(descriptionFingerprint(child));
     if (Array.isArray(child)) return child.some(containsExternalMarker);
@@ -392,14 +392,16 @@ function containsHumanPassArtifact(value, path = "") {
 }
 
 function hasAiBinaryExternalPassClaim(value) {
-  const externalKey = /^(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
-  const externalText = /(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
+  const externalKey = /^(?:human|owner|legal|main|sites|contest|submission|release|releaseready)/;
+  const externalText = /(?:human|owner|legal|rights(?:acceptance)?|main|sites|contest|submission|release|releaseready)/;
   const containsExternalPassProse = (candidate) => {
     if (typeof candidate !== "string") return false;
-    const compact = securityFingerprint(normalizedDescription(candidate));
-    return externalText.test(compact)
-      && /(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
-      && !/(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,160})(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/.test(compact);
+    return normalizedDescription(candidate).split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((clause) => {
+      const compact = securityFingerprint(clause);
+      return externalText.test(compact)
+        && /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)(?!pending|false|no|off|0)/.test(compact)
+        && !/(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)(?:\w{0,80})(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/.test(compact);
+    });
   };
   const visit = (current, inheritedExternal = false, depth = 0, keyTrail = "") => {
     if (!current || typeof current !== "object") return false;
@@ -418,7 +420,7 @@ function hasAiBinaryExternalPassClaim(value) {
 }
 
 function hasMalformedExternalResult(value) {
-  const externalKey = /^(?:human|owner|legal|rightsacceptance|main|sites|contest|submission|release|releaseready)/;
+  const externalKey = /^(?:human|owner|legal|main|sites|contest|submission|release|releaseready)/;
   const resultKey = /(?:pass|passed|result|status|outcome|decision|verdict)$/;
   const validScalar = (candidate) => typeof candidate === "boolean"
     || (typeof candidate === "number" && Number.isFinite(candidate))
@@ -493,18 +495,25 @@ function humanArtifactReferences(value, skipHistoricalBaseline = false) {
 function allArtifactReferences(value) {
   const references = [];
   const invalid = [];
-  const visit = (current) => {
-    if (!current || typeof current !== "object") return;
+  const stack = [{ current: value, depth: 0 }];
+  let visitedNodes = 0;
+  while (stack.length > 0) {
+    const { current, depth } = stack.pop();
+    if (!current || typeof current !== "object") continue;
+    visitedNodes += 1;
+    if (visitedNodes > 4096 || depth > 128) {
+      invalid.push({ reason: "object graph exceeds the reference traversal bound" });
+      break;
+    }
     const referenceShaped = Object.hasOwn(current, "path") || Object.hasOwn(current, "sha256");
     if (referenceShaped) {
       if (meaningful(current.path) && SHA256_PATTERN.test(current.sha256 ?? "")) references.push(current);
       else invalid.push(current);
     }
     for (const child of Object.values(current)) {
-      if (child && typeof child === "object") visit(child);
+      if (child && typeof child === "object") stack.push({ current: child, depth: depth + 1 });
     }
-  };
-  visit(value);
+  }
   return {
     references: [...new Map(references.map((reference) => [`${reference.path}|${reference.sha256}`, reference])).values()],
     invalid,
@@ -528,10 +537,10 @@ function semanticClaimsInArtifact(text, path, taskId, sha256) {
   }
   const compact = securityFingerprint(normalizedDescription(text));
   const humanContext = /(?:human|participantid|testerid|evaluatorid|reviewerid|approvedbyhuman|approverhuman)/.test(compact);
-  const externalMarker = /(?:human|owner|legal|rightsacceptance|mainintegration|sites|contest|submission|release|releaseready)/;
-  const positiveMarker = /(?:pass|passed|approve|approved|accept|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/;
+  const externalMarker = /(?:human|owner|legal|rights(?:acceptance)?|mainintegration|sites|contest|submission|release|releaseready)/;
+  const positiveMarker = /(?:pass|passed|approve|approved|accept(?!ance)|accepted|grant|granted|clear|cleared|merge|merged|publish|published|submit|submitted|ship|shipped|ready(?!ness)|complete|completed|done|success|successful|succeeded)/;
   const negativeMarker = /(?:not|never|cannot|without|pending|deny|denied|reject|rejected|fail|failed|unmet|withheld)/;
-  const externalPassLine = text.split(/[\r\n.!?。！？;,；，]+/).some((line) => {
+  const externalPassLine = normalizedDescription(text).split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((line) => {
     const lineCompact = securityFingerprint(normalizedDescription(line));
     return externalMarker.test(lineCompact) && positiveMarker.test(lineCompact) && !negativeMarker.test(lineCompact);
   });
