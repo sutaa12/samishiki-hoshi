@@ -1,0 +1,48 @@
+{
+  "schema_version": "sites-publication.v1",
+  "task_id": "QX-R5-002",
+  "recorded_at": "2026-08-24T03:19:46.091763Z",
+  "project_id": "appgprj_6a837fe8fec08191aeb514bf721a0634",
+  "version_number": 4,
+  "version_id": "appgprj_6a837fe8fec08191aeb514bf721a0634~appgver_605f19ba103c81919bd386e1a5777158",
+  "deployment_id": "appgdep_6a8bb844f5b48191a06e6fb4de95906f",
+  "deployment_status": "succeeded",
+  "access_mode": "public",
+  "live_url": "https://samishiki-hoshi-seoul.narinarinari.chatgpt.site/r5-minimum",
+  "source": {
+    "accepted_runtime_commit": "a4965e4a172d48661d6685111e69a44c2b868637",
+    "accepted_runtime_tree": "00be831dd5b2b554a547b61aa299222be158f15c",
+    "accepted_source_sha256": "7ffc2c3752851fb45a6533aa44f2c4ded33ef98e98cf3ccbc188e43213264988",
+    "sites_commit": "0d5664bc9613c365784aa3750588fed2cb3da2f4",
+    "sites_tree": "b4034e56e8c5b5dbd617add1569238c5571869be",
+    "equivalence": "No diff outside .quality-gates; Sites source omits repository-local QA media only."
+  },
+  "build": {
+    "local_build_manifest_sha256": "1aa3274ad203c2359c2951d5d67ef262d63cc4411eeae45e00989da175c03010",
+    "local_archive_sha256": "dee165495116c14a8a2441a31a8f9f9c455e81c2429c78f1e13009cf20df5c2d",
+    "sites_archive_content_hash": "sha256:e44ccf99542e57a2d528e0844f703b5e200aa80dc31dc36a786c2d520078ffaa",
+    "sites_archive_file_count": 115,
+    "sites_archive_size_bytes": 8878080
+  },
+  "live_browser": {
+    "title": "さみしき星のまたたきよ — 15秒 Graybox",
+    "ring": "pass",
+    "obstacle": "dodge",
+    "node": "perfect",
+    "result": "3/3 CLEAR",
+    "console_warning_error_count": 0
+  },
+  "rollback": {
+    "prior_version_number": 3,
+    "prior_source_commit": "a8165962bbf2dc2131c7325a49a457835edfb3f4"
+  },
+  "gates": {
+    "sites_publication": "succeeded",
+    "live_application_health": "passed",
+    "human_play_acceptance": "pending",
+    "legal": "pending",
+    "main": "pending",
+    "final_release": "pending",
+    "contest": "pending"
+  }
+}

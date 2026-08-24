@@ -24,8 +24,8 @@
     "human_release": "pending",
     "legal": "pending",
     "main": "pending",
-    "sites": "pending",
+    "sites": "succeeded",
     "contest": "pending"
   },
-  "next": "Commit and push the evidence snapshot, deploy the exact accepted runtime to Sites version 4, verify the live route, then open QX-R5-003 without beginning implementation."
+  "next": "QX-R5-003 is unblocked but not started. Resume by re-reading its current Notion page, freeze its cue-order gate, and branch from the QX-R5-002 accepted runtime."
 }
