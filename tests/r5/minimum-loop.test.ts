@@ -52,4 +52,17 @@ describe("QX-R5-001 deterministic 15-second loop", () => {
     }
     expect(state.playerXPermille).toBe(850);
   });
+
+  it("resolves each encounter when shared distance crosses its rail anchor", () => {
+    let state = createMinimumLoopState();
+    while (state.timeMs < 3_984) {
+      state = stepMinimumLoop(state, { moveX: 0, pointerXPermille: -200, pulse: false }, 16);
+    }
+    expect(state.distanceMm).toBeLessThan(4_800);
+    expect(state.ringResult).toBe("pending");
+    state = stepMinimumLoop(state, { moveX: 0, pointerXPermille: -200, pulse: false }, 16);
+    expect(state.distanceMm).toBeGreaterThanOrEqual(4_800);
+    expect(state.ringResult).toBe("pass");
+    expect(state.events[0]?.distanceMm).toBe(4_800);
+  });
 });

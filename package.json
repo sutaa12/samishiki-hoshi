@@ -14,6 +14,7 @@
     "test:research": "vitest run tests/research-pack.test.ts",
     "capture:og": "node scripts/capture-og.mjs",
     "capture:reference": "node scripts/capture-reference-baseline.mjs",
+    "capture:r5-002": "node scripts/capture-r5-002.mjs",
     "build:manifest": "node scripts/hash-production-build.mjs",
     "research:init": "node scripts/init-research-pack.mjs",
     "research:validate": "node scripts/validate-research-pack.mjs",

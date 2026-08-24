@@ -68,6 +68,14 @@ function event(
   });
 }
 
+function crossedDistance(priorDistanceMm: number, nextDistanceMm: number, targetDistanceMm: number): boolean {
+  return priorDistanceMm < targetDistanceMm && nextDistanceMm >= targetDistanceMm;
+}
+
+function encounterTimeMs(distanceMm: number): number {
+  return Math.round((distanceMm / MINIMUM_SPEED_MM_PER_SECOND) * 1_000);
+}
+
 export function createMinimumLoopState(): MinimumLoopState {
   return Object.freeze({
     timeMs: 0,
@@ -91,6 +99,7 @@ export function stepMinimumLoop(
   if (state.timeMs >= MINIMUM_DURATION_MS) return state;
   const boundedDelta = Math.max(0, Math.min(100, Math.round(deltaMs)));
   const timeMs = Math.min(MINIMUM_DURATION_MS, state.timeMs + boundedDelta);
+  const distanceMm = Math.round((timeMs * MINIMUM_SPEED_MM_PER_SECOND) / 1_000);
   const steerDelta = (STEER_PER_SECOND * boundedDelta) / 1_000;
   let playerXPermille = state.playerXPermille + input.moveX * steerDelta;
   if (input.pointerXPermille !== null) {
@@ -109,34 +118,37 @@ export function stepMinimumLoop(
   let progress = state.progress;
   let activeStep = state.activeStep;
 
-  if (ringResult === "pending" && state.timeMs < 4_000 && timeMs >= 4_000) {
+  if (ringResult === "pending" && crossedDistance(state.distanceMm, distanceMm, MINIMUM_ENCOUNTERS.ring.distanceMm)) {
+    const atMs = encounterTimeMs(MINIMUM_ENCOUNTERS.ring.distanceMm);
     ringResult = Math.abs(playerXPermille - MINIMUM_ENCOUNTERS.ring.xPermille) <= 360 ? "pass" : "miss";
-    nextEvents.push(event(state, "ring", ringResult, 4_000, playerXPermille));
+    nextEvents.push(event(state, "ring", ringResult, atMs, playerXPermille));
     progress = 1;
     activeStep = "obstacle";
   }
-  if (obstacleResult === "pending" && state.timeMs < 8_000 && timeMs >= 8_000) {
+  if (obstacleResult === "pending" && crossedDistance(state.distanceMm, distanceMm, MINIMUM_ENCOUNTERS.obstacle.distanceMm)) {
+    const atMs = encounterTimeMs(MINIMUM_ENCOUNTERS.obstacle.distanceMm);
     obstacleResult = Math.abs(playerXPermille - MINIMUM_ENCOUNTERS.obstacle.xPermille) >= 330 ? "dodge" : "hit";
-    nextEvents.push(event({ ...state, events: nextEvents }, "obstacle", obstacleResult, 8_000, playerXPermille));
+    nextEvents.push(event({ ...state, events: nextEvents }, "obstacle", obstacleResult, atMs, playerXPermille));
     progress = 2;
     activeStep = "node";
   }
-  if (nodeResult === "pending" && state.timeMs < 11_000 && timeMs >= 11_000) {
+  if (nodeResult === "pending" && crossedDistance(state.distanceMm, distanceMm, MINIMUM_ENCOUNTERS.node.distanceMm)) {
+    const atMs = encounterTimeMs(MINIMUM_ENCOUNTERS.node.distanceMm);
     const positionError = Math.abs(playerXPermille - MINIMUM_ENCOUNTERS.node.xPermille);
-    const pulseAge = lastPulseMs === null ? Number.POSITIVE_INFINITY : 11_000 - lastPulseMs;
+    const pulseAge = lastPulseMs === null ? Number.POSITIVE_INFINITY : atMs - lastPulseMs;
     nodeResult = positionError <= 220 && pulseAge >= 0 && pulseAge <= 700
       ? "perfect"
       : positionError <= 450 && pulseAge >= 0 && pulseAge <= 1_500
         ? "good"
         : "empty";
-    nextEvents.push(event({ ...state, events: nextEvents }, "node", nodeResult, 11_000, playerXPermille));
+    nextEvents.push(event({ ...state, events: nextEvents }, "node", nodeResult, atMs, playerXPermille));
     progress = 3;
     activeStep = "complete";
   }
 
   return Object.freeze({
     timeMs,
-    distanceMm: Math.round((timeMs * MINIMUM_SPEED_MM_PER_SECOND) / 1_000),
+    distanceMm,
     playerXPermille,
     activeStep,
     ringResult,
