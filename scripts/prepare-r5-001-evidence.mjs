@@ -9,8 +9,8 @@ const root = resolve(new URL("../", import.meta.url).pathname);
 const taskId = "QX-R5-001";
 const gateDir = resolve(root, ".quality-gates", taskId);
 const packDir = resolve(root, "docs/research", taskId);
-const sourceCommit = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-const sourceTree = execFileSync("git", ["-C", root, "rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
+const sourceCommit = execFileSync("git", ["-C", root, "rev-parse", process.env.R5_SOURCE_COMMIT ?? "HEAD"], { encoding: "utf8" }).trim();
+const sourceTree = execFileSync("git", ["-C", root, "rev-parse", `${sourceCommit}^{tree}`], { encoding: "utf8" }).trim();
 const sourceSha256 = createHash("sha256").update(execFileSync("git", ["-C", root, "archive", "--format=tar", sourceCommit], { maxBuffer: 512 * 1024 * 1024 })).digest("hex");
 const recordedAt = new Date().toISOString();
 

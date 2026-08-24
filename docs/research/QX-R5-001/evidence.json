@@ -7,7 +7,7 @@
     "source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
     "source_tree": "959e2f964dc223bef752b230f15ce3412cbbc410",
     "source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
-    "build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+    "build_sha256": "bd0ba727b4798f7415c2fb0c723ee585894c063708a6d4e226e94a10ff1a04f9",
     "build_artifact": ".quality-gates/QX-R5-001/ai-build.manifest",
     "build_hash_procedure": "SHA-256 of a sorted manifest whose entries recompute against every regular dist build file.",
     "screenshot": {
@@ -24,11 +24,11 @@
     },
     "capture_receipt": {
       "path": ".quality-gates/QX-R5-001/candidate-capture.json",
-      "sha256": "1599e4acba59bbf70f48f45761fc87e8af7bbb673d12ccc90771f13105665d04"
+      "sha256": "c3db10802d52d4b029346c7a7ac8d41cb0af961646b6e94a659522d45c72272c"
     },
     "build_command_receipt": {
       "path": ".quality-gates/QX-R5-001/candidate-build.json",
-      "sha256": "c927d4a3ba4785aebec2aa3d79772f7233cc31ed5d0810ac2959fba23b261027"
+      "sha256": "267493cc0a31ca9d7e1ea5a47944bc096a3963b0036bce3c995ec8467bec003b"
     },
     "branch": "codex/qx-r5-001-minimum-game",
     "worktree": "/Users/snari/Documents/GitProject/LonelyStar-qx-r4-r00"
@@ -36,7 +36,7 @@
   "baseline": {
     "source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
     "source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
-    "build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+    "build_sha256": "bd0ba727b4798f7415c2fb0c723ee585894c063708a6d4e226e94a10ff1a04f9",
     "build_artifact": ".quality-gates/QX-R5-001/ai-build.manifest",
     "build_hash_procedure": "Same frozen source/build manifest used before blind review; no runtime mutation is allowed during review.",
     "gameplay_hash": "3699fab551ade24295887731234fd42e9e2d25116de9e80fc5c734be8d20cff3",
@@ -46,11 +46,11 @@
     },
     "clip": {
       "path": ".quality-gates/QX-R5-001/baseline-video.webm",
-      "sha256": "ecf0648d69ffa2c65d46400dd4ab28600fb5e55abd57a3d742b07bfa18faf203"
+      "sha256": "bb732efa706adf3813733d40e98cc1fa7f52589268d390ec96a4838b2833e7bd"
     },
     "metrics": {
       "path": ".quality-gates/QX-R5-001/baseline-metrics.json",
-      "sha256": "ebe81d138e0db8cca33a46d1a11a63f450f12350e54a59cfe34cc1ff6437d5b7"
+      "sha256": "69b339d4055179395a5c56f67359d2ff86fd11d191ec99e9f03f8db5aee731d2"
     }
   },
   "options": [
@@ -81,7 +81,7 @@
       "result": "passed",
       "evidence": {
         "path": ".quality-gates/QX-R5-001/hard-gates.json",
-        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+        "sha256": "a4e5039dc069b84651cb7c73226665f1d01f75efbf9ef6312c48913fdb1d4ba0"
       }
     },
     {
@@ -95,7 +95,7 @@
       "result": "passed",
       "evidence": {
         "path": ".quality-gates/QX-R5-001/hard-gates.json",
-        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+        "sha256": "a4e5039dc069b84651cb7c73226665f1d01f75efbf9ef6312c48913fdb1d4ba0"
       }
     },
     {
@@ -109,7 +109,7 @@
       "result": "passed",
       "evidence": {
         "path": ".quality-gates/QX-R5-001/hard-gates.json",
-        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+        "sha256": "a4e5039dc069b84651cb7c73226665f1d01f75efbf9ef6312c48913fdb1d4ba0"
       }
     },
     {
@@ -123,7 +123,7 @@
       "result": "passed",
       "evidence": {
         "path": ".quality-gates/QX-R5-001/hard-gates.json",
-        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+        "sha256": "a4e5039dc069b84651cb7c73226665f1d01f75efbf9ef6312c48913fdb1d4ba0"
       }
     },
     {
@@ -137,7 +137,7 @@
       "result": "passed",
       "evidence": {
         "path": ".quality-gates/QX-R5-001/hard-gates.json",
-        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+        "sha256": "a4e5039dc069b84651cb7c73226665f1d01f75efbf9ef6312c48913fdb1d4ba0"
       }
     },
     {
@@ -151,7 +151,7 @@
       "result": "passed",
       "evidence": {
         "path": ".quality-gates/QX-R5-001/hard-gates.json",
-        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+        "sha256": "a4e5039dc069b84651cb7c73226665f1d01f75efbf9ef6312c48913fdb1d4ba0"
       }
     },
     {
@@ -165,7 +165,7 @@
       "result": "passed",
       "evidence": {
         "path": ".quality-gates/QX-R5-001/hard-gates.json",
-        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+        "sha256": "a4e5039dc069b84651cb7c73226665f1d01f75efbf9ef6312c48913fdb1d4ba0"
       }
     }
   ],
@@ -181,7 +181,7 @@
       "regression": false,
       "evidence": {
         "path": ".quality-gates/QX-R5-001/metrics.json",
-        "sha256": "a1ac7214b35b61075da9bc6a6dd7215a5db721f89a5ebbcd07aa2903eea1e450"
+        "sha256": "3542b93a7ffa275fe94c36d5e83ae6f6a130c007ab53a16de4790c3fc445a47a"
       },
       "observation": "The frozen source is measured against itself before blind review."
     },
@@ -194,7 +194,7 @@
       "regression": false,
       "evidence": {
         "path": ".quality-gates/QX-R5-001/metrics.json",
-        "sha256": "a1ac7214b35b61075da9bc6a6dd7215a5db721f89a5ebbcd07aa2903eea1e450"
+        "sha256": "3542b93a7ffa275fe94c36d5e83ae6f6a130c007ab53a16de4790c3fc445a47a"
       },
       "observation": "The deterministic simulation remains at a 16ms fixed step."
     },
@@ -207,7 +207,7 @@
       "regression": false,
       "evidence": {
         "path": ".quality-gates/QX-R5-001/metrics.json",
-        "sha256": "a1ac7214b35b61075da9bc6a6dd7215a5db721f89a5ebbcd07aa2903eea1e450"
+        "sha256": "3542b93a7ffa275fe94c36d5e83ae6f6a130c007ab53a16de4790c3fc445a47a"
       },
       "observation": "The frozen build manifest is unchanged during capture."
     }
@@ -215,7 +215,7 @@
   "rollback": {
     "commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
     "source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
-    "build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+    "build_sha256": "bd0ba727b4798f7415c2fb0c723ee585894c063708a6d4e226e94a10ff1a04f9",
     "gameplay_hash": "3699fab551ade24295887731234fd42e9e2d25116de9e80fc5c734be8d20cff3",
     "artifact": "rollback.md",
     "condition": "Any evidence digest drift, failed blind review, or regression in the fixed 15-second contract.",
@@ -244,28 +244,28 @@
     },
     "telemetry": {
       "path": ".quality-gates/QX-R5-001/telemetry.json",
-      "sha256": "3d312ec40bc1ce3afb93897c2273f06725d36be8d9cd6b967f8b4f700cb9b87b"
+      "sha256": "cd22b232a3f21092a29515f9017e304868e70cde50c646aeb96dfc8ece5ef46f"
     },
     "event_ledger": {
       "path": ".quality-gates/QX-R5-001/event-ledger.json",
-      "sha256": "8abe7ec412ae9c0cd22edb0a523287716cce4cc7c1f0265f683548269aaa6570"
+      "sha256": "ed82df9f3b65daf54fbcef01f2a65fe284a3f97b506b6b9e1ee72670df8bee54"
     },
     "remediation": {
       "path": ".quality-gates/QX-R5-001/remediation.json",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "sha256": "4c822b19f8e0ab4c1a3504368ce222cd42f088c23ae3e5e73c7e236fa30e9ee2"
     },
     "reviews": [
       {
         "path": ".quality-gates/QX-R5-001/review-1.json",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        "sha256": "99948968d73046c195a0343c88e2e2bd94e27cb8d6a6f58957e5aee870a42315"
       },
       {
         "path": ".quality-gates/QX-R5-001/review-2.json",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        "sha256": "b386c30d2661851f2b2a42f3fc69ef4a649bc077a38660c69248383974676fa0"
       },
       {
         "path": ".quality-gates/QX-R5-001/review-3.json",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        "sha256": "b1ec27fde299019560a19593df8b44a038d8ef24d8147c8ce5ae7ad439f19d58"
       }
     ],
     "expected_answer_sha256": "cabcaba524c46ed9a79e5f818eb9a135723ade242b7a8fd55590d8c59494e8e7"

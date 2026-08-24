@@ -16,5 +16,5 @@ Create a new revert commit for the QX-R5-001 implementation or resume from `0a63
 
 - Expected gameplay hash: `3699fab551ade24295887731234fd42e9e2d25116de9e80fc5c734be8d20cff3`
 - Expected source archive SHA-256: 23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96
-- Expected Production build SHA-256: 303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e
+- Expected Production build SHA-256: bd0ba727b4798f7415c2fb0c723ee585894c063708a6d4e226e94a10ff1a04f9
 - Expected Sites rollback version: version 2 remains the current public human-test candidate; R00 must not deploy a replacement.

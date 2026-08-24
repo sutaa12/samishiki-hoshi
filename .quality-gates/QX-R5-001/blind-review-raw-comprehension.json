@@ -1,0 +1,28 @@
+{
+  "reviewer_id": "blind-comprehension-native25",
+  "player": "画面下部に留まりながら左右へ動く、水色の水滴が操作対象だと判断できる。",
+  "forwardMotion": "床のライン、輪、岩、植物が遠方から拡大して画面下へ抜けるため、水滴が前進している感覚は明確。",
+  "actions": [
+    "水滴を左右に操り、黄色い輪を通過する",
+    "左右へ移動して赤い岩を避ける",
+    "緑の植物に接近して、Space・クリック・タップのいずれかで円形のパルスを放つ"
+  ],
+  "goal": "15秒以内に水滴を導き、RING、DODGE、PULSEの3課題を順番に達成して植物へ光を渡すこと。",
+  "result": "RINGはPASS、岩は回避、PULSEはPERFECTとなり、最後に「3/3 CLEAR」が表示される。成功結果は理解できる。",
+  "progress": "右上の残り時間、左上の3段階チェックリスト、左下のPROGRESS 0/3から3/3への増加により、現在位置と完了状況を追える。",
+  "failures": [
+    {
+      "timeRange": "00:00-00:15",
+      "category": "input-legibility",
+      "observation": "操作説明と進捗文字が画面端でかなり小さく、縮小再生では読めない可能性がある。",
+      "fixFirst": "左右操作とPULSE操作を水滴の近くへ大きく短時間表示する。"
+    },
+    {
+      "timeRange": "00:05-00:09",
+      "category": "success-label-consistency",
+      "observation": "第2課題の成功表示が「PASS」ではなく課題名と同じ「DODGE」なので、単独では成功状態か判別しにくい。PROGRESS 2/3が補っている。",
+      "fixFirst": "第2課題も「PASS」または「CLEAR」に統一する。"
+    }
+  ],
+  "verdict": "accept"
+}

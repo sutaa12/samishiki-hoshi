@@ -1,0 +1,16 @@
+{
+  "reviewer_id": "blind-motion-native25",
+  "player": "A bright cyan water-drop avatar anchored near the bottom of the playfield and steered horizontally. Its deliberate lateral moves and stationary holds make it read as player-controlled.",
+  "forwardMotion": "Continuous forward travel is clearly conveyed by the perspective grid, lane posts, particles, ring, rock, and green target flowing toward the camera while growing in scale. No disruptive jump or reversal is visible.",
+  "actions": [
+    "Steers left to line up with and pass through the approaching yellow ring",
+    "Moves farther left and holds position to dodge the red obstacle",
+    "Steers right in a continuous sweep to align with the approaching green target",
+    "Activates a pulse while aligned with the green target"
+  ],
+  "goal": "Guide the droplet through the ring, avoid the obstacle, and pulse the green target before the countdown expires.",
+  "result": "All three objectives resolve successfully: RING shows PASS, DODGE completes, PULSE shows PERFECT, and a 3/3 CLEAR result appears.",
+  "progress": "A visible countdown advances from 14 seconds toward completion; the objective list changes from PENDING one item at a time, while the lower progress counter advances from 0/3 to 3/3.",
+  "failures": [],
+  "verdict": "accept"
+}

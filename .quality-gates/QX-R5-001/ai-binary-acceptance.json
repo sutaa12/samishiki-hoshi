@@ -1,0 +1,40 @@
+{
+  "schema_version": "r5-ai-binary-acceptance.v1",
+  "task_id": "QX-R5-001",
+  "status": "ai-binary-accepted",
+  "recorded_at": "2026-08-24T01:32:43Z",
+  "subject": {
+    "source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+    "source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+    "build_sha256": "bd0ba727b4798f7415c2fb0c723ee585894c063708a6d4e226e94a10ff1a04f9",
+    "video_sha256": "d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e"
+  },
+  "evidence": {
+    "research_pack_path": "docs/research/QX-R5-001/evidence.json",
+    "research_pack_sha256": "79b21bfa3a6a5980327f2a08ee72b96f10b75772b439c366e64eb70aae73e65a",
+    "telemetry_sha256": "cd22b232a3f21092a29515f9017e304868e70cde50c646aeb96dfc8ece5ef46f",
+    "event_ledger_sha256": "ed82df9f3b65daf54fbcef01f2a65fe284a3f97b506b6b9e1ee72670df8bee54",
+    "review_ids": [
+      "blind-motion-native25",
+      "blind-comprehension-native25",
+      "blind-hierarchy-native25"
+    ]
+  },
+  "verification": {
+    "full_tests": { "files": 45, "tests": 1043, "exit_code": 0 },
+    "typecheck": { "exit_code": 0 },
+    "lint": { "exit_code": 0 },
+    "build": { "exit_code": 0 },
+    "ai_binary_validator": { "exit_code": 0, "issues": 0 },
+    "human_release_validator": { "exit_code": 1, "reason": "MISSING_FILE human-test.md" }
+  },
+  "gates": {
+    "ai_binary": "accepted",
+    "human_release": "pending",
+    "legal": "pending",
+    "main": "pending",
+    "sites_publication": "pending",
+    "release": "pending",
+    "contest": "pending"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": "ai-binary-remediation.v1",
+  "task_id": "QX-R5-001",
+  "subject_source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+  "subject_build_sha256": "bd0ba727b4798f7415c2fb0c723ee585894c063708a6d4e226e94a10ff1a04f9",
+  "subject_video_sha256": "d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e",
+  "recorded_at": "2026-08-24T01:32:43Z",
+  "decision": "accept",
+  "observations": "All three independent reviews passed; preserve the canonical Page 19 remediation routes for any later failure.",
+  "remediation_map": {
+    "motion": {
+      "failed_answer": "continuousForwardMotion",
+      "first_fix": ["near_object_speed", "ttc", "z_motion", "fov", "ground_marks"],
+      "prohibited_first": ["bloom", "fog", "background_detail"]
+    },
+    "player": {
+      "failed_answer": "playerIdentified",
+      "first_fix": ["screen_size", "position", "silhouette", "local_contrast"],
+      "prohibited_first": ["strong_player_glow"]
+    },
+    "objective": {
+      "failed_answer": "ringActionUnderstood|obstacleActionUnderstood",
+      "first_fix": ["one_objective_per_screen", "target_shape", "short_verb_ui"],
+      "prohibited_first": ["long_explanation"]
+    },
+    "pulse": {
+      "failed_answer": "pulseTargetUnderstood|resultUnderstood",
+      "first_fix": ["light_path", "node_deformation", "local_ecology", "progress"],
+      "prohibited_first": ["full_screen_flash"]
+    },
+    "progress": {
+      "failed_answer": "progressUnderstood",
+      "first_fix": ["encounter_completion", "landmark_approach", "one_third_progress"],
+      "prohibited_first": ["time_only_scene_change"]
+    }
+  },
+  "review_ids": [
+    "blind-motion-native25",
+    "blind-comprehension-native25",
+    "blind-hierarchy-native25"
+  ]
+}

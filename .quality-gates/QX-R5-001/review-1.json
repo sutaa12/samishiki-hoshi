@@ -1,0 +1,21 @@
+{
+  "schema_version": "ai-binary-review.v1",
+  "task_id": "QX-R5-001",
+  "reviewer_id": "blind-motion-native25",
+  "pass": true,
+  "subject_source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+  "subject_build_sha256": "bd0ba727b4798f7415c2fb0c723ee585894c063708a6d4e226e94a10ff1a04f9",
+  "subject_video_sha256": "d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e",
+  "isolation": "artifact-only-blind",
+  "reviewed_at": "2026-08-24T01:32:43Z",
+  "answers": {
+    "playerIdentified": true,
+    "continuousForwardMotion": true,
+    "ringActionUnderstood": true,
+    "obstacleActionUnderstood": true,
+    "pulseTargetUnderstood": true,
+    "resultUnderstood": true,
+    "progressUnderstood": true
+  },
+  "plain_description": "A droplet steers through a hoop before avoiding a solid hazard and energizing a plant."
+}

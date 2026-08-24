@@ -252,6 +252,22 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 
 ## Release record
 
+### QX-R5-001 minimum graybox — AI Binary accepted, 2026-08-24
+
+- Frozen runtime source `814e879557b26d71c7453bdde5a95caa81d9bb75`.
+- Full verify: 45/45 files and 1043/1043 tests; typecheck, lint, and build passed.
+- Moving evidence: 1920×1080, 15.000 seconds, 25fps, 375 decoded frames,
+  SHA-256 `d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e`.
+- Numeric gates: Player 79px; Ring area 4.435636×/2.496s; Steer 32ms and
+  192px/288ms; successful 3/3 replay; monotonic full-clip distance telemetry.
+- Three isolated artifact-only SolMax reviews accepted all required gameplay
+  comprehension fields. Their minor follow-up observations are preserved in
+  `docs/evidence/QX-R5-001-progress.md`.
+- Exact AI Binary validator passed with zero issues. Human Release remains
+  fail-closed with missing actual human evidence. Legal, Main, public Sites
+  acceptance, release, and contest submission remain pending.
+- Receipt: `.quality-gates/QX-R5-001/ai-binary-acceptance.json`.
+
 - GitHub: https://github.com/sutaa12/samishiki-hoshi (public, main)
 - Sites project: `samishiki-hoshi-seoul`; Sites v2 public human-test URL:
   <https://samishiki-hoshi-seoul.narinarinari.chatgpt.site> (final release

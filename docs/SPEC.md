@@ -13,6 +13,12 @@ renderer, Hero slices, PRP, fog, bloom, textures, or graphics-library code.
 AI Binary acceptance may advance R5 research tasks without Human rows; Human,
 Legal, Main, Sites, release, and contest gates remain separate.
 
+QX-R5-001 is AI Binary accepted at runtime source `814e879557b26d71c7453bdde5a95caa81d9bb75`.
+Its exact 15-second native-25fps video, per-frame distance telemetry, event
+ledger, input trace, and three isolated blind reviews are bound in
+`docs/research/QX-R5-001/evidence.json`. This accepts only the minimum graybox;
+QX-R5-002 and later communication/feedback tasks remain independent.
+
 ## Experience contract
 
 - Title: `さみしき星のまたたきよ` / `TWINKLE, O LONELY STAR`
