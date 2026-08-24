@@ -1,5 +1,18 @@
 # Quality and release matrix
 
+## 2026-08-24 QX-R5-001 Graybox checkpoint
+
+- QX-R5-000A was independently accepted 32/32 with S0=S1=S2=S3=0; its
+  acceptance artifact is `.quality-gates/QX-R5-000A/independent-review-round42.md`.
+- `/r5-minimum` now runs a real 15-second deterministic Ring → Obstacle → Life
+  Node loop without importing Production v2 or graphics-library code.
+- Focused tests pass 4/4; typecheck, lint, and build pass. A real desktop browser
+  input replay reached 3/3 CLEAR with Progress 3/3 and no console errors, and a
+  390x844 Portrait smoke retained every control and progress label.
+- This is an implementation checkpoint only. AI Binary evidence, three blind
+  reviews, and independent acceptance remain pending. Human, Legal, Main,
+  Sites, release, and contest gates remain separate and pending.
+
 > **Final release and Main integration remain frozen.** A reversible public
 > human-test build from the accepted graphics branch is available at
 > <https://samishiki-hoshi-seoul.narinarinari.chatgpt.site>. `main` stays at

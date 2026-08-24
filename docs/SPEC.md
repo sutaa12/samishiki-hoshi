@@ -2,6 +2,17 @@
 
 Status: graphics rebaseline R2, isolated implementation on 2026-08-18 JST. Canonical source is the Notion production plan rooted at `3bf9b8d3-9c28-8188-8819-dda26e08db71`; page 13 overrides lower sources for renderer, material, temporal, backend, and Hero Slice decisions.
 
+## R5 minimum-game override
+
+Notion Page 19 and QX-R5-001 define an isolated pre-human comprehension loop
+at `/r5-minimum`. It does not replace or shorten the 180-second Production
+journey. The route lasts exactly 15 seconds, presents Ring, Obstacle, and Life
+Node at 4, 8, and 11 seconds, supports horizontal Steer plus Pulse only, and
+records deterministic frame telemetry. It cannot import the Production v2
+renderer, Hero slices, PRP, fog, bloom, textures, or graphics-library code.
+AI Binary acceptance may advance R5 research tasks without Human rows; Human,
+Legal, Main, Sites, release, and contest gates remain separate.
+
 ## Experience contract
 
 - Title: `さみしき星のまたたきよ` / `TWINKLE, O LONELY STAR`
