@@ -1,0 +1,48 @@
+{
+  "schema_version": "neutral-motion-review.v1",
+  "clips": {
+    "A7": {
+      "resolution": "1920x1080",
+      "duration_seconds": 15,
+      "fps": 25,
+      "decoded_frames": 375,
+      "screen_space_near_flow_positive_rate": 1,
+      "screen_space_near_flow_median_px": 4.379901378967553,
+      "near_pass_interval_ms": {"min": 592, "median": 608, "max": 608},
+      "ring_area_ratio": 4.0335513659099655,
+      "ring_area_decrease_count": 0,
+      "far_visible_rate": 1,
+      "far_max_vanishing_distance_viewport_diagonal_ratio": 0.019299608393449328,
+      "near_layer_visible_rate": 1,
+      "mid_layer_visible_rate": 1,
+      "distance_to_render_z_max_error": 0,
+      "longest_below_0_2_percent_difference_run_frames": 2,
+      "browser_error_count": 0,
+      "result": "3/3"
+    },
+    "Q2": {
+      "resolution": "1920x1080",
+      "duration_seconds": 15,
+      "fps": 25,
+      "decoded_frames": 375,
+      "screen_space_near_flow_positive_rate": 1,
+      "screen_space_near_flow_median_px": 4.379901378967553,
+      "near_pass_interval_ms": {"min": 592, "median": 608, "max": 608},
+      "ring_area_ratio": 4.0335513659099655,
+      "ring_area_decrease_count": 0,
+      "far_visible_rate": 1,
+      "far_max_vanishing_distance_viewport_diagonal_ratio": 0.019299608393449328,
+      "near_layer_visible_rate": 1,
+      "mid_layer_visible_rate": 1,
+      "distance_to_render_z_max_error": 0,
+      "longest_below_0_2_percent_difference_run_frames": 3,
+      "browser_error_count": 0,
+      "result": "3/3"
+    }
+  },
+  "ablation": {
+    "duration_seconds": 7.52,
+    "result": "rejected",
+    "reason": "The doubled-speed clip does not preserve the locked 15-second sequence."
+  }
+}

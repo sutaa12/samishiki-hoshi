@@ -1,0 +1,31 @@
+{
+  "schema_version": "artifact-blind-isolation.v1",
+  "task_id": "QX-R5-002",
+  "recorded_at": "2026-08-24T02:53:32Z",
+  "neutral_inputs": [
+    "A7.webm",
+    "Q2.webm",
+    "H4.png",
+    "D9.png",
+    "R8.csv",
+    "P3.csv",
+    "Z5.csv",
+    "M6.json"
+  ],
+  "source_and_task_provenance_hidden": true,
+  "prior_review_text_hidden": true,
+  "raw_reviews": [
+    {
+      "path": ".quality-gates/QX-R5-002/blind-review-raw-motion.json",
+      "sha256": "fda3721e21b8c140cec3953ec7b6af690375f86d8a7c198925a175c2abd2134b"
+    },
+    {
+      "path": ".quality-gates/QX-R5-002/blind-review-raw-reduced-motion.json",
+      "sha256": "81a24c72c575c92e466945b5b5438fc684aa1afa7136f368de2db1c7c81b0ce3"
+    },
+    {
+      "path": ".quality-gates/QX-R5-002/blind-review-raw-technical.json",
+      "sha256": "8d51007d4cf9afcdfcb8409f4e235a35bd27407124fd277fb5397f3d4256c166"
+    }
+  ]
+}

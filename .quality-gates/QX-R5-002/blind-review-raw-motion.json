@@ -1,0 +1,22 @@
+{
+  "reviewer_id": "r5_002_blind_motion",
+  "scores": {
+    "continuous_forward_travel": 4,
+    "near_mid_far_depth_layers": 4,
+    "near_objects_pass_regularly": 4,
+    "objects_approach_then_exit": 4,
+    "no_five_frame_still_interval": 4,
+    "three_object_classes_identifiable": 4
+  },
+  "observations": [
+    {"time_range": "00:00.00-00:15.00", "observation": "Converging guide markers continuously stream outward from the horizon, preserving an unbroken forward-travel read throughout the clip."},
+    {"time_range": "00:00.00-00:15.00", "observation": "Small horizon elements, intermediate queued objects, and large edge-passing foreground markers provide consistently distinguishable far, mid, and near layers."},
+    {"time_range": "00:00.00-00:05.80", "observation": "The yellow ring grows smoothly from depth and exits below the viewer while nearer guide markers pass regularly without visible jumps."},
+    {"time_range": "00:05.80-00:09.40", "observation": "The red solid polygon advances with continuous scaling, reaches the foreground, and exits rather than stopping or resetting."},
+    {"time_range": "00:09.40-00:12.80", "observation": "The green three-lobed organic target approaches, remains recognizable during enlargement, and passes out of view."},
+    {"time_range": "00:12.80-00:15.00", "observation": "After the organic target exits, the guide-marker flow continues clearly, confirming travel through the final target-free interval."},
+    {"time_range": "00:00.00-00:15.00", "observation": "All 375 native 25 fps frames are distinct, and no observable interval remains still for five consecutive frames."}
+  ],
+  "findings": [],
+  "verdict": "accept"
+}

@@ -1,0 +1,83 @@
+{
+  "task_id": "QX-R5-002",
+  "base_url": "http://localhost:3000/r5-minimum",
+  "standard_video_sha256": "466491a1e720e15857f4c114a7801b99cefca0b94c7a574fc143fd146b5ead96",
+  "reduced_motion_video_sha256": "41cc5eda69e8fd7f57cec8606b7de1603e397d6092381ed3e981746198e20937",
+  "speed_2x_video_sha256": "45ccf72b1583bd2647992a6dda3963f0c2c25b72066ac30dda8dbd9da251051d",
+  "standard_final_state": {
+    "timeMs": 15000,
+    "distanceMm": 18000,
+    "playerXPermille": 448,
+    "activeStep": "complete",
+    "ringResult": "pass",
+    "obstacleResult": "dodge",
+    "nodeResult": "perfect",
+    "progress": 3,
+    "events": [
+      {
+        "index": 1,
+        "atMs": 4000,
+        "distanceMm": 4800,
+        "encounter": "ring",
+        "result": "pass",
+        "playerXPermille": -322
+      },
+      {
+        "index": 2,
+        "atMs": 8000,
+        "distanceMm": 9600,
+        "encounter": "obstacle",
+        "result": "dodge",
+        "playerXPermille": -476
+      },
+      {
+        "index": 3,
+        "atMs": 11000,
+        "distanceMm": 13200,
+        "encounter": "node",
+        "result": "perfect",
+        "playerXPermille": 448
+      }
+    ],
+    "lastPulseMs": 10528
+  },
+  "reduced_motion_final_state": {
+    "timeMs": 15000,
+    "distanceMm": 18000,
+    "playerXPermille": 448,
+    "activeStep": "complete",
+    "ringResult": "pass",
+    "obstacleResult": "dodge",
+    "nodeResult": "perfect",
+    "progress": 3,
+    "events": [
+      {
+        "index": 1,
+        "atMs": 4000,
+        "distanceMm": 4800,
+        "encounter": "ring",
+        "result": "pass",
+        "playerXPermille": -322
+      },
+      {
+        "index": 2,
+        "atMs": 8000,
+        "distanceMm": 9600,
+        "encounter": "obstacle",
+        "result": "dodge",
+        "playerXPermille": -476
+      },
+      {
+        "index": 3,
+        "atMs": 11000,
+        "distanceMm": 13200,
+        "encounter": "node",
+        "result": "perfect",
+        "playerXPermille": 448
+      }
+    ],
+    "lastPulseMs": 10512
+  },
+  "standard_browser_error_count": 0,
+  "reduced_motion_browser_error_count": 0
+}

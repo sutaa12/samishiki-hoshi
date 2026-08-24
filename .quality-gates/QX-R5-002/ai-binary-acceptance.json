@@ -1,0 +1,50 @@
+{
+  "schema_version": "r5-ai-binary-acceptance.v1",
+  "task_id": "QX-R5-002",
+  "status": "ai-binary-accepted",
+  "recorded_at": "2026-08-24T02:53:32Z",
+  "subject": {
+    "source_commit": "a4965e4a172d48661d6685111e69a44c2b868637",
+    "source_sha256": "7ffc2c3752851fb45a6533aa44f2c4ded33ef98e98cf3ccbc188e43213264988",
+    "build_sha256": "1aa3274ad203c2359c2951d5d67ef262d63cc4411eeae45e00989da175c03010",
+    "video_sha256": "466491a1e720e15857f4c114a7801b99cefca0b94c7a574fc143fd146b5ead96",
+    "reduced_motion_video_sha256": "41cc5eda69e8fd7f57cec8606b7de1603e397d6092381ed3e981746198e20937"
+  },
+  "evidence": {
+    "research_pack_path": "docs/research/QX-R5-002/evidence.json",
+    "research_pack_sha256": "ab0708bc65435f00400c3877229791753f27010bafef9a83b3fc8314f83d3d13",
+    "telemetry_sha256": "267deed8245a5f369cbc7035cbab616f76f3274052a7c6511c5865fedcb84315",
+    "event_ledger_sha256": "d5b0ee44f97cf7ca500ab0a602b1319a0436cb45920b8e5406c57697c6dc3204",
+    "blind_isolation_sha256": "d86c617ef3d5f8d9c7b925c428c1664a53922cd80011abdc2c115201f8634f13",
+    "review_ids": ["r5_002_blind_motion", "r5_002_blind_reduced", "r5_002_blind_technical"]
+  },
+  "numeric_result": {
+    "near_flow_positive_rate": 1,
+    "near_flow_median_px": 4.379901378967553,
+    "longest_low_difference_frame_run": 2,
+    "reduced_motion_longest_low_difference_frame_run": 3,
+    "ring_area_ratio": 4.0335513659099655,
+    "ring_area_drops": 0,
+    "near_pass_interval_min_ms": 592,
+    "near_pass_interval_max_ms": 608,
+    "distance_render_z_max_error": 0,
+    "far_max_distance_viewport_diagonal_ratio": 0.019299608393449328
+  },
+  "verification": {
+    "full_tests": {"files": 46, "tests": 1049, "exit_code": 0},
+    "typecheck": {"exit_code": 0},
+    "lint": {"exit_code": 0},
+    "build": {"files": 115, "exit_code": 0},
+    "ai_binary_validator": {"exit_code": 0, "issues": 0},
+    "human_release_validator": {"exit_code": 1, "reason": "MISSING_FILE human-test.md"}
+  },
+  "gates": {
+    "ai_binary": "accepted",
+    "human_release": "pending",
+    "legal": "pending",
+    "main": "pending",
+    "sites_publication": "pending",
+    "release": "pending",
+    "contest": "pending"
+  }
+}

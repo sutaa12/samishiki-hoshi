@@ -1,0 +1,31 @@
+{
+  "schema_version": "r5-conveyor-checkpoint.v1",
+  "task_id": "QX-R5-002",
+  "status": "ai-binary-accepted",
+  "recorded_at": "2026-08-24T11:53:32+09:00",
+  "branch": "codex/qx-r5-002-conveyor-rail",
+  "source_commit": "a4965e4a172d48661d6685111e69a44c2b868637",
+  "source_tree": "00be831dd5b2b554a547b61aa299222be158f15c",
+  "source_archive_sha256": "7ffc2c3752851fb45a6533aa44f2c4ded33ef98e98cf3ccbc188e43213264988",
+  "build_manifest_sha256": "1aa3274ad203c2359c2951d5d67ef262d63cc4411eeae45e00989da175c03010",
+  "route": "/r5-minimum",
+  "verification": {
+    "tests": {"exit_code": 0, "files_passed": 46, "tests_passed": 1049},
+    "typecheck": {"exit_code": 0},
+    "lint": {"exit_code": 0},
+    "build": {"exit_code": 0, "files": 115},
+    "browser_standard": {"duration_ms": 15000, "frames": 375, "result": "3/3 CLEAR", "console_errors": 0},
+    "browser_reduced_motion": {"duration_ms": 15000, "frames": 375, "result": "3/3 CLEAR", "console_errors": 0},
+    "blind_reviews": {"accepted": 3, "open_s0_s2": 0},
+    "ai_binary": {"exit_code": 0, "issues": 0}
+  },
+  "gates": {
+    "ai_binary": "accepted",
+    "human_release": "pending",
+    "legal": "pending",
+    "main": "pending",
+    "sites": "pending",
+    "contest": "pending"
+  },
+  "next": "Commit and push the evidence snapshot, deploy the exact accepted runtime to Sites version 4, verify the live route, then open QX-R5-003 without beginning implementation."
+}

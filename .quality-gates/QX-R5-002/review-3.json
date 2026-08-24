@@ -1,0 +1,21 @@
+{
+  "schema_version": "ai-binary-review.v1",
+  "task_id": "QX-R5-002",
+  "reviewer_id": "r5_002_blind_technical",
+  "pass": true,
+  "subject_source_sha256": "7ffc2c3752851fb45a6533aa44f2c4ded33ef98e98cf3ccbc188e43213264988",
+  "subject_build_sha256": "1aa3274ad203c2359c2951d5d67ef262d63cc4411eeae45e00989da175c03010",
+  "subject_video_sha256": "466491a1e720e15857f4c114a7801b99cefca0b94c7a574fc143fd146b5ead96",
+  "isolation": "artifact-only-blind",
+  "reviewed_at": "2026-08-24T02:53:32Z",
+  "answers": {
+    "playerIdentified": true,
+    "continuousForwardMotion": true,
+    "ringActionUnderstood": true,
+    "obstacleActionUnderstood": true,
+    "pulseTargetUnderstood": true,
+    "resultUnderstood": true,
+    "progressUnderstood": true
+  },
+  "plain_description": "A small water character navigates through a gate, avoids an obstacle, and pulses a target."
+}

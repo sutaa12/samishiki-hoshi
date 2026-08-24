@@ -1,0 +1,24 @@
+{
+  "schema_version": "quality-metrics.v1",
+  "task_id": "QX-R5-002",
+  "candidate_source_commit": "a4965e4a172d48661d6685111e69a44c2b868637",
+  "candidate_source_sha256": "7ffc2c3752851fb45a6533aa44f2c4ded33ef98e98cf3ccbc188e43213264988",
+  "candidate_build_sha256": "1aa3274ad203c2359c2951d5d67ef262d63cc4411eeae45e00989da175c03010",
+  "metrics": {
+    "load": {
+      "baseline": 115,
+      "candidate": 115,
+      "unit": "build files"
+    },
+    "frame": {
+      "baseline": 16,
+      "candidate": 16,
+      "unit": "fixed-step ms"
+    },
+    "memory": {
+      "baseline": 13.37,
+      "candidate": 13.37,
+      "unit": "manifest KiB"
+    }
+  }
+}

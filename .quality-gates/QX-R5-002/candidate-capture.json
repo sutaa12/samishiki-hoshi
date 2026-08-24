@@ -1,0 +1,57 @@
+{
+  "schema_version": "capture-set.v1",
+  "task_id": "QX-R5-002",
+  "candidate_source_commit": "a4965e4a172d48661d6685111e69a44c2b868637",
+  "candidate_source_sha256": "7ffc2c3752851fb45a6533aa44f2c4ded33ef98e98cf3ccbc188e43213264988",
+  "candidate_build_sha256": "1aa3274ad203c2359c2951d5d67ef262d63cc4411eeae45e00989da175c03010",
+  "artifacts": {
+    "screenshot": {
+      "path": ".quality-gates/QX-R5-002/screenshots/candidate-standard-complete.png",
+      "sha256": "32ae765731af0a9293aea10b6a0d7ffa7e92484a9f1d3d7e56d5a3cc878f7a2e"
+    },
+    "clip": {
+      "path": ".quality-gates/QX-R5-002/candidate-standard-1920x1080.webm",
+      "sha256": "466491a1e720e15857f4c114a7801b99cefca0b94c7a574fc143fd146b5ead96"
+    },
+    "reduced_motion_clip": {
+      "path": ".quality-gates/QX-R5-002/candidate-reduced-motion-1920x1080.webm",
+      "sha256": "41cc5eda69e8fd7f57cec8606b7de1603e397d6092381ed3e981746198e20937"
+    },
+    "reduced_motion_screenshot": {
+      "path": ".quality-gates/QX-R5-002/screenshots/candidate-reduced-motion-complete.png",
+      "sha256": "32ae765731af0a9293aea10b6a0d7ffa7e92484a9f1d3d7e56d5a3cc878f7a2e"
+    },
+    "speed_2x_ablation": {
+      "path": ".quality-gates/QX-R5-002/speed-2x-ablation.webm",
+      "sha256": "45ccf72b1583bd2647992a6dda3963f0c2c25b72066ac30dda8dbd9da251051d"
+    },
+    "input_trace": {
+      "path": ".quality-gates/QX-R5-002/candidate-input.json",
+      "sha256": "513eddadc870a63237235900d6ce21e55761c69ebda1389ff904292ecf3a1184"
+    },
+    "motion_metrics": {
+      "path": ".quality-gates/QX-R5-002/motion-metrics.json",
+      "sha256": "99b264673bb3ffca8f2c329f19aee0711f1aa2d6ff7a57be2e23567c18ed014c"
+    },
+    "optical_flow_heatmap": {
+      "path": ".quality-gates/QX-R5-002/optical-flow-heatmap.png",
+      "sha256": "2c9fd4ef30168a13f32da7eb898776cb6f85628dd818603a6707456260aee6cd"
+    },
+    "difference_strip": {
+      "path": ".quality-gates/QX-R5-002/frame-difference-strip.png",
+      "sha256": "d862d06d6ed7b6792c249e9ef4d8b216645d68a36434867244e092f0688401d9"
+    },
+    "ring_curve": {
+      "path": ".quality-gates/QX-R5-002/ring-area-curve.csv",
+      "sha256": "3029abc1e6fdbca3dc5f1b051c268486f371fc8276829d1515005bd442296291"
+    },
+    "pass_intervals": {
+      "path": ".quality-gates/QX-R5-002/near-marker-pass-intervals.csv",
+      "sha256": "b542bac70c6ada95f4c1909f498e8d613af99c43674dfa89604dfaeb4ccfbd06"
+    },
+    "distance_render_z": {
+      "path": ".quality-gates/QX-R5-002/distance-render-z.csv",
+      "sha256": "d549550a1b989ce3284ddfaaa2c25fbb4cc596c960d89d4b3a23eb574acf8a02"
+    }
+  }
+}

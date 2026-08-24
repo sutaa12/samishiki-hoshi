@@ -1,0 +1,11 @@
+{
+  "reviewer_id": "r5_002_blind_reduced",
+  "order_reviewed": ["Q2", "A7"],
+  "per_clip": {
+    "Q2": {"forward_motion": 4, "depth_layers": 4, "object_readability": 4, "no_still": 4, "result_parity": 4},
+    "A7": {"forward_motion": 4, "depth_layers": 4, "object_readability": 4, "no_still": 4, "result_parity": 4}
+  },
+  "comparison_observation": "Both 15-second clips preserve the same gameplay progression and endpoint: continuous forward travel, regular near-field scale passage, a stable far landmark, and clearly distinguishable ring, obstacle, and organic target. Their visible difference is confined to secondary decorative or camera micro-motion; neither clip weakens the forward-flow cues, and neither contains a five-frame still interval.",
+  "findings": [],
+  "verdict": "accept"
+}
