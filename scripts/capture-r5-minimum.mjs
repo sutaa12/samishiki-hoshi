@@ -69,7 +69,7 @@ async function captureVideo(browser) {
   const rawDuration = Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", rawPath], { encoding: "utf8" }).trim());
   const finalPath = resolve(gateDir, "candidate-video-1920x1080.webm");
   const startSeconds = Math.max(0, rawDuration - durationMs / 1_000);
-  execFileSync("ffmpeg", ["-nostdin", "-y", "-v", "error", "-ss", startSeconds.toFixed(6), "-i", rawPath, "-t", "15", "-vf", "fps=30", "-c:v", "libvpx-vp9", "-an", finalPath]);
+  execFileSync("ffmpeg", ["-nostdin", "-y", "-v", "error", "-ss", startSeconds.toFixed(6), "-i", rawPath, "-t", "15", "-vf", "fps=25", "-c:v", "libvpx-vp9", "-an", finalPath]);
   return { finalPath, inputs, state, runtimeTelemetry };
 }
 
