@@ -1,0 +1,61 @@
+{
+  "schema_version": "sites-publication-receipt.v1",
+  "task_id": "QX-R5-001",
+  "published_at": "2026-08-24T02:04:10.472597Z",
+  "scope": "public_human_test_distribution",
+  "runtime_source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+  "evidence_commit": "40117c9ddb9fb96738f186f48ed43d035aa8cfd5",
+  "feature_branch_merge_commit": "93afa83b158b582a8ebe80c9021576d1c661bdf3",
+  "sites_source_commit": "a8165962bbf2dc2131c7325a49a457835edfb3f4",
+  "sites_source_note": "The Sites source omits .quality-gates generated evidence to stay under the source repository upload limit. The app and src tree object IDs are byte-identical to the frozen runtime source.",
+  "tree_bindings": {
+    "app": "50ee9b693afaaacdc7b6ab02fa89a30aec50b47c",
+    "src": "f94ba24c64f491fa407b3a28e092581597e24b30"
+  },
+  "archive": {
+    "path": "/tmp/lonelystar-sites-v3-a816596.tar.gz",
+    "sha256": "1441413283452e903f46db25d660892c2e4100c2133a6e505364f4697ad68052",
+    "entries": 137,
+    "sites_content_hash": "sha256:6834291d7bb2197394315be025dfff06e1605ad61917d75e98624a423db6265f"
+  },
+  "sites": {
+    "project_id": "appgprj_6a837fe8fec08191aeb514bf721a0634",
+    "version_id": "appgprj_6a837fe8fec08191aeb514bf721a0634~appgver_b3df52b30fc88191ba82881bd0981b7f",
+    "version_number": 3,
+    "deployment_id": "appgdep_6a8ba68867d08191905ada044bc5184a",
+    "status": "succeeded",
+    "url": "https://samishiki-hoshi-seoul.narinarinari.chatgpt.site/r5-minimum"
+  },
+  "live_smoke": {
+    "desktop": {
+      "viewport": "1920x1080",
+      "http_status": 200,
+      "ring_result": "pass",
+      "obstacle_result": "dodge",
+      "node_result": "perfect",
+      "progress": "3/3",
+      "console_error_count": 0,
+      "page_error_count": 0,
+      "horizontal_overflow_px": 0,
+      "vertical_overflow_px": 0
+    },
+    "portrait": {
+      "viewport": "390x844",
+      "http_status": 200,
+      "shell_width_px": 390,
+      "shell_height_px": 844,
+      "horizontal_overflow_px": 0,
+      "vertical_overflow_px": 0
+    }
+  },
+  "gates": {
+    "local_automation": "accepted",
+    "ai_binary": "accepted",
+    "public_deployment_health": "accepted",
+    "human_play_acceptance": "pending",
+    "legal_rights": "pending",
+    "main_integration": "pending",
+    "final_release": "pending",
+    "contest_submission": "pending"
+  }
+}

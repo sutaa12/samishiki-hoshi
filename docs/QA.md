@@ -263,15 +263,21 @@ Reference targets from the production plan are P95 frame ≤16.67ms, P99 ≤25ms
 - Three isolated artifact-only SolMax reviews accepted all required gameplay
   comprehension fields. Their minor follow-up observations are preserved in
   `docs/evidence/QX-R5-001-progress.md`.
-- Exact AI Binary validator passed with zero issues. Human Release remains
-  fail-closed with missing actual human evidence. Legal, Main, public Sites
-  acceptance, release, and contest submission remain pending.
+- Exact AI Binary validator passed with zero issues. Sites v3 is publicly
+  deployed for human testing at
+  <https://samishiki-hoshi-seoul.narinarinari.chatgpt.site/r5-minimum>.
+  Desktop and 390×844 returned HTTP 200; a real-input desktop replay reached
+  Ring pass, Obstacle dodge, Node perfect, and 3/3 with zero browser errors.
+  Human Release remains fail-closed with missing actual human evidence. Legal,
+  Main integration, final release acceptance, and contest submission remain
+  pending.
 - Receipt: `.quality-gates/QX-R5-001/ai-binary-acceptance.json`.
+- Publication receipt: `.quality-gates/QX-R5-001/sites-v3-publication.json`.
 
 - GitHub: https://github.com/sutaa12/samishiki-hoshi (public, main)
-- Sites project: `samishiki-hoshi-seoul`; Sites v2 public human-test URL:
-  <https://samishiki-hoshi-seoul.narinarinari.chatgpt.site> (final release
-  acceptance pending)
+- Sites project: `samishiki-hoshi-seoul`; current Sites v3 public human-test
+  route: <https://samishiki-hoshi-seoul.narinarinari.chatgpt.site/r5-minimum>
+  (actual human play and final release acceptance pending)
 - Rejected candidate v1: `6c010ee228ace28e655ceeba764513806505b03e`; S0=0, S1=1, S2=3, S3=3. Its immutable receipt is stored at `.quality-gates/receipts/blind-review-v1.json`; it was never deployed.
 - Preserved pre-rebaseline WIP: `cbedd6d` on `archive/pre-graphics-rebaseline-20260818` (not deployable).
 - Graphics rebaseline plan: `2bde78e` on `graphics-photoreal-megademo`.

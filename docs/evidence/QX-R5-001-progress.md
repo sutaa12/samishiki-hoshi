@@ -1,6 +1,7 @@
 # QX-R5-001 AI Binary acceptance
 
-Status: `AI_BINARY_ACCEPTED` — Human Release and all external gates remain pending.
+Status: `AI_BINARY_ACCEPTED`, `PUBLIC_TEST_DEPLOYED` — actual Human Release and
+the remaining external gates stay pending.
 
 ## Accepted subject
 
@@ -40,6 +41,19 @@ These do not fail the QX-R5-001 Binary contract and are not silently discarded.
 - `npm run research:validate -- QX-R5-001 --stage complete --acceptance ai-binary`: exit 0, `issues: []`.
 - Human-release invocation: exit 1 with `MISSING_FILE human-test.md`, as required before actual human play acceptance.
 
-Human play, Legal, Main, Sites final acceptance, release, and contest submission
-remain separate. A public Sites test build may be distributed without changing
-those gate states.
+## Public human-test distribution
+
+- Sites v3 route: <https://samishiki-hoshi-seoul.narinarinari.chatgpt.site/r5-minimum>.
+- Saved version: `appgprj_6a837fe8fec08191aeb514bf721a0634~appgver_b3df52b30fc88191ba82881bd0981b7f`.
+- Deployment: `appgdep_6a8ba68867d08191905ada044bc5184a`, status `succeeded`.
+- Public smoke: HTTP 200 on desktop and 390×844; zero console/page errors;
+  real Arrow/Space input produced Ring pass, Obstacle dodge, Node perfect, and
+  Progress 3/3.
+- Sites source `a8165962bbf2dc2131c7325a49a457835edfb3f4` excludes generated
+  `.quality-gates` files only. Its `app` and `src` tree objects are byte-identical
+  to frozen runtime source `814e879557b26d71c7453bdde5a95caa81d9bb75`.
+- Publication receipt: `.quality-gates/QX-R5-001/sites-v3-publication.json`.
+
+Actual human play, Legal, Main integration, final release acceptance, and
+contest submission remain separate and pending. Successful public deployment
+and automated smoke do not advance those human or external gates.
