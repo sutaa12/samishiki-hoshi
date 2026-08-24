@@ -18,7 +18,7 @@ export type MinimumWorld = Readonly<{
   dispose(): void;
 }>;
 
-const WORLD_UNITS_PER_MM = 1 / 600;
+const WORLD_UNITS_PER_MM = 1 / 450;
 const PLAYER_Z = 1.5;
 
 function dropletGeometry(): THREE.ShapeGeometry {
@@ -98,7 +98,7 @@ export function createMinimumWorld(canvas: HTMLCanvasElement): MinimumWorld {
     dropletGeometry(),
     new THREE.MeshBasicMaterial({ color: 0x8ee8f2, side: THREE.DoubleSide }),
   );
-  player.scale.setScalar(0.34);
+  player.scale.setScalar(0.22);
   player.position.set(0, -1.35, PLAYER_Z);
   scene.add(player);
 
