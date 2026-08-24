@@ -1,0 +1,56 @@
+{
+  "schema_version": "r5-minimum-checkpoint.v1",
+  "task_id": "QX-R5-001",
+  "status": "implementation-checkpoint",
+  "recorded_at": "2026-08-24T09:54:00+09:00",
+  "branch": "codex/qx-r5-001-minimum-game",
+  "source_commit": "6fbcafb4d91b7560748b9ad0f6e966265b654d9f",
+  "source_tree": "946e52102c7f845f656bbe3228b304a9edf71ce8",
+  "source_archive_sha256": "d7ebf235842e59dfeaaff80797b5cc94ddee539320609ab51b0176d5f47fecfa",
+  "local_build_tree_sha256": "b1320542fb62a798c4519307e194b135bdf17bb4dfb75f2ba7fefeb8bd19ad4b",
+  "route": "/r5-minimum",
+  "local_url": "http://localhost:3000/r5-minimum",
+  "verification": {
+    "typecheck": { "exit_code": 0 },
+    "lint": { "exit_code": 0 },
+    "build": { "exit_code": 0, "route_emitted": true },
+    "tests": { "exit_code": 0, "files_passed": 45, "tests_passed": 1043 },
+    "focused_r5_tests": { "exit_code": 0, "tests_passed": 4 },
+    "browser_desktop": {
+      "initial_render": "passed",
+      "real_input_result": "3/3 CLEAR",
+      "progress": "3/3",
+      "ring": "pass",
+      "obstacle": "dodge",
+      "node": "good",
+      "console_errors_or_warnings": 0
+    },
+    "browser_portrait": {
+      "viewport": "390x844",
+      "render": "passed",
+      "controls_present": true,
+      "progress_present": true,
+      "console_errors_or_warnings": 0
+    }
+  },
+  "scope": {
+    "existing_production_files_changed": 0,
+    "new_runtime_files": [
+      "app/r5-minimum/page.tsx",
+      "app/r5-minimum/r5-minimum-client.tsx",
+      "app/r5-minimum/r5-minimum.module.css",
+      "src/game/r5/minimum-encounters.ts",
+      "src/game/r5/minimum-loop.ts",
+      "src/gfx/r5/minimum-world.ts"
+    ]
+  },
+  "gates": {
+    "ai_binary": "pending-evidence-pack-and-reviews",
+    "human_release": "pending",
+    "legal": "pending",
+    "main": "pending",
+    "sites": "pending",
+    "contest": "pending"
+  },
+  "next": "Capture and digest-bind desktop/portrait screenshots, a real-input 15-second video, input trace, and frame telemetry; then obtain three blind AI reviews."
+}
