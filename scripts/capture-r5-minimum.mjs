@@ -53,7 +53,8 @@ async function captureVideo(browser) {
   const video = page.video();
   await page.goto(baseUrl, { waitUntil: "networkidle" });
   await page.waitForFunction(() => Boolean(window.__R5_MINIMUM_STATE__ && window.__R5_MINIMUM_TELEMETRY__));
-  await page.reload({ waitUntil: "networkidle" });
+  await waitForTime(page, durationMs);
+  await page.getByRole("button", { name: "もう一度" }).click();
   await page.waitForFunction(() => (window.__R5_MINIMUM_STATE__?.timeMs ?? -1) <= 64);
   const startedAt = Date.now();
   const inputPromise = driveSuccessfulReplay(page, startedAt);
