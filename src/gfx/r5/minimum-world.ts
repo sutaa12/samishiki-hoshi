@@ -80,18 +80,22 @@ export function createMinimumWorld(canvas: HTMLCanvasElement): MinimumWorld {
   grid.position.set(0, -2.45, -8);
   scene.add(grid);
   const markerMaterial = new THREE.MeshBasicMaterial({ color: 0x255868 });
+  const markers: Array<{ object: THREE.Mesh; baseZ: number }> = [];
   for (const x of [-5.2, 5.2]) {
     for (let z = -20; z <= 2; z += 4) {
       const marker = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), markerMaterial);
       marker.position.set(x, -2.05, z);
       scene.add(marker);
+      markers.push({ object: marker, baseZ: z });
     }
   }
   const bubbleMaterial = new THREE.MeshBasicMaterial({ color: 0x2e7887, wireframe: true });
+  const bubbles: Array<{ object: THREE.Mesh; baseZ: number }> = [];
   for (let index = 0; index < 12; index += 1) {
     const bubble = new THREE.Mesh(new THREE.SphereGeometry(0.06 + (index % 3) * 0.025, 8, 6), bubbleMaterial);
     bubble.position.set(((index * 47) % 100) / 10 - 5, -1.5 + ((index * 29) % 35) / 10, -2 - (index % 6) * 3.2);
     scene.add(bubble);
+    bubbles.push({ object: bubble, baseZ: bubble.position.z });
   }
 
   const player = new THREE.Mesh(
@@ -142,6 +146,10 @@ export function createMinimumWorld(canvas: HTMLCanvasElement): MinimumWorld {
     camera.updateProjectionMatrix();
   };
   const place = (state: MinimumLoopState) => {
+    const worldTravel = state.distanceMm * WORLD_UNITS_PER_MM;
+    grid.position.z = -8 + (worldTravel % 1.5);
+    markers.forEach(({ object, baseZ }) => { object.position.z = baseZ + (worldTravel % 4); });
+    bubbles.forEach(({ object, baseZ }) => { object.position.z = baseZ + (worldTravel % 19.2); });
     player.position.x = (state.playerXPermille / 1_000) * 4.8;
     ring.position.set((MINIMUM_ENCOUNTERS.ring.xPermille / 1_000) * 4.8, -0.55, encounterZ(MINIMUM_ENCOUNTERS.ring.distanceMm, state));
     obstacle.position.set((MINIMUM_ENCOUNTERS.obstacle.xPermille / 1_000) * 4.8, -0.85, encounterZ(MINIMUM_ENCOUNTERS.obstacle.distanceMm, state));
