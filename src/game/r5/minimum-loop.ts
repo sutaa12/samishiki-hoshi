@@ -38,7 +38,7 @@ export type MinimumLoopInput = Readonly<{
 }>;
 
 const PLAYER_LIMIT = 850;
-const STEER_PER_SECOND = 720;
+const STEER_PER_SECOND = 900;
 const POINTER_CHASE_PER_SECOND = 1_900;
 
 function clamp(value: number, minimum: number, maximum: number): number {

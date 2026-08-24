@@ -37,7 +37,7 @@ async function driveSuccessfulReplay(page, startedAt) {
   };
   await key(1_500, "ArrowLeft", 350);
   await key(5_500, "ArrowLeft", 180);
-  await key(8_200, "ArrowRight", 1_200);
+  await key(8_200, "ArrowRight", 1_040);
   await key(10_300, "Space", 40);
   return events;
 }
