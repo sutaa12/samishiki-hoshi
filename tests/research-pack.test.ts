@@ -1731,6 +1731,7 @@ describe("evidence-driven Research Pack", () => {
   it.each([
     ["English", "Human acceptance status: REJECT."],
     ["Spanish", "La aceptación humana fue rechazada."],
+    ["Spanish active verb", "La evaluación humana rechazó este candidato."],
     ["Japanese", "人間の判定：不合格。"],
   ])("rejects terminal Human failure prose under a neutral evidence key: %s", async (_label, auditNote) => {
     const root = await makeRoot();
@@ -1741,6 +1742,33 @@ describe("evidence-driven Research Pack", () => {
     const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
     expect(result.status).toBe(1);
     expect(result.report.issues?.map((entry) => entry.code)).toContain("HUMAN_REJECT");
+  });
+
+  it.each([
+    ["direct digest reference", "digest"],
+    ["nested digest-reference chain", "nested"],
+    ["string artifact map", "map"],
+  ])("fails closed on an unknown Human status in mapped JSON: %s", async (_label, route) => {
+    const root = await makeRoot();
+    const fixture = await prepareValidAiBinaryPack(root);
+    const leafPath = ".quality-gates/QX-R4-R00/unknown-human-status.json";
+    const leafText = `${JSON.stringify({ human: { status: "green" } }, null, 2)}\n`;
+    await writeFile(join(root, leafPath), leafText, "utf8");
+    const evidence = JSON.parse(await readFile(fixture.evidencePath, "utf8"));
+    if (route === "map") {
+      evidence.artifacts.unknown_human_status = leafPath;
+    } else if (route === "nested") {
+      const wrapperPath = ".quality-gates/QX-R4-R00/nested-evidence.json";
+      const wrapperText = `${JSON.stringify({ nested: { path: leafPath, sha256: sha256(leafText) } }, null, 2)}\n`;
+      await writeFile(join(root, wrapperPath), wrapperText, "utf8");
+      evidence.audit_record = { evidence: { path: wrapperPath, sha256: sha256(wrapperText) } };
+    } else {
+      evidence.audit_record = { evidence: { path: leafPath, sha256: sha256(leafText) } };
+    }
+    await writeFile(fixture.evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+    const result = runValidator(root, "QX-R4-R00", "complete", "ai-binary");
+    expect(result.status).toBe(1);
+    expect(result.report.issues?.map((entry) => entry.code)).toContain("EXTERNAL_RESULT_METADATA");
   });
 
   it.each([

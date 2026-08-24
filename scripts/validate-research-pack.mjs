@@ -211,7 +211,7 @@ function descriptionsAreNearDuplicates(values) {
 
 function containsReject(value) {
   const compact = securityFingerprint(normalizedDescription(value));
-  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|disapprov(?:e|ed|ing|al)|withh(?:old|olds|olding|eld)|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo|rechazad[oa]s?|denegad[oa]s?|fallid[oa]s?|suspendid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
+  return /fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|(?:deny|denies|denied|denial|denying)|declin(?:e|ed|ing)|refus(?:e|ed|al|ing)|veto(?:ed|ing)?|disapprov(?:e|ed|ing|al)|withh(?:old|olds|olding|eld)|unsuccessful|unsatisfactory|invalid|blocked|prohibited|disallowed|aborted|cancel(?:ed|led|ing)|nogo|rechaz(?:ad[oa]s?|a|an|aron|ando|o)|denegad[oa]s?|fallid[oa]s?|suspendid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen/i.test(compact) || /拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗/.test(compact);
 }
 
 function containsHumanFailureText(value) {
@@ -233,7 +233,7 @@ function containsTerminalHumanFailureProse(value) {
   return value.normalize("NFKC").split(/\b(?:while|whereas|but|although|however)\b|(?:一方|しかし|ただし)|[\r\n.!?。！？;,；，]+/i).some((clause) => {
     const compact = securityFingerprint(normalizedDescription(clause));
     const relationalCompact = compact.replace(/failclosed/g, "");
-    const terminalRelation = /(?:human|humana?|humaine?|mensch(?:lich)?|人間).{0,48}(?:fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|rechazad[oa]s?|denegad[oa]s?|fallid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen|拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗)|(?:fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|rechazad[oa]s?|denegad[oa]s?|fallid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen|拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗).{0,48}(?:human|humana?|humaine?|mensch(?:lich)?|人間)/.test(relationalCompact);
+    const terminalRelation = /(?:human|humana?|humaine?|mensch(?:lich)?|人間).{0,48}(?:fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|rechaz(?:ad[oa]s?|a|an|aron|ando|o)|denegad[oa]s?|fallid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen|拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗)|(?:fail(?:ed|ure|ing)?|reject(?:ed|ion|ing)?|den(?:y|ied|ial)|declin(?:e|ed)|refus(?:e|ed|al)|rechaz(?:ad[oa]s?|a|an|aron|ando|o)|denegad[oa]s?|fallid[oa]s?|rejet[eé]e?s?|refus[eé]e?s?|[eé]chou[eé]e?s?|abgelehnt|durchgefallen|fehlgeschlagen|拒否|拒絶|否認|不合格|不承認|不採用|未達|不可|却下|失敗).{0,48}(?:human|humana?|humaine?|mensch(?:lich)?|人間)/.test(relationalCompact);
     const historicalContext = /(?:r[0-4]|baseline|prior|previous|old|historical|notionpage16|旧|過去|以前|履歴)/.test(compact);
     const hypotheticalContext = /(?:if|when|without|missing|must|required|rollback|revert|could|would|should|future|beforecompletion|場合|不足|必要|将来|ロールバック)/.test(compact);
     return terminalRelation && containsHumanFailureText(clause) && !historicalContext && !hypotheticalContext;
@@ -578,7 +578,7 @@ function semanticClaimsInArtifact(text, path, taskId, sha256) {
     (path === ".quality-gates/QX-R4-R01/r5-migration-assessment.md" && sha256 === R01_MIGRATION_ASSESSMENT_SHA256)
     || (path === ".quality-gates/QX-R4-R01/independent-review-round4.md" && sha256 === R01_HISTORICAL_REVIEW_SHA256)
   );
-  if (dedicatedR01SemanticArtifact) return { humanReject: false, externalPass: false, confusableMetadataKey: false };
+  if (dedicatedR01SemanticArtifact) return { humanReject: false, externalPass: false, confusableMetadataKey: false, malformedExternalResult: false };
   const historicalR01HumanBaseline = taskId === "QX-R4-R01" && (
     (path === "docs/research/QX-R4-R01/baseline-human-findings.md" && sha256 === R01_HISTORICAL_HUMAN_BASELINE_SHA256)
     || (path === "human-test.md" && sha256 === R01_HISTORICAL_HUMAN_TEST_SHA256)
@@ -621,7 +621,10 @@ function semanticClaimsInArtifact(text, path, taskId, sha256) {
   const confusableMetadataKey = parsed && typeof parsed === "object"
     ? hasUnsupportedConfusableMetadataKey(parsed)
     : false;
-  return { humanReject: Boolean(humanReject), externalPass: Boolean(externalPass), confusableMetadataKey };
+  const malformedExternalResult = parsed && typeof parsed === "object"
+    ? hasMalformedExternalResult(parsed)
+    : false;
+  return { humanReject: Boolean(humanReject), externalPass: Boolean(externalPass), confusableMetadataKey, malformedExternalResult };
 }
 
 function probeMovingVideo(path) {
@@ -1603,6 +1606,10 @@ export async function validateResearchPack(root, taskId, stage = "research", acc
     const confusableMetadataArtifacts = semanticStates.filter((state) => state?.confusableMetadataKey).map((state) => state.path);
     if (confusableMetadataArtifacts.length > 0) {
       issues.push(issue("CONFUSABLE_METADATA_KEY", `Referenced or mapped JSON evidence cannot use unsupported confusable scripts in metadata keys. Found in: ${[...new Set(confusableMetadataArtifacts)].join(", ")}.`, "evidence.json"));
+    }
+    const malformedExternalResultArtifacts = semanticStates.filter((state) => state?.malformedExternalResult).map((state) => state.path);
+    if (malformedExternalResultArtifacts.length > 0) {
+      issues.push(issue("EXTERNAL_RESULT_METADATA", `Referenced or mapped JSON evidence contains unknown or malformed external-gate result metadata. Found in: ${[...new Set(malformedExternalResultArtifacts)].join(", ")}.`, "evidence.json"));
     }
     const humanRejectArtifacts = semanticStates.filter((state) => state?.humanReject).map((state) => state.path);
     if (humanRejectArtifacts.length > 0) {
