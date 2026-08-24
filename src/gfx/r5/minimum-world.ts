@@ -35,20 +35,30 @@ function screenBox(
   object: THREE.Object3D,
   camera: THREE.Camera,
   canvas: HTMLCanvasElement,
-  diameterPx: number,
 ): ScreenBox {
-  const point = new THREE.Vector3();
-  object.getWorldPosition(point);
-  point.project(camera);
+  object.updateWorldMatrix(true, true);
+  const bounds = new THREE.Box3().setFromObject(object);
   const width = canvas.clientWidth || canvas.width;
   const height = canvas.clientHeight || canvas.height;
-  const x = ((point.x + 1) / 2) * width;
-  const y = ((1 - point.y) / 2) * height;
+  const projected = [
+    new THREE.Vector3(bounds.min.x, bounds.min.y, bounds.min.z),
+    new THREE.Vector3(bounds.min.x, bounds.min.y, bounds.max.z),
+    new THREE.Vector3(bounds.min.x, bounds.max.y, bounds.min.z),
+    new THREE.Vector3(bounds.min.x, bounds.max.y, bounds.max.z),
+    new THREE.Vector3(bounds.max.x, bounds.min.y, bounds.min.z),
+    new THREE.Vector3(bounds.max.x, bounds.min.y, bounds.max.z),
+    new THREE.Vector3(bounds.max.x, bounds.max.y, bounds.min.z),
+    new THREE.Vector3(bounds.max.x, bounds.max.y, bounds.max.z),
+  ].map((point) => point.project(camera));
+  const left = Math.min(...projected.map((point) => ((point.x + 1) / 2) * width));
+  const right = Math.max(...projected.map((point) => ((point.x + 1) / 2) * width));
+  const top = Math.min(...projected.map((point) => ((1 - point.y) / 2) * height));
+  const bottom = Math.max(...projected.map((point) => ((1 - point.y) / 2) * height));
   return Object.freeze({
-    x: Math.round(x - diameterPx / 2),
-    y: Math.round(y - diameterPx / 2),
-    width: Math.round(diameterPx),
-    height: Math.round(diameterPx),
+    x: Math.round(left),
+    y: Math.round(top),
+    width: Math.round(right - left),
+    height: Math.round(bottom - top),
   });
 }
 
@@ -154,10 +164,10 @@ export function createMinimumWorld(canvas: HTMLCanvasElement): MinimumWorld {
     telemetry(state) {
       place(state);
       return Object.freeze({
-        player: screenBox(player, camera, canvas, 76),
-        ring: screenBox(ring, camera, canvas, 92),
-        obstacle: screenBox(obstacle, camera, canvas, 82),
-        node: screenBox(node, camera, canvas, 78),
+        player: screenBox(player, camera, canvas),
+        ring: screenBox(ring, camera, canvas),
+        obstacle: screenBox(obstacle, camera, canvas),
+        node: screenBox(node, camera, canvas),
         encounterZ: Object.freeze({
           ring: ring.position.z,
           obstacle: obstacle.position.z,
