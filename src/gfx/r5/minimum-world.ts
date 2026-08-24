@@ -147,9 +147,10 @@ export function createMinimumWorld(canvas: HTMLCanvasElement): MinimumWorld {
   };
   const place = (state: MinimumLoopState) => {
     const worldTravel = state.distanceMm * WORLD_UNITS_PER_MM;
-    grid.position.z = -8 + (worldTravel % 1.5);
-    markers.forEach(({ object, baseZ }) => { object.position.z = baseZ + (worldTravel % 4); });
-    bubbles.forEach(({ object, baseZ }) => { object.position.z = baseZ + (worldTravel % 19.2); });
+    const nearTravel = worldTravel * 1.5;
+    grid.position.z = -8 + (nearTravel % 1.5);
+    markers.forEach(({ object, baseZ }) => { object.position.z = baseZ + (nearTravel % 4); });
+    bubbles.forEach(({ object, baseZ }) => { object.position.z = baseZ + (nearTravel % 19.2); });
     player.position.x = (state.playerXPermille / 1_000) * 4.8;
     ring.position.set((MINIMUM_ENCOUNTERS.ring.xPermille / 1_000) * 4.8, -0.55, encounterZ(MINIMUM_ENCOUNTERS.ring.distanceMm, state));
     obstacle.position.set((MINIMUM_ENCOUNTERS.obstacle.xPermille / 1_000) * 4.8, -0.85, encounterZ(MINIMUM_ENCOUNTERS.obstacle.distanceMm, state));
