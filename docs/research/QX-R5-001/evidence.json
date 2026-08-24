@@ -1,0 +1,273 @@
+{
+  "schema_version": "research-pack.v1",
+  "task_id": "QX-R5-001",
+  "scale": "standard",
+  "source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+  "candidate": {
+    "source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+    "source_tree": "959e2f964dc223bef752b230f15ce3412cbbc410",
+    "source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+    "build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+    "build_artifact": ".quality-gates/QX-R5-001/ai-build.manifest",
+    "build_hash_procedure": "SHA-256 of a sorted manifest whose entries recompute against every regular dist build file.",
+    "screenshot": {
+      "path": ".quality-gates/QX-R5-001/screenshots/desktop-1920x1080-complete.png",
+      "sha256": "fb620639a774a9004478de0fb008317a62c382a41ea0f06bdee93f88a28744bf"
+    },
+    "clip": {
+      "path": ".quality-gates/QX-R5-001/candidate-video-1920x1080.webm",
+      "sha256": "d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e"
+    },
+    "input_trace": {
+      "path": ".quality-gates/QX-R5-001/candidate-input.json",
+      "sha256": "214c43cfc98d8669b86e2599d47e20b6f3d18172a6c8c29197b460267e16f0fa"
+    },
+    "capture_receipt": {
+      "path": ".quality-gates/QX-R5-001/candidate-capture.json",
+      "sha256": "1599e4acba59bbf70f48f45761fc87e8af7bbb673d12ccc90771f13105665d04"
+    },
+    "build_command_receipt": {
+      "path": ".quality-gates/QX-R5-001/candidate-build.json",
+      "sha256": "c927d4a3ba4785aebec2aa3d79772f7233cc31ed5d0810ac2959fba23b261027"
+    },
+    "branch": "codex/qx-r5-001-minimum-game",
+    "worktree": "/Users/snari/Documents/GitProject/LonelyStar-qx-r4-r00"
+  },
+  "baseline": {
+    "source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+    "source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+    "build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+    "build_artifact": ".quality-gates/QX-R5-001/ai-build.manifest",
+    "build_hash_procedure": "Same frozen source/build manifest used before blind review; no runtime mutation is allowed during review.",
+    "gameplay_hash": "3699fab551ade24295887731234fd42e9e2d25116de9e80fc5c734be8d20cff3",
+    "screenshot": {
+      "path": ".quality-gates/QX-R5-001/screenshots/grayscale-00s-1920x1080.png",
+      "sha256": "4f95af4cfc12d3c30ebfaa93b08db1a00edfdf2b8b3c2370ab2f088418de97e1"
+    },
+    "clip": {
+      "path": ".quality-gates/QX-R5-001/baseline-video.webm",
+      "sha256": "ecf0648d69ffa2c65d46400dd4ab28600fb5e55abd57a3d742b07bfa18faf203"
+    },
+    "metrics": {
+      "path": ".quality-gates/QX-R5-001/baseline-metrics.json",
+      "sha256": "ebe81d138e0db8cca33a46d1a11a63f450f12350e54a59cfe34cc1ff6437d5b7"
+    }
+  },
+  "options": [
+    {
+      "id": "isolated-r5-route",
+      "decision": "selected",
+      "reason": "Keeps the 15-second graybox independent from the legacy 180-second renderer."
+    },
+    {
+      "id": "modify-production-v2",
+      "decision": "rejected",
+      "reason": "Would violate the Notion isolation and rollback boundary."
+    }
+  ],
+  "decision": {
+    "selected_option": "isolated-r5-route",
+    "rationale": "Use one deterministic fixed-step loop and basic Three.js geometry so visible motion and collision share distanceMm."
+  },
+  "numeric_hard_gates": [
+    {
+      "id": "player_height_min",
+      "target": {
+        "operator": "gte",
+        "value": 64,
+        "unit": "px"
+      },
+      "observed": 79,
+      "result": "passed",
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/hard-gates.json",
+        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+      }
+    },
+    {
+      "id": "player_height_max",
+      "target": {
+        "operator": "lte",
+        "value": 88,
+        "unit": "px"
+      },
+      "observed": 79,
+      "result": "passed",
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/hard-gates.json",
+        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+      }
+    },
+    {
+      "id": "ring_area_ratio",
+      "target": {
+        "operator": "gte",
+        "value": 4,
+        "unit": "ratio"
+      },
+      "observed": 4.435636,
+      "result": "passed",
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/hard-gates.json",
+        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+      }
+    },
+    {
+      "id": "steer_response",
+      "target": {
+        "operator": "lte",
+        "value": 100,
+        "unit": "ms"
+      },
+      "observed": 32,
+      "result": "passed",
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/hard-gates.json",
+        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+      }
+    },
+    {
+      "id": "steer_displacement",
+      "target": {
+        "operator": "gte",
+        "value": 192,
+        "unit": "px"
+      },
+      "observed": 192,
+      "result": "passed",
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/hard-gates.json",
+        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+      }
+    },
+    {
+      "id": "progress",
+      "target": {
+        "operator": "eq",
+        "value": 3,
+        "unit": "steps"
+      },
+      "observed": 3,
+      "result": "passed",
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/hard-gates.json",
+        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+      }
+    },
+    {
+      "id": "video_duration",
+      "target": {
+        "operator": "gte",
+        "value": 15000,
+        "unit": "ms"
+      },
+      "observed": 15000,
+      "result": "passed",
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/hard-gates.json",
+        "sha256": "6ccb2c26462ea77907d16f21be7d904197b0958309f6f6e509a04dbf7b45740b"
+      }
+    }
+  ],
+  "metrics": {
+    "status": "passed",
+    "performance_no_regression": true,
+    "load": {
+      "baseline": 115,
+      "candidate": 115,
+      "unit": "build files",
+      "direction": "equal-only",
+      "max_regression_pct": 0,
+      "regression": false,
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/metrics.json",
+        "sha256": "a1ac7214b35b61075da9bc6a6dd7215a5db721f89a5ebbcd07aa2903eea1e450"
+      },
+      "observation": "The frozen source is measured against itself before blind review."
+    },
+    "frame": {
+      "baseline": 16,
+      "candidate": 16,
+      "unit": "fixed-step ms",
+      "direction": "equal-only",
+      "max_regression_pct": 0,
+      "regression": false,
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/metrics.json",
+        "sha256": "a1ac7214b35b61075da9bc6a6dd7215a5db721f89a5ebbcd07aa2903eea1e450"
+      },
+      "observation": "The deterministic simulation remains at a 16ms fixed step."
+    },
+    "memory": {
+      "baseline": 13.37,
+      "candidate": 13.37,
+      "unit": "manifest KiB",
+      "direction": "equal-only",
+      "max_regression_pct": 0,
+      "regression": false,
+      "evidence": {
+        "path": ".quality-gates/QX-R5-001/metrics.json",
+        "sha256": "a1ac7214b35b61075da9bc6a6dd7215a5db721f89a5ebbcd07aa2903eea1e450"
+      },
+      "observation": "The frozen build manifest is unchanged during capture."
+    }
+  },
+  "rollback": {
+    "commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+    "source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+    "build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+    "gameplay_hash": "3699fab551ade24295887731234fd42e9e2d25116de9e80fc5c734be8d20cff3",
+    "artifact": "rollback.md",
+    "condition": "Any evidence digest drift, failed blind review, or regression in the fixed 15-second contract.",
+    "instructions": "rollback.md"
+  },
+  "gates": {
+    "research": "passed",
+    "r00_explicit_acceptance": "passed",
+    "complete": "passed"
+  },
+  "artifacts": {
+    "references": "references.csv",
+    "comparable_games": "comparable-games.csv",
+    "frame_analysis": "frame-analysis.csv",
+    "library_scorecard": "library-scorecard.md",
+    "baseline": "current-baseline.md",
+    "decision": "decision.md",
+    "ablation": "ablation.md",
+    "human_test": "human-test.md",
+    "rollback": "rollback.md"
+  },
+  "ai_binary_gameplay": {
+    "video": {
+      "path": ".quality-gates/QX-R5-001/candidate-video-1920x1080.webm",
+      "sha256": "d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e"
+    },
+    "telemetry": {
+      "path": ".quality-gates/QX-R5-001/telemetry.json",
+      "sha256": "3d312ec40bc1ce3afb93897c2273f06725d36be8d9cd6b967f8b4f700cb9b87b"
+    },
+    "event_ledger": {
+      "path": ".quality-gates/QX-R5-001/event-ledger.json",
+      "sha256": "8abe7ec412ae9c0cd22edb0a523287716cce4cc7c1f0265f683548269aaa6570"
+    },
+    "remediation": {
+      "path": ".quality-gates/QX-R5-001/remediation.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "reviews": [
+      {
+        "path": ".quality-gates/QX-R5-001/review-1.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "path": ".quality-gates/QX-R5-001/review-2.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "path": ".quality-gates/QX-R5-001/review-3.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "expected_answer_sha256": "cabcaba524c46ed9a79e5f818eb9a135723ade242b7a8fd55590d8c59494e8e7"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": "r5-minimum-baseline.v1",
+  "task_id": "QX-R5-001",
+  "captured_at": "2026-08-24T01:24:12.650Z",
+  "source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+  "source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+  "build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+  "observation": "Frozen graybox source used as the capture comparison boundary; external gates remain unassessed."
+}

@@ -1,0 +1,46 @@
+{
+  "task_id": "QX-R5-001",
+  "url": "http://127.0.0.1:3000/r5-minimum",
+  "video": {
+    "path": ".quality-gates/QX-R5-001/candidate-video-1920x1080.webm",
+    "sha256": "d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e"
+  },
+  "final_state": {
+    "timeMs": 15000,
+    "distanceMm": 18000,
+    "playerXPermille": 434,
+    "activeStep": "complete",
+    "ringResult": "pass",
+    "obstacleResult": "dodge",
+    "nodeResult": "perfect",
+    "progress": 3,
+    "events": [
+      {
+        "index": 1,
+        "atMs": 4000,
+        "distanceMm": 4800,
+        "encounter": "ring",
+        "result": "pass",
+        "playerXPermille": -322
+      },
+      {
+        "index": 2,
+        "atMs": 8000,
+        "distanceMm": 9600,
+        "encounter": "obstacle",
+        "result": "dodge",
+        "playerXPermille": -490
+      },
+      {
+        "index": 3,
+        "atMs": 11000,
+        "distanceMm": 13200,
+        "encounter": "node",
+        "result": "perfect",
+        "playerXPermille": 434
+      }
+    ],
+    "lastPulseMs": 10528
+  },
+  "runtime_frame_receipts": 938
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": "numeric-hard-gates.v1",
+  "task_id": "QX-R5-001",
+  "candidate_source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+  "candidate_source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+  "candidate_build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+  "gates": {
+    "player_height_min": {
+      "observed": 79,
+      "unit": "px",
+      "result": "passed"
+    },
+    "player_height_max": {
+      "observed": 79,
+      "unit": "px",
+      "result": "passed"
+    },
+    "ring_area_ratio": {
+      "observed": 4.435636,
+      "unit": "ratio",
+      "result": "passed"
+    },
+    "steer_response": {
+      "observed": 32,
+      "unit": "ms",
+      "result": "passed"
+    },
+    "steer_displacement": {
+      "observed": 192,
+      "unit": "px",
+      "result": "passed"
+    },
+    "progress": {
+      "observed": 3,
+      "unit": "steps",
+      "result": "passed"
+    },
+    "video_duration": {
+      "observed": 15000,
+      "unit": "ms",
+      "result": "passed"
+    }
+  }
+}

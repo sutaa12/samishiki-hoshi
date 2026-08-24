@@ -1,0 +1,21 @@
+{
+  "schema_version": "capture-set.v1",
+  "task_id": "QX-R5-001",
+  "candidate_source_commit": "814e879557b26d71c7453bdde5a95caa81d9bb75",
+  "candidate_source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+  "candidate_build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+  "artifacts": {
+    "screenshot": {
+      "path": ".quality-gates/QX-R5-001/screenshots/desktop-1920x1080-complete.png",
+      "sha256": "fb620639a774a9004478de0fb008317a62c382a41ea0f06bdee93f88a28744bf"
+    },
+    "clip": {
+      "path": ".quality-gates/QX-R5-001/candidate-video-1920x1080.webm",
+      "sha256": "d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e"
+    },
+    "input_trace": {
+      "path": ".quality-gates/QX-R5-001/candidate-input.json",
+      "sha256": "214c43cfc98d8669b86e2599d47e20b6f3d18172a6c8c29197b460267e16f0fa"
+    }
+  }
+}

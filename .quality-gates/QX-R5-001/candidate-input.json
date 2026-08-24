@@ -1,0 +1,80 @@
+{
+  "schema_version": "r5-minimum-input-trace.v1",
+  "task_id": "QX-R5-001",
+  "route": "/r5-minimum",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "events": [
+    {
+      "at_ms": 1502,
+      "input": "ArrowLeft:down"
+    },
+    {
+      "at_ms": 1873,
+      "input": "ArrowLeft:up"
+    },
+    {
+      "at_ms": 5501,
+      "input": "ArrowLeft:down"
+    },
+    {
+      "at_ms": 5698,
+      "input": "ArrowLeft:up"
+    },
+    {
+      "at_ms": 8203,
+      "input": "ArrowRight:down"
+    },
+    {
+      "at_ms": 9277,
+      "input": "ArrowRight:up"
+    },
+    {
+      "at_ms": 10300,
+      "input": "Space:down"
+    },
+    {
+      "at_ms": 10358,
+      "input": "Space:up"
+    }
+  ],
+  "final_state": {
+    "timeMs": 15000,
+    "distanceMm": 18000,
+    "playerXPermille": 434,
+    "activeStep": "complete",
+    "ringResult": "pass",
+    "obstacleResult": "dodge",
+    "nodeResult": "perfect",
+    "progress": 3,
+    "events": [
+      {
+        "index": 1,
+        "atMs": 4000,
+        "distanceMm": 4800,
+        "encounter": "ring",
+        "result": "pass",
+        "playerXPermille": -322
+      },
+      {
+        "index": 2,
+        "atMs": 8000,
+        "distanceMm": 9600,
+        "encounter": "obstacle",
+        "result": "dodge",
+        "playerXPermille": -490
+      },
+      {
+        "index": 3,
+        "atMs": 11000,
+        "distanceMm": 13200,
+        "encounter": "node",
+        "result": "perfect",
+        "playerXPermille": 434
+      }
+    ],
+    "lastPulseMs": 10528
+  }
+}

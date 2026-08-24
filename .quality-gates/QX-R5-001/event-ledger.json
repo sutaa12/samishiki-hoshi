@@ -1,0 +1,27 @@
+{
+  "schema_version": "ai-binary-event-ledger.v1",
+  "task_id": "QX-R5-001",
+  "result": "passed",
+  "subject_source_sha256": "23a24d2e9653e109a4f1f30103ddf12dede64f1a09537b5c30bd473c49d01b96",
+  "subject_build_sha256": "303f1b23420491d2ef83cbd3cc252cb022f4aa8ba6059b7fc4f256365f415d9e",
+  "subject_video_sha256": "d20f427dec59d9fcc10acf507d39320c5a236ee6b5bb39cb426015f8ad82385e",
+  "recorded_at": "2026-08-24T01:24:12.650Z",
+  "events": [
+    {
+      "event_class": "ring_success",
+      "at_ms": 4000
+    },
+    {
+      "event_class": "rock_avoid",
+      "at_ms": 8000
+    },
+    {
+      "event_class": "node_pulse",
+      "at_ms": 11000
+    },
+    {
+      "event_class": "progress_update",
+      "at_ms": 15000
+    }
+  ]
+}
